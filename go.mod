@@ -3,11 +3,11 @@ module speedtrackerr
 go 1.23.3
 
 require (
-	github.com/coder/websocket v1.8.12
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-sqlite3 v1.14.24
+	github.com/showwin/speedtest-go v1.7.9
 )
 
 require (
