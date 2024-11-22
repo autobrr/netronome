@@ -5,13 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/rs/zerolog/log"
 
 	"speedtrackerr/internal/types"
 )
@@ -75,7 +75,7 @@ func New() Service {
 
 	db, err := sql.Open("sqlite3", dburl)
 	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+		log.Fatal().Err(err).Msg("Failed to open database")
 	}
 
 	dbInstance = &service{
@@ -85,7 +85,7 @@ func New() Service {
 	// Initialize tables
 	ctx := context.Background()
 	if err := dbInstance.InitializeTables(ctx); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("Failed to initialize tables")
 	}
 
 	return dbInstance
@@ -104,7 +104,7 @@ func (s *service) Health() map[string]string {
 	if err != nil {
 		stats["status"] = "down"
 		stats["error"] = fmt.Sprintf("db down: %v", err)
-		log.Fatalf("db down: %v", err) // Log the error and terminate the program
+		log.Error().Err(err).Msg("Database is down")
 		return stats
 	}
 
@@ -147,7 +147,7 @@ func (s *service) Health() map[string]string {
 // If the connection is successfully closed, it returns nil.
 // If an error occurs while closing the connection, it returns the error.
 func (s *service) Close() error {
-	log.Printf("Disconnected from database: %s", dburl)
+	log.Info().Str("url", dburl).Msg("Disconnected from database")
 	return s.db.Close()
 }
 

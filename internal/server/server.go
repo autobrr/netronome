@@ -1,12 +1,13 @@
 package server
 
 import (
-	"log"
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 
 	"speedtrackerr/internal/database"
 	"speedtrackerr/internal/scheduler"
@@ -24,7 +25,16 @@ type Server struct {
 }
 
 func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service) *Server {
-	router := gin.Default()
+	// Disable default GIN logger and recovery
+	gin.SetMode(gin.ReleaseMode)
+	gin.DefaultWriter = nil
+
+	router := gin.New()
+
+	// Use zerolog for gin logging
+	router.Use(LoggerMiddleware())
+
+	router.Use(gin.Recovery())
 
 	// Add CORS middleware
 	router.Use(func(c *gin.Context) {
@@ -57,7 +67,10 @@ func (s *Server) BroadcastUpdate(update types.SpeedUpdate) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastUpdate = &update
-	log.Printf("Broadcasting update: %+v", s.lastUpdate)
+
+	log.Debug().
+		Interface("update", update).
+		Msg("Broadcasting speed test update")
 }
 
 func (s *Server) RegisterRoutes() {
@@ -190,4 +203,38 @@ func (s *Server) handleDeleteSchedule(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Schedule deleted successfully"})
+}
+
+func LoggerMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		path := c.Request.URL.Path
+		query := c.Request.URL.RawQuery
+
+		c.Next()
+
+		// Skip successful health check endpoints to reduce noise
+		if path == "/health" && c.Writer.Status() == 200 {
+			return
+		}
+
+		// Only include fields that have values
+		event := log.Info()
+
+		if c.Errors.String() != "" {
+			event = event.Str("error", c.Errors.String())
+		}
+
+		event.
+			Str("method", c.Request.Method).
+			Str("path", path).
+			Int("status", c.Writer.Status()).
+			Dur("latency", time.Since(start))
+
+		if query != "" {
+			event.Str("query", query)
+		}
+
+		event.Msg("HTTP")
+	}
 }

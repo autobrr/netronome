@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,8 +9,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 
 	"speedtrackerr/internal/database"
+	"speedtrackerr/internal/logger"
 	"speedtrackerr/internal/scheduler"
 	"speedtrackerr/internal/server"
 	"speedtrackerr/internal/speedtest"
@@ -30,7 +31,7 @@ func gracefulShutdown(
 
 	<-ctx.Done()
 
-	log.Println("shutting down gracefully, press Ctrl+C again to force")
+	log.Info().Msg("shutting down gracefully, press Ctrl+C again to force")
 
 	// Cancel scheduler context
 	schedulerCancel()
@@ -49,15 +50,20 @@ func gracefulShutdown(
 		log.Printf("Database connection closed with error: %v", err)
 	}
 
-	log.Println("Server exiting")
+	log.Info().Msg("Server exiting")
 	done <- true
 }
 
 func main() {
+	// Initialize logger
+	logger.Init()
+
 	// Set Gin mode to release if not in development
 	if os.Getenv("GIN_MODE") != "debug" {
 		gin.SetMode(gin.ReleaseMode)
 	}
+
+	log.Info().Msg("Starting Speedtrackerr API server")
 
 	// Initialize database service
 	db := database.New()
@@ -66,7 +72,7 @@ func main() {
 	// Check database health
 	healthStatus := db.Health()
 	if healthStatus["status"] != "up" {
-		log.Fatalf("Database health check failed: %v", healthStatus["error"])
+		log.Fatal().Msgf("Database health check failed: %v", healthStatus["error"])
 	}
 
 	// Create speedtest server with the broadcast function first
@@ -113,12 +119,12 @@ func main() {
 	// Run graceful shutdown in a separate goroutine
 	go gracefulShutdown(apiServer, db, schedulerService, schedulerCancel, done)
 
-	log.Printf("Starting server on %s", apiServer.Addr)
+	log.Info().Msgf("Starting server on %s", apiServer.Addr)
 	if err := apiServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("Server error: %v", err)
+		log.Fatal().Msgf("Server error: %v", err)
 	}
 
 	// Wait for the graceful shutdown to complete
 	<-done
-	log.Println("Graceful shutdown complete.")
+	log.Info().Msg("Graceful shutdown complete.")
 }

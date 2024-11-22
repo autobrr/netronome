@@ -2,9 +2,10 @@ package scheduler
 
 import (
 	"context"
-	"log"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"speedtrackerr/internal/database"
 	"speedtrackerr/internal/speedtest"
@@ -54,7 +55,9 @@ func (s *service) Stop() {
 func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 	schedules, err := s.db.GetSchedules(ctx)
 	if err != nil {
-		log.Printf("Error fetching schedules: %v", err)
+		log.Error().
+			Err(err).
+			Msg("Error fetching schedules")
 		return
 	}
 
@@ -69,13 +72,17 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 			defer cancel()
 			_, err := s.speedtest.RunTest(&schedule.Options)
 			if err != nil {
-				log.Printf("Error running scheduled test: %v", err)
+				log.Error().
+					Err(err).
+					Msg("Error running scheduled test")
 				return
 			}
 
 			duration, err := time.ParseDuration(schedule.Interval)
 			if err != nil {
-				log.Printf("Error parsing interval: %v", err)
+				log.Error().
+					Err(err).
+					Msg("Error parsing interval")
 				return
 			}
 
@@ -83,7 +90,9 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 			schedule.NextRun = now.Add(duration)
 
 			if err := s.db.UpdateSchedule(ctx, schedule); err != nil {
-				log.Printf("Error updating schedule: %v", err)
+				log.Error().
+					Err(err).
+					Msg("Error updating schedule")
 			}
 		}(schedule, testCtx, cancel)
 	}

@@ -181,7 +181,7 @@ export default function ScheduleManager({
 
   return (
     <Box sx={{ mt: 4 }}>
-      <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg mb-6 border border-gray-700">
+      <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg mb-6 border border-gray-900">
         <Typography variant="h6" gutterBottom className="text-white mb-4">
           Schedule Speed Tests
         </Typography>
@@ -191,7 +191,7 @@ export default function ScheduleManager({
             <div>
               <Listbox value={interval} onChange={setInterval}>
                 <div className="relative">
-                  <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-gray-800/50 py-2 pl-3 pr-10 text-left border border-gray-700 focus:outline-none focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500">
+                  <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-gray-800/50 py-2 pl-3 pr-10 text-left border border-gray-900 focus:outline-none focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500">
                     <span className="block truncate text-gray-200">
                       {
                         intervalOptions.find((opt) => opt.value === interval)
@@ -264,7 +264,7 @@ export default function ScheduleManager({
       </div>
 
       {schedules.length > 0 && (
-        <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-700">
+        <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
           <Typography variant="h6" gutterBottom className="text-white mb-4">
             Active Schedules
           </Typography>
@@ -273,7 +273,7 @@ export default function ScheduleManager({
             {schedules.map((schedule) => (
               <div
                 key={schedule.id}
-                className="bg-gray-800/50 p-4 rounded-lg border border-gray-700"
+                className="bg-gray-800/50 p-4 rounded-lg border border-gray-900"
               >
                 <div className="flex flex-col sm:flex-row items-center gap-4">
                   <div className="w-full sm:w-1/2">

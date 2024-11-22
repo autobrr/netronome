@@ -4,6 +4,12 @@ export interface Server {
   host: string;
   distance: number;
   country: string;
+  sponsor: string;
+  cc: string;
+  url: string;
+  lat: number;
+  lon: number;
+  provider: string;
 }
 
 export interface Schedule {

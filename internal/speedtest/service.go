@@ -3,11 +3,12 @@ package speedtest
 import (
 	"context"
 	"fmt"
-	"log"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	st "github.com/showwin/speedtest-go/speedtest"
 
 	"speedtrackerr/internal/database"
@@ -39,6 +40,10 @@ type ServerResponse struct {
 	Host     string  `json:"host"`
 	Distance float64 `json:"distance"`
 	Country  string  `json:"country"`
+	Sponsor  string  `json:"sponsor"`
+	URL      string  `json:"url"`
+	Lat      float64 `json:"lat,string"`
+	Lon      float64 `json:"lon,string"`
 }
 
 type Server struct {
@@ -183,7 +188,7 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 		result.Upload = selectedServer.ULSpeed.Mbps()
 		result.UploadSpeed = result.Upload
 
-		log.Printf("Upload test complete, sending final update")
+		log.Info().Msg("Upload test complete, sending final update")
 		if s.server.BroadcastUpdate != nil {
 			s.server.BroadcastUpdate(types.SpeedUpdate{
 				Type:       "upload",
@@ -195,7 +200,7 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 		}
 	}
 
-	log.Printf("All tests complete, sending final status")
+	log.Info().Msg("All tests complete, sending final status")
 	if s.server.BroadcastUpdate != nil {
 		s.server.BroadcastUpdate(types.SpeedUpdate{
 			Type:       "complete",
@@ -218,7 +223,7 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 		PacketLoss:    result.PacketLoss,
 	})
 	if err != nil {
-		log.Printf("Failed to save result to database: %v", err)
+		log.Error().Err(err).Str("type", fmt.Sprintf("%T", err)).Str("message", err.Error()).Msg("Failed to save result to database")
 	}
 
 	// Add database ID to result if save was successful
@@ -249,18 +254,25 @@ func (s *service) GetServers() ([]ServerResponse, error) {
 		return (*availableServers)[i].Distance < (*availableServers)[j].Distance
 	})
 
-	servers := make([]ServerResponse, 0, len(*availableServers))
-	for _, server := range *availableServers {
-		servers = append(servers, ServerResponse{
+	response := make([]ServerResponse, len(*availableServers))
+	for i, server := range *availableServers {
+		lat, _ := strconv.ParseFloat(server.Lat, 64)
+		lon, _ := strconv.ParseFloat(server.Lon, 64)
+
+		response[i] = ServerResponse{
 			ID:       server.ID,
 			Name:     server.Name,
 			Host:     server.Host,
 			Distance: server.Distance,
 			Country:  server.Country,
-		})
+			Sponsor:  server.Sponsor,
+			URL:      server.URL,
+			Lat:      lat,
+			Lon:      lon,
+		}
 	}
 
-	return servers, nil
+	return response, nil
 }
 
 func (s *service) GetHistory() []Result {

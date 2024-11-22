@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Container } from "@mui/material";
 import {
   LineChart,
@@ -64,33 +64,97 @@ const ServerList: React.FC<ServerListProps> = ({
   selectedServers,
   onSelect,
 }) => {
+  const [displayCount, setDisplayCount] = useState(9);
+
+  // First, flatten the servers but keep track of their provider
+  const flattenedServers = useMemo(() => {
+    // Group servers by provider first
+    const groups = servers.reduce((acc, server) => {
+      const key = server.sponsor || "Unknown Provider";
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(server);
+      return acc;
+    }, {} as Record<string, Server[]>);
+
+    // Sort each provider's servers by distance
+    Object.keys(groups).forEach((key) => {
+      groups[key].sort((a, b) => a.distance - b.distance);
+    });
+
+    // Flatten while keeping providers together
+    return Object.entries(groups)
+      .sort(([, a], [, b]) => a[0].distance - b[0].distance)
+      .flatMap(([provider, servers]) =>
+        servers.map((server) => ({
+          ...server,
+          provider,
+        }))
+      );
+  }, [servers]);
+
+  const visibleServers = flattenedServers.slice(0, displayCount);
+  const remainingCount = flattenedServers.length - visibleServers.length;
+
+  // Create rows of servers
+  const rows = [];
+  for (let i = 0; i < visibleServers.length; i += 3) {
+    rows.push(visibleServers.slice(i, i + 3));
+  }
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-      {servers.map((server) => (
+    <div className="space-y-4">
+      {rows.map((rowServers, rowIndex) => (
         <div
-          key={server.id}
-          className={`p-2 rounded-md cursor-pointer transition-colors text-sm ${
-            selectedServers.some((s) => s.id === server.id)
-              ? "bg-blue-500/10 border border-blue-500/30"
-              : "bg-gray-850/95 hover:bg-gray-850/70 border border-gray-700"
-          }`}
-          onClick={() => onSelect(server)}
+          key={rowIndex}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3"
         >
-          <div className="font-medium text-gray-200 truncate">
-            {server.name}
-          </div>
-          <div className="text-xs text-gray-400 truncate">
-            {server.country} • {server.distance.toFixed(0)}km
-          </div>
+          {rowServers.map((server) => (
+            <div
+              key={server.id}
+              onClick={() => onSelect(server)}
+              className={`flex flex-col p-3 rounded-md cursor-pointer transition-colors
+                ${rowIndex >= rows.length - 1 ? "animate-fade-in" : ""}
+                ${
+                  selectedServers.some((s) => s.id === server.id)
+                    ? "bg-blue-500/10 border border-blue-500/30"
+                    : "bg-gray-850/95 hover:bg-gray-850/70 border border-gray-900"
+                }`}
+            >
+              <div className="text-sm text-blue-400 font-medium mb-2">
+                {server.provider}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-gray-200">{server.name}</span>
+                <span className="text-xs bg-gray-700 rounded px-1.5 py-0.5 text-gray-300">
+                  {server.distance.toFixed(0)}km
+                </span>
+              </div>
+              <div className="text-xs text-gray-400 truncate mt-1">
+                {server.host}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">ID: {server.id}</div>
+            </div>
+          ))}
         </div>
       ))}
+
+      {remainingCount > 0 && (
+        <button
+          onClick={() => setDisplayCount((prev) => prev + 9)}
+          className="w-full py-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
+        >
+          Show More Servers ({remainingCount} remaining)
+        </button>
+      )}
     </div>
   );
 };
 
 const TestProgress: React.FC<{ progress: TestProgress }> = ({ progress }) => {
   return (
-    <div className="bg-gray-850/95 p-4 rounded-xl shadow-lg mb-6 border border-gray-700">
+    <div className="bg-gray-850/95 p-4 rounded-xl shadow-lg mb-6 border border-gray-900">
       <h2 className="text-lg font-semibold mb-2 text-white">
         Test in Progress
       </h2>
@@ -152,7 +216,7 @@ const SpeedHistoryChart: React.FC<{
   }));
 
   return (
-    <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg mb-6">
+    <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg mb-6 border border-gray-900">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-white">Speed History</h2>
         <div className="flex gap-2">
@@ -181,7 +245,7 @@ const SpeedHistoryChart: React.FC<{
                       [&_.recharts-legend-item-text]:!text-gray-300
                       [&_.recharts-text]:!fill-gray-400
                       [&_.recharts-tooltip]:!bg-gray-850/95
-                      [&_.recharts-tooltip]:!border-gray-700
+                      [&_.recharts-tooltip]:!border-gray-900
                       [&_.recharts-tooltip]:!rounded-lg
                       [&_.recharts-tooltip]:!shadow-xl
                       [&_.recharts-tooltip]:!backdrop-blur-sm"
@@ -202,7 +266,7 @@ const SpeedHistoryChart: React.FC<{
               }}
             />
             <Tooltip
-              wrapperClassName="!bg-gray-800/90 !border-gray-700 !rounded-lg !shadow-xl !backdrop-blur-sm"
+              wrapperClassName="!bg-gray-800/90 !border-gray-900 !rounded-lg !shadow-xl !backdrop-blur-sm"
               contentStyle={{
                 backgroundColor: "transparent",
                 border: "none",
@@ -371,7 +435,8 @@ export default function SpeedTest() {
   const filteredServers = servers.filter(
     (server) =>
       server.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      server.country.toLowerCase().includes(searchTerm.toLowerCase())
+      server.country.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (server.sponsor || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleServerSelect = (server: Server) => {
@@ -458,7 +523,7 @@ export default function SpeedTest() {
 
         {/* Latest Results - Show only if there's history */}
         {history.length > 0 && (
-          <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-700 mb-6">
+          <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900 mb-6">
             <h2 className="text-xl font-semibold mb-4 text-white">
               Latest Results
             </h2>
@@ -486,7 +551,7 @@ export default function SpeedTest() {
         )}
 
         {/* Server Selection - Primary Action Area */}
-        <div className="bg-gray-850/95 p-4 rounded-xl shadow-lg mb-6 border border-gray-700">
+        <div className="bg-gray-850/95 p-4 rounded-xl shadow-lg mb-6 border border-gray-900">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold text-white">
               Test Configuration
@@ -501,7 +566,7 @@ export default function SpeedTest() {
                     multiServer: e.target.checked,
                   }))
                 }
-                className="form-checkbox bg-gray-700 border-gray-600"
+                className="form-checkbox bg-gray-700 border-gray-900"
               />
               <label className="text-gray-300">Multi-Server Mode</label>
             </div>
@@ -514,7 +579,7 @@ export default function SpeedTest() {
               placeholder="Search test servers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 text-sm border border-gray-700 bg-gray-800/50 text-white rounded-lg px-3 py-2 placeholder-gray-500"
+              className="flex-1 text-sm border border-gray-900 bg-gray-800/50 text-white rounded-lg px-3 py-2 placeholder-gray-500"
             />
           </div>
 
@@ -526,7 +591,7 @@ export default function SpeedTest() {
           />
 
           {/* Test Options */}
-          <div className="mt-4 pt-4 border-t border-gray-700">
+          <div className="mt-4 pt-4 border-t border-gray-900">
             <div className="flex gap-6 text-gray-300">
               <label className="flex items-center gap-2">
                 <input
@@ -538,7 +603,7 @@ export default function SpeedTest() {
                       enableDownload: e.target.checked,
                     }))
                   }
-                  className="form-checkbox bg-gray-700 border-gray-600"
+                  className="form-checkbox bg-gray-700 border-gray-900"
                 />
                 Download Test
               </label>
@@ -552,7 +617,7 @@ export default function SpeedTest() {
                       enableUpload: e.target.checked,
                     }))
                   }
-                  className="form-checkbox bg-gray-700 border-gray-600"
+                  className="form-checkbox bg-gray-700 border-gray-900"
                 />
                 Upload Test
               </label>
@@ -566,7 +631,7 @@ export default function SpeedTest() {
                       enablePacketLoss: e.target.checked,
                     }))
                   }
-                  className="form-checkbox bg-gray-700 border-gray-600"
+                  className="form-checkbox bg-gray-700 border-gray-900"
                 />
                 Packet Loss Analysis
               </label>
