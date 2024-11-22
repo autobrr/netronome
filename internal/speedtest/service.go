@@ -6,7 +6,6 @@ import (
 	"math"
 	"sort"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -32,7 +31,6 @@ type Result struct {
 
 type Service interface {
 	RunTest(opts *types.TestOptions) (*Result, error)
-	GetHistory() []Result
 	GetServers() ([]ServerResponse, error)
 }
 
@@ -74,19 +72,16 @@ type SpeedUpdate struct {
 }
 
 type service struct {
-	client  *st.Speedtest
-	history []Result
-	mu      sync.RWMutex
-	server  *Server
-	db      database.Service
+	client *st.Speedtest
+	server *Server
+	db     database.Service
 }
 
 func New(server *Server, db database.Service) Service {
 	return &service{
-		client:  st.New(),
-		history: make([]Result, 0),
-		server:  server,
-		db:      db,
+		client: st.New(),
+		server: server,
+		db:     db,
 	}
 }
 
@@ -287,18 +282,12 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 		Jitter:        &jitterFloat,
 	})
 	if err != nil {
-		log.Error().Err(err).Str("type", fmt.Sprintf("%T", err)).Str("message", err.Error()).Msg("Failed to save result to database")
+		log.Error().Err(err).Msg("Failed to save result to database")
 	}
 
-	// Add database ID to result if save was successful
 	if dbResult != nil {
 		result.ID = dbResult.ID
 	}
-
-	// Add to in-memory history
-	s.mu.Lock()
-	s.history = append(s.history, *result)
-	s.mu.Unlock()
 
 	return result, nil
 }
@@ -350,10 +339,4 @@ func (s *service) GetServers() ([]ServerResponse, error) {
 
 	log.Info().Int("server_count", len(response)).Msg("Retrieved speedtest servers")
 	return response, nil
-}
-
-func (s *service) GetHistory() []Result {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.history
 }
