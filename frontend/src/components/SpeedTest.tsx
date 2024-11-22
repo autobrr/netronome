@@ -1,21 +1,22 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Container } from "@mui/material";
 import {
-  LineChart,
-  Line,
+  AreaChart,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Area,
 } from "recharts";
 import ScheduleManager from "./ScheduleManager";
 import { Server } from "../types/types";
-import { ArrowDownIcon, ArrowUpIcon } from "@heroicons/react/24/solid";
 import { IoIosPulse, IoMdGitCompare } from "react-icons/io";
 import { Switch } from "@headlessui/react";
-
+import { FaArrowDown } from "react-icons/fa";
+import { FaArrowUp } from "react-icons/fa";
+import { motion } from "motion/react";
 interface SpeedTestResult {
   id: number;
   serverName: string;
@@ -138,11 +139,14 @@ const ServerList: React.FC<ServerListProps> = ({
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3"
         >
           {rowServers.map((server) => (
-            <div
+            <motion.div
               key={server.id}
               onClick={() => onSelect(server)}
-              className={`flex flex-col p-3 rounded-md cursor-pointer transition-colors
-                ${rowIndex >= rows.length - 1 ? "animate-fade-in" : ""}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`flex flex-col p-3 rounded-md cursor-pointer
                 ${
                   selectedServers.some((s) => s.id === server.id)
                     ? "bg-blue-500/10 border border-blue-500/30"
@@ -162,7 +166,7 @@ const ServerList: React.FC<ServerListProps> = ({
                 {server.host}
               </div>
               <div className="text-xs text-gray-500 mt-1">ID: {server.id}</div>
-            </div>
+            </motion.div>
           ))}
         </div>
       ))}
@@ -181,7 +185,12 @@ const ServerList: React.FC<ServerListProps> = ({
 
 const TestProgress: React.FC<{ progress: TestProgress }> = ({ progress }) => {
   return (
-    <div className="bg-gray-850/95 p-4 rounded-xl shadow-lg mb-6 border border-gray-900">
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="bg-gray-850/95 p-4 rounded-xl shadow-lg mb-6 border border-gray-900"
+    >
       <h2 className="text-xl font-semibold mb-2 text-white">
         Test in Progress
       </h2>
@@ -205,7 +214,7 @@ const TestProgress: React.FC<{ progress: TestProgress }> = ({ progress }) => {
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -216,6 +225,13 @@ const SpeedHistoryChart: React.FC<{
   timeRange: TimeRange;
   onTimeRangeChange: (range: TimeRange) => void;
 }> = ({ history, timeRange, onTimeRangeChange }) => {
+  const [visibleMetrics, setVisibleMetrics] = useState({
+    download: true,
+    upload: true,
+    latency: true,
+    jitter: true,
+  });
+
   const filterDataByTimeRange = (data: SpeedTestResult[]) => {
     const now = new Date();
     const ranges = {
@@ -253,7 +269,94 @@ const SpeedHistoryChart: React.FC<{
   return (
     <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg mb-6 border border-gray-900">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-white">Speed History</h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-bold text-white">Speed History</h2>
+          <div className="flex gap-2">
+            {[
+              { key: "download", color: "blue", label: "Download" },
+              { key: "upload", color: "emerald", label: "Upload" },
+              { key: "latency", color: "amber", label: "Latency" },
+              { key: "jitter", color: "purple", label: "Jitter" },
+            ].map(({ key, label }) => {
+              const isActive =
+                visibleMetrics[key as keyof typeof visibleMetrics];
+              return (
+                <button
+                  key={key}
+                  onClick={() =>
+                    setVisibleMetrics((prev) => ({
+                      ...prev,
+                      [key]: !prev[key as keyof typeof visibleMetrics],
+                    }))
+                  }
+                  className={`
+                    px-3 py-1.5 
+                    rounded-md 
+                    text-sm 
+                    font-medium
+                    flex items-center gap-2 
+                    transition-all duration-150 ease-in-out
+                    focus:outline-none
+                    focus:ring-0
+                    ${
+                      isActive
+                        ? {
+                            download:
+                              "bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 hover:border-blue-500/40",
+                            upload:
+                              "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/40",
+                            latency:
+                              "bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/40",
+                            jitter:
+                              "bg-purple-500/10 text-purple-400 border border-purple-500/30 hover:bg-purple-500/20 hover:border-purple-500/40",
+                          }[key]
+                        : `
+                          bg-gray-800 
+                          text-gray-400 
+                          border border-gray-700
+                          hover:bg-gray-750
+                          hover:border-gray-600
+                          hover:text-gray-300
+                        `
+                    }
+                  `}
+                >
+                  <div
+                    className={`
+                      w-2 h-2 
+                      rounded-full 
+                      transition-all duration-150
+                      ${
+                        isActive
+                          ? {
+                              download: "bg-blue-400",
+                              upload: "bg-emerald-400",
+                              latency: "bg-amber-400",
+                              jitter: "bg-purple-400",
+                            }[key]
+                          : "bg-gray-500"
+                      }
+                    `}
+                  />
+                  <span
+                    className={
+                      isActive
+                        ? {
+                            download: "text-blue-400",
+                            upload: "text-emerald-400",
+                            latency: "text-amber-400",
+                            jitter: "text-purple-400",
+                          }[key]
+                        : "text-gray-400"
+                    }
+                  >
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="flex gap-2">
           {(["1d", "3d", "1w", "1m", "all"] as TimeRange[]).map((range) => (
             <button
@@ -272,7 +375,7 @@ const SpeedHistoryChart: React.FC<{
       </div>
       <div className="h-[400px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart
+          <AreaChart
             data={chartData}
             margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
             className="[&_.recharts-cartesian-grid-horizontal]:stroke-gray-700/50 
@@ -285,6 +388,24 @@ const SpeedHistoryChart: React.FC<{
                       [&_.recharts-tooltip]:!shadow-xl
                       [&_.recharts-tooltip]:!backdrop-blur-sm"
           >
+            <defs>
+              <linearGradient id="downloadGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="uploadGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="latencyGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="jitterGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#9333EA" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#9333EA" stopOpacity={0} />
+              </linearGradient>
+            </defs>
             <CartesianGrid
               strokeDasharray="3 3"
               horizontal={true}
@@ -336,53 +457,65 @@ const SpeedHistoryChart: React.FC<{
                 paddingBottom: "10px",
               }}
             />
-            <Line
-              yAxisId="speed"
-              type="monotone"
-              dataKey="download"
-              name="Download"
-              stroke="#3B82F6"
-              strokeWidth={3}
-              dot={false}
-              activeDot={{ r: 6 }}
-              className="!stroke-blue-500"
-            />
-            <Line
-              yAxisId="speed"
-              type="monotone"
-              dataKey="upload"
-              name="Upload"
-              stroke="#10B981"
-              strokeWidth={3}
-              dot={false}
-              activeDot={{ r: 6 }}
-              className="!stroke-emerald-500"
-            />
-            <Line
-              yAxisId="latency"
-              type="monotone"
-              dataKey="latency"
-              name="Latency"
-              stroke="#F59E0B"
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 6 }}
-              className="!stroke-amber-500"
-              strokeDasharray="3 3"
-            />
-            <Line
-              yAxisId="latency"
-              type="monotone"
-              dataKey="jitter"
-              name="Jitter"
-              stroke="#9333EA"
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 6 }}
-              className="!stroke-purple-500"
-              strokeDasharray="5 5"
-            />
-          </LineChart>
+            {visibleMetrics.download && (
+              <Area
+                yAxisId="speed"
+                type="monotone"
+                dataKey="download"
+                name="Download"
+                stroke="#3B82F6"
+                strokeWidth={3}
+                dot={false}
+                activeDot={{ r: 6 }}
+                fill="url(#downloadGradient)"
+                className="!stroke-blue-500"
+              />
+            )}
+            {visibleMetrics.upload && (
+              <Area
+                yAxisId="speed"
+                type="monotone"
+                dataKey="upload"
+                name="Upload"
+                stroke="#10B981"
+                strokeWidth={3}
+                dot={false}
+                activeDot={{ r: 6 }}
+                fill="url(#uploadGradient)"
+                className="!stroke-emerald-500"
+              />
+            )}
+            {visibleMetrics.latency && (
+              <Area
+                yAxisId="latency"
+                type="monotone"
+                dataKey="latency"
+                name="Latency"
+                stroke="#F59E0B"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 6 }}
+                fill="url(#latencyGradient)"
+                className="!stroke-amber-500"
+                strokeDasharray="3 3"
+              />
+            )}
+            {visibleMetrics.jitter && (
+              <Area
+                yAxisId="latency"
+                type="monotone"
+                dataKey="jitter"
+                name="Jitter"
+                stroke="#9333EA"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 6 }}
+                fill="url(#jitterGradient)"
+                className="!stroke-purple-500"
+                strokeDasharray="5 5"
+              />
+            )}
+          </AreaChart>
         </ResponsiveContainer>
       </div>
     </div>
@@ -602,7 +735,7 @@ export default function SpeedTest() {
 
         {/* Latest Results - Show only if there's history */}
         <div className="mb-6">
-          <h2 className="text-white text-xl font-semibold">Latest Results</h2>
+          <h2 className="text-white text-xl font-semibold">Latest Run</h2>
           {history.length > 0 && (
             <div className="text-gray-400 text-sm mb-4">
               Last test run:{" "}
@@ -631,7 +764,7 @@ export default function SpeedTest() {
               {/* Download Card */}
               <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
                 <div className="flex items-center gap-3 mb-4">
-                  <ArrowDownIcon className="w-5 h-5 text-emerald-400" />
+                  <FaArrowDown className="w-5 h-5 text-emerald-400" />
                   <h3 className="text-gray-400 font-medium">Download</h3>
                 </div>
                 <div className="text-white text-3xl font-bold">
@@ -645,7 +778,7 @@ export default function SpeedTest() {
               {/* Upload Card */}
               <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
                 <div className="flex items-center gap-3 mb-4">
-                  <ArrowUpIcon className="w-5 h-5 text-purple-400" />
+                  <FaArrowUp className="w-5 h-5 text-purple-400" />
                   <h3 className="text-gray-400 font-medium">Upload</h3>
                 </div>
                 <div className="text-white text-3xl font-bold">
@@ -659,7 +792,7 @@ export default function SpeedTest() {
               {/* Jitter Card */}
               <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
                 <div className="flex items-center gap-3 mb-4">
-                  <IoMdGitCompare className="w-5 h-5 text-purple-400" />
+                  <IoMdGitCompare className="w-5 h-5 text-blue-400" />
                   <h3 className="text-gray-400 font-medium">Jitter</h3>
                 </div>
                 <div className="text-white text-3xl font-bold">
@@ -720,7 +853,12 @@ export default function SpeedTest() {
           </div>
 
           {isServerSectionOpen && (
-            <div className="space-y-4">
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-4"
+            >
               <p className="text-gray-400 text-sm p-1">
                 Select a server for either a manual run or to set up a scheduled
                 test.
@@ -856,7 +994,7 @@ export default function SpeedTest() {
                   </button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
 
