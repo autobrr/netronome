@@ -97,14 +97,22 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 	var selectedServer *st.Server
 	if len(opts.ServerIDs) > 0 {
 		for _, server := range serverList {
-			if server.ID == opts.ServerIDs[0] {
-				selectedServer = server
+			for _, requestedID := range opts.ServerIDs {
+				if server.ID == requestedID {
+					selectedServer = server
+					break
+				}
+			}
+			if selectedServer != nil {
 				break
 			}
 		}
 	}
 
 	if selectedServer == nil {
+		sort.Slice(serverList, func(i, j int) bool {
+			return serverList[i].Distance < serverList[j].Distance
+		})
 		selectedServer = serverList[0]
 	}
 
@@ -271,7 +279,17 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 }
 
 func (s *service) GetServers() ([]ServerResponse, error) {
-	serverList, err := s.client.FetchServers()
+	// Create new speedtest client
+	client := st.New()
+
+	// Get user info first to initialize the client
+	_, err := client.FetchUserInfo()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch user info: %w", err)
+	}
+
+	// Fetch servers using the initialized client
+	serverList, err := client.FetchServers()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch servers: %w", err)
 	}
@@ -281,10 +299,7 @@ func (s *service) GetServers() ([]ServerResponse, error) {
 		return nil, fmt.Errorf("no available servers found")
 	}
 
-	sort.Slice(*availableServers, func(i, j int) bool {
-		return (*availableServers)[i].Distance < (*availableServers)[j].Distance
-	})
-
+	// Convert to response format
 	response := make([]ServerResponse, len(*availableServers))
 	for i, server := range *availableServers {
 		lat, _ := strconv.ParseFloat(server.Lat, 64)
@@ -303,6 +318,12 @@ func (s *service) GetServers() ([]ServerResponse, error) {
 		}
 	}
 
+	// Sort by distance
+	sort.Slice(response, func(i, j int) bool {
+		return response[i].Distance < response[j].Distance
+	})
+
+	log.Info().Int("server_count", len(response)).Msg("Retrieved speedtest servers")
 	return response, nil
 }
 

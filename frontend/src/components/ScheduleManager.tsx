@@ -267,8 +267,8 @@ export default function ScheduleManager({
                             <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
                               <div className="relative bg-gray-800 p-3">
                                 <p className="text-sm text-white">
-                                  Select at least one server in the section
-                                  above first
+                                  Please select one or more servers from the
+                                  Server Selection section to create a schedule
                                 </p>
                               </div>
                             </div>
@@ -307,13 +307,6 @@ export default function ScheduleManager({
                               <span className="text-blue-400">
                                 {formatNextRun(schedule.nextRun)}
                               </span>
-                            </p>
-                            <p className="text-gray-300">
-                              <strong>
-                                {schedule.serverIds.length} Server
-                              </strong>
-                              {schedule.serverIds.length !== 1 ? "s" : ""}{" "}
-                              Selected
                             </p>
                           </div>
                           <div className="flex justify-end mt-2">

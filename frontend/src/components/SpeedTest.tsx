@@ -69,38 +69,34 @@ const ServerList: React.FC<ServerListProps> = ({
   selectedServers,
   onSelect,
 }) => {
-  const [displayCount, setDisplayCount] = useState(9);
+  const [displayCount, setDisplayCount] = useState(6);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterCountry, setFilterCountry] = useState("");
 
-  // First, flatten the servers but keep track of their provider
-  const flattenedServers = useMemo(() => {
-    // Group servers by provider first
-    const groups = servers.reduce((acc, server) => {
-      const key = server.sponsor || "Unknown Provider";
-      if (!acc[key]) {
-        acc[key] = [];
-      }
-      acc[key].push(server);
-      return acc;
-    }, {} as Record<string, Server[]>);
-
-    // Sort each provider's servers by distance
-    Object.keys(groups).forEach((key) => {
-      groups[key].sort((a, b) => a.distance - b.distance);
-    });
-
-    // Flatten while keeping providers together
-    return Object.entries(groups)
-      .sort(([, a], [, b]) => a[0].distance - b[0].distance)
-      .flatMap(([provider, servers]) =>
-        servers.map((server) => ({
-          ...server,
-          provider,
-        }))
-      );
+  // Get unique countries for filter dropdown
+  const countries = useMemo(() => {
+    const uniqueCountries = new Set(servers.map((server) => server.country));
+    return Array.from(uniqueCountries).sort();
   }, [servers]);
 
-  const visibleServers = flattenedServers.slice(0, displayCount);
-  const remainingCount = flattenedServers.length - visibleServers.length;
+  // Filter and sort servers
+  const filteredServers = useMemo(() => {
+    return servers.filter((server) => {
+      const matchesSearch =
+        searchTerm === "" ||
+        server.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        server.sponsor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        server.country.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesCountry =
+        filterCountry === "" || server.country === filterCountry;
+
+      return matchesSearch && matchesCountry;
+    });
+  }, [servers, searchTerm, filterCountry]);
+
+  const visibleServers = filteredServers.slice(0, displayCount);
+  const remainingCount = filteredServers.length - visibleServers.length;
 
   // Create rows of servers
   const rows = [];
@@ -110,6 +106,32 @@ const ServerList: React.FC<ServerListProps> = ({
 
   return (
     <div className="space-y-4">
+      <div className="flex gap-4 mb-4">
+        <input
+          type="text"
+          placeholder="Search servers..."
+          className="flex-1 p-2 bg-gray-800 text-white placeholder-gray-400 rounded-lg"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <select
+          className="p-2 bg-gray-800 text-gray-300 rounded-lg"
+          value={filterCountry}
+          onChange={(e) => setFilterCountry(e.target.value)}
+        >
+          <option value="">All Countries</option>
+          {countries.map((country) => (
+            <option
+              key={country}
+              value={country}
+              className="text-white bg-gray-800"
+            >
+              {country}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {rows.map((rowServers, rowIndex) => (
         <div
           key={rowIndex}
@@ -128,7 +150,7 @@ const ServerList: React.FC<ServerListProps> = ({
                 }`}
             >
               <div className="text-sm text-blue-400 font-medium mb-2">
-                {server.provider}
+                {server.sponsor || "Unknown Sponsor"}
               </div>
               <div className="flex items-center justify-between">
                 <span className="font-medium text-gray-200">{server.name}</span>
@@ -147,10 +169,10 @@ const ServerList: React.FC<ServerListProps> = ({
 
       {remainingCount > 0 && (
         <button
-          onClick={() => setDisplayCount((prev) => prev + 9)}
-          className="w-full py-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
+          onClick={() => setDisplayCount((prev) => prev + 6)}
+          className="w-full p-2 mt-4 bg-gray-800 text-gray-200 rounded-lg hover:bg-gray-700 transition-colors"
         >
-          Show More Servers ({remainingCount} remaining)
+          Show {Math.min(remainingCount, 6)} more servers
         </button>
       )}
     </div>
@@ -219,6 +241,7 @@ const SpeedHistoryChart: React.FC<{
       month: "short",
       day: "numeric",
       hour: "2-digit",
+      minute: "2-digit",
     }),
     download: result.downloadSpeed,
     upload: result.uploadSpeed,
@@ -371,7 +394,6 @@ export default function SpeedTest() {
   const [servers, setServers] = useState<Server[]>([]);
   const [history, setHistory] = useState<SpeedTestResult[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
   const [options, setOptions] = useState<TestOptions>({
     enableDownload: true,
     enableUpload: true,
@@ -384,9 +406,10 @@ export default function SpeedTest() {
     "idle"
   );
   const [timeRange, setTimeRange] = useState<TimeRange>("1w");
-  const [isConfigExpanded, setIsConfigExpanded] = useState(false);
+  const [isServerSectionOpen, setIsServerSectionOpen] = useState(false);
 
   const fetchServers = async () => {
+    setLoading(true);
     try {
       const response = await fetch("/api/servers");
       if (!response.ok) {
@@ -409,6 +432,8 @@ export default function SpeedTest() {
           ? `Server Error: ${error.message}`
           : "Failed to fetch servers"
       );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -487,28 +512,24 @@ export default function SpeedTest() {
     fetchHistory();
   }, []);
 
-  const filteredServers = servers.filter(
-    (server) =>
-      server.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      server.country.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (server.sponsor || "").toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredServers = useMemo(() => {
+    return servers;
+  }, [servers]);
 
   const handleServerSelect = (server: Server) => {
-    if (!options.multiServer) {
-      setSelectedServers((prev) =>
-        prev.some((s) => s.id === server.id) ? [] : [server]
-      );
-    } else {
-      setSelectedServers((prev) => {
-        const isSelected = prev.some((s) => s.id === server.id);
-        if (isSelected) {
-          return prev.filter((s) => s.id !== server.id);
-        } else {
-          return [...prev, server];
-        }
-      });
-    }
+    setSelectedServers((prev) => {
+      const isSelected = prev.some((s) => s.id === server.id);
+
+      // If multi-server is disabled, only allow one server
+      if (!options.multiServer) {
+        return isSelected ? [] : [server];
+      }
+
+      // Multi-server mode: allow multiple selections
+      return isSelected
+        ? prev.filter((s) => s.id !== server.id)
+        : [...prev, server];
+    });
   };
 
   useEffect(() => {
@@ -553,8 +574,18 @@ export default function SpeedTest() {
     <div className="min-h-screen">
       <Container maxWidth="lg" className="pb-8">
         {/* Header Section */}
-        <div className="flex justify-between items-center mb-8 pt-8">
-          <h1 className="text-3xl font-bold text-white">Speedtrackerr</h1>
+        <div className="flex justify-between items-center -ml-2 mb-8 pt-8">
+          <div className="flex items-center gap-3">
+            <img
+              src="/src/assets/logo2.png"
+              alt="NetMetronome Logo"
+              className="h-12 w-12 select-none pointer-events-none"
+              draggable="false"
+            />
+            <h1 className="text-3xl font-bold text-white select-none">
+              NetMetronome
+            </h1>
+          </div>
         </div>
 
         {/* Active Test Progress - Show only when test is running */}
@@ -658,7 +689,7 @@ export default function SpeedTest() {
         <div className="bg-gray-850/95 p-4 rounded-xl shadow-lg mb-6 border border-gray-900">
           <div
             className="flex justify-between items-center cursor-pointer"
-            onClick={() => setIsConfigExpanded(!isConfigExpanded)}
+            onClick={() => setIsServerSectionOpen(!isServerSectionOpen)}
           >
             <div className="flex flex-col">
               <h2 className="text-white text-xl font-semibold p-1">
@@ -666,13 +697,15 @@ export default function SpeedTest() {
               </h2>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">
-                {selectedServers.length} server
-                {selectedServers.length !== 1 ? "s" : ""} selected
-              </span>
+              {selectedServers.length > 0 && (
+                <span className="text-gray-400">
+                  {selectedServers.length} server
+                  {selectedServers.length !== 1 ? "s" : ""} selected
+                </span>
+              )}
               <svg
                 className={`w-5 h-5 text-gray-400 transform transition-transform ${
-                  isConfigExpanded ? "rotate-180" : ""
+                  isServerSectionOpen ? "rotate-180" : ""
                 }`}
                 fill="none"
                 strokeLinecap="round"
@@ -686,156 +719,145 @@ export default function SpeedTest() {
             </div>
           </div>
 
-          <div
-            className={`space-y-4 transition-all duration-200 ${
-              isConfigExpanded ? "opacity-100" : "opacity-0 h-0 overflow-hidden"
-            }`}
-          >
-            <p className="text-gray-400 text-sm p-1">
-              Select a server for either a manual run or to set up a scheduled
-              test
-            </p>
+          {isServerSectionOpen && (
+            <div className="space-y-4">
+              <p className="text-gray-400 text-sm p-1">
+                Select a server for either a manual run or to set up a scheduled
+                test.
+              </p>
 
-            {/* Multi-Server Toggle */}
-            <div className="flex items-center justify-end gap-2 pt-4">
-              <label className="flex items-center gap-2 text-gray-300 text-sm">
-                <Switch
-                  checked={options.multiServer}
-                  onChange={(checked) =>
-                    setOptions((prev) => ({
-                      ...prev,
-                      multiServer: checked,
-                    }))
-                  }
-                  className={`${
-                    options.multiServer ? "bg-blue-600" : "bg-gray-700"
-                  } relative inline-flex items-center h-6 rounded-full w-11`}
-                >
-                  <span className="sr-only">Multi-Server Mode</span>
-                  <span
+              {/* Multi-Server Toggle */}
+              <div className="flex items-center justify-end">
+                <label className="flex items-center gap-2 text-gray-300 text-sm">
+                  <Switch
+                    checked={options.multiServer}
+                    onChange={(checked) =>
+                      setOptions((prev) => ({
+                        ...prev,
+                        multiServer: checked,
+                      }))
+                    }
                     className={`${
-                      options.multiServer ? "translate-x-6" : "translate-x-1"
-                    } inline-block w-4 h-4 transform bg-white rounded-full transition`}
-                  />
-                </Switch>
-                Multi-Server Mode
-              </label>
-            </div>
+                      options.multiServer ? "bg-blue-600" : "bg-gray-700"
+                    } relative inline-flex items-center h-6 rounded-full w-11`}
+                  >
+                    <span className="sr-only">Multi-Server Mode</span>
+                    <span
+                      className={`${
+                        options.multiServer ? "translate-x-6" : "translate-x-1"
+                      } inline-block w-4 h-4 transform bg-white rounded-full transition`}
+                    />
+                  </Switch>
+                  Multi-Server Mode
+                </label>
+              </div>
 
-            {/* Server Search */}
-            <div className="flex gap-3 items-center">
-              <input
-                type="text"
-                placeholder="Search test servers..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 text-sm border border-gray-900 bg-gray-800/50 text-white rounded-lg px-3 py-2 placeholder-gray-500"
+              {/* Server List */}
+              <ServerList
+                servers={filteredServers}
+                selectedServers={selectedServers}
+                onSelect={handleServerSelect}
               />
-            </div>
 
-            {/* Server List */}
-            <ServerList
-              servers={filteredServers}
-              selectedServers={selectedServers}
-              onSelect={handleServerSelect}
-            />
-
-            {/* Test Options */}
-            <div className="pt-4 border-t border-gray-900">
-              <div className="flex justify-between items-center">
-                <div className="flex gap-6 text-gray-300">
-                  <label className="flex items-center gap-2 text-sm">
-                    <Switch
-                      checked={options.enableDownload}
-                      onChange={(checked) =>
-                        setOptions((prev) => ({
-                          ...prev,
-                          enableDownload: checked,
-                        }))
-                      }
-                      className={`${
-                        options.enableDownload ? "bg-blue-600" : "bg-gray-700"
-                      } relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
-                    >
-                      <span className="sr-only">Enable Download Test</span>
-                      <span
+              {/* Test Options */}
+              <div className="pt-4 border-t border-gray-900">
+                <div className="flex justify-between items-center">
+                  <div className="flex gap-6 text-gray-300">
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch
+                        checked={options.enableDownload}
+                        onChange={(checked) =>
+                          setOptions((prev) => ({
+                            ...prev,
+                            enableDownload: checked,
+                          }))
+                        }
                         className={`${
-                          options.enableDownload
-                            ? "translate-x-6"
-                            : "translate-x-1"
-                        } inline-block h-4 w-4 transform rounded-full bg-white transition`}
-                      />
-                    </Switch>
-                    Download Test
-                  </label>
+                          options.enableDownload ? "bg-blue-600" : "bg-gray-700"
+                        } relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
+                      >
+                        <span className="sr-only">Enable Download Test</span>
+                        <span
+                          className={`${
+                            options.enableDownload
+                              ? "translate-x-6"
+                              : "translate-x-1"
+                          } inline-block h-4 w-4 transform rounded-full bg-white transition`}
+                        />
+                      </Switch>
+                      Download Test
+                    </label>
 
-                  <label className="flex items-center gap-2 text-sm">
-                    <Switch
-                      checked={options.enableUpload}
-                      onChange={(checked) =>
-                        setOptions((prev) => ({
-                          ...prev,
-                          enableUpload: checked,
-                        }))
-                      }
-                      className={`${
-                        options.enableUpload ? "bg-blue-600" : "bg-gray-700"
-                      } relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
-                    >
-                      <span className="sr-only">Enable Upload Test</span>
-                      <span
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch
+                        checked={options.enableUpload}
+                        onChange={(checked) =>
+                          setOptions((prev) => ({
+                            ...prev,
+                            enableUpload: checked,
+                          }))
+                        }
                         className={`${
-                          options.enableUpload
-                            ? "translate-x-6"
-                            : "translate-x-1"
-                        } inline-block h-4 w-4 transform rounded-full bg-white transition`}
-                      />
-                    </Switch>
-                    Upload Test
-                  </label>
+                          options.enableUpload ? "bg-blue-600" : "bg-gray-700"
+                        } relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
+                      >
+                        <span className="sr-only">Enable Upload Test</span>
+                        <span
+                          className={`${
+                            options.enableUpload
+                              ? "translate-x-6"
+                              : "translate-x-1"
+                          } inline-block h-4 w-4 transform rounded-full bg-white transition`}
+                        />
+                      </Switch>
+                      Upload Test
+                    </label>
 
-                  <label className="flex items-center gap-2 text-sm">
-                    <Switch
-                      checked={options.enablePacketLoss}
-                      onChange={(checked) =>
-                        setOptions((prev) => ({
-                          ...prev,
-                          enablePacketLoss: checked,
-                        }))
-                      }
-                      className={`${
-                        options.enablePacketLoss ? "bg-blue-600" : "bg-gray-700"
-                      } relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
-                    >
-                      <span className="sr-only">
-                        Enable Packet Loss Analysis
-                      </span>
-                      <span
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch
+                        checked={options.enablePacketLoss}
+                        onChange={(checked) =>
+                          setOptions((prev) => ({
+                            ...prev,
+                            enablePacketLoss: checked,
+                          }))
+                        }
                         className={`${
                           options.enablePacketLoss
-                            ? "translate-x-6"
-                            : "translate-x-1"
-                        } inline-block h-4 w-4 transform rounded-full bg-white transition`}
-                      />
-                    </Switch>
-                    Packet Loss Analysis
-                  </label>
-                </div>
+                            ? "bg-blue-600"
+                            : "bg-gray-700"
+                        } relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
+                      >
+                        <span className="sr-only">
+                          Enable Packet Loss Analysis
+                        </span>
+                        <span
+                          className={`${
+                            options.enablePacketLoss
+                              ? "translate-x-6"
+                              : "translate-x-1"
+                          } inline-block h-4 w-4 transform rounded-full bg-white transition`}
+                        />
+                      </Switch>
+                      Packet Loss Analysis
+                    </label>
+                  </div>
 
-                <button
-                  onClick={runTest}
-                  disabled={loading || selectedServers.length === 0}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg disabled:opacity-50"
-                >
-                  {loading
-                    ? "Running Test..."
-                    : selectedServers.length === 0
-                    ? "Select a server"
-                    : "Run Test"}
-                </button>
+                  <button
+                    onClick={runTest}
+                    disabled={loading || selectedServers.length === 0}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg disabled:opacity-50"
+                  >
+                    {loading
+                      ? "Running Test..."
+                      : selectedServers.length === 0
+                      ? "Select a server"
+                      : "Run Test"}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Add ScheduleManager after the server selection */}
