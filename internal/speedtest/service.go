@@ -107,6 +107,16 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 		selectedServer = serverList[0]
 	}
 
+	log.Info().
+		Str("server_ids", fmt.Sprintf("%v", opts.ServerIDs)).
+		Str("server_name", selectedServer.Name).
+		Str("server_host", selectedServer.Host).
+		Str("server_country", selectedServer.Country).
+		Str("provider", selectedServer.Sponsor).
+		Bool("enable_download", opts.EnableDownload).
+		Bool("enable_upload", opts.EnableUpload).
+		Msg("Starting speed test")
+
 	result := &Result{
 		Timestamp: time.Now(),
 		Server:    selectedServer.Name,
@@ -166,6 +176,15 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 				IsComplete: true,
 			})
 		}
+
+		log.Info().
+			Str("server", selectedServer.Name).
+			Str("server_host", selectedServer.Host).
+			Str("server_country", selectedServer.Country).
+			Str("provider", selectedServer.Sponsor).
+			Str("server_url", selectedServer.URL).
+			Float64("speed_mbps", result.DownloadSpeed).
+			Msg("Download test complete")
 	}
 
 	if opts.EnableUpload {
@@ -188,7 +207,15 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 		result.Upload = selectedServer.ULSpeed.Mbps()
 		result.UploadSpeed = result.Upload
 
-		log.Info().Msg("Upload test complete, sending final update")
+		log.Info().
+			Str("server", selectedServer.Name).
+			Str("server_host", selectedServer.Host).
+			Str("server_country", selectedServer.Country).
+			Str("provider", selectedServer.Sponsor).
+			Str("server_url", selectedServer.URL).
+			Float64("speed_mbps", result.UploadSpeed).
+			Msg("Upload test complete")
+
 		if s.server.BroadcastUpdate != nil {
 			s.server.BroadcastUpdate(types.SpeedUpdate{
 				Type:       "upload",
@@ -200,16 +227,17 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 		}
 	}
 
-	log.Info().Msg("All tests complete, sending final status")
-	if s.server.BroadcastUpdate != nil {
-		s.server.BroadcastUpdate(types.SpeedUpdate{
-			Type:       "complete",
-			ServerName: selectedServer.Name,
-			Speed:      0,
-			Progress:   1.0,
-			IsComplete: true,
-		})
-	}
+	log.Info().
+		Str("server", selectedServer.Name).
+		Str("server_host", selectedServer.Host).
+		Str("server_country", selectedServer.Country).
+		Str("provider", selectedServer.Sponsor).
+		Str("server_url", selectedServer.URL).
+		Str("latency", result.Latency).
+		Float64("packet_loss", result.PacketLoss).
+		Float64("download_mbps", result.DownloadSpeed).
+		Float64("upload_mbps", result.UploadSpeed).
+		Msg("Speed test complete")
 
 	selectedServer.Context.Reset()
 

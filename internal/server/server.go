@@ -235,6 +235,6 @@ func LoggerMiddleware() gin.HandlerFunc {
 			event.Str("query", query)
 		}
 
-		event.Msg("HTTP")
+		//event.Msg("HTTP")
 	}
 }

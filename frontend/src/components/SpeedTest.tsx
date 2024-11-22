@@ -504,7 +504,11 @@ export default function SpeedTest() {
               disabled={loading || selectedServers.length === 0}
               className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg disabled:opacity-50"
             >
-              {loading ? "Running Test..." : "Run Test"}
+              {loading
+                ? "Running Test..."
+                : selectedServers.length === 0
+                ? "Select a server"
+                : "Run Test"}
             </button>
           </div>
         </div>
