@@ -1,33 +1,19 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { Container } from "@mui/material";
-import {
-  AreaChart,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  Area,
-} from "recharts";
-import ScheduleManager from "./ScheduleManager";
-import { Server } from "../types/types";
 import { IoIosPulse, IoMdGitCompare } from "react-icons/io";
-import { Switch } from "@headlessui/react";
-import { FaArrowDown } from "react-icons/fa";
-import { FaArrowUp } from "react-icons/fa";
-import { motion } from "motion/react";
-interface SpeedTestResult {
-  id: number;
-  serverName: string;
-  serverId: string;
-  downloadSpeed: number;
-  uploadSpeed: number;
-  latency: string;
-  packetLoss: number;
-  jitter?: number;
-  createdAt: string;
-}
+import { FaArrowDown, FaArrowUp } from "react-icons/fa";
+import { ServerList } from "./speedtest/ServerList";
+import { TestProgress } from "./speedtest/TestProgress";
+import { SpeedHistoryChart } from "./speedtest/SpeedHistoryChart";
+import ScheduleManager from "./ScheduleManager";
+import {
+  Server,
+  SpeedTestResult,
+  TestProgress as TestProgressType,
+  TimeRange,
+} from "../types/types";
+import { Disclosure, DisclosureButton } from "@headlessui/react";
+import { ChevronDownIcon } from "@heroicons/react/20/solid";
 
 interface TestOptions {
   serverId?: string;
@@ -37,490 +23,14 @@ interface TestOptions {
   multiServer: boolean;
 }
 
-interface ServerListProps {
-  servers: Server[];
-  selectedServers: Server[];
-  onSelect: (server: Server) => void;
-}
-
 interface SpeedUpdate {
+  isComplete: boolean;
   type: "download" | "upload" | "ping" | "complete";
+  speed: number;
+  progress: number;
   serverName: string;
-  speed: number;
-  progress: number;
-  isComplete: boolean;
-  latency?: string;
+  latency?: number;
 }
-
-interface TestProgress {
-  currentServer: string;
-  currentTest: string;
-  currentSpeed: number;
-  currentLatency?: string;
-  progress: number;
-  isComplete: boolean;
-  latency?: string;
-  packetLoss?: number;
-  type: "download" | "upload" | "ping";
-  speed: number;
-}
-
-const ServerList: React.FC<ServerListProps> = ({
-  servers,
-  selectedServers,
-  onSelect,
-}) => {
-  const [displayCount, setDisplayCount] = useState(6);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterCountry, setFilterCountry] = useState("");
-
-  // Get unique countries for filter dropdown
-  const countries = useMemo(() => {
-    const uniqueCountries = new Set(servers.map((server) => server.country));
-    return Array.from(uniqueCountries).sort();
-  }, [servers]);
-
-  // Filter and sort servers
-  const filteredServers = useMemo(() => {
-    return servers.filter((server) => {
-      const matchesSearch =
-        searchTerm === "" ||
-        server.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        server.sponsor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        server.country.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesCountry =
-        filterCountry === "" || server.country === filterCountry;
-
-      return matchesSearch && matchesCountry;
-    });
-  }, [servers, searchTerm, filterCountry]);
-
-  const visibleServers = filteredServers.slice(0, displayCount);
-  const remainingCount = filteredServers.length - visibleServers.length;
-
-  // Create rows of servers
-  const rows = [];
-  for (let i = 0; i < visibleServers.length; i += 3) {
-    rows.push(visibleServers.slice(i, i + 3));
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex gap-4 mb-4">
-        <input
-          type="text"
-          placeholder="Search servers..."
-          className="flex-1 p-2 bg-gray-800 text-white placeholder-gray-400 rounded-lg"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <select
-          className="p-2 bg-gray-800 text-gray-300 rounded-lg"
-          value={filterCountry}
-          onChange={(e) => setFilterCountry(e.target.value)}
-        >
-          <option value="">All Countries</option>
-          {countries.map((country) => (
-            <option
-              key={country}
-              value={country}
-              className="text-white bg-gray-800"
-            >
-              {country}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {rows.map((rowServers, rowIndex) => (
-        <div
-          key={rowIndex}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3"
-        >
-          {rowServers.map((server) => (
-            <motion.div
-              key={server.id}
-              onClick={() => onSelect(server)}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className={`flex flex-col p-3 rounded-md cursor-pointer
-                ${
-                  selectedServers.some((s) => s.id === server.id)
-                    ? "bg-blue-500/10 border border-blue-500/30"
-                    : "bg-gray-850/95 hover:bg-gray-850/70 border border-gray-900"
-                }`}
-            >
-              <div className="text-sm text-blue-400 font-medium mb-2">
-                {server.sponsor || "Unknown Sponsor"}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-gray-200">{server.name}</span>
-                <span className="text-xs bg-gray-700 rounded px-1.5 py-0.5 text-gray-300">
-                  {server.distance.toFixed(0)}km
-                </span>
-              </div>
-              <div className="text-xs text-gray-400 truncate mt-1">
-                {server.host}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">ID: {server.id}</div>
-            </motion.div>
-          ))}
-        </div>
-      ))}
-
-      {remainingCount > 0 && (
-        <button
-          onClick={() => setDisplayCount((prev) => prev + 6)}
-          className="w-full p-2 mt-4 bg-gray-800 text-gray-200 rounded-lg hover:bg-gray-700 transition-colors"
-        >
-          Show {Math.min(remainingCount, 6)} more servers
-        </button>
-      )}
-    </div>
-  );
-};
-
-const TestProgress: React.FC<{ progress: TestProgress }> = ({ progress }) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="bg-gray-850/95 p-4 rounded-xl shadow-lg mb-6 border border-gray-900"
-    >
-      <h2 className="text-xl font-semibold mb-2 text-white">
-        Test in Progress
-      </h2>
-      <div className="space-y-2 text-gray-300">
-        <div>Testing Server: {progress.currentServer}</div>
-        {progress.currentTest && (
-          <div className="flex items-center gap-4">
-            <div className="capitalize">{progress.currentTest} Test:</div>
-            {progress.currentSpeed > 0 && (
-              <div className="group relative text-xl font-bold">
-                {progress.currentSpeed.toFixed(2)} Mbps
-                {/* Add tooltip */}
-                {progress.packetLoss !== undefined && (
-                  <div className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 p-2 bg-gray-900 rounded-lg text-sm whitespace-nowrap">
-                    Packet Loss: {progress.packetLoss.toFixed(2)}%
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="animate-pulse text-blue-500">Running...</div>
-          </div>
-        )}
-      </div>
-    </motion.div>
-  );
-};
-
-type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
-
-const SpeedHistoryChart: React.FC<{
-  history: SpeedTestResult[];
-  timeRange: TimeRange;
-  onTimeRangeChange: (range: TimeRange) => void;
-}> = ({ history, timeRange, onTimeRangeChange }) => {
-  const [visibleMetrics, setVisibleMetrics] = useState({
-    download: true,
-    upload: true,
-    latency: true,
-    jitter: true,
-  });
-
-  const filterDataByTimeRange = (data: SpeedTestResult[]) => {
-    const now = new Date();
-    const ranges = {
-      "1d": 1,
-      "3d": 3,
-      "1w": 7,
-      "1m": 30,
-      all: Infinity,
-    };
-    const daysAgo = ranges[timeRange];
-
-    return data.filter((result) => {
-      const resultDate = new Date(result.createdAt);
-      const diffTime = Math.abs(now.getTime() - resultDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays <= daysAgo;
-    });
-  };
-
-  const filteredData = filterDataByTimeRange(history);
-  const chartData = [...filteredData].reverse().map((result) => ({
-    timestamp: new Date(result.createdAt).toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    download: result.downloadSpeed,
-    upload: result.uploadSpeed,
-    latency: parseFloat(result.latency.replace("ms", "")),
-    jitter: result.jitter,
-    server: result.serverName,
-  }));
-
-  return (
-    <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg mb-6 border border-gray-900">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-          <h2 className="text-xl font-bold text-white">Speed History</h2>
-          <div className="flex gap-2">
-            {[
-              { key: "download", color: "blue", label: "Download" },
-              { key: "upload", color: "emerald", label: "Upload" },
-              { key: "latency", color: "amber", label: "Latency" },
-              { key: "jitter", color: "purple", label: "Jitter" },
-            ].map(({ key, label }) => {
-              const isActive =
-                visibleMetrics[key as keyof typeof visibleMetrics];
-              return (
-                <button
-                  key={key}
-                  onClick={() =>
-                    setVisibleMetrics((prev) => ({
-                      ...prev,
-                      [key]: !prev[key as keyof typeof visibleMetrics],
-                    }))
-                  }
-                  className={`
-                    px-3 py-1.5 
-                    rounded-md 
-                    text-sm 
-                    font-medium
-                    flex items-center gap-2 
-                    transition-all duration-150 ease-in-out
-                    focus:outline-none
-                    focus:ring-0
-                    ${
-                      isActive
-                        ? {
-                            download:
-                              "bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 hover:border-blue-500/40",
-                            upload:
-                              "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/40",
-                            latency:
-                              "bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/40",
-                            jitter:
-                              "bg-purple-500/10 text-purple-400 border border-purple-500/30 hover:bg-purple-500/20 hover:border-purple-500/40",
-                          }[key]
-                        : `
-                          bg-gray-800 
-                          text-gray-400 
-                          border border-gray-700
-                          hover:bg-gray-750
-                          hover:border-gray-600
-                          hover:text-gray-300
-                        `
-                    }
-                  `}
-                >
-                  <div
-                    className={`
-                      w-2 h-2 
-                      rounded-full 
-                      transition-all duration-150
-                      ${
-                        isActive
-                          ? {
-                              download: "bg-blue-400",
-                              upload: "bg-emerald-400",
-                              latency: "bg-amber-400",
-                              jitter: "bg-purple-400",
-                            }[key]
-                          : "bg-gray-500"
-                      }
-                    `}
-                  />
-                  <span
-                    className={
-                      isActive
-                        ? {
-                            download: "text-blue-400",
-                            upload: "text-emerald-400",
-                            latency: "text-amber-400",
-                            jitter: "text-purple-400",
-                          }[key]
-                        : "text-gray-400"
-                    }
-                  >
-                    {label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="flex gap-2">
-          {(["1d", "3d", "1w", "1m", "all"] as TimeRange[]).map((range) => (
-            <button
-              key={range}
-              onClick={() => onTimeRangeChange(range)}
-              className={`px-3 py-1 rounded-md text-sm ${
-                timeRange === range
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-              }`}
-            >
-              {range === "all" ? "All" : range.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="h-[400px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={chartData}
-            margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
-            className="[&_.recharts-cartesian-grid-horizontal]:stroke-gray-700/50 
-                      [&_.recharts-cartesian-axis-line]:stroke-gray-700
-                      [&_.recharts-legend-item-text]:!text-gray-300
-                      [&_.recharts-text]:!fill-gray-400
-                      [&_.recharts-tooltip]:!bg-gray-850/95
-                      [&_.recharts-tooltip]:!border-gray-900
-                      [&_.recharts-tooltip]:!rounded-lg
-                      [&_.recharts-tooltip]:!shadow-xl
-                      [&_.recharts-tooltip]:!backdrop-blur-sm"
-          >
-            <defs>
-              <linearGradient id="downloadGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="uploadGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="latencyGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="jitterGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#9333EA" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#9333EA" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              horizontal={true}
-              vertical={false}
-            />
-            <XAxis dataKey="timestamp" height={60} tickMargin={10} />
-            <YAxis
-              yAxisId="speed"
-              label={{
-                value: "Speed (Mbps)",
-                position: "insideLeft",
-                angle: -90,
-                offset: 0,
-                className: "fill-gray-400",
-              }}
-              domain={[0, "auto"]}
-              allowDataOverflow={false}
-            />
-            <YAxis
-              yAxisId="latency"
-              orientation="right"
-              label={{
-                value: "ms",
-                position: "insideRight",
-                angle: -90,
-                offset: 0,
-                className: "fill-gray-400",
-              }}
-              domain={[0, "auto"]}
-              allowDataOverflow={false}
-            />
-            <Tooltip
-              wrapperClassName="!bg-gray-800/90 !border-gray-900 !rounded-lg !shadow-xl !backdrop-blur-sm"
-              contentStyle={{
-                backgroundColor: "transparent",
-                border: "none",
-                borderRadius: "0.5rem",
-                padding: "1rem",
-              }}
-              itemStyle={{ color: "#E5E7EB" }}
-              labelStyle={{ color: "#9CA3AF", fontWeight: "bold" }}
-            />
-            <Legend
-              verticalAlign="top"
-              height={36}
-              iconType="circle"
-              wrapperStyle={{
-                paddingTop: "10px",
-                paddingBottom: "10px",
-              }}
-            />
-            {visibleMetrics.download && (
-              <Area
-                yAxisId="speed"
-                type="monotone"
-                dataKey="download"
-                name="Download"
-                stroke="#3B82F6"
-                strokeWidth={3}
-                dot={false}
-                activeDot={{ r: 6 }}
-                fill="url(#downloadGradient)"
-                className="!stroke-blue-500"
-              />
-            )}
-            {visibleMetrics.upload && (
-              <Area
-                yAxisId="speed"
-                type="monotone"
-                dataKey="upload"
-                name="Upload"
-                stroke="#10B981"
-                strokeWidth={3}
-                dot={false}
-                activeDot={{ r: 6 }}
-                fill="url(#uploadGradient)"
-                className="!stroke-emerald-500"
-              />
-            )}
-            {visibleMetrics.latency && (
-              <Area
-                yAxisId="latency"
-                type="monotone"
-                dataKey="latency"
-                name="Latency"
-                stroke="#F59E0B"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 6 }}
-                fill="url(#latencyGradient)"
-                className="!stroke-amber-500"
-                strokeDasharray="3 3"
-              />
-            )}
-            {visibleMetrics.jitter && (
-              <Area
-                yAxisId="latency"
-                type="monotone"
-                dataKey="jitter"
-                name="Jitter"
-                stroke="#9333EA"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 6 }}
-                fill="url(#jitterGradient)"
-                className="!stroke-purple-500"
-                strokeDasharray="5 5"
-              />
-            )}
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-};
 
 export default function SpeedTest() {
   const [loading, setLoading] = useState(false);
@@ -534,20 +44,21 @@ export default function SpeedTest() {
     multiServer: false,
   });
   const [selectedServers, setSelectedServers] = useState<Server[]>([]);
-  const [progress, setProgress] = useState<TestProgress | null>(null);
+  const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
     "idle"
   );
-  const [timeRange, setTimeRange] = useState<TimeRange>("1w");
-  const [isServerSectionOpen, setIsServerSectionOpen] = useState(false);
+  const [timeRange, setTimeRange] = useState<TimeRange>(() => {
+    const saved = localStorage.getItem("speedtest-time-range");
+    return (saved as TimeRange) || "1w";
+  });
 
   const fetchServers = async () => {
     setLoading(true);
     try {
       const response = await fetch("/api/servers");
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
-      }
       const text = await response.text();
       try {
         const data = JSON.parse(text);
@@ -572,98 +83,34 @@ export default function SpeedTest() {
 
   const fetchHistory = async () => {
     try {
-      console.log("Fetching history...");
       const response = await fetch("/api/speedtest/history");
-      console.log("Response status:", response.status);
-      console.log("Response headers:", Object.fromEntries(response.headers));
-
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const text = await response.text();
-      console.log("Raw history response:", text);
-
-      try {
-        const data = JSON.parse(text);
-        console.log("Parsed history data:", data);
-        if (Array.isArray(data) && data.length === 0) {
-          console.log("Warning: Received empty array from API");
-        }
-        setHistory(data);
-      } catch (parseError) {
-        console.error("Parse error:", parseError);
-        throw parseError;
-      }
+      const data = await response.json();
+      setHistory(data);
     } catch (error) {
-      console.error("Error fetching history:", {
-        error,
-        type: error instanceof Error ? error.constructor.name : typeof error,
-        message: error instanceof Error ? error.message : String(error),
-      });
       setError(
         error instanceof Error ? error.message : "Failed to fetch history"
       );
     }
   };
 
-  const runTest = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/speedtest", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...options,
-          serverIds: selectedServers.map((s) => s.id),
-        }),
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+  const handleServerSelect = (server: Server) => {
+    setSelectedServers((prev) => {
+      const isSelected = prev.some((s) => s.id === server.id);
+      if (!options.multiServer) {
+        return isSelected ? [] : [server];
       }
-      const result = await response.json();
-      if (result.error) {
-        throw new Error(result.error);
-      }
-      await fetchHistory();
-      setProgress(null);
-      setTestStatus("complete");
-      setLoading(false);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to run speed test"
-      );
-      setLoading(false);
-    }
+      return isSelected
+        ? prev.filter((s) => s.id !== server.id)
+        : [...prev, server];
+    });
   };
 
   useEffect(() => {
     fetchServers();
     fetchHistory();
   }, []);
-
-  const filteredServers = useMemo(() => {
-    return servers;
-  }, [servers]);
-
-  const handleServerSelect = (server: Server) => {
-    setSelectedServers((prev) => {
-      const isSelected = prev.some((s) => s.id === server.id);
-
-      // If multi-server is disabled, only allow one server
-      if (!options.multiServer) {
-        return isSelected ? [] : [server];
-      }
-
-      // Multi-server mode: allow multiple selections
-      return isSelected
-        ? prev.filter((s) => s.id !== server.id)
-        : [...prev, server];
-    });
-  };
 
   useEffect(() => {
     if (!loading) return;
@@ -674,10 +121,7 @@ export default function SpeedTest() {
         if (!response.ok) return;
 
         const update: SpeedUpdate = await response.json();
-        console.log("Received status update:", update);
-
         if (update.isComplete || update.type === "complete") {
-          console.log("Test complete, stopping polling");
           clearInterval(pollInterval);
           setTestStatus("complete");
           setProgress(null);
@@ -706,7 +150,7 @@ export default function SpeedTest() {
   return (
     <div className="min-h-screen">
       <Container maxWidth="lg" className="pb-8">
-        {/* Header Section */}
+        {/* Header */}
         <div className="flex justify-between items-center -ml-2 mb-8 pt-8">
           <div className="flex items-center gap-3">
             <img
@@ -721,7 +165,7 @@ export default function SpeedTest() {
           </div>
         </div>
 
-        {/* Active Test Progress - Show only when test is running */}
+        {/* Test Progress */}
         {testStatus === "running" && progress && (
           <TestProgress progress={progress} />
         )}
@@ -733,10 +177,10 @@ export default function SpeedTest() {
           </div>
         )}
 
-        {/* Latest Results - Show only if there's history */}
-        <div className="mb-6">
-          <h2 className="text-white text-xl font-semibold">Latest Run</h2>
-          {history.length > 0 && (
+        {/* Latest Results */}
+        {history.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-white text-xl font-semibold">Latest Run</h2>
             <div className="text-gray-400 text-sm mb-4">
               Last test run:{" "}
               {new Date(history[0].createdAt).toLocaleString(undefined, {
@@ -744,261 +188,96 @@ export default function SpeedTest() {
                 timeStyle: "short",
               })}
             </div>
-          )}
-          {history.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 cursor-default">
-              {/* Latency Card */}
-              <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
-                <div className="flex items-center gap-3 mb-4">
-                  <IoIosPulse className="w-5 h-5 text-blue-400" />
-                  <h3 className="text-gray-400 font-medium">Latency</h3>
-                </div>
-                <div className="text-white text-3xl font-bold">
-                  {parseFloat(history[0].latency).toFixed(2)}
-                  <span className="text-xl font-normal text-gray-400 ml-1">
-                    ms
-                  </span>
-                </div>
-              </div>
-
-              {/* Download Card */}
-              <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
-                <div className="flex items-center gap-3 mb-4">
-                  <FaArrowDown className="w-5 h-5 text-emerald-400" />
-                  <h3 className="text-gray-400 font-medium">Download</h3>
-                </div>
-                <div className="text-white text-3xl font-bold">
-                  {history[0].downloadSpeed.toFixed(2)}
-                  <span className="text-xl font-normal text-gray-400 ml-1">
-                    Mbps
-                  </span>
-                </div>
-              </div>
-
-              {/* Upload Card */}
-              <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
-                <div className="flex items-center gap-3 mb-4">
-                  <FaArrowUp className="w-5 h-5 text-purple-400" />
-                  <h3 className="text-gray-400 font-medium">Upload</h3>
-                </div>
-                <div className="text-white text-3xl font-bold">
-                  {history[0].uploadSpeed.toFixed(2)}
-                  <span className="text-xl font-normal text-gray-400 ml-1">
-                    Mbps
-                  </span>
-                </div>
-              </div>
-
-              {/* Jitter Card */}
-              <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
-                <div className="flex items-center gap-3 mb-4">
-                  <IoMdGitCompare className="w-5 h-5 text-blue-400" />
-                  <h3 className="text-gray-400 font-medium">Jitter</h3>
-                </div>
-                <div className="text-white text-3xl font-bold">
-                  {history[0].jitter?.toFixed(2) ?? "N/A"}
-                  <span className="text-xl font-normal text-gray-400 ml-1">
-                    ms
-                  </span>
-                </div>
-              </div>
+              <MetricCard
+                icon={<IoIosPulse className="w-5 h-5 text-blue-400" />}
+                title="Latency"
+                value={parseFloat(history[0].latency).toFixed(2)}
+                unit="ms"
+              />
+              <MetricCard
+                icon={<FaArrowDown className="w-5 h-5 text-emerald-400" />}
+                title="Download"
+                value={history[0].downloadSpeed.toFixed(2)}
+                unit="Mbps"
+              />
+              <MetricCard
+                icon={<FaArrowUp className="w-5 h-5 text-purple-400" />}
+                title="Upload"
+                value={history[0].uploadSpeed.toFixed(2)}
+                unit="Mbps"
+              />
+              <MetricCard
+                icon={<IoMdGitCompare className="w-5 h-5 text-blue-400" />}
+                title="Jitter"
+                value={history[0].jitter?.toFixed(2) ?? "N/A"}
+                unit="ms"
+              />
             </div>
-          )}
-        </div>
-
-        {/* Historical Data - Show only if there's history */}
-        {history.length > 0 && (
-          <div className="space-y-8">
-            <SpeedHistoryChart
-              history={history}
-              timeRange={timeRange}
-              onTimeRangeChange={setTimeRange}
-            />
-            {/* ... rest of the history table ... */}
           </div>
         )}
 
-        {/* Server Selection - Primary Action Area */}
-        <div className="bg-gray-850/95 p-4 rounded-xl shadow-lg mb-6 border border-gray-900">
-          <div
-            className="flex justify-between items-center cursor-pointer"
-            onClick={() => setIsServerSectionOpen(!isServerSectionOpen)}
-          >
-            <div className="flex flex-col">
-              <h2 className="text-white text-xl font-semibold p-1">
-                Server Selection
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
-              {selectedServers.length > 0 && (
-                <span className="text-gray-400">
-                  {selectedServers.length} server
-                  {selectedServers.length !== 1 ? "s" : ""} selected
-                </span>
-              )}
-              <svg
-                className={`w-5 h-5 text-gray-400 transform transition-transform ${
-                  isServerSectionOpen ? "rotate-180" : ""
-                }`}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+        {/* Speed History Chart */}
+        {history.length > 0 && (
+          <SpeedHistoryChart
+            history={history}
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+          />
+        )}
+
+        {/* Server Selection */}
+        <Disclosure defaultOpen={false}>
+          {({ open }) => (
+            <div className="flex flex-col mb-6">
+              <DisclosureButton
+                className={`flex justify-between items-center w-full px-4 py-2 bg-gray-850/95 ${
+                  open ? "rounded-t-xl border-b-0" : "rounded-xl"
+                } shadow-lg border-b-0 border-gray-900 text-left`}
               >
-                <path d="M19 9l-7 7-7-7"></path>
-              </svg>
-            </div>
-          </div>
-
-          {isServerSectionOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="space-y-4"
-            >
-              <p className="text-gray-400 text-sm p-1">
-                Select a server for either a manual run or to set up a scheduled
-                test.
-              </p>
-
-              {/* Multi-Server Toggle */}
-              <div className="flex items-center justify-end">
-                <label className="flex items-center gap-2 text-gray-300 text-sm">
-                  <Switch
-                    checked={options.multiServer}
-                    onChange={(checked) =>
-                      setOptions((prev) => ({
-                        ...prev,
-                        multiServer: checked,
-                      }))
-                    }
-                    className={`${
-                      options.multiServer ? "bg-blue-600" : "bg-gray-700"
-                    } relative inline-flex items-center h-6 rounded-full w-11`}
-                  >
-                    <span className="sr-only">Multi-Server Mode</span>
-                    <span
-                      className={`${
-                        options.multiServer ? "translate-x-6" : "translate-x-1"
-                      } inline-block w-4 h-4 transform bg-white rounded-full transition`}
-                    />
-                  </Switch>
-                  Multi-Server Mode
-                </label>
-              </div>
-
-              {/* Server List */}
-              <ServerList
-                servers={filteredServers}
-                selectedServers={selectedServers}
-                onSelect={handleServerSelect}
-              />
-
-              {/* Test Options */}
-              <div className="pt-4 border-t border-gray-900">
-                <div className="flex justify-between items-center">
-                  <div className="flex gap-6 text-gray-300">
-                    <label className="flex items-center gap-2 text-sm">
-                      <Switch
-                        checked={options.enableDownload}
-                        onChange={(checked) =>
-                          setOptions((prev) => ({
-                            ...prev,
-                            enableDownload: checked,
-                          }))
-                        }
-                        className={`${
-                          options.enableDownload ? "bg-blue-600" : "bg-gray-700"
-                        } relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
-                      >
-                        <span className="sr-only">Enable Download Test</span>
-                        <span
-                          className={`${
-                            options.enableDownload
-                              ? "translate-x-6"
-                              : "translate-x-1"
-                          } inline-block h-4 w-4 transform rounded-full bg-white transition`}
-                        />
-                      </Switch>
-                      Download Test
-                    </label>
-
-                    <label className="flex items-center gap-2 text-sm">
-                      <Switch
-                        checked={options.enableUpload}
-                        onChange={(checked) =>
-                          setOptions((prev) => ({
-                            ...prev,
-                            enableUpload: checked,
-                          }))
-                        }
-                        className={`${
-                          options.enableUpload ? "bg-blue-600" : "bg-gray-700"
-                        } relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
-                      >
-                        <span className="sr-only">Enable Upload Test</span>
-                        <span
-                          className={`${
-                            options.enableUpload
-                              ? "translate-x-6"
-                              : "translate-x-1"
-                          } inline-block h-4 w-4 transform rounded-full bg-white transition`}
-                        />
-                      </Switch>
-                      Upload Test
-                    </label>
-
-                    <label className="flex items-center gap-2 text-sm">
-                      <Switch
-                        checked={options.enablePacketLoss}
-                        onChange={(checked) =>
-                          setOptions((prev) => ({
-                            ...prev,
-                            enablePacketLoss: checked,
-                          }))
-                        }
-                        className={`${
-                          options.enablePacketLoss
-                            ? "bg-blue-600"
-                            : "bg-gray-700"
-                        } relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
-                      >
-                        <span className="sr-only">
-                          Enable Packet Loss Analysis
-                        </span>
-                        <span
-                          className={`${
-                            options.enablePacketLoss
-                              ? "translate-x-6"
-                              : "translate-x-1"
-                          } inline-block h-4 w-4 transform rounded-full bg-white transition`}
-                        />
-                      </Switch>
-                      Packet Loss Analysis
-                    </label>
-                  </div>
-
-                  <button
-                    onClick={runTest}
-                    disabled={loading || selectedServers.length === 0}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg disabled:opacity-50"
-                  >
-                    {loading
-                      ? "Running Test..."
-                      : selectedServers.length === 0
-                      ? "Select a server"
-                      : "Run Test"}
-                  </button>
+                <div className="flex flex-col">
+                  <h2 className="text-white text-xl font-semibold p-1 select-none">
+                    Server Selection
+                  </h2>
                 </div>
-              </div>
-            </motion.div>
-          )}
-        </div>
+                <div className="flex items-center gap-2">
+                  {selectedServers.length > 0 && (
+                    <span className="text-gray-400">
+                      {selectedServers.length} server
+                      {selectedServers.length !== 1 ? "s" : ""} selected
+                    </span>
+                  )}
+                  <ChevronDownIcon
+                    className={`${
+                      open ? "transform rotate-180" : ""
+                    } w-5 h-5 text-gray-400 transition-transform duration-200`}
+                  />
+                </div>
+              </DisclosureButton>
 
-        {/* Add ScheduleManager after the server selection */}
+              {open && (
+                <div className="bg-gray-850/95 px-4 rounded-b-xl shadow-lg">
+                  <div className="flex flex-col">
+                    <p className="text-gray-400 text-sm pl-1 select-none pointer-events-none">
+                      Select one or more servers to test
+                    </p>
+                  </div>
+                  <ServerList
+                    servers={servers}
+                    selectedServers={selectedServers}
+                    onSelect={handleServerSelect}
+                    multiSelect={options.multiServer}
+                    onMultiSelectChange={(enabled) =>
+                      setOptions((prev) => ({ ...prev, multiServer: enabled }))
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </Disclosure>
+
+        {/* Schedule Manager */}
         <ScheduleManager
           servers={servers}
           selectedServers={selectedServers}
@@ -1009,3 +288,22 @@ export default function SpeedTest() {
     </div>
   );
 }
+
+// Helper Components
+const MetricCard: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  value: string;
+  unit: string;
+}> = ({ icon, title, value, unit }) => (
+  <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
+    <div className="flex items-center gap-3 mb-4">
+      {icon}
+      <h3 className="text-gray-400 font-medium">{title}</h3>
+    </div>
+    <div className="text-white text-3xl font-bold">
+      {value}
+      <span className="text-xl font-normal text-gray-400 ml-1">{unit}</span>
+    </div>
+  </div>
+);

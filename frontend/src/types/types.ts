@@ -28,4 +28,30 @@ export interface TestOptions {
   enableUpload: boolean;
   enablePacketLoss: boolean;
   serverIds: string[];
+}
+
+export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
+
+export interface TestProgress {
+  currentServer: string;
+  currentTest: string;
+  currentSpeed: number;
+  progress: number;
+  isComplete: boolean;
+  type: "download" | "upload" | "ping";
+  speed: number;
+  latency?: number;
+  packetLoss?: number;
+}
+
+export interface SpeedTestResult {
+  id: number;
+  serverId: string;
+  serverName: string;
+  downloadSpeed: number;
+  uploadSpeed: number;
+  latency: string;
+  jitter?: number;
+  packetLoss?: number;
+  createdAt: string;
 } 
