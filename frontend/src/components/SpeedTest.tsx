@@ -11,6 +11,7 @@ import {
   SpeedTestResult,
   TestProgress as TestProgressType,
   TimeRange,
+  Schedule,
 } from "../types/types";
 import { Disclosure, DisclosureButton } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
@@ -29,7 +30,8 @@ interface SpeedUpdate {
   speed: number;
   progress: number;
   serverName: string;
-  latency?: number;
+  latency?: string;
+  isScheduled: boolean;
 }
 
 export default function SpeedTest() {
@@ -52,6 +54,8 @@ export default function SpeedTest() {
     const saved = localStorage.getItem("speedtest-time-range");
     return (saved as TimeRange) || "1w";
   });
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [scheduledTestRunning, setScheduledTestRunning] = useState(false);
 
   const fetchServers = async () => {
     setLoading(true);
@@ -107,6 +111,66 @@ export default function SpeedTest() {
     });
   };
 
+  const runTest = async () => {
+    if (selectedServers.length === 0) {
+      setError("Please select at least one server");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setTestStatus("running");
+
+    try {
+      const response = await fetch("/api/speedtest", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify({
+          ...options,
+          serverIds: selectedServers.map((s) => s.id),
+        }),
+      });
+
+      const contentType = response.headers.get("content-type");
+      let result;
+      if (contentType && contentType.includes("application/json")) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        console.error("Non-JSON response:", text);
+        throw new Error("Invalid response format from server");
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || `HTTP error! status: ${response.status}`
+        );
+      }
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      await fetchHistory();
+      setProgress(null);
+      setTestStatus("complete");
+    } catch (error) {
+      console.error("Speed test error:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to run speed test"
+      );
+      setTestStatus("idle");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchServers();
     fetchHistory();
@@ -115,17 +179,48 @@ export default function SpeedTest() {
   useEffect(() => {
     if (!loading) return;
 
+    let pollCount = 0;
+    const maxPolls = 180;
+
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch("/api/speedtest/status");
-        if (!response.ok) return;
+        pollCount++;
+        if (pollCount > maxPolls) {
+          clearInterval(pollInterval);
+          setError("Test timed out after 3 minutes");
+          setLoading(false);
+          setTestStatus("idle");
+          return;
+        }
+
+        const response = await fetch("/api/speedtest/status", {
+          headers: {
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          console.warn("Status check failed:", response.status);
+          return;
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType?.includes("application/json")) {
+          console.warn("Invalid content type:", contentType);
+          return;
+        }
 
         const update: SpeedUpdate = await response.json();
+
         if (update.isComplete || update.type === "complete") {
           clearInterval(pollInterval);
           setTestStatus("complete");
           setProgress(null);
           setLoading(false);
+          await fetchHistory();
         } else if (update.speed > 0) {
           setTestStatus("running");
           setProgress({
@@ -137,15 +232,78 @@ export default function SpeedTest() {
             type: update.type,
             speed: update.speed,
             latency: update.latency,
+            isScheduled: update.isScheduled,
           });
         }
       } catch (error) {
-        console.error("Failed to fetch status:", error);
+        console.error("Status check error:", error);
       }
     }, 1000);
 
     return () => clearInterval(pollInterval);
   }, [loading]);
+
+  const fetchSchedules = async () => {
+    try {
+      const response = await fetch("/api/schedules");
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      setSchedules(data || []);
+    } catch (error) {
+      console.error("Failed to fetch schedules:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchSchedules();
+  }, []);
+
+  useEffect(() => {
+    const pollScheduledTests = setInterval(async () => {
+      try {
+        const response = await fetch("/api/speedtest/status", {
+          headers: {
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+
+        if (!response.ok) return;
+
+        const update: SpeedUpdate = await response.json();
+
+        if (update.isScheduled) {
+          setScheduledTestRunning(true);
+          setTestStatus("running");
+          setProgress({
+            currentServer: update.serverName,
+            currentTest: update.type,
+            currentSpeed: update.speed,
+            progress: update.progress,
+            isComplete: update.isComplete,
+            type: update.type,
+            speed: update.speed,
+            latency: update.latency,
+            isScheduled: update.isScheduled,
+          });
+
+          if (update.isComplete) {
+            setScheduledTestRunning(false);
+            setTestStatus("complete");
+            setProgress(null);
+            await Promise.all([fetchHistory(), fetchSchedules()]);
+          }
+        }
+      } catch (error) {
+        console.error("Scheduled test status check error:", error);
+      }
+    }, 1000);
+
+    return () => clearInterval(pollScheduledTests);
+  }, []);
 
   return (
     <div className="min-h-screen">
@@ -166,7 +324,7 @@ export default function SpeedTest() {
         </div>
 
         {/* Test Progress */}
-        {testStatus === "running" && progress && (
+        {(testStatus === "running" || scheduledTestRunning) && progress && (
           <TestProgress progress={progress} />
         )}
 
@@ -181,12 +339,22 @@ export default function SpeedTest() {
         {history.length > 0 && (
           <div className="mb-6">
             <h2 className="text-white text-xl font-semibold">Latest Run</h2>
-            <div className="text-gray-400 text-sm mb-4">
-              Last test run:{" "}
-              {new Date(history[0].createdAt).toLocaleString(undefined, {
-                dateStyle: "short",
-                timeStyle: "short",
-              })}
+            <div className="flex justify-between items-center text-gray-400 text-sm mb-4">
+              <div>
+                Last test run:{" "}
+                {new Date(history[0].createdAt).toLocaleString(undefined, {
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })}
+              </div>
+              {schedules?.length > 0 && (
+                <div>
+                  Next scheduled run:{" "}
+                  <span className="text-blue-400">
+                    {formatNextRun(schedules[0].nextRun)}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 cursor-default">
               <MetricCard
@@ -270,6 +438,8 @@ export default function SpeedTest() {
                     onMultiSelectChange={(enabled) =>
                       setOptions((prev) => ({ ...prev, multiServer: enabled }))
                     }
+                    onRunTest={runTest}
+                    isLoading={loading}
                   />
                 </div>
               )}
@@ -307,3 +477,20 @@ const MetricCard: React.FC<{
     </div>
   </div>
 );
+
+const formatNextRun = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  const diffMins = Math.round(diffMs / 60000);
+
+  if (diffMins < 60) {
+    return `in ${diffMins} minute${diffMins !== 1 ? "s" : ""}`;
+  } else if (diffMins < 1440) {
+    const hours = Math.floor(diffMins / 60);
+    return `in ${hours} hour${hours !== 1 ? "s" : ""}`;
+  } else {
+    const days = Math.floor(diffMins / 1440);
+    return `in ${days} day${days !== 1 ? "s" : ""}`;
+  }
+};

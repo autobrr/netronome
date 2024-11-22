@@ -9,6 +9,8 @@ interface ServerListProps {
   onSelect: (server: Server) => void;
   multiSelect: boolean;
   onMultiSelectChange: (enabled: boolean) => void;
+  onRunTest: () => Promise<void>;
+  isLoading: boolean;
 }
 
 export const ServerList: React.FC<ServerListProps> = ({
@@ -17,6 +19,8 @@ export const ServerList: React.FC<ServerListProps> = ({
   onSelect,
   multiSelect,
   onMultiSelectChange,
+  onRunTest,
+  isLoading,
 }) => {
   const [displayCount, setDisplayCount] = useState(6);
   const [searchTerm, setSearchTerm] = useState("");
@@ -46,7 +50,7 @@ export const ServerList: React.FC<ServerListProps> = ({
 
   return (
     <motion.div
-      className="mt-1 select-none pointer-events-none server-list-animate"
+      className="mt-1 select-none pointer-events-none server-list-animate pb-4"
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
@@ -62,26 +66,52 @@ export const ServerList: React.FC<ServerListProps> = ({
         }
       }}
     >
-      {/* Multi-select Toggle */}
-      <div className="flex items-center justify-end mb-4">
-        <Field>
-          <div className="flex items-center">
-            <Label className="mr-3 text-sm text-gray-400">Multi-select</Label>
-            <Switch
-              checked={multiSelect}
-              onChange={onMultiSelectChange}
-              className={`${
-                multiSelect ? "bg-blue-500" : "bg-gray-700"
-              } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none`}
-            >
-              <span
+      {/* Controls Header */}
+      <div className="flex justify-end mb-4">
+        <div className="flex flex-col gap-2">
+          {/* Run Test Button */}
+          <button
+            onClick={onRunTest}
+            disabled={isLoading || selectedServers.length === 0}
+            className={`
+              px-3 py-2 
+              rounded-lg 
+              transition-colors
+              mb-2
+              ${
+                isLoading || selectedServers.length === 0
+                  ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                  : "bg-blue-500 hover:bg-blue-600 text-white"
+              }
+            `}
+          >
+            {isLoading
+              ? "Running Test..."
+              : selectedServers.length === 0
+              ? "Select a server"
+              : "Run Test"}
+          </button>
+
+          {/* Multi-select Toggle */}
+          <Field>
+            <div className="flex items-center justify-end gap-3">
+              <Label className="text-sm text-gray-400">Multi-select</Label>
+              <Switch
+                checked={multiSelect}
+                onChange={onMultiSelectChange}
                 className={`${
-                  multiSelect ? "translate-x-6" : "translate-x-1"
-                } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
-              />
-            </Switch>
-          </div>
-        </Field>
+                  multiSelect ? "bg-blue-500" : "bg-gray-700"
+                } relative inline-flex h-6 w-11 items-center rounded-full`}
+              >
+                <span
+                  className={`${
+                    multiSelect ? "translate-x-6" : "translate-x-1"
+                  } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                />
+              </Switch>
+            </div>
+          </Field>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 mb-4">
@@ -90,7 +120,7 @@ export const ServerList: React.FC<ServerListProps> = ({
           <input
             type="text"
             placeholder="Search servers..."
-            className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -124,15 +154,20 @@ export const ServerList: React.FC<ServerListProps> = ({
               onClick={() => onSelect(server)}
               className={`w-full p-4 rounded-lg text-left transition-colors ${
                 selectedServers.some((s) => s.id === server.id)
-                  ? "bg-blue-500/20 border-blue-500"
-                  : "bg-gray-800/50 border-gray-900 hover:bg-gray-800"
+                  ? "bg-blue-500/10 border-blue-500/50 shadow-lg"
+                  : "bg-gray-800/50 border-gray-900 hover:bg-gray-800 shadow-lg"
               } border`}
             >
               <div className="flex flex-col gap-1">
-                <span className="text-blue-400 font-medium">
+                <span className="text-blue-300 font-medium">
                   {server.sponsor}
                 </span>
-                <span className="text-gray-400 text-sm">{server.name}</span>
+                <span className="text-gray-400 text-sm">
+                  {server.name} -{" "}
+                  <span className="font-semibold">
+                    {server.url.split("//")[1].split("/")[0]}
+                  </span>
+                </span>
                 <span className="text-gray-400 text-sm">{server.country}</span>
               </div>
             </button>

@@ -3,6 +3,7 @@ package speedtest
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"sync"
@@ -63,12 +64,13 @@ type ProgressUpdate struct {
 }
 
 type SpeedUpdate struct {
-	Type       string  `json:"type"`
-	ServerName string  `json:"serverName"`
-	Speed      float64 `json:"speed"`
-	Progress   float64 `json:"progress"`
-	IsComplete bool    `json:"isComplete"`
-	Latency    string  `json:"latency,omitempty"`
+	Type        string  `json:"type"`
+	ServerName  string  `json:"serverName"`
+	Speed       float64 `json:"speed"`
+	Progress    float64 `json:"progress"`
+	IsComplete  bool    `json:"isComplete"`
+	Latency     string  `json:"latency,omitempty"`
+	IsScheduled bool    `json:"isScheduled"`
 }
 
 type service struct {
@@ -89,6 +91,11 @@ func New(server *Server, db database.Service) Service {
 }
 
 func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
+	log.Debug().
+		Bool("isScheduled", opts.IsScheduled).
+		Str("server_ids", fmt.Sprintf("%v", opts.ServerIDs)).
+		Msg("Starting speed test")
+
 	serverList, err := s.client.FetchServers()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch servers: %w", err)
@@ -134,11 +141,12 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 	if err := selectedServer.PingTest(func(latency time.Duration) {
 		if s.server.BroadcastUpdate != nil {
 			s.server.BroadcastUpdate(types.SpeedUpdate{
-				Type:       "ping",
-				ServerName: selectedServer.Name,
-				Latency:    latency.String(),
-				Progress:   100,
-				IsComplete: false,
+				Type:        "ping",
+				ServerName:  selectedServer.Name,
+				Latency:     latency.String(),
+				Progress:    100,
+				IsComplete:  false,
+				IsScheduled: opts.IsScheduled,
 			})
 		}
 	}); err != nil {
@@ -149,23 +157,31 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 
 	if s.server.BroadcastUpdate != nil {
 		s.server.BroadcastUpdate(types.SpeedUpdate{
-			Type:       "ping",
-			ServerName: selectedServer.Name,
-			Latency:    selectedServer.Latency.String(),
-			Progress:   100,
-			IsComplete: false,
+			Type:        "ping",
+			ServerName:  selectedServer.Name,
+			Latency:     selectedServer.Latency.String(),
+			Progress:    100,
+			IsComplete:  false,
+			IsScheduled: opts.IsScheduled,
 		})
 	}
 
 	if opts.EnableDownload {
+		startTime := time.Now()
+		expectedDuration := 10 * time.Second // Typical test duration
+
 		selectedServer.Context.SetCallbackDownload(func(speed st.ByteRate) {
 			if s.server.BroadcastUpdate != nil {
+				elapsed := time.Since(startTime)
+				progress := math.Min(100, (elapsed.Seconds()/expectedDuration.Seconds())*100)
+
 				s.server.BroadcastUpdate(types.SpeedUpdate{
-					Type:       "download",
-					ServerName: selectedServer.Name,
-					Speed:      speed.Mbps(),
-					Progress:   0.5,
-					IsComplete: false,
+					Type:        "download",
+					ServerName:  selectedServer.Name,
+					Speed:       speed.Mbps(),
+					Progress:    progress,
+					IsComplete:  false,
+					IsScheduled: opts.IsScheduled,
 				})
 			}
 		})
@@ -178,11 +194,12 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 		result.DownloadSpeed = result.Download
 		if s.server.BroadcastUpdate != nil {
 			s.server.BroadcastUpdate(types.SpeedUpdate{
-				Type:       "download",
-				ServerName: selectedServer.Name,
-				Speed:      result.DownloadSpeed,
-				Progress:   1.0,
-				IsComplete: true,
+				Type:        "download",
+				ServerName:  selectedServer.Name,
+				Speed:       result.DownloadSpeed,
+				Progress:    1.0,
+				IsComplete:  true,
+				IsScheduled: opts.IsScheduled,
 			})
 		}
 
@@ -197,14 +214,21 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 	}
 
 	if opts.EnableUpload {
+		startTime := time.Now()
+		expectedDuration := 10 * time.Second // Typical test duration
+
 		selectedServer.Context.SetCallbackUpload(func(speed st.ByteRate) {
 			if s.server.BroadcastUpdate != nil {
+				elapsed := time.Since(startTime)
+				progress := math.Min(100, (elapsed.Seconds()/expectedDuration.Seconds())*100)
+
 				s.server.BroadcastUpdate(types.SpeedUpdate{
-					Type:       "upload",
-					ServerName: selectedServer.Name,
-					Speed:      speed.Mbps(),
-					Progress:   0.5,
-					IsComplete: false,
+					Type:        "upload",
+					ServerName:  selectedServer.Name,
+					Speed:       speed.Mbps(),
+					Progress:    progress,
+					IsComplete:  false,
+					IsScheduled: opts.IsScheduled,
 				})
 			}
 		})
@@ -227,11 +251,12 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 
 		if s.server.BroadcastUpdate != nil {
 			s.server.BroadcastUpdate(types.SpeedUpdate{
-				Type:       "upload",
-				ServerName: selectedServer.Name,
-				Speed:      result.UploadSpeed,
-				Progress:   1.0,
-				IsComplete: true,
+				Type:        "upload",
+				ServerName:  selectedServer.Name,
+				Speed:       result.UploadSpeed,
+				Progress:    1.0,
+				IsComplete:  true,
+				IsScheduled: opts.IsScheduled,
 			})
 		}
 	}

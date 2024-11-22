@@ -16,11 +16,14 @@ export interface Schedule {
   id?: number;
   serverIds: string[];
   interval: string;
-  lastRun?: string;
   nextRun: string;
   enabled: boolean;
-  options: TestOptions;
-  createdAt?: string;
+  options: {
+    enableDownload: boolean;
+    enableUpload: boolean;
+    enablePacketLoss: boolean;
+    serverIds: string[];
+  };
 }
 
 export interface TestOptions {
@@ -28,20 +31,22 @@ export interface TestOptions {
   enableUpload: boolean;
   enablePacketLoss: boolean;
   serverIds: string[];
+  isScheduled?: boolean;
 }
 
 export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
 
 export interface TestProgress {
-  currentServer: string;
-  currentTest: string;
-  currentSpeed: number;
+  type: "download" | "upload" | "ping" | "complete";
   progress: number;
-  isComplete: boolean;
-  type: "download" | "upload" | "ping";
-  speed: number;
-  latency?: number;
+  currentSpeed: number;
+  currentServer: string;
+  currentTest: "download" | "upload" | "ping" | "complete";
+  latency?: string;
   packetLoss?: number;
+  isScheduled: boolean;
+  speed?: number;
+  isComplete: boolean;
 }
 
 export interface SpeedTestResult {

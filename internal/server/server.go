@@ -69,7 +69,9 @@ func (s *Server) BroadcastUpdate(update types.SpeedUpdate) {
 	s.lastUpdate = &update
 
 	log.Debug().
-		Interface("update", update).
+		Bool("isScheduled", update.IsScheduled).
+		Str("type", update.Type).
+		Str("server", update.ServerName).
 		Msg("Broadcasting speed test update")
 }
 

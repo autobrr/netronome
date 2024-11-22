@@ -7,15 +7,17 @@ type TestOptions struct {
 	EnableUpload     bool     `json:"enableUpload"`
 	EnablePacketLoss bool     `json:"enablePacketLoss"`
 	ServerIDs        []string `json:"serverIds"`
+	IsScheduled      bool     `json:"isScheduled"`
 }
 
 type SpeedUpdate struct {
-	Type       string  `json:"type"`
-	ServerName string  `json:"serverName"`
-	Speed      float64 `json:"speed"`
-	Progress   float64 `json:"progress"`
-	IsComplete bool    `json:"isComplete"`
-	Latency    string  `json:"latency,omitempty"`
+	Type        string  `json:"type"`
+	ServerName  string  `json:"serverName"`
+	Speed       float64 `json:"speed"`
+	Progress    float64 `json:"progress"`
+	IsComplete  bool    `json:"isComplete"`
+	Latency     string  `json:"latency,omitempty"`
+	IsScheduled bool    `json:"isScheduled"`
 }
 
 type Schedule struct {
