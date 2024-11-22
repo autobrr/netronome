@@ -23,6 +23,7 @@ type Result struct {
 	UploadSpeed   float64   `json:"uploadSpeed"`
 	Latency       string    `json:"latency"`
 	PacketLoss    float64   `json:"packetLoss"`
+	Jitter        float64   `json:"jitter"`
 	Error         string    `json:"error,omitempty"`
 	Download      float64   `json:"-"`
 	Upload        float64   `json:"-"`
@@ -242,6 +243,7 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 	selectedServer.Context.Reset()
 
 	// Update the database save operation
+	jitterFloat := selectedServer.Jitter.Seconds() * 1000
 	dbResult, err := s.db.SaveSpeedTest(context.Background(), database.SpeedTestResult{
 		ServerName:    selectedServer.Name,
 		ServerID:      selectedServer.ID,
@@ -249,6 +251,7 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 		UploadSpeed:   result.UploadSpeed,
 		Latency:       result.Latency,
 		PacketLoss:    result.PacketLoss,
+		Jitter:        &jitterFloat,
 	})
 	if err != nil {
 		log.Error().Err(err).Str("type", fmt.Sprintf("%T", err)).Str("message", err.Error()).Msg("Failed to save result to database")

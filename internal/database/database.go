@@ -5,14 +5,17 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog/log"
 
+	"speedtrackerr/internal/database/migrations"
 	"speedtrackerr/internal/types"
 )
 
@@ -160,49 +163,113 @@ type SpeedTestResult struct {
 	UploadSpeed   float64   `json:"uploadSpeed"`
 	Latency       string    `json:"latency"`
 	PacketLoss    float64   `json:"packetLoss"`
+	Jitter        *float64  `json:"jitter"`
 	CreatedAt     time.Time `json:"createdAt"`
 }
 
 // InitializeTables creates necessary database tables
 func (s *service) InitializeTables(ctx context.Context) error {
-	queries := []string{
-		`CREATE TABLE IF NOT EXISTS speed_tests (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			server_name TEXT NOT NULL,
-			server_id TEXT NOT NULL,
-			download_speed REAL NOT NULL,
-			upload_speed REAL NOT NULL,
-			latency TEXT NOT NULL,
-			packet_loss REAL NOT NULL,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		)`,
-		`CREATE TABLE IF NOT EXISTS schedules (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			server_ids TEXT NOT NULL,
-			interval TEXT NOT NULL,
-			last_run DATETIME,
-			next_run DATETIME NOT NULL,
-			enabled BOOLEAN NOT NULL DEFAULT 1,
-			options TEXT NOT NULL,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		)`,
+	// Create schema_migrations table first
+	query := `CREATE TABLE IF NOT EXISTS schema_migrations (
+		version INTEGER PRIMARY KEY,
+		applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	if _, err := s.db.ExecContext(ctx, query); err != nil {
+		return fmt.Errorf("failed to create schema_migrations table: %w", err)
 	}
 
-	for _, query := range queries {
-		if _, err := s.db.ExecContext(ctx, query); err != nil {
-			return fmt.Errorf("failed to create table: %w", err)
+	// Get applied migrations
+	applied, err := s.getAppliedMigrations(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get applied migrations: %w", err)
+	}
+
+	// Apply pending migrations
+	for _, fileName := range migrations.MigrationFiles {
+		version := getMigrationVersion(fileName)
+		if !contains(applied, version) {
+			if err := s.applyMigration(ctx, fileName, version); err != nil {
+				return fmt.Errorf("failed to apply migration %s: %w", fileName, err)
+			}
 		}
 	}
 
 	return nil
 }
 
+func (s *service) getAppliedMigrations(ctx context.Context) ([]int, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT version FROM schema_migrations ORDER BY version")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var versions []int
+	for rows.Next() {
+		var version int
+		if err := rows.Scan(&version); err != nil {
+			return nil, err
+		}
+		versions = append(versions, version)
+	}
+	return versions, nil
+}
+
+func (s *service) applyMigration(ctx context.Context, fileName string, version int) error {
+	// Read migration file
+	content, err := fs.ReadFile(migrations.SchemaMigrations, fileName)
+	if err != nil {
+		return err
+	}
+
+	// Start transaction
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Apply migration
+	if _, err := tx.ExecContext(ctx, string(content)); err != nil {
+		return err
+	}
+
+	// Record migration
+	if _, err := tx.ExecContext(ctx,
+		"INSERT INTO schema_migrations (version) VALUES (?)",
+		version,
+	); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func getMigrationVersion(fileName string) int {
+	parts := strings.Split(fileName, "_")
+	if len(parts) > 0 {
+		version, _ := strconv.Atoi(parts[0])
+		return version
+	}
+	return 0
+}
+
+func contains(slice []int, item int) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
 // SaveSpeedTest stores a new speed test result in the database
 func (s *service) SaveSpeedTest(ctx context.Context, result SpeedTestResult) (*SpeedTestResult, error) {
 	query := `
 	INSERT INTO speed_tests (
-		server_name, server_id, download_speed, upload_speed, latency, packet_loss
-	) VALUES (?, ?, ?, ?, ?, ?)
+		server_name, server_id, download_speed, upload_speed, latency, packet_loss, jitter, created_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 	RETURNING id, created_at`
 
 	err := s.db.QueryRowContext(
@@ -214,6 +281,7 @@ func (s *service) SaveSpeedTest(ctx context.Context, result SpeedTestResult) (*S
 		result.UploadSpeed,
 		result.Latency,
 		result.PacketLoss,
+		result.Jitter,
 	).Scan(&result.ID, &result.CreatedAt)
 
 	if err != nil {
@@ -226,7 +294,7 @@ func (s *service) SaveSpeedTest(ctx context.Context, result SpeedTestResult) (*S
 // GetSpeedTests retrieves speed test results
 func (s *service) GetSpeedTests(ctx context.Context, limit int) ([]SpeedTestResult, error) {
 	query := `
-	SELECT id, server_name, server_id, download_speed, upload_speed, latency, packet_loss, created_at
+	SELECT id, server_name, server_id, download_speed, upload_speed, latency, packet_loss, jitter, created_at
 	FROM speed_tests
 	ORDER BY created_at DESC
 	LIMIT ?`
@@ -248,6 +316,7 @@ func (s *service) GetSpeedTests(ctx context.Context, limit int) ([]SpeedTestResu
 			&result.UploadSpeed,
 			&result.Latency,
 			&result.PacketLoss,
+			&result.Jitter,
 			&result.CreatedAt,
 		)
 		if err != nil {

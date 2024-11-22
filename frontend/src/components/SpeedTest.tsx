@@ -12,6 +12,8 @@ import {
 } from "recharts";
 import ScheduleManager from "./ScheduleManager";
 import { Server } from "../types/types";
+import { ArrowDownIcon, ArrowUpIcon } from "@heroicons/react/24/solid";
+import { IoIosPulse, IoMdGitCompare } from "react-icons/io";
 
 interface SpeedTestResult {
   id: number;
@@ -21,6 +23,7 @@ interface SpeedTestResult {
   uploadSpeed: number;
   latency: string;
   packetLoss: number;
+  jitter?: number;
   createdAt: string;
 }
 
@@ -55,6 +58,7 @@ interface TestProgress {
   progress: number;
   isComplete: boolean;
   latency?: string;
+  packetLoss?: number;
   type: "download" | "upload" | "ping";
   speed: number;
 }
@@ -155,7 +159,7 @@ const ServerList: React.FC<ServerListProps> = ({
 const TestProgress: React.FC<{ progress: TestProgress }> = ({ progress }) => {
   return (
     <div className="bg-gray-850/95 p-4 rounded-xl shadow-lg mb-6 border border-gray-900">
-      <h2 className="text-lg font-semibold mb-2 text-white">
+      <h2 className="text-xl font-semibold mb-2 text-white">
         Test in Progress
       </h2>
       <div className="space-y-2 text-gray-300">
@@ -164,8 +168,14 @@ const TestProgress: React.FC<{ progress: TestProgress }> = ({ progress }) => {
           <div className="flex items-center gap-4">
             <div className="capitalize">{progress.currentTest} Test:</div>
             {progress.currentSpeed > 0 && (
-              <div className="text-xl font-bold">
+              <div className="group relative text-xl font-bold">
                 {progress.currentSpeed.toFixed(2)} Mbps
+                {/* Add tooltip */}
+                {progress.packetLoss !== undefined && (
+                  <div className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 p-2 bg-gray-900 rounded-lg text-sm whitespace-nowrap">
+                    Packet Loss: {progress.packetLoss.toFixed(2)}%
+                  </div>
+                )}
               </div>
             )}
             <div className="animate-pulse text-blue-500">Running...</div>
@@ -208,17 +218,17 @@ const SpeedHistoryChart: React.FC<{
       month: "short",
       day: "numeric",
       hour: "2-digit",
-      minute: "2-digit",
     }),
     download: result.downloadSpeed,
     upload: result.uploadSpeed,
     server: result.serverName,
+    jitter: result.jitter,
   }));
 
   return (
     <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg mb-6 border border-gray-900">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-white">Speed History</h2>
+        <h2 className="text-xl font-bold text-white">Speed History</h2>
         <div className="flex gap-2">
           {(["1d", "3d", "1w", "1m", "all"] as TimeRange[]).map((range) => (
             <button
@@ -264,6 +274,8 @@ const SpeedHistoryChart: React.FC<{
                 offset: 0,
                 className: "fill-gray-400",
               }}
+              domain={[0, "auto"]}
+              allowDataOverflow={false}
             />
             <Tooltip
               wrapperClassName="!bg-gray-800/90 !border-gray-900 !rounded-lg !shadow-xl !backdrop-blur-sm"
@@ -305,6 +317,17 @@ const SpeedHistoryChart: React.FC<{
               activeDot={{ r: 6 }}
               className="!stroke-emerald-500"
             />
+            <Line
+              type="monotone"
+              dataKey="jitter"
+              stroke="#9333EA"
+              name="Jitter"
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 6 }}
+              className="!stroke-purple-500"
+              strokeDasharray="5 5"
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -330,6 +353,7 @@ export default function SpeedTest() {
     "idle"
   );
   const [timeRange, setTimeRange] = useState<TimeRange>("1w");
+  const [isConfigExpanded, setIsConfigExpanded] = useState(false);
 
   const fetchServers = async () => {
     try {
@@ -526,121 +550,76 @@ export default function SpeedTest() {
         )}
 
         {/* Latest Results - Show only if there's history */}
-        {history.length > 0 && (
-          <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900 mb-6">
-            <h2 className="text-xl font-semibold mb-4 text-white">
-              Latest Results
-            </h2>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <p className="text-gray-400">Latency</p>
-                <p className="text-2xl font-bold text-white">
-                  {history[0].latency}
-                </p>
+        <div className="mb-6">
+          <h2 className="text-white text-xl font-semibold">Latest Results</h2>
+          {history.length > 0 && (
+            <div className="text-gray-400 text-sm mb-4">
+              Last test run:{" "}
+              {new Date(history[0].createdAt).toLocaleString(undefined, {
+                dateStyle: "short",
+                timeStyle: "short",
+              })}
+            </div>
+          )}
+          {history.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 cursor-default">
+              {/* Latency Card */}
+              <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
+                <div className="flex items-center gap-3 mb-4">
+                  <IoIosPulse className="w-5 h-5 text-blue-400" />
+                  <h3 className="text-gray-400 font-medium">Latency</h3>
+                </div>
+                <div className="text-white text-3xl font-bold">
+                  {parseFloat(history[0].latency).toFixed(2)}
+                  <span className="text-xl font-normal text-gray-400 ml-1">
+                    ms
+                  </span>
+                </div>
               </div>
-              <div className="text-center">
-                <p className="text-gray-400">Download</p>
-                <p className="text-2xl font-bold text-white">
-                  {history[0].downloadSpeed.toFixed(2)} Mbps
-                </p>
+
+              {/* Download Card */}
+              <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
+                <div className="flex items-center gap-3 mb-4">
+                  <ArrowDownIcon className="w-5 h-5 text-emerald-400" />
+                  <h3 className="text-gray-400 font-medium">Download</h3>
+                </div>
+                <div className="text-white text-3xl font-bold">
+                  {history[0].downloadSpeed.toFixed(2)}
+                  <span className="text-xl font-normal text-gray-400 ml-1">
+                    Mbps
+                  </span>
+                </div>
               </div>
-              <div className="text-center">
-                <p className="text-gray-400">Upload</p>
-                <p className="text-2xl font-bold text-white">
-                  {history[0].uploadSpeed.toFixed(2)} Mbps
-                </p>
+
+              {/* Upload Card */}
+              <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
+                <div className="flex items-center gap-3 mb-4">
+                  <ArrowUpIcon className="w-5 h-5 text-purple-400" />
+                  <h3 className="text-gray-400 font-medium">Upload</h3>
+                </div>
+                <div className="text-white text-3xl font-bold">
+                  {history[0].uploadSpeed.toFixed(2)}
+                  <span className="text-xl font-normal text-gray-400 ml-1">
+                    Mbps
+                  </span>
+                </div>
+              </div>
+
+              {/* Jitter Card */}
+              <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
+                <div className="flex items-center gap-3 mb-4">
+                  <IoMdGitCompare className="w-5 h-5 text-purple-400" />
+                  <h3 className="text-gray-400 font-medium">Jitter</h3>
+                </div>
+                <div className="text-white text-3xl font-bold">
+                  {history[0].jitter?.toFixed(2) ?? "N/A"}
+                  <span className="text-xl font-normal text-gray-400 ml-1">
+                    ms
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Server Selection - Primary Action Area */}
-        <div className="bg-gray-850/95 p-4 rounded-xl shadow-lg mb-6 border border-gray-900">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-white">
-              Test Configuration
-            </h2>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={options.multiServer}
-                onChange={(e) =>
-                  setOptions((prev) => ({
-                    ...prev,
-                    multiServer: e.target.checked,
-                  }))
-                }
-                className="form-checkbox bg-gray-700 border-gray-900"
-              />
-              <label className="text-gray-300">Multi-Server Mode</label>
-            </div>
-          </div>
-
-          {/* Server Search */}
-          <div className="flex gap-3 items-center mb-3">
-            <input
-              type="text"
-              placeholder="Search test servers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 text-sm border border-gray-900 bg-gray-800/50 text-white rounded-lg px-3 py-2 placeholder-gray-500"
-            />
-          </div>
-
-          {/* Server List */}
-          <ServerList
-            servers={filteredServers}
-            selectedServers={selectedServers}
-            onSelect={handleServerSelect}
-          />
-
-          {/* Test Options */}
-          <div className="mt-4 pt-4 border-t border-gray-900">
-            <div className="flex gap-6 text-gray-300">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={options.enableDownload}
-                  onChange={(e) =>
-                    setOptions((prev) => ({
-                      ...prev,
-                      enableDownload: e.target.checked,
-                    }))
-                  }
-                  className="form-checkbox bg-gray-700 border-gray-900"
-                />
-                Download Test
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={options.enableUpload}
-                  onChange={(e) =>
-                    setOptions((prev) => ({
-                      ...prev,
-                      enableUpload: e.target.checked,
-                    }))
-                  }
-                  className="form-checkbox bg-gray-700 border-gray-900"
-                />
-                Upload Test
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={options.enablePacketLoss}
-                  onChange={(e) =>
-                    setOptions((prev) => ({
-                      ...prev,
-                      enablePacketLoss: e.target.checked,
-                    }))
-                  }
-                  className="form-checkbox bg-gray-700 border-gray-900"
-                />
-                Packet Loss Analysis
-              </label>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Historical Data - Show only if there's history */}
@@ -654,6 +633,127 @@ export default function SpeedTest() {
             {/* ... rest of the history table ... */}
           </div>
         )}
+
+        {/* Server Selection - Primary Action Area */}
+        <div className="bg-gray-850/95 p-4 rounded-xl shadow-lg mb-6 border border-gray-900">
+          <div
+            className="flex justify-between items-center cursor-pointer"
+            onClick={() => setIsConfigExpanded(!isConfigExpanded)}
+          >
+            <h2 className="text-white text-xl font-semibold p-1">
+              Server Selection
+            </h2>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400">
+                {selectedServers.length} server
+                {selectedServers.length !== 1 ? "s" : ""} selected
+              </span>
+              <svg
+                className={`w-5 h-5 text-gray-400 transform transition-transform ${
+                  isConfigExpanded ? "rotate-180" : ""
+                }`}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </div>
+          </div>
+
+          <div
+            className={`space-y-4 transition-all duration-200 ${
+              isConfigExpanded ? "opacity-100" : "opacity-0 h-0 overflow-hidden"
+            }`}
+          >
+            {/* Multi-Server Toggle */}
+            <div className="flex items-center justify-end gap-2 pt-4">
+              <label className="flex items-center gap-2 text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={options.multiServer}
+                  onChange={(e) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      multiServer: e.target.checked,
+                    }))
+                  }
+                  className="form-checkbox bg-gray-700 border-gray-900"
+                />
+                Multi-Server Mode
+              </label>
+            </div>
+
+            {/* Server Search */}
+            <div className="flex gap-3 items-center">
+              <input
+                type="text"
+                placeholder="Search test servers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1 text-sm border border-gray-900 bg-gray-800/50 text-white rounded-lg px-3 py-2 placeholder-gray-500"
+              />
+            </div>
+
+            {/* Server List */}
+            <ServerList
+              servers={filteredServers}
+              selectedServers={selectedServers}
+              onSelect={handleServerSelect}
+            />
+
+            {/* Test Options */}
+            <div className="pt-4 border-t border-gray-900">
+              <div className="flex gap-6 text-gray-300">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={options.enableDownload}
+                    onChange={(e) =>
+                      setOptions((prev) => ({
+                        ...prev,
+                        enableDownload: e.target.checked,
+                      }))
+                    }
+                    className="form-checkbox bg-gray-700 border-gray-900"
+                  />
+                  Download Test
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={options.enableUpload}
+                    onChange={(e) =>
+                      setOptions((prev) => ({
+                        ...prev,
+                        enableUpload: e.target.checked,
+                      }))
+                    }
+                    className="form-checkbox bg-gray-700 border-gray-900"
+                  />
+                  Upload Test
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={options.enablePacketLoss}
+                    onChange={(e) =>
+                      setOptions((prev) => ({
+                        ...prev,
+                        enablePacketLoss: e.target.checked,
+                      }))
+                    }
+                    className="form-checkbox bg-gray-700 border-gray-900"
+                  />
+                  Packet Loss Analysis
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Add ScheduleManager after the server selection */}
         <ScheduleManager

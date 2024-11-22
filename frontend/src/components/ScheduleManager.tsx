@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
-import {
-  Box,
-  Button,
-  Switch,
-  Typography,
-  FormControlLabel,
-  CircularProgress,
-  Tooltip,
-} from "@mui/material";
+import { Box, CircularProgress } from "@mui/material";
 import { Schedule, Server } from "../types/types";
-import { Listbox } from "@headlessui/react";
+import {
+  DisclosureButton,
+  DisclosurePanel,
+  Listbox,
+  ListboxButton,
+  ListboxOption,
+  ListboxOptions,
+} from "@headlessui/react";
+import { Popover } from "@headlessui/react";
 import { ChevronUpDownIcon } from "@heroicons/react/20/solid";
+import { Disclosure } from "@headlessui/react";
+import { ChevronUpIcon } from "@heroicons/react/20/solid";
 
 interface ScheduleManagerProps {
   servers: Server[];
@@ -41,7 +43,7 @@ export default function ScheduleManager({
 }: ScheduleManagerProps) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [interval, setInterval] = useState("5m");
-  const [enabled, setEnabled] = useState(true);
+  const [enabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -164,10 +166,6 @@ export default function ScheduleManager({
     }
   };
 
-  const handleEnabledChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setEnabled(event.target.checked);
-  };
-
   const isButtonDisabled =
     loading || parentLoading || selectedServers.length === 0;
 
@@ -181,147 +179,141 @@ export default function ScheduleManager({
 
   return (
     <Box sx={{ mt: 4 }}>
-      <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg mb-6 border border-gray-900">
-        <Typography variant="h6" gutterBottom className="text-white mb-4">
-          Schedule Speed Tests
-        </Typography>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <div>
-              <Listbox value={interval} onChange={setInterval}>
-                <div className="relative">
-                  <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-gray-800/50 py-2 pl-3 pr-10 text-left border border-gray-900 focus:outline-none focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500">
-                    <span className="block truncate text-gray-200">
-                      {
-                        intervalOptions.find((opt) => opt.value === interval)
-                          ?.label
-                      }
-                    </span>
-                    <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                      <ChevronUpDownIcon
-                        className="h-5 w-5 text-gray-400"
-                        aria-hidden="true"
-                      />
-                    </span>
-                  </Listbox.Button>
-                  <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-gray-800 py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                    {intervalOptions.map((option) => (
-                      <Listbox.Option
-                        key={option.value}
-                        value={option.value}
-                        className={({ active }) =>
-                          `relative cursor-pointer select-none py-2 pl-3 pr-9 ${
-                            active ? "bg-gray-700 text-white" : "text-gray-200"
-                          }`
-                        }
-                      >
-                        {({ selected }) => (
-                          <span
-                            className={`block truncate ${
-                              selected ? "font-medium" : "font-normal"
-                            }`}
-                          >
-                            {option.label}
-                          </span>
-                        )}
-                      </Listbox.Option>
-                    ))}
-                  </Listbox.Options>
-                </div>
-              </Listbox>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={enabled}
-                  onChange={handleEnabledChange}
-                  className="text-blue-500"
-                />
-              }
-              label="Enable Schedule"
-              className="text-gray-300"
-            />
-            <Button
-              variant="contained"
-              onClick={handleCreateSchedule}
-              disabled={isButtonDisabled}
-              sx={{
-                textTransform: "none",
-                fontSize: "1rem",
-              }}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg disabled:opacity-50"
+      <Disclosure defaultOpen={false}>
+        {({ open }) => (
+          <div className="flex flex-col">
+            <DisclosureButton
+              className={`flex justify-between items-center w-full p-4 bg-gray-850/95 ${
+                open ? "rounded-t-xl" : "rounded-xl"
+              } shadow-lg border-b-0 border-gray-900 text-left`}
             >
-              {loading ? "Creating schedule..." : "Create schedule"}
-            </Button>
-          </div>
-        </div>
+              <h6 className="text-white text-xl ml-1 font-semibold">
+                Schedule Manager
+              </h6>
+              <ChevronUpIcon
+                className={`${
+                  open ? "transform rotate-180" : ""
+                } w-5 h-5 text-gray-400 transition-transform duration-200`}
+              />
+            </DisclosureButton>
 
-        {error && (
-          <Typography color="error" sx={{ mt: 2 }}>
-            {error}
-          </Typography>
-        )}
-      </div>
-
-      {schedules.length > 0 && (
-        <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
-          <Typography variant="h6" gutterBottom className="text-white mb-4">
-            Active Schedules
-          </Typography>
-
-          <div className="space-y-4">
-            {schedules.map((schedule) => (
-              <div
-                key={schedule.id}
-                className="bg-gray-800/50 p-4 rounded-lg border border-gray-900"
-              >
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <div className="w-full sm:w-1/2">
-                    <div className="space-y-2">
-                      <Typography
-                        variant="subtitle1"
-                        className="text-white font-medium"
-                      >
-                        Test Frequency: Every {schedule.interval}
-                      </Typography>
-                      <Typography variant="body2" className="text-gray-300">
-                        {schedule.serverIds.length} Server
-                        {schedule.serverIds.length !== 1 ? "s" : ""} Selected
-                      </Typography>
-                    </div>
-                  </div>
-                  <div className="w-full sm:w-1/2">
-                    <div className="flex justify-between items-center">
-                      <Tooltip
-                        title={new Date(schedule.nextRun).toLocaleString()}
-                        placement="top"
-                      >
-                        <Typography variant="body2" className="text-gray-300">
-                          Next Run: {formatNextRun(schedule.nextRun)}
-                        </Typography>
-                      </Tooltip>
-                      <Button
-                        variant="outlined"
-                        onClick={() =>
-                          schedule.id && handleDeleteSchedule(schedule.id)
-                        }
-                        className="border-red-500 text-red-500 hover:bg-red-500/10"
-                        size="small"
-                      >
-                        Delete
-                      </Button>
-                    </div>
+            <DisclosurePanel className="bg-gray-850/95 p-4 rounded-b-xl shadow-lg border-t-0 border-gray-900">
+              <div className="flex flex-col gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <Listbox value={interval} onChange={setInterval}>
+                      <div className="relative">
+                        <ListboxButton className="relative w-full cursor-pointer rounded-lg bg-gray-800/50 py-2 pl-3 pr-10 text-left border border-gray-900 focus:outline-none focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500">
+                          <span className="block truncate text-gray-200">
+                            {
+                              intervalOptions.find(
+                                (opt) => opt.value === interval
+                              )?.label
+                            }
+                          </span>
+                          <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                            <ChevronUpDownIcon
+                              className="h-5 w-5 text-gray-400"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </ListboxButton>
+                        <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-gray-800 py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                          {intervalOptions.map((option) => (
+                            <ListboxOption
+                              key={option.value}
+                              value={option.value}
+                              className={({ active }) =>
+                                `relative cursor-pointer select-none py-2 pl-3 pr-9 ${
+                                  active
+                                    ? "bg-gray-700 text-white"
+                                    : "text-gray-200"
+                                }`
+                              }
+                            >
+                              {({ selected }) => (
+                                <span
+                                  className={`block truncate ${
+                                    selected ? "font-medium" : "font-normal"
+                                  }`}
+                                >
+                                  {option.label}
+                                </span>
+                              )}
+                            </ListboxOption>
+                          ))}
+                        </ListboxOptions>
+                      </div>
+                      <div className="flex items-center justify-between pt-4 pl-1">
+                        <button
+                          onClick={handleCreateSchedule}
+                          disabled={isButtonDisabled}
+                          className={`bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded disabled:opacity-50`}
+                        >
+                          {loading ? "Creating schedule..." : "Create schedule"}
+                        </button>
+                      </div>
+                    </Listbox>
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between mt-4"></div>
+
+                {error && <p className="text-red-500 mt-2">{error}</p>}
               </div>
-            ))}
+
+              {schedules.length > 0 && (
+                <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
+                  <h6 className="text-white mb-4 text-lg font-semibold">
+                    Active Schedules
+                  </h6>
+
+                  <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                    {schedules.map((schedule) => (
+                      <div
+                        key={schedule.id}
+                        className="bg-gray-800/50 p-4 rounded-lg border border-gray-900 flex flex-col"
+                      >
+                        <div className="flex flex-col sm:flex-row justify-between items-center">
+                          <div className="flex-1">
+                            <h6 className="text-white font-medium">
+                              Test Frequency: Every {schedule.interval}
+                            </h6>
+                            <p className="text-gray-300">
+                              {schedule.serverIds.length} Server
+                              {schedule.serverIds.length !== 1 ? "s" : ""}{" "}
+                              Selected
+                            </p>
+                          </div>
+                          <div className="flex flex-col sm:flex-row items-center mt-2 sm:mt-0">
+                            <Popover
+                              title={new Date(
+                                schedule.nextRun
+                              ).toLocaleString()}
+                            >
+                              <p className="text-gray-300 pr-4">
+                                Next Run: {formatNextRun(schedule.nextRun)}
+                              </p>
+                            </Popover>
+                            <button
+                              onClick={() =>
+                                schedule.id && handleDeleteSchedule(schedule.id)
+                              }
+                              className="border-red-500 text-red-500 bg-red-200/10 hover:bg-red-500/10 transition-colors ease-in-out ml-2 px-4 py-2 rounded"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </DisclosurePanel>
           </div>
-        </div>
-      )}
+        )}
+      </Disclosure>
     </Box>
   );
 }

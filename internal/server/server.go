@@ -79,7 +79,7 @@ func (s *Server) RegisterRoutes() {
 		api.GET("/servers", s.handleGetServers)
 		api.POST("/speedtest", s.handleSpeedTest)
 		api.GET("/speedtest/status", s.handleSpeedTestStatus)
-		api.GET("/speedtest/history", s.handleGetSpeedTestHistory)
+		api.GET("/speedtest/history", s.handleSpeedTestHistory)
 		api.GET("/schedules", s.handleGetSchedules)
 		api.POST("/schedules", s.handleCreateSchedule)
 		api.PUT("/schedules/:id", s.handleUpdateSchedule)
@@ -115,8 +115,37 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 }
 
 func (s *Server) handleSpeedTestHistory(c *gin.Context) {
-	history := s.speedtest.GetHistory()
-	c.JSON(http.StatusOK, history)
+	ctx := c.Request.Context()
+
+	// First, try to get history from the database
+	dbHistory, err := s.db.GetSpeedTests(ctx, 100) // Get last 100 results
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to retrieve speed test history from database")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve speed test history"})
+		return
+	}
+
+	// If no database results, fall back to in-memory history
+	if len(dbHistory) == 0 {
+		inMemoryHistory := s.speedtest.GetHistory()
+
+		// Convert in-memory history to database result type
+		dbHistory = make([]database.SpeedTestResult, len(inMemoryHistory))
+		for i, result := range inMemoryHistory {
+			dbHistory[i] = database.SpeedTestResult{
+				ServerName:    result.Server,
+				ServerID:      "", // Note: in-memory history doesn't store server ID
+				DownloadSpeed: result.DownloadSpeed,
+				UploadSpeed:   result.UploadSpeed,
+				Latency:       result.Latency,
+				PacketLoss:    result.PacketLoss,
+				Jitter:        &result.Jitter,
+				CreatedAt:     result.Timestamp,
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, dbHistory)
 }
 
 func (s *Server) handleGetServers(c *gin.Context) {
