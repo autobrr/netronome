@@ -8,11 +8,13 @@ import {
   ListboxButton,
   ListboxOption,
   ListboxOptions,
+  Popover,
+  PopoverButton,
+  PopoverPanel,
 } from "@headlessui/react";
-import { Popover } from "@headlessui/react";
 import { ChevronUpDownIcon } from "@heroicons/react/20/solid";
 import { Disclosure } from "@headlessui/react";
-import { ChevronUpIcon } from "@heroicons/react/20/solid";
+import { ChevronDownIcon } from "@heroicons/react/20/solid";
 
 interface ScheduleManagerProps {
   servers: Server[];
@@ -38,14 +40,14 @@ const intervalOptions: IntervalOption[] = [
 ];
 
 export default function ScheduleManager({
+  servers,
   selectedServers,
-  loading: parentLoading,
 }: ScheduleManagerProps) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [interval, setInterval] = useState("5m");
   const [enabled] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
@@ -166,8 +168,15 @@ export default function ScheduleManager({
     }
   };
 
-  const isButtonDisabled =
-    loading || parentLoading || selectedServers.length === 0;
+  const getServerNames = (serverIds: string[]) => {
+    return serverIds
+      .map((id: string) => {
+        const server = servers.find((s: Server) => s.id === id);
+        return server ? `${server.sponsor} - ${server.name}` : null;
+      })
+      .filter(Boolean)
+      .join(", ");
+  };
 
   if (isInitialLoading) {
     return (
@@ -190,7 +199,7 @@ export default function ScheduleManager({
               <h6 className="text-white text-xl ml-1 font-semibold">
                 Schedule Manager
               </h6>
-              <ChevronUpIcon
+              <ChevronDownIcon
                 className={`${
                   open ? "transform rotate-180" : ""
                 } w-5 h-5 text-gray-400 transition-transform duration-200`}
@@ -245,13 +254,26 @@ export default function ScheduleManager({
                         </ListboxOptions>
                       </div>
                       <div className="flex items-center justify-between pt-4 pl-1">
-                        <button
-                          onClick={handleCreateSchedule}
-                          disabled={isButtonDisabled}
-                          className={`bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded disabled:opacity-50`}
-                        >
-                          {loading ? "Creating schedule..." : "Create schedule"}
-                        </button>
+                        <Popover className="relative">
+                          <PopoverButton
+                            className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded"
+                            onClick={handleCreateSchedule}
+                          >
+                            {loading
+                              ? "Creating schedule..."
+                              : "Create schedule"}
+                          </PopoverButton>
+                          <PopoverPanel className="absolute z-10 left-full ml-2 top-1/2 -translate-y-1/2 transform w-64">
+                            <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
+                              <div className="relative bg-gray-800 p-3">
+                                <p className="text-sm text-white">
+                                  Select at least one server in the section
+                                  above first
+                                </p>
+                              </div>
+                            </div>
+                          </PopoverPanel>
+                        </Popover>
                       </div>
                     </Listbox>
                   </div>
@@ -259,42 +281,42 @@ export default function ScheduleManager({
 
                 <div className="flex items-center justify-between mt-4"></div>
 
-                {error && <p className="text-red-500 mt-2">{error}</p>}
-              </div>
+                {schedules.length > 0 && (
+                  <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
+                    <h6 className="text-white mb-4 text-lg font-semibold">
+                      Active Schedules
+                    </h6>
 
-              {schedules.length > 0 && (
-                <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
-                  <h6 className="text-white mb-4 text-lg font-semibold">
-                    Active Schedules
-                  </h6>
-
-                  <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
-                    {schedules.map((schedule) => (
-                      <div
-                        key={schedule.id}
-                        className="bg-gray-800/50 p-4 rounded-lg border border-gray-900 flex flex-col"
-                      >
-                        <div className="flex flex-col sm:flex-row justify-between items-center">
-                          <div className="flex-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {schedules.map((schedule) => (
+                        <div
+                          key={schedule.id}
+                          className="bg-gray-800/50 p-4 rounded-lg border border-gray-900 flex flex-col"
+                        >
+                          <div className="flex flex-col">
                             <h6 className="text-white font-medium">
-                              Test Frequency: Every {schedule.interval}
+                              <strong>Test Frequency:</strong> Every{" "}
+                              {schedule.interval}
                             </h6>
                             <p className="text-gray-300">
-                              {schedule.serverIds.length} Server
+                              <strong>Selected Servers:</strong>{" "}
+                              {getServerNames(schedule.serverIds)}
+                            </p>
+                            <p className="text-gray-300">
+                              <strong>Next Run:</strong>{" "}
+                              <span className="text-blue-400">
+                                {formatNextRun(schedule.nextRun)}
+                              </span>
+                            </p>
+                            <p className="text-gray-300">
+                              <strong>
+                                {schedule.serverIds.length} Server
+                              </strong>
                               {schedule.serverIds.length !== 1 ? "s" : ""}{" "}
                               Selected
                             </p>
                           </div>
-                          <div className="flex flex-col sm:flex-row items-center mt-2 sm:mt-0">
-                            <Popover
-                              title={new Date(
-                                schedule.nextRun
-                              ).toLocaleString()}
-                            >
-                              <p className="text-gray-300 pr-4">
-                                Next Run: {formatNextRun(schedule.nextRun)}
-                              </p>
-                            </Popover>
+                          <div className="flex justify-end mt-2">
                             <button
                               onClick={() =>
                                 schedule.id && handleDeleteSchedule(schedule.id)
@@ -305,11 +327,11 @@ export default function ScheduleManager({
                             </button>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </DisclosurePanel>
           </div>
         )}

@@ -14,6 +14,7 @@ import ScheduleManager from "./ScheduleManager";
 import { Server } from "../types/types";
 import { ArrowDownIcon, ArrowUpIcon } from "@heroicons/react/24/solid";
 import { IoIosPulse, IoMdGitCompare } from "react-icons/io";
+import { Switch } from "@headlessui/react";
 
 interface SpeedTestResult {
   id: number;
@@ -221,8 +222,9 @@ const SpeedHistoryChart: React.FC<{
     }),
     download: result.downloadSpeed,
     upload: result.uploadSpeed,
-    server: result.serverName,
+    latency: parseFloat(result.latency.replace("ms", "")),
     jitter: result.jitter,
+    server: result.serverName,
   }));
 
   return (
@@ -267,9 +269,23 @@ const SpeedHistoryChart: React.FC<{
             />
             <XAxis dataKey="timestamp" height={60} tickMargin={10} />
             <YAxis
+              yAxisId="speed"
               label={{
                 value: "Speed (Mbps)",
                 position: "insideLeft",
+                angle: -90,
+                offset: 0,
+                className: "fill-gray-400",
+              }}
+              domain={[0, "auto"]}
+              allowDataOverflow={false}
+            />
+            <YAxis
+              yAxisId="latency"
+              orientation="right"
+              label={{
+                value: "ms",
+                position: "insideRight",
                 angle: -90,
                 offset: 0,
                 className: "fill-gray-400",
@@ -298,30 +314,45 @@ const SpeedHistoryChart: React.FC<{
               }}
             />
             <Line
+              yAxisId="speed"
               type="monotone"
               dataKey="download"
-              stroke="#3B82F6"
               name="Download"
+              stroke="#3B82F6"
               strokeWidth={3}
               dot={false}
               activeDot={{ r: 6 }}
               className="!stroke-blue-500"
             />
             <Line
+              yAxisId="speed"
               type="monotone"
               dataKey="upload"
-              stroke="#10B981"
               name="Upload"
+              stroke="#10B981"
               strokeWidth={3}
               dot={false}
               activeDot={{ r: 6 }}
               className="!stroke-emerald-500"
             />
             <Line
+              yAxisId="latency"
+              type="monotone"
+              dataKey="latency"
+              name="Latency"
+              stroke="#F59E0B"
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 6 }}
+              className="!stroke-amber-500"
+              strokeDasharray="3 3"
+            />
+            <Line
+              yAxisId="latency"
               type="monotone"
               dataKey="jitter"
-              stroke="#9333EA"
               name="Jitter"
+              stroke="#9333EA"
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 6 }}
@@ -465,7 +496,9 @@ export default function SpeedTest() {
 
   const handleServerSelect = (server: Server) => {
     if (!options.multiServer) {
-      setSelectedServers([server]);
+      setSelectedServers((prev) =>
+        prev.some((s) => s.id === server.id) ? [] : [server]
+      );
     } else {
       setSelectedServers((prev) => {
         const isSelected = prev.some((s) => s.id === server.id);
@@ -522,19 +555,6 @@ export default function SpeedTest() {
         {/* Header Section */}
         <div className="flex justify-between items-center mb-8 pt-8">
           <h1 className="text-3xl font-bold text-white">Speedtrackerr</h1>
-          <div className="flex gap-4">
-            <button
-              onClick={runTest}
-              disabled={loading || selectedServers.length === 0}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg disabled:opacity-50"
-            >
-              {loading
-                ? "Running Test..."
-                : selectedServers.length === 0
-                ? "Select a server"
-                : "Run Test"}
-            </button>
-          </div>
         </div>
 
         {/* Active Test Progress - Show only when test is running */}
@@ -640,9 +660,11 @@ export default function SpeedTest() {
             className="flex justify-between items-center cursor-pointer"
             onClick={() => setIsConfigExpanded(!isConfigExpanded)}
           >
-            <h2 className="text-white text-xl font-semibold p-1">
-              Server Selection
-            </h2>
+            <div className="flex flex-col">
+              <h2 className="text-white text-xl font-semibold p-1">
+                Server Selection
+              </h2>
+            </div>
             <div className="flex items-center gap-2">
               <span className="text-gray-400">
                 {selectedServers.length} server
@@ -669,20 +691,33 @@ export default function SpeedTest() {
               isConfigExpanded ? "opacity-100" : "opacity-0 h-0 overflow-hidden"
             }`}
           >
+            <p className="text-gray-400 text-sm p-1">
+              Select a server for either a manual run or to set up a scheduled
+              test
+            </p>
+
             {/* Multi-Server Toggle */}
             <div className="flex items-center justify-end gap-2 pt-4">
-              <label className="flex items-center gap-2 text-gray-300">
-                <input
-                  type="checkbox"
+              <label className="flex items-center gap-2 text-gray-300 text-sm">
+                <Switch
                   checked={options.multiServer}
-                  onChange={(e) =>
+                  onChange={(checked) =>
                     setOptions((prev) => ({
                       ...prev,
-                      multiServer: e.target.checked,
+                      multiServer: checked,
                     }))
                   }
-                  className="form-checkbox bg-gray-700 border-gray-900"
-                />
+                  className={`${
+                    options.multiServer ? "bg-blue-600" : "bg-gray-700"
+                  } relative inline-flex items-center h-6 rounded-full w-11`}
+                >
+                  <span className="sr-only">Multi-Server Mode</span>
+                  <span
+                    className={`${
+                      options.multiServer ? "translate-x-6" : "translate-x-1"
+                    } inline-block w-4 h-4 transform bg-white rounded-full transition`}
+                  />
+                </Switch>
                 Multi-Server Mode
               </label>
             </div>
@@ -707,49 +742,97 @@ export default function SpeedTest() {
 
             {/* Test Options */}
             <div className="pt-4 border-t border-gray-900">
-              <div className="flex gap-6 text-gray-300">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={options.enableDownload}
-                    onChange={(e) =>
-                      setOptions((prev) => ({
-                        ...prev,
-                        enableDownload: e.target.checked,
-                      }))
-                    }
-                    className="form-checkbox bg-gray-700 border-gray-900"
-                  />
-                  Download Test
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={options.enableUpload}
-                    onChange={(e) =>
-                      setOptions((prev) => ({
-                        ...prev,
-                        enableUpload: e.target.checked,
-                      }))
-                    }
-                    className="form-checkbox bg-gray-700 border-gray-900"
-                  />
-                  Upload Test
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={options.enablePacketLoss}
-                    onChange={(e) =>
-                      setOptions((prev) => ({
-                        ...prev,
-                        enablePacketLoss: e.target.checked,
-                      }))
-                    }
-                    className="form-checkbox bg-gray-700 border-gray-900"
-                  />
-                  Packet Loss Analysis
-                </label>
+              <div className="flex justify-between items-center">
+                <div className="flex gap-6 text-gray-300">
+                  <label className="flex items-center gap-2 text-sm">
+                    <Switch
+                      checked={options.enableDownload}
+                      onChange={(checked) =>
+                        setOptions((prev) => ({
+                          ...prev,
+                          enableDownload: checked,
+                        }))
+                      }
+                      className={`${
+                        options.enableDownload ? "bg-blue-600" : "bg-gray-700"
+                      } relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
+                    >
+                      <span className="sr-only">Enable Download Test</span>
+                      <span
+                        className={`${
+                          options.enableDownload
+                            ? "translate-x-6"
+                            : "translate-x-1"
+                        } inline-block h-4 w-4 transform rounded-full bg-white transition`}
+                      />
+                    </Switch>
+                    Download Test
+                  </label>
+
+                  <label className="flex items-center gap-2 text-sm">
+                    <Switch
+                      checked={options.enableUpload}
+                      onChange={(checked) =>
+                        setOptions((prev) => ({
+                          ...prev,
+                          enableUpload: checked,
+                        }))
+                      }
+                      className={`${
+                        options.enableUpload ? "bg-blue-600" : "bg-gray-700"
+                      } relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
+                    >
+                      <span className="sr-only">Enable Upload Test</span>
+                      <span
+                        className={`${
+                          options.enableUpload
+                            ? "translate-x-6"
+                            : "translate-x-1"
+                        } inline-block h-4 w-4 transform rounded-full bg-white transition`}
+                      />
+                    </Switch>
+                    Upload Test
+                  </label>
+
+                  <label className="flex items-center gap-2 text-sm">
+                    <Switch
+                      checked={options.enablePacketLoss}
+                      onChange={(checked) =>
+                        setOptions((prev) => ({
+                          ...prev,
+                          enablePacketLoss: checked,
+                        }))
+                      }
+                      className={`${
+                        options.enablePacketLoss ? "bg-blue-600" : "bg-gray-700"
+                      } relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
+                    >
+                      <span className="sr-only">
+                        Enable Packet Loss Analysis
+                      </span>
+                      <span
+                        className={`${
+                          options.enablePacketLoss
+                            ? "translate-x-6"
+                            : "translate-x-1"
+                        } inline-block h-4 w-4 transform rounded-full bg-white transition`}
+                      />
+                    </Switch>
+                    Packet Loss Analysis
+                  </label>
+                </div>
+
+                <button
+                  onClick={runTest}
+                  disabled={loading || selectedServers.length === 0}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg disabled:opacity-50"
+                >
+                  {loading
+                    ? "Running Test..."
+                    : selectedServers.length === 0
+                    ? "Select a server"
+                    : "Run Test"}
+                </button>
               </div>
             </div>
           </div>
