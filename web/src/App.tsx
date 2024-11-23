@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024, s0up and the autobrr contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 import { useEffect } from "react";
 import { Outlet } from "@tanstack/react-router";
 import { ArrowRightOnRectangleIcon } from "@heroicons/react/24/outline";
