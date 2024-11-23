@@ -1,67 +1,64 @@
-/*
- * Copyright (c) 2024, s0up and the autobrr contributors.
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
-
 export interface Server {
   id: string;
   name: string;
   host: string;
+  location: string;
   distance: number;
   country: string;
   sponsor: string;
-  cc: string;
-  url: string;
-  lat: number;
-  lon: number;
-  provider: string;
-}
-
-export interface Schedule {
-  id?: number;
-  serverIds: string[];
-  interval: string;
-  nextRun: string;
-  enabled: boolean;
-  options: {
-    enableDownload: boolean;
-    enableUpload: boolean;
-    enablePacketLoss: boolean;
-    serverIds: string[];
-  };
-}
-
-export interface TestOptions {
-  enableDownload: boolean;
-  enableUpload: boolean;
-  enablePacketLoss: boolean;
-  serverIds: string[];
-  isScheduled?: boolean;
-}
-
-export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
-
-export interface TestProgress {
-  type: "download" | "upload" | "ping" | "complete";
-  progress: number;
-  currentSpeed: number;
-  currentServer: string;
-  currentTest: "download" | "upload" | "ping" | "complete";
-  latency?: string;
-  packetLoss?: number;
-  isScheduled: boolean;
-  speed?: number;
-  isComplete: boolean;
 }
 
 export interface SpeedTestResult {
-  id: number;
+  id: string;
   serverId: string;
   serverName: string;
+  serverHost: string;
   downloadSpeed: number;
   uploadSpeed: number;
   latency: string;
   jitter?: number;
   packetLoss?: number;
   createdAt: string;
-} 
+}
+
+export interface TestProgress {
+  currentServer: string;
+  currentTest: string;
+  currentSpeed: number;
+  progress: number;
+  isComplete: boolean;
+  type: string;
+  speed: number;
+  latency?: string;
+  isScheduled: boolean;
+}
+
+export interface Schedule {
+  id: string;
+  serverId: string;
+  serverName: string;
+  cron: string;
+  enabled: boolean;
+  nextRun: string;
+  lastRun?: string;
+}
+
+export interface TestOptions {
+  serverId?: string;
+  enableDownload: boolean;
+  enableUpload: boolean;
+  enablePacketLoss: boolean;
+  multiServer: boolean;
+}
+
+export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
+
+export interface SpeedUpdate {
+  isComplete: boolean;
+  type: "download" | "upload" | "ping" | "complete";
+  speed: number;
+  progress: number;
+  serverName: string;
+  latency?: string;
+  isScheduled: boolean;
+}

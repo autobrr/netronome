@@ -16,34 +16,22 @@ import {
   SpeedTestResult,
   TestProgress as TestProgressType,
   TimeRange,
-  Schedule,
+  TestOptions,
 } from "../types/types";
 import { Disclosure, DisclosureButton } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import logo from "../assets/logo.png";
-
-interface TestOptions {
-  serverId?: string;
-  enableDownload: boolean;
-  enableUpload: boolean;
-  enablePacketLoss: boolean;
-  multiServer: boolean;
-}
-
-interface SpeedUpdate {
-  isComplete: boolean;
-  type: "download" | "upload" | "ping" | "complete";
-  speed: number;
-  progress: number;
-  serverName: string;
-  latency?: string;
-  isScheduled: boolean;
-}
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  fetchServers,
+  fetchHistory,
+  fetchSchedules,
+  runSpeedTest,
+  fetchTestStatus,
+} from "../api/speedtest";
 
 export default function SpeedTest() {
-  const [loading, setLoading] = useState(false);
-  const [servers, setServers] = useState<Server[]>([]);
-  const [history, setHistory] = useState<SpeedTestResult[]>([]);
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [options, setOptions] = useState<TestOptions>({
     enableDownload: true,
@@ -60,50 +48,37 @@ export default function SpeedTest() {
     const saved = localStorage.getItem("speedtest-time-range");
     return (saved as TimeRange) || "1w";
   });
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [scheduledTestRunning, setScheduledTestRunning] = useState(false);
 
-  const fetchServers = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch("/api/servers");
-      if (!response.ok)
-        throw new Error(`HTTP error! status: ${response.status}`);
-      const text = await response.text();
-      try {
-        const data = JSON.parse(text);
-        setServers(data);
-      } catch (parseError) {
-        throw new Error(
-          `Invalid JSON response (${
-            (parseError as Error).message
-          }): ${text.substring(0, 100)}...`
-        );
-      }
-    } catch (error) {
-      setError(
-        error instanceof Error
-          ? `Server Error: ${error.message}`
-          : "Failed to fetch servers"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Queries
+  const { data: servers = [] } = useQuery({
+    queryKey: ["servers"],
+    queryFn: fetchServers,
+  });
 
-  const fetchHistory = async () => {
-    try {
-      const response = await fetch("/api/speedtest/history");
-      if (!response.ok)
-        throw new Error(`HTTP error! status: ${response.status}`);
-      const data = await response.json();
-      setHistory(data);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to fetch history"
-      );
-    }
-  };
+  const { data: history = [] } = useQuery({
+    queryKey: ["history"],
+    queryFn: fetchHistory,
+  });
+
+  const { data: schedules = [] } = useQuery({
+    queryKey: ["schedules"],
+    queryFn: fetchSchedules,
+  });
+
+  // Mutations
+  const speedTestMutation = useMutation({
+    mutationFn: runSpeedTest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["history"] });
+      setProgress(null);
+      setTestStatus("complete");
+    },
+    onError: (error: Error) => {
+      setError(error.message);
+      setTestStatus("idle");
+    },
+  });
 
   const handleServerSelect = (server: Server) => {
     setSelectedServers((prev) => {
@@ -123,67 +98,17 @@ export default function SpeedTest() {
       return;
     }
 
-    setLoading(true);
     setError(null);
     setTestStatus("running");
 
-    try {
-      const response = await fetch("/api/speedtest", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-        },
-        credentials: "same-origin",
-        cache: "no-store",
-        body: JSON.stringify({
-          ...options,
-          serverIds: selectedServers.map((s) => s.id),
-        }),
-      });
-
-      const contentType = response.headers.get("content-type");
-      let result;
-      if (contentType && contentType.includes("application/json")) {
-        result = await response.json();
-      } else {
-        const text = await response.text();
-        console.error("Non-JSON response:", text);
-        throw new Error("Invalid response format from server");
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          result.error || `HTTP error! status: ${response.status}`
-        );
-      }
-
-      if (result.error) {
-        throw new Error(result.error);
-      }
-
-      await fetchHistory();
-      setProgress(null);
-      setTestStatus("complete");
-    } catch (error) {
-      console.error("Speed test error:", error);
-      setError(
-        error instanceof Error ? error.message : "Failed to run speed test"
-      );
-      setTestStatus("idle");
-    } finally {
-      setLoading(false);
-    }
+    speedTestMutation.mutate({
+      ...options,
+      serverIds: selectedServers.map((s) => s.id),
+    });
   };
 
   useEffect(() => {
-    fetchServers();
-    fetchHistory();
-  }, []);
-
-  useEffect(() => {
-    if (!loading) return;
+    if (testStatus !== "running" && !scheduledTestRunning) return;
 
     let pollCount = 0;
     const maxPolls = 180;
@@ -195,7 +120,6 @@ export default function SpeedTest() {
         if (pollCount > maxPolls) {
           clearInterval(pollInterval);
           setError("Test timed out after 3 minutes");
-          setLoading(false);
           setTestStatus("idle");
           return;
         }
@@ -206,34 +130,13 @@ export default function SpeedTest() {
         }
         lastUpdate = now;
 
-        const response = await fetch("/api/speedtest/status", {
-          headers: {
-            "Cache-Control": "no-cache",
-            Pragma: "no-cache",
-          },
-          credentials: "same-origin",
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          console.warn("Status check failed:", response.status);
-          return;
-        }
-
-        const contentType = response.headers.get("content-type");
-        if (!contentType?.includes("application/json")) {
-          console.warn("Invalid content type:", contentType);
-          return;
-        }
-
-        const update: SpeedUpdate = await response.json();
+        const update = await fetchTestStatus();
 
         if (update.isComplete || update.type === "complete") {
           clearInterval(pollInterval);
           setTestStatus("complete");
           setProgress(null);
-          setLoading(false);
-          await fetchHistory();
+          queryClient.invalidateQueries({ queryKey: ["history"] });
         } else if (update.speed > 0) {
           setTestStatus("running");
           setProgress({
@@ -254,39 +157,12 @@ export default function SpeedTest() {
     }, 2000);
 
     return () => clearInterval(pollInterval);
-  }, [loading]);
-
-  const fetchSchedules = async () => {
-    try {
-      const response = await fetch("/api/schedules");
-      if (!response.ok)
-        throw new Error(`HTTP error! status: ${response.status}`);
-      const data = await response.json();
-      setSchedules(data || []);
-    } catch (error) {
-      console.error("Failed to fetch schedules:", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchSchedules();
-  }, []);
+  }, [testStatus, scheduledTestRunning, queryClient]);
 
   useEffect(() => {
     const pollScheduledTests = setInterval(async () => {
       try {
-        const response = await fetch("/api/speedtest/status", {
-          headers: {
-            "Cache-Control": "no-cache",
-            Pragma: "no-cache",
-          },
-          credentials: "same-origin",
-          cache: "no-store",
-        });
-
-        if (!response.ok) return;
-
-        const update: SpeedUpdate = await response.json();
+        const update = await fetchTestStatus();
 
         if (update.isScheduled) {
           setScheduledTestRunning(true);
@@ -307,7 +183,10 @@ export default function SpeedTest() {
             setScheduledTestRunning(false);
             setTestStatus("complete");
             setProgress(null);
-            await Promise.all([fetchHistory(), fetchSchedules()]);
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: ["history"] }),
+              queryClient.invalidateQueries({ queryKey: ["schedules"] }),
+            ]);
           }
         }
       } catch (error) {
@@ -316,7 +195,7 @@ export default function SpeedTest() {
     }, 1000);
 
     return () => clearInterval(pollScheduledTests);
-  }, []);
+  }, [queryClient]);
 
   return (
     <div className="min-h-screen">
@@ -498,7 +377,7 @@ export default function SpeedTest() {
                       setOptions((prev) => ({ ...prev, multiServer: enabled }))
                     }
                     onRunTest={runTest}
-                    isLoading={loading}
+                    isLoading={speedTestMutation.isPending}
                   />
                 </div>
               )}
@@ -511,7 +390,7 @@ export default function SpeedTest() {
           servers={servers}
           selectedServers={selectedServers}
           onServerSelect={handleServerSelect}
-          loading={loading}
+          loading={speedTestMutation.isPending}
         />
       </Container>
     </div>

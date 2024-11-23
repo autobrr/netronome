@@ -4,8 +4,7 @@
  */
 
 import { useEffect } from "react";
-import SpeedTest from "./components/SpeedTest";
-// import { DarkModeToggle } from "./components/DarkModeToggle";
+import { Outlet } from "@tanstack/react-router";
 import { initializeDarkMode } from "./utils/darkMode";
 
 function App() {
@@ -16,7 +15,7 @@ function App() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
       <div className="absolute top-4 right-4">{/* <DarkModeToggle /> */}</div>
-      <SpeedTest />
+      <Outlet />
     </div>
   );
 }
