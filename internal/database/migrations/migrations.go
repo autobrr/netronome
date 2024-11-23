@@ -1,3 +1,6 @@
+// Copyright (c) 2024, s0up and the autobrr contributors.
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 package migrations
 
 import "embed"
@@ -10,5 +13,4 @@ var (
 // MigrationFiles holds all migration file names in order
 var MigrationFiles = []string{
 	"001_initial_schema.sql",
-	"002_add_jitter.sql",
 }

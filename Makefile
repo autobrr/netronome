@@ -1,62 +1,55 @@
-# Simple Makefile for a Go project
+# Build variables
+BINARY_NAME=netronome
+BUILD_DIR=bin
+DOCKER_IMAGE=netronome
 
-# Build the application
-all: build test
+.PHONY: all build clean run docker-build docker-run watch dev
 
-build:
-	@echo "Building..."
-	
-	
-	@CGO_ENABLED=1 GOOS=linux go build -o main cmd/api/main.go
+all: clean build
 
-# Run the application
-run:
-	@go run cmd/api/main.go &
-	@npm install --prefix ./frontend
-	@npm run dev --prefix ./frontend
-# Create DB container
-docker-run:
-	@if docker compose up --build 2>/dev/null; then \
-		: ; \
-	else \
-		echo "Falling back to Docker Compose V1"; \
-		docker-compose up --build; \
-	fi
+build: 
+	@echo "Building frontend and backend..."
+	@mkdir -p $(BUILD_DIR)
+	@cd web && pnpm install && pnpm build
+	@go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/api
 
-# Shutdown DB container
-docker-down:
-	@if docker compose down 2>/dev/null; then \
-		: ; \
-	else \
-		echo "Falling back to Docker Compose V1"; \
-		docker-compose down; \
-	fi
-
-# Test the application
-test:
-	@echo "Testing..."
-	@go test ./... -v
-
-# Clean the binary
 clean:
-	@echo "Cleaning..."
-	@rm -f main
+	@echo "Cleaning up..."
+	@rm -rf $(BUILD_DIR)
+	@rm -rf web/dist
+	@rm -rf web/node_modules
 
-# Live Reload
+run: build
+	@echo "Running application..."
+	@./$(BUILD_DIR)/$(BINARY_NAME)
+
+docker-build:
+	@echo "Building Docker image..."
+	docker build -t $(DOCKER_IMAGE) .
+
+docker-run: docker-build
+	@echo "Running Docker container..."
+	docker run -p 8080:8080 $(DOCKER_IMAGE)
+
+# Development with live reload
+dev:
+	@echo "Starting development servers..."
+	@tmux new-session -d -s dev 'cd web && pnpm dev'
+	@tmux split-window -h 'make watch'
+	@tmux -2 attach-session -d
+
 watch:
 	@if command -v air > /dev/null; then \
-            air; \
-            echo "Watching...";\
-        else \
-            read -p "Go's 'air' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
-            if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
-                go install github.com/air-verse/air@latest; \
-                air; \
-                echo "Watching...";\
-            else \
-                echo "You chose not to install air. Exiting..."; \
-                exit 1; \
-            fi; \
-        fi
-
-.PHONY: all build run test clean watch
+		air; \
+		echo "Watching...";\
+	else \
+		read -p "Go's 'air' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
+		if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
+			go install github.com/cosmtrek/air@latest; \
+			air; \
+			echo "Watching...";\
+		else \
+			echo "You chose not to install air. Exiting..."; \
+			exit 1; \
+		fi; \
+	fi

@@ -1,3 +1,6 @@
+// Copyright (c) 2024, s0up and the autobrr contributors.
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 package main
 
 import (
@@ -11,12 +14,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
-	"speedtrackerr/internal/database"
-	"speedtrackerr/internal/logger"
-	"speedtrackerr/internal/scheduler"
-	"speedtrackerr/internal/server"
-	"speedtrackerr/internal/speedtest"
-	"speedtrackerr/internal/types"
+	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/logger"
+	"github.com/autobrr/netronome/internal/scheduler"
+	"github.com/autobrr/netronome/internal/server"
+	"github.com/autobrr/netronome/internal/speedtest"
+	"github.com/autobrr/netronome/internal/types"
+	"github.com/autobrr/netronome/web"
 )
 
 func gracefulShutdown(
@@ -58,12 +62,19 @@ func main() {
 	// Initialize logger
 	logger.Init()
 
+	// Build frontend in development mode
+	if os.Getenv("GIN_MODE") == "debug" {
+		if err := web.BuildFrontend(); err != nil {
+			log.Fatal().Err(err).Msg("failed to build frontend")
+		}
+	}
+
 	// Set Gin mode to release if not in development
 	if os.Getenv("GIN_MODE") != "debug" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	log.Info().Msg("Starting Speedtrackerr API server")
+	log.Info().Msg("Starting netronome API server")
 
 	// Initialize database service
 	db := database.New()
@@ -104,6 +115,9 @@ func main() {
 
 	// Now set the broadcast function to use the server handler
 	speedServer.BroadcastUpdate = serverHandler.BroadcastUpdate
+
+	// Set up static file serving
+	web.ServeStatic(serverHandler.Router)
 
 	apiServer := &http.Server{
 		Addr:         ":8080",

@@ -1,53 +1,88 @@
-# Project speedtrackerr
+# Netronome
 
-One Paragraph of project description goes here
+Netronome is a modern network speed testing and monitoring tool built with Go and React. It provides a clean web interface for running network performance tests and visualizing results.
+
+## Features
+
+- Network speed testing using speedtest-go
+- Real-time monitoring dashboard
+- Modern React frontend
+- SQLite database for storing test results
+- Docker support
+
+## Tech Stack
+
+- Backend: Go 1.23
+- Frontend: React 18 with TypeScript
+- Database: SQLite
+- UI: Tailwind CSS
+- Build Tools: Vite, pnpm
+- Container: Docker
+
+## Prerequisites
+
+- Go 1.23 or later
+- Node.js 22 or later
+- pnpm
+- Docker (optional)
+- Make
 
 ## Getting Started
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
+1. Clone the repository:
 
-## MakeFile
-
-Run build make command with tests
 ```bash
-make all
+git clone https://github.com/autobrr/netronome.git
+cd netronome
 ```
 
-Build the application
+2. Install dependencies:
+
 ```bash
-make build
+# Install frontend dependencies
+cd web && pnpm install
+cd ..
+
+# Install Go dependencies
+go mod download
 ```
 
-Run the application
+3. Run the development environment:
+
 ```bash
-make run
-```
-Create DB container
-```bash
-make docker-run
+make dev
 ```
 
-Shutdown DB Container
+This will start both the frontend and backend development servers with live reload.
+
+## Development Commands
+
+- `make all` - Build everything with tests
+- `make build` - Build frontend and backend
+- `make run` - Run the application
+- `make dev` - Start development environment with live reload
+- `make watch` - Live reload backend only
+- `make test` - Run test suite
+- `make clean` - Clean build artifacts
+
+## Docker Deployment
+
+Build and run with Docker:
+
 ```bash
-make docker-down
+docker compose up -d
 ```
 
-DB Integrations Test:
-```bash
-make itest
-```
+The application will be available at `http://localhost:8080`
 
-Live reload the application:
-```bash
-make watch
-```
+## Contributing
 
-Run the test suite:
-```bash
-make test
-```
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-Clean up binary from the last build:
-```bash
-make clean
-```
+## License
+
+This project is licensed under the GNU General Public License v2.0 - see the [LICENSE](LICENSE) file for details.

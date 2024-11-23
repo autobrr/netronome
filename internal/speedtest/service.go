@@ -1,3 +1,6 @@
+// Copyright (c) 2024, s0up and the autobrr contributors.
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 package speedtest
 
 import (
@@ -11,8 +14,8 @@ import (
 	"github.com/rs/zerolog/log"
 	st "github.com/showwin/speedtest-go/speedtest"
 
-	"speedtrackerr/internal/database"
-	"speedtrackerr/internal/types"
+	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/types"
 )
 
 type Result struct {

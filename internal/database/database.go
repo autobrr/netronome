@@ -1,3 +1,6 @@
+// Copyright (c) 2024, s0up and the autobrr contributors.
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 package database
 
 import (
@@ -7,16 +10,18 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
 	_ "github.com/joho/godotenv/autoload"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog/log"
+	_ "modernc.org/sqlite"
 
-	"speedtrackerr/internal/database/migrations"
-	"speedtrackerr/internal/types"
+	"github.com/autobrr/netronome/internal/database/migrations"
+	"github.com/autobrr/netronome/internal/types"
 )
 
 // Service represents a service that interacts with a database.
@@ -58,16 +63,15 @@ type service struct {
 var (
 	dburl      = getDBURL()
 	dbInstance *service
+	sqlBuilder = sq.StatementBuilder.PlaceholderFormat(sq.Question)
 )
 
 func getDBURL() string {
-	// Try to get from environment variable, fallback to default if not set
-	url := os.Getenv("SPEEDTRACKERR_DB_URL")
-	if url == "" {
-		// Default to a SQLite database in the current directory
-		url = "speedtrackerr.db"
+	path := os.Getenv("netronome_DB_PATH")
+	if path == "" {
+		path = "./data/netronome.db"
 	}
-	return url
+	return path
 }
 
 func New() Service {
@@ -76,13 +80,57 @@ func New() Service {
 		return dbInstance
 	}
 
-	db, err := sql.Open("sqlite3", dburl)
+	// Ensure database directory exists with proper permissions
+	dbDir := filepath.Dir(dburl)
+	log.Info().Str("dbDir", dbDir).Str("dburl", dburl).Msg("Database paths")
+
+	if err := os.MkdirAll(dbDir, 0777); err != nil {
+		log.Fatal().Err(err).Str("path", dbDir).Msg("Failed to create database directory")
+	}
+
+	// Create or open database
+	db, err := sql.Open("sqlite", dburl)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to open database")
 	}
 
+	// Force SQLite to create the database file by pinging it
+	if err := db.Ping(); err != nil {
+		log.Fatal().Err(err).Msg("Failed to create database file")
+	}
+
+	// Set busy timeout
+	if _, err = db.Exec(`PRAGMA busy_timeout = 5000;`); err != nil {
+		log.Fatal().Err(err).Msg("Failed to set busy timeout")
+	}
+
+	// Enable WAL mode
+	if _, err = db.Exec(`PRAGMA journal_mode = wal;`); err != nil {
+		log.Fatal().Err(err).Msg("Failed to enable WAL mode")
+	}
+
+	// Set analysis limit for query optimization
+	if _, err = db.Exec(`PRAGMA analysis_limit = 400;`); err != nil {
+		log.Fatal().Err(err).Msg("Failed to set analysis limit")
+	}
+
+	// Checkpoint WAL
+	if _, err = db.Exec(`PRAGMA wal_checkpoint(TRUNCATE);`); err != nil {
+		log.Fatal().Err(err).Msg("Failed to checkpoint WAL")
+	}
+
+	// Enable foreign keys
+	if _, err = db.Exec(`PRAGMA foreign_keys = ON;`); err != nil {
+		log.Fatal().Err(err).Msg("Failed to enable foreign keys")
+	}
+
 	dbInstance = &service{
 		db: db,
+	}
+
+	// Set restrictive file permissions
+	if err := os.Chmod(dburl, 0640); err != nil {
+		log.Fatal().Err(err).Msg("Failed to set database file permissions")
 	}
 
 	// Initialize tables
@@ -266,24 +314,31 @@ func contains(slice []int, item int) bool {
 
 // SaveSpeedTest stores a new speed test result in the database
 func (s *service) SaveSpeedTest(ctx context.Context, result SpeedTestResult) (*SpeedTestResult, error) {
-	query := `
-	INSERT INTO speed_tests (
-		server_name, server_id, download_speed, upload_speed, latency, packet_loss, jitter, created_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-	RETURNING id, created_at`
+	query := sqlBuilder.
+		Insert("speed_tests").
+		Columns(
+			"server_name",
+			"server_id",
+			"download_speed",
+			"upload_speed",
+			"latency",
+			"packet_loss",
+			"jitter",
+			"created_at",
+		).
+		Values(
+			result.ServerName,
+			result.ServerID,
+			result.DownloadSpeed,
+			result.UploadSpeed,
+			result.Latency,
+			result.PacketLoss,
+			result.Jitter,
+			sq.Expr("CURRENT_TIMESTAMP"),
+		).
+		Suffix("RETURNING id, created_at")
 
-	err := s.db.QueryRowContext(
-		ctx,
-		query,
-		result.ServerName,
-		result.ServerID,
-		result.DownloadSpeed,
-		result.UploadSpeed,
-		result.Latency,
-		result.PacketLoss,
-		result.Jitter,
-	).Scan(&result.ID, &result.CreatedAt)
-
+	err := query.RunWith(s.db).QueryRowContext(ctx).Scan(&result.ID, &result.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save speed test result: %w", err)
 	}
@@ -293,13 +348,23 @@ func (s *service) SaveSpeedTest(ctx context.Context, result SpeedTestResult) (*S
 
 // GetSpeedTests retrieves speed test results
 func (s *service) GetSpeedTests(ctx context.Context, limit int) ([]SpeedTestResult, error) {
-	query := `
-	SELECT id, server_name, server_id, download_speed, upload_speed, latency, packet_loss, jitter, created_at
-	FROM speed_tests
-	ORDER BY created_at DESC
-	LIMIT ?`
+	query := sqlBuilder.
+		Select(
+			"id",
+			"server_name",
+			"server_id",
+			"download_speed",
+			"upload_speed",
+			"latency",
+			"packet_loss",
+			"jitter",
+			"created_at",
+		).
+		From("speed_tests").
+		OrderBy("created_at DESC").
+		Limit(uint64(limit))
 
-	rows, err := s.db.QueryContext(ctx, query, limit)
+	rows, err := query.RunWith(s.db).QueryContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query speed tests: %w", err)
 	}

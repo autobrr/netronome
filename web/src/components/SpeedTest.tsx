@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024, s0up and the autobrr contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 import React, { useState, useEffect } from "react";
 import { Container } from "@mui/material";
 import { IoIosPulse, IoMdGitCompare } from "react-icons/io";
@@ -15,6 +20,7 @@ import {
 } from "../types/types";
 import { Disclosure, DisclosureButton } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
+import logo from "../assets/logo.png";
 
 interface TestOptions {
   serverId?: string;
@@ -312,13 +318,13 @@ export default function SpeedTest() {
         <div className="flex justify-between items-center -ml-2 mb-8 pt-8">
           <div className="flex items-center gap-3">
             <img
-              src="/src/assets/logo2.png"
-              alt="NetMetronome Logo"
+              src={logo}
+              alt="netronome Logo"
               className="h-12 w-12 select-none pointer-events-none"
               draggable="false"
             />
             <h1 className="text-3xl font-bold text-white select-none">
-              NetMetronome
+              Netronome
             </h1>
           </div>
         </div>
@@ -335,8 +341,50 @@ export default function SpeedTest() {
           </div>
         )}
 
+        {/* No History Message */}
+        {(!history || history.length === 0) && (
+          <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900 mb-6">
+            <div className="text-center space-y-4">
+              <div>
+                <h2 className="text-white text-xl font-semibold mb-2">
+                  No History Available
+                </h2>
+                <p className="text-gray-400">
+                  Get started with your first speed test in two ways:
+                </p>
+              </div>
+              <div className="flex justify-center gap-12 text-left text-gray-400">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 flex-shrink-0">
+                    <FaArrowDown className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-white">Run a test now</p>
+                    <p className="text-sm">
+                      Select a server below and start testing
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 flex-shrink-0">
+                    <IoIosPulse className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-white">
+                      Schedule regular tests
+                    </p>
+                    <p className="text-sm">
+                      Set up automated testing intervals
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Latest Results */}
-        {history.length > 0 && (
+        {history && history.length > 0 && (
           <div className="mb-6">
             <h2 className="text-white text-xl font-semibold">Latest Run</h2>
             <div className="flex justify-between items-center text-gray-400 text-sm mb-4">
@@ -347,7 +395,7 @@ export default function SpeedTest() {
                   timeStyle: "short",
                 })}
               </div>
-              {schedules?.length > 0 && (
+              {schedules && schedules.length > 0 && (
                 <div>
                   Next scheduled run:{" "}
                   <span className="text-blue-400">
@@ -386,7 +434,7 @@ export default function SpeedTest() {
         )}
 
         {/* Speed History Chart */}
-        {history.length > 0 && (
+        {history && history.length > 0 && (
           <SpeedHistoryChart
             history={history}
             timeRange={timeRange}

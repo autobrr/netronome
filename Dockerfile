@@ -1,32 +1,62 @@
-FROM golang:1.23-alpine AS build
-RUN apk add --no-cache alpine-sdk
+FROM node:22.10.0-alpine3.20 AS web-builder
+RUN corepack enable
 
-WORKDIR /app
+WORKDIR /app/web
+
+COPY web/package.json web/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY web/ ./
+RUN pnpm run build
+
+FROM golang:1.23-alpine3.20 AS app-builder
+
+ARG VERSION=dev
+ARG REVISION=dev
+ARG BUILDTIME
+
+RUN apk add --no-cache git build-base tzdata
+
+ENV SERVICE=netronome
+ENV CGO_ENABLED=0
+
+WORKDIR /src
 
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY . .
+COPY . ./
+COPY --from=web-builder /app/web/dist ./web/dist
 
-RUN CGO_ENABLED=1 GOOS=linux go build -o main cmd/api/main.go
+RUN go build -ldflags "-s -w \
+    -X netronome/internal/buildinfo.Version=${VERSION} \
+    -X netronome/internal/buildinfo.Commit=${REVISION} \
+    -X netronome/internal/buildinfo.Date=${BUILDTIME}" \
+    -o /app/netronome cmd/api/main.go
 
-FROM alpine:3.20.1 AS prod
-WORKDIR /app
-COPY --from=build /app/main /app/main
-EXPOSE ${PORT}
-CMD ["./main"]
+FROM alpine:3.20
 
+LABEL org.opencontainers.image.source="https://github.com/s0up420/netronome"
 
-FROM node:20 AS frontend_builder
-WORKDIR /frontend
+# Install SQLite dependencies
+RUN apk add --no-cache sqlite
 
-COPY frontend/package*.json ./
-RUN npm install
-COPY frontend/. .
-RUN npm run build
+ENV HOME="/data" \
+    XDG_CONFIG_HOME="/data" \
+    XDG_DATA_HOME="/data"
 
-FROM node:23-slim AS frontend
-RUN npm install -g serve
-COPY --from=frontend_builder /frontend/dist /app/dist
-EXPOSE 5173
-CMD ["serve", "-s", "/app/dist", "-l", "5173"]
+WORKDIR /data
+
+COPY --from=app-builder /app/netronome /usr/local/bin/netronome
+
+EXPOSE 8080
+
+RUN addgroup -S netronome && \
+    adduser -S netronome -G netronome && \
+    mkdir -p /data && \
+    chown -R netronome:netronome /data && \
+    chmod 777 /data  # Ensure directory is writable
+
+USER netronome
+
+ENTRYPOINT ["netronome"]

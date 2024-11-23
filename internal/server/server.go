@@ -1,3 +1,6 @@
+// Copyright (c) 2024, s0up and the autobrr contributors.
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 package server
 
 import (
@@ -9,10 +12,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
-	"speedtrackerr/internal/database"
-	"speedtrackerr/internal/scheduler"
-	"speedtrackerr/internal/speedtest"
-	"speedtrackerr/internal/types"
+	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/scheduler"
+	"github.com/autobrr/netronome/internal/speedtest"
+	"github.com/autobrr/netronome/internal/types"
 )
 
 type Server struct {
