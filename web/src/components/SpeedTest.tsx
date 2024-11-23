@@ -68,7 +68,8 @@ export default function SpeedTest() {
       const response = await fetchHistory(timeRange, pageParam);
       return response as PaginatedResponse<SpeedTestResult>;
     },
-    getNextPageParam: (lastPage: PaginatedResponse<SpeedTestResult>) => {
+    getNextPageParam: (lastPage: PaginatedResponse<SpeedTestResult> | null) => {
+      if (!lastPage || !lastPage.data) return undefined;
       if (lastPage.data.length < lastPage.limit) return undefined;
       return lastPage.page + 1;
     },
