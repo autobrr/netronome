@@ -1,6 +1,10 @@
-# Netronome
+<h1 align="center">Netronome</h1>
 
 Netronome is a modern network speed testing and monitoring tool built with Go and React. It provides a clean web interface for running network performance tests and visualizing results.
+
+<p align="center">
+  <img src=".github/assets/netronome.png" alt="Netronome">
+</p>
 
 ## Features
 
@@ -12,20 +16,19 @@ Netronome is a modern network speed testing and monitoring tool built with Go an
 
 ## Tech Stack
 
-- Backend: Go 1.23
-- Frontend: React 18 with TypeScript
+- Backend: Go
+- Frontend: React
 - Database: SQLite
 - UI: Tailwind CSS
 - Build Tools: Vite, pnpm
-- Container: Docker
 
 ## Prerequisites
 
 - Go 1.23 or later
 - Node.js 22 or later
-- pnpm
+- pnpm and vite
 - Docker (optional)
-- Make
+- Make (optional)
 
 ## Getting Started
 
@@ -57,23 +60,17 @@ This will start both the frontend and backend development servers with live relo
 
 ## Development Commands
 
-- `make all` - Build everything with tests
+- `make all` - Clean build frontend and backend
 - `make build` - Build frontend and backend
 - `make run` - Run the application
 - `make dev` - Start development environment with live reload
 - `make watch` - Live reload backend only
-- `make test` - Run test suite
 - `make clean` - Clean build artifacts
 
-## Docker Deployment
+## Docker Commands
 
-Build and run with Docker:
-
-```bash
-docker compose up -d
-```
-
-The application will be available at `http://localhost:8080`
+- `make docker-build` - Build Docker image
+- `make docker-run` - Build and run Docker container
 
 ## Contributing
 
