@@ -43,12 +43,35 @@ const intervalOptions: IntervalOption[] = [
   { value: "7d", label: "Every Week" },
 ];
 
+// Add parseInterval function before other utility functions
+const parseInterval = (intervalStr: string): number => {
+  const value = parseInt(intervalStr);
+  const unit = intervalStr.slice(-1);
+
+  switch (unit) {
+    case "m":
+      return value * 60 * 1000; // minutes to milliseconds
+    case "h":
+      return value * 60 * 60 * 1000; // hours to milliseconds
+    case "d":
+      return value * 24 * 60 * 60 * 1000; // days to milliseconds
+    default:
+      return value * 60 * 1000; // default to minutes
+  }
+};
+
+// Update calculateNextRun to use parseInterval
+const calculateNextRun = (intervalStr: string): string => {
+  const milliseconds = parseInterval(intervalStr);
+  return new Date(Date.now() + milliseconds).toISOString();
+};
+
 export default function ScheduleManager({
   servers,
   selectedServers,
 }: ScheduleManagerProps) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [interval, setInterval] = useState("5m");
+  const [interval, setInterval] = useState<string>("5m");
   const [enabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const [, setError] = useState<string | null>(null);
@@ -88,8 +111,8 @@ export default function ScheduleManager({
 
     const newSchedule: Schedule = {
       serverIds: selectedServers.map((s) => s.id),
-      interval,
-      nextRun: new Date(Date.now() + parseInterval(interval)).toISOString(),
+      interval: interval,
+      nextRun: calculateNextRun(interval),
       enabled,
       options: {
         enableDownload: true,
@@ -140,26 +163,11 @@ export default function ScheduleManager({
     }
   };
 
-  const parseInterval = (interval: string): number => {
-    const value = parseInt(interval);
-    const unit = interval.slice(-1);
-    switch (unit) {
-      case "m":
-        return value * 60 * 1000;
-      case "h":
-        return value * 60 * 60 * 1000;
-      case "d":
-        return value * 24 * 60 * 60 * 1000;
-      default:
-        return value * 60 * 60 * 1000;
-    }
-  };
-
   const formatNextRun = (dateString: string): string => {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = date.getTime() - now.getTime();
-    const diffMins = Math.round(diffMs / 60000);
+    const diffMins = Math.round(diffMs / (60 * 1000)); // Convert ms to minutes
 
     if (diffMins < 60) {
       return `in ${diffMins} minute${diffMins !== 1 ? "s" : ""}`;
@@ -172,8 +180,8 @@ export default function ScheduleManager({
     }
   };
 
-  const getServerNames = (serverIds: string[]) => {
-    return serverIds
+  const getServerNames = (serverIds: string[] | undefined) => {
+    return (serverIds || [])
       .map((id: string) => {
         const server = servers.find((s: Server) => s.id === id);
         return server ? `${server.sponsor} - ${server.name}` : null;

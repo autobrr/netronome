@@ -105,15 +105,6 @@ export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
             <span className="text-white font-medium">{progress.latency}</span>
           </div>
         )}
-
-        {progress.packetLoss !== undefined && (
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400">Packet Loss:</span>
-            <span className="text-white font-medium">
-              {progress.packetLoss.toFixed(2)}%
-            </span>
-          </div>
-        )}
       </div>
     </motion.div>
   );

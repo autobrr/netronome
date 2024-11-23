@@ -39,13 +39,17 @@ export interface TestProgress {
 }
 
 export interface Schedule {
-  id: string;
-  serverId: string;
-  serverName: string;
-  cron: string;
-  enabled: boolean;
+  id?: number;
+  serverIds: string[];
+  interval: string;
   nextRun: string;
-  lastRun?: string;
+  enabled: boolean;
+  options: {
+    enableDownload: boolean;
+    enableUpload: boolean;
+    enablePacketLoss: boolean;
+    serverIds: string[];
+  };
 }
 
 export interface TestOptions {
