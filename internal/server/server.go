@@ -122,7 +122,7 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 func (s *Server) handleSpeedTestHistory(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	history, err := s.db.GetSpeedTests(ctx, 100) // Get last 100 results
+	history, err := s.db.GetSpeedTests(ctx, 1000) // Get last 100 results
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to retrieve speed test history")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve speed test history"})

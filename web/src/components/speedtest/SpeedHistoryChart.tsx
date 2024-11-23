@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -97,12 +97,156 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
       }));
   };
 
-  const filteredData = getFilteredData();
+  const filteredData = useMemo(() => getFilteredData(), []);
 
   const handleTimeRangeChange = (range: TimeRange) => {
     localStorage.setItem("speedtest-time-range", range);
     onTimeRangeChange(range);
   };
+
+  const chart = useMemo(
+    () => (
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart
+          key={`${timeRange}-${filteredData.length}`}
+          data={filteredData}
+          margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
+        >
+          <defs>
+            <linearGradient id="downloadGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="uploadGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="latencyGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="jitterGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#9333EA" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#9333EA" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid
+            strokeDasharray="3 3"
+            horizontal={true}
+            vertical={false}
+          />
+          <XAxis dataKey="timestamp" height={60} tickMargin={10} />
+          <YAxis
+            yAxisId="speed"
+            label={{
+              value: "Speed (Mbps)",
+              position: "insideLeft",
+              angle: -90,
+              offset: 0,
+              className: "fill-gray-400",
+            }}
+            domain={[0, "auto"]}
+            allowDataOverflow={false}
+          />
+          <YAxis
+            yAxisId="latency"
+            orientation="right"
+            label={{
+              value: "ms",
+              position: "insideRight",
+              angle: -90,
+              offset: 0,
+              className: "fill-gray-400",
+            }}
+            domain={[0, "auto"]}
+            allowDataOverflow={false}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "#1F2937",
+              border: "1px solid #374151",
+              borderRadius: "0.5rem",
+            }}
+            labelStyle={{ color: "#9CA3AF" }}
+            itemStyle={{ color: "#E5E7EB" }}
+          />
+          {visibleMetrics.download && (
+            <Area
+              yAxisId="speed"
+              type="monotone"
+              dataKey="download"
+              name="Download"
+              stroke="#3B82F6"
+              strokeWidth={3}
+              dot={false}
+              activeDot={{ r: 6 }}
+              fill="url(#downloadGradient)"
+              className="!stroke-blue-500"
+              animationDuration={1750}
+              animationBegin={0}
+              isAnimationActive={true}
+              strokeDasharray="0"
+            />
+          )}
+          {visibleMetrics.upload && (
+            <Area
+              yAxisId="speed"
+              type="monotone"
+              dataKey="upload"
+              name="Upload"
+              stroke="#10B981"
+              strokeWidth={3}
+              dot={false}
+              activeDot={{ r: 6 }}
+              fill="url(#uploadGradient)"
+              className="!stroke-emerald-500"
+              animationDuration={1750}
+              animationBegin={0}
+              isAnimationActive={true}
+              strokeDasharray="0"
+            />
+          )}
+          {visibleMetrics.latency && (
+            <Area
+              yAxisId="latency"
+              type="monotone"
+              dataKey="latency"
+              name="Latency"
+              stroke="#F59E0B"
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 6 }}
+              fill="url(#latencyGradient)"
+              className="!stroke-amber-500"
+              strokeDasharray="3 3"
+              animationDuration={1750}
+              animationBegin={0}
+              isAnimationActive={true}
+            />
+          )}
+          {visibleMetrics.jitter && (
+            <Area
+              yAxisId="latency"
+              type="monotone"
+              dataKey="jitter"
+              name="Jitter"
+              stroke="#9333EA"
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 6 }}
+              fill="url(#jitterGradient)"
+              className="!stroke-purple-500"
+              strokeDasharray="5 5"
+              animationDuration={1750}
+              animationBegin={0}
+              isAnimationActive={true}
+            />
+          )}
+        </AreaChart>
+      </ResponsiveContainer>
+    ),
+    [filteredData, timeRange, visibleMetrics]
+  );
 
   return (
     <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg mb-6 border border-gray-900">
@@ -172,131 +316,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         </div>
       </div>
 
-      <div className="h-[400px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={filteredData}
-            margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
-          >
-            <defs>
-              <linearGradient id="downloadGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="uploadGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="latencyGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="jitterGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#9333EA" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#9333EA" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              horizontal={true}
-              vertical={false}
-            />
-            <XAxis dataKey="timestamp" height={60} tickMargin={10} />
-            <YAxis
-              yAxisId="speed"
-              label={{
-                value: "Speed (Mbps)",
-                position: "insideLeft",
-                angle: -90,
-                offset: 0,
-                className: "fill-gray-400",
-              }}
-              domain={[0, "auto"]}
-              allowDataOverflow={false}
-            />
-            <YAxis
-              yAxisId="latency"
-              orientation="right"
-              label={{
-                value: "ms",
-                position: "insideRight",
-                angle: -90,
-                offset: 0,
-                className: "fill-gray-400",
-              }}
-              domain={[0, "auto"]}
-              allowDataOverflow={false}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#1F2937",
-                border: "1px solid #374151",
-                borderRadius: "0.5rem",
-              }}
-              labelStyle={{ color: "#9CA3AF" }}
-              itemStyle={{ color: "#E5E7EB" }}
-            />
-            {visibleMetrics.download && (
-              <Area
-                yAxisId="speed"
-                type="monotone"
-                dataKey="download"
-                name="Download"
-                stroke="#3B82F6"
-                strokeWidth={3}
-                dot={false}
-                activeDot={{ r: 6 }}
-                fill="url(#downloadGradient)"
-                className="!stroke-blue-500"
-              />
-            )}
-            {visibleMetrics.upload && (
-              <Area
-                yAxisId="speed"
-                type="monotone"
-                dataKey="upload"
-                name="Upload"
-                stroke="#10B981"
-                strokeWidth={3}
-                dot={false}
-                activeDot={{ r: 6 }}
-                fill="url(#uploadGradient)"
-                className="!stroke-emerald-500"
-              />
-            )}
-            {visibleMetrics.latency && (
-              <Area
-                yAxisId="latency"
-                type="monotone"
-                dataKey="latency"
-                name="Latency"
-                stroke="#F59E0B"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 6 }}
-                fill="url(#latencyGradient)"
-                className="!stroke-amber-500"
-                strokeDasharray="3 3"
-              />
-            )}
-            {visibleMetrics.jitter && (
-              <Area
-                yAxisId="latency"
-                type="monotone"
-                dataKey="jitter"
-                name="Jitter"
-                stroke="#9333EA"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 6 }}
-                fill="url(#jitterGradient)"
-                className="!stroke-purple-500"
-                strokeDasharray="5 5"
-              />
-            )}
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      <div className="h-[400px]">{chart}</div>
     </div>
   );
 };

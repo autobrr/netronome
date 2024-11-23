@@ -82,7 +82,17 @@ func New() Service {
 
 	// Ensure database directory exists with proper permissions
 	dbDir := filepath.Dir(dburl)
-	log.Info().Str("dbDir", dbDir).Str("dburl", dburl).Msg("Database paths")
+
+	// Get absolute path of database file
+	absPath, err := filepath.Abs(dburl)
+	if err != nil {
+		log.Fatal().Err(err).Str("path", dburl).Msg("Failed to get absolute database path")
+	}
+
+	log.Info().
+		Str("dir", dbDir).
+		Str("path", absPath).
+		Msg("Initializing database")
 
 	if err := os.MkdirAll(dbDir, 0777); err != nil {
 		log.Fatal().Err(err).Str("path", dbDir).Msg("Failed to create database directory")

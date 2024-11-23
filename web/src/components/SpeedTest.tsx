@@ -187,6 +187,7 @@ export default function SpeedTest() {
 
     let pollCount = 0;
     const maxPolls = 180;
+    let lastUpdate = Date.now();
 
     const pollInterval = setInterval(async () => {
       try {
@@ -198,6 +199,12 @@ export default function SpeedTest() {
           setTestStatus("idle");
           return;
         }
+
+        const now = Date.now();
+        if (now - lastUpdate < 2000) {
+          return;
+        }
+        lastUpdate = now;
 
         const response = await fetch("/api/speedtest/status", {
           headers: {
@@ -244,7 +251,7 @@ export default function SpeedTest() {
       } catch (error) {
         console.error("Status check error:", error);
       }
-    }, 1000);
+    }, 2000);
 
     return () => clearInterval(pollInterval);
   }, [loading]);
@@ -410,24 +417,28 @@ export default function SpeedTest() {
                 title="Latency"
                 value={parseFloat(history[0].latency).toFixed(2)}
                 unit="ms"
+                average={calculateAverage(history, "latency", timeRange)}
               />
               <MetricCard
                 icon={<FaArrowDown className="w-5 h-5 text-emerald-400" />}
                 title="Download"
                 value={history[0].downloadSpeed.toFixed(2)}
                 unit="Mbps"
+                average={calculateAverage(history, "downloadSpeed", timeRange)}
               />
               <MetricCard
                 icon={<FaArrowUp className="w-5 h-5 text-purple-400" />}
                 title="Upload"
                 value={history[0].uploadSpeed.toFixed(2)}
                 unit="Mbps"
+                average={calculateAverage(history, "uploadSpeed", timeRange)}
               />
               <MetricCard
                 icon={<IoMdGitCompare className="w-5 h-5 text-blue-400" />}
                 title="Jitter"
                 value={history[0].jitter?.toFixed(2) ?? "N/A"}
                 unit="ms"
+                average={calculateAverage(history, "jitter", timeRange)}
               />
             </div>
           </div>
@@ -513,15 +524,23 @@ const MetricCard: React.FC<{
   title: string;
   value: string;
   unit: string;
-}> = ({ icon, title, value, unit }) => (
+  average?: string;
+}> = ({ icon, title, value, unit, average }) => (
   <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
     <div className="flex items-center gap-3 mb-4">
       {icon}
       <h3 className="text-gray-400 font-medium">{title}</h3>
     </div>
-    <div className="text-white text-3xl font-bold">
-      {value}
-      <span className="text-xl font-normal text-gray-400 ml-1">{unit}</span>
+    <div className="flex flex-col">
+      <div className="text-white text-3xl font-bold">
+        {value}
+        <span className="text-xl font-normal text-gray-400 ml-1">{unit}</span>
+      </div>
+      {average && (
+        <div className="text-sm text-gray-400 mt-1">
+          avg: {average} {unit}
+        </div>
+      )}
     </div>
   </div>
 );
@@ -541,4 +560,77 @@ const formatNextRun = (dateString: string): string => {
     const days = Math.floor(diffMins / 1440);
     return `in ${days} day${days !== 1 ? "s" : ""}`;
   }
+};
+
+const calculateAverage = (
+  history: SpeedTestResult[],
+  field: keyof SpeedTestResult,
+  timeRange: TimeRange
+): string => {
+  const now = new Date();
+  const cutoff = new Date();
+
+  // Set cutoff date based on timeRange
+  switch (timeRange) {
+    case "1d":
+      cutoff.setDate(now.getDate() - 1);
+      break;
+    case "3d":
+      cutoff.setDate(now.getDate() - 3);
+      break;
+    case "1w":
+      cutoff.setDate(now.getDate() - 7);
+      break;
+    case "1m":
+      cutoff.setMonth(now.getMonth() - 1);
+      break;
+    case "all":
+      return calculateAllTimeAverage(history, field);
+    default:
+      cutoff.setDate(now.getDate() - 7); // Default to 1 week
+  }
+
+  const filteredHistory = history.filter(
+    (item) => new Date(item.createdAt) >= cutoff
+  );
+
+  const validValues = filteredHistory
+    .map((item) => {
+      const value = item[field];
+      if (typeof value === "string") {
+        // Handle string values (like latency with "ms" suffix)
+        return parseFloat(value.replace("ms", ""));
+      }
+      return Number(value);
+    })
+    .filter((value) => !isNaN(value));
+
+  if (validValues.length === 0) return "N/A";
+
+  const avg =
+    validValues.reduce((sum, value) => sum + value, 0) / validValues.length;
+  return avg.toFixed(2);
+};
+
+// Helper function for "all" time range
+const calculateAllTimeAverage = (
+  history: SpeedTestResult[],
+  field: keyof SpeedTestResult
+): string => {
+  const validValues = history
+    .map((item) => {
+      const value = item[field];
+      if (typeof value === "string") {
+        // Handle string values (like latency with "ms" suffix)
+        return parseFloat(value.replace("ms", ""));
+      }
+      return Number(value);
+    })
+    .filter((value) => !isNaN(value));
+
+  if (validValues.length === 0) return "N/A";
+
+  const avg =
+    validValues.reduce((sum, value) => sum + value, 0) / validValues.length;
+  return avg.toFixed(2);
 };
