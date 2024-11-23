@@ -67,8 +67,8 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
     });
   };
 
-  const getFilteredData = () => {
-    const now = new Date();
+  const filteredData = useMemo(() => {
+    const now = Date.now();
     const timeRangeInMs: { [key in TimeRange]: number } = {
       "1d": 24 * 60 * 60 * 1000,
       "3d": 3 * 24 * 60 * 60 * 1000,
@@ -80,9 +80,14 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
     return history
       .filter((item) => {
         if (timeRange === "all") return true;
-        const cutoffTime = new Date(now.getTime() - timeRangeInMs[timeRange]);
-        return new Date(item.createdAt) > cutoffTime;
+        const itemDate = new Date(item.createdAt).getTime();
+        const cutoffTime = now - timeRangeInMs[timeRange];
+        return itemDate >= cutoffTime;
       })
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
       .map((item) => ({
         timestamp: new Date(item.createdAt).toLocaleString(undefined, {
           month: "short",
@@ -95,9 +100,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         latency: parseFloat(item.latency.replace("ms", "")),
         jitter: item.jitter,
       }));
-  };
-
-  const filteredData = useMemo(() => getFilteredData(), []);
+  }, [history, timeRange]);
 
   const handleTimeRangeChange = (range: TimeRange) => {
     localStorage.setItem("speedtest-time-range", range);

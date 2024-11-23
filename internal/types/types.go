@@ -33,3 +33,15 @@ type Schedule struct {
 	Options   TestOptions `json:"options"`
 	CreatedAt time.Time   `json:"createdAt"`
 }
+
+type SpeedTestResult struct {
+	ID            int64     `json:"id"`
+	ServerName    string    `json:"serverName"`
+	ServerID      string    `json:"serverId"`
+	DownloadSpeed float64   `json:"downloadSpeed"`
+	UploadSpeed   float64   `json:"uploadSpeed"`
+	Latency       string    `json:"latency"`
+	PacketLoss    float64   `json:"packetLoss"`
+	Jitter        *float64  `json:"jitter"`
+	CreatedAt     time.Time `json:"createdAt"`
+}

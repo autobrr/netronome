@@ -275,7 +275,7 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 
 	// Update the database save operation
 	jitterFloat := selectedServer.Jitter.Seconds() * 1000
-	dbResult, err := s.db.SaveSpeedTest(context.Background(), database.SpeedTestResult{
+	dbResult, err := s.db.SaveSpeedTest(context.Background(), types.SpeedTestResult{
 		ServerName:    selectedServer.Name,
 		ServerID:      selectedServer.ID,
 		DownloadSpeed: result.DownloadSpeed,
