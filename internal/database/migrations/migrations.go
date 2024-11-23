@@ -13,4 +13,5 @@ var (
 // MigrationFiles holds all migration file names in order
 var MigrationFiles = []string{
 	"001_initial_schema.sql",
+	"002_auth_schema.sql",
 }

@@ -28,6 +28,7 @@ type Service interface {
 	Health() map[string]string
 	Close() error
 	InitializeTables(ctx context.Context) error
+	QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row
 
 	SaveSpeedTest(ctx context.Context, result types.SpeedTestResult) (*types.SpeedTestResult, error)
 	GetSpeedTests(ctx context.Context, timeRange string, page int, limit int) (*types.PaginatedSpeedTests, error)
@@ -36,6 +37,10 @@ type Service interface {
 	GetSchedules(ctx context.Context) ([]types.Schedule, error)
 	UpdateSchedule(ctx context.Context, schedule types.Schedule) error
 	DeleteSchedule(ctx context.Context, id int64) error
+
+	CreateUser(ctx context.Context, username, password string) (*User, error)
+	GetUserByUsername(ctx context.Context, username string) (*User, error)
+	ValidatePassword(user *User, password string) bool
 }
 
 type service struct {
@@ -119,6 +124,10 @@ func initializeDatabase(db *sql.DB) error {
 	}
 
 	return nil
+}
+
+func (s *service) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	return s.db.QueryRowContext(ctx, query, args...)
 }
 
 func (s *service) Health() map[string]string {

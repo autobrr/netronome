@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/middleware"
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
@@ -23,6 +24,7 @@ type Server struct {
 	speedtest  speedtest.Service
 	db         database.Service
 	scheduler  scheduler.Service
+	auth       *AuthHandler
 	mu         sync.RWMutex
 	lastUpdate *types.SpeedUpdate
 }
@@ -59,6 +61,7 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 		speedtest:  speedtest,
 		db:         db,
 		scheduler:  scheduler,
+		auth:       NewAuthHandler(db),
 		lastUpdate: &types.SpeedUpdate{},
 	}
 
@@ -81,14 +84,33 @@ func (s *Server) BroadcastUpdate(update types.SpeedUpdate) {
 func (s *Server) RegisterRoutes() {
 	api := s.Router.Group("/api")
 	{
-		api.GET("/servers", s.handleGetServers)
-		api.POST("/speedtest", s.handleSpeedTest)
-		api.GET("/speedtest/status", s.handleSpeedTestStatus)
-		api.GET("/speedtest/history", s.handleSpeedTestHistory)
-		api.GET("/schedules", s.handleGetSchedules)
-		api.POST("/schedules", s.handleCreateSchedule)
-		api.PUT("/schedules/:id", s.handleUpdateSchedule)
-		api.DELETE("/schedules/:id", s.handleDeleteSchedule)
+		// Public auth routes
+		auth := api.Group("/auth")
+		{
+			auth.GET("/status", s.auth.CheckRegistrationStatus)
+			auth.POST("/register", s.auth.Register)
+			auth.POST("/login", s.auth.Login)
+		}
+
+		// Protected routes
+		protected := api.Group("")
+		protected.Use(middleware.RequireAuth(s.db))
+		{
+			// Protected auth routes
+			protected.POST("/auth/logout", s.auth.Logout)
+			protected.GET("/auth/verify", s.auth.Verify)
+			protected.GET("/auth/user", s.auth.GetUserInfo)
+
+			// Other protected routes
+			protected.GET("/servers", s.handleGetServers)
+			protected.POST("/speedtest", s.handleSpeedTest)
+			protected.GET("/speedtest/status", s.handleSpeedTestStatus)
+			protected.GET("/speedtest/history", s.handleSpeedTestHistory)
+			protected.GET("/schedules", s.handleGetSchedules)
+			protected.POST("/schedules", s.handleCreateSchedule)
+			protected.PUT("/schedules/:id", s.handleUpdateSchedule)
+			protected.DELETE("/schedules/:id", s.handleDeleteSchedule)
+		}
 	}
 }
 
@@ -119,7 +141,6 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// TODO: Implement pagination?
 func (s *Server) handleSpeedTestHistory(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -242,7 +263,5 @@ func LoggerMiddleware() gin.HandlerFunc {
 		if query != "" {
 			event.Str("query", query)
 		}
-
-		//event.Msg("HTTP")
 	}
 }
