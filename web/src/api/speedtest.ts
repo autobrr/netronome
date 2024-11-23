@@ -1,4 +1,9 @@
-import { Server, SpeedTestResult, Schedule, TestOptions, SpeedUpdate } from '../types/types'
+/*
+ * Copyright (c) 2024, s0up and the autobrr contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+import { Server, SpeedTestResult, Schedule, TestOptions, SpeedUpdate, TimeRange, PaginatedResponse } from '../types/types'
 
 export const fetchServers = async (): Promise<Server[]> => {
   const response = await fetch("/api/servers")
@@ -11,10 +16,15 @@ export const fetchServers = async (): Promise<Server[]> => {
   }
 }
 
-export const fetchHistory = async (): Promise<SpeedTestResult[]> => {
-  const response = await fetch("/api/speedtest/history")
-  if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-  return response.json()
+export const fetchHistory = async (
+  timeRange: TimeRange,
+  page: number,
+  limit: number = 500
+): Promise<PaginatedResponse<SpeedTestResult>> => {
+  const response = await fetch(
+    `/api/speedtest/history?timeRange=${timeRange}&page=${page}&limit=${limit}`
+  );
+  return response.json();
 }
 
 export const fetchSchedules = async (): Promise<Schedule[]> => {

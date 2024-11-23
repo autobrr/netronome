@@ -13,10 +13,15 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { SpeedTestResult, TimeRange } from "../../types/types";
+import {
+  SpeedTestResult,
+  TimeRange,
+  PaginatedResponse,
+} from "../../types/types";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { fetchHistory } from "../../api/speedtest";
 
 interface SpeedHistoryChartProps {
-  history: SpeedTestResult[];
   timeRange: TimeRange;
   onTimeRangeChange: (range: TimeRange) => void;
 }
@@ -36,9 +41,14 @@ const timeRangeOptions: { value: TimeRange; label: string }[] = [
   { value: "all", label: "All Time" },
 ];
 
+const ChartSkeleton: React.FC = () => (
+  <div className="animate-pulse h-full w-full">
+    <div className="h-full w-full bg-gray-800/50 rounded-lg" />
+  </div>
+);
+
 export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
-  history,
-  timeRange,
+  timeRange = "1w",
   onTimeRangeChange,
 }) => {
   const [visibleMetrics, setVisibleMetrics] = useState<VisibleMetrics>(() => {
@@ -67,23 +77,28 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
     });
   };
 
-  const filteredData = useMemo(() => {
-    const now = Date.now();
-    const timeRangeInMs: { [key in TimeRange]: number } = {
-      "1d": 24 * 60 * 60 * 1000,
-      "3d": 3 * 24 * 60 * 60 * 1000,
-      "1w": 7 * 24 * 60 * 60 * 1000,
-      "1m": 30 * 24 * 60 * 60 * 1000,
-      all: 0,
-    };
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
+    useInfiniteQuery({
+      queryKey: ["history", timeRange],
+      queryFn: async ({ pageParam = 1 }) => {
+        const response = await fetchHistory(timeRange, pageParam, 500);
+        return response;
+      },
+      getNextPageParam: (lastPage: PaginatedResponse<SpeedTestResult>) => {
+        if (lastPage.data.length < lastPage.limit) return undefined;
+        return lastPage.page + 1;
+      },
+      initialPageParam: 1,
+    });
 
-    return history
-      .filter((item) => {
-        if (timeRange === "all") return true;
-        const itemDate = new Date(item.createdAt).getTime();
-        const cutoffTime = now - timeRangeInMs[timeRange];
-        return itemDate >= cutoffTime;
-      })
+  const filteredData = useMemo(() => {
+    if (!data) return [];
+
+    const allData = data.pages.flatMap(
+      (page: PaginatedResponse<SpeedTestResult>) => page.data
+    );
+
+    return allData
       .sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -100,7 +115,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         latency: parseFloat(item.latency.replace("ms", "")),
         jitter: item.jitter,
       }));
-  }, [history, timeRange]);
+  }, [data]);
 
   const handleTimeRangeChange = (range: TimeRange) => {
     localStorage.setItem("speedtest-time-range", range);
@@ -175,6 +190,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
           />
           {visibleMetrics.download && (
             <Area
+              key="download"
               yAxisId="speed"
               type="monotone"
               dataKey="download"
@@ -193,6 +209,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
           )}
           {visibleMetrics.upload && (
             <Area
+              key="upload"
               yAxisId="speed"
               type="monotone"
               dataKey="upload"
@@ -211,6 +228,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
           )}
           {visibleMetrics.latency && (
             <Area
+              key="latency"
               yAxisId="latency"
               type="monotone"
               dataKey="latency"
@@ -229,6 +247,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
           )}
           {visibleMetrics.jitter && (
             <Area
+              key="jitter"
               yAxisId="latency"
               type="monotone"
               dataKey="jitter"
@@ -319,7 +338,24 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         </div>
       </div>
 
-      <div className="h-[400px]">{chart}</div>
+      <div className="h-[400px]">
+        {isLoading ? (
+          <ChartSkeleton />
+        ) : (
+          <div className="h-full transition-opacity duration-300 ease-in-out">
+            {chart}
+          </div>
+        )}
+      </div>
+      {hasNextPage && (
+        <button
+          onClick={() => fetchNextPage()}
+          disabled={isFetchingNextPage}
+          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
+        >
+          {isFetchingNextPage ? "Loading more..." : "Load more"}
+        </button>
+      )}
     </div>
   );
 };

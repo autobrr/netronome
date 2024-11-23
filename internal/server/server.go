@@ -119,17 +119,22 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// TODO: Implement pagination?
 func (s *Server) handleSpeedTestHistory(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	history, err := s.db.GetSpeedTests(ctx, 1000) // Get last 100 results
+	timeRange := c.DefaultQuery("timeRange", "1w")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+
+	results, err := s.db.GetSpeedTests(ctx, timeRange, page, limit)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to retrieve speed test history")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve speed test history"})
 		return
 	}
 
-	c.JSON(http.StatusOK, history)
+	c.JSON(http.StatusOK, results)
 }
 
 func (s *Server) handleGetServers(c *gin.Context) {

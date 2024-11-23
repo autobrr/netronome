@@ -169,8 +169,10 @@ export const ServerList: React.FC<ServerListProps> = ({
                 </span>
                 <span className="text-gray-400 text-sm">
                   {server.name} -{" "}
-                  <span className="font-semibold">
-                    {server.url.split("//")[1].split("/")[0]}
+                  <span className="font-semibold" title={server.host}>
+                    {server.host.length > 30
+                      ? server.host.substring(0, 30) + "..."
+                      : server.host}
                   </span>
                 </span>
                 <span className="text-gray-400 text-sm">{server.country}</span>

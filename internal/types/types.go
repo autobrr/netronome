@@ -45,3 +45,10 @@ type SpeedTestResult struct {
 	Jitter        *float64  `json:"jitter"`
 	CreatedAt     time.Time `json:"createdAt"`
 }
+
+type PaginatedSpeedTests struct {
+	Data  []SpeedTestResult `json:"data"`
+	Total int               `json:"total"`
+	Page  int               `json:"page"`
+	Limit int               `json:"limit"`
+}

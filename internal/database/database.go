@@ -30,7 +30,7 @@ type Service interface {
 	InitializeTables(ctx context.Context) error
 
 	SaveSpeedTest(ctx context.Context, result types.SpeedTestResult) (*types.SpeedTestResult, error)
-	GetSpeedTests(ctx context.Context, limit int) ([]types.SpeedTestResult, error)
+	GetSpeedTests(ctx context.Context, timeRange string, page int, limit int) (*types.PaginatedSpeedTests, error)
 
 	CreateSchedule(ctx context.Context, schedule types.Schedule) (*types.Schedule, error)
 	GetSchedules(ctx context.Context) ([]types.Schedule, error)

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Container } from "@mui/material";
 import { IoIosPulse, IoMdGitCompare } from "react-icons/io";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
@@ -17,11 +17,17 @@ import {
   TestProgress as TestProgressType,
   TimeRange,
   TestOptions,
+  PaginatedResponse,
 } from "../types/types";
 import { Disclosure, DisclosureButton } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import logo from "../assets/logo.png";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useInfiniteQuery,
+} from "@tanstack/react-query";
 import {
   fetchServers,
   fetchHistory,
@@ -56,10 +62,25 @@ export default function SpeedTest() {
     queryFn: fetchServers,
   });
 
-  const { data: history = [] } = useQuery({
-    queryKey: ["history"],
-    queryFn: fetchHistory,
+  const { data: historyData, isLoading: isHistoryLoading } = useInfiniteQuery({
+    queryKey: ["history", timeRange],
+    queryFn: async ({ pageParam = 1 }) => {
+      const response = await fetchHistory(timeRange, pageParam);
+      return response as PaginatedResponse<SpeedTestResult>;
+    },
+    getNextPageParam: (lastPage: PaginatedResponse<SpeedTestResult>) => {
+      if (lastPage.data.length < lastPage.limit) return undefined;
+      return lastPage.page + 1;
+    },
+    initialPageParam: 1,
+    staleTime: 0,
+    placeholderData: (previousData) => previousData,
   });
+
+  const history = useMemo(() => {
+    if (!historyData) return [];
+    return historyData.pages.flatMap((page) => page.data);
+  }, [historyData]);
 
   const { data: schedules = [] } = useQuery({
     queryKey: ["schedules"],
@@ -227,8 +248,8 @@ export default function SpeedTest() {
           </div>
         )}
 
-        {/* No History Message */}
-        {(!history || history.length === 0) && (
+        {/* No History Message - Only show when explicitly empty and not loading */}
+        {!isHistoryLoading && (!history || history.length === 0) && (
           <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900 mb-6">
             <div className="text-center space-y-4">
               <div>
@@ -324,13 +345,14 @@ export default function SpeedTest() {
         )}
 
         {/* Speed History Chart */}
-        {history && history.length > 0 && (
-          <SpeedHistoryChart
-            history={history}
-            timeRange={timeRange}
-            onTimeRangeChange={setTimeRange}
-          />
-        )}
+        {historyData &&
+          historyData.pages[0] &&
+          historyData.pages[0].data.length > 0 && (
+            <SpeedHistoryChart
+              timeRange={timeRange}
+              onTimeRangeChange={setTimeRange}
+            />
+          )}
 
         {/* Server Selection */}
         <Disclosure defaultOpen={false}>

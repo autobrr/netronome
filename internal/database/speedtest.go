@@ -1,3 +1,6 @@
+// Copyright (c) 2024, s0up and the autobrr contributors.
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 package database
 
 import (
@@ -42,9 +45,42 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 	return &result, nil
 }
 
-func (s *service) GetSpeedTests(ctx context.Context, limit int) ([]types.SpeedTestResult, error) {
-	query := sqlBuilder.
-		Select(
+func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, limit int) (*types.PaginatedSpeedTests, error) {
+	// Base query builder
+	baseQuery := sqlBuilder.Select().From("speed_tests")
+
+	// Add time range condition
+	var whereClause string
+	switch timeRange {
+	case "1d":
+		whereClause = "created_at >= datetime('now', '-1 day')"
+	case "3d":
+		whereClause = "created_at >= datetime('now', '-3 days')"
+	case "1w":
+		whereClause = "created_at >= datetime('now', '-7 days')"
+	case "1m":
+		whereClause = "created_at >= datetime('now', '-1 month')"
+	}
+
+	if whereClause != "" {
+		baseQuery = baseQuery.Where(whereClause)
+	}
+
+	// Count query
+	countQuery := sqlBuilder.Select("COUNT(*)").From("speed_tests")
+	if whereClause != "" {
+		countQuery = countQuery.Where(whereClause)
+	}
+
+	var total int
+	err := countQuery.RunWith(s.db).QueryRowContext(ctx).Scan(&total)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get total count: %w", err)
+	}
+
+	// Data query with pagination
+	dataQuery := baseQuery.
+		Columns(
 			"id",
 			"server_name",
 			"server_id",
@@ -55,11 +91,11 @@ func (s *service) GetSpeedTests(ctx context.Context, limit int) ([]types.SpeedTe
 			"jitter",
 			"created_at",
 		).
-		From("speed_tests").
 		OrderBy("created_at DESC").
-		Limit(uint64(limit))
+		Limit(uint64(limit)).
+		Offset(uint64((page - 1) * limit))
 
-	rows, err := query.RunWith(s.db).QueryContext(ctx)
+	rows, err := dataQuery.RunWith(s.db).QueryContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query speed tests: %w", err)
 	}
@@ -85,5 +121,10 @@ func (s *service) GetSpeedTests(ctx context.Context, limit int) ([]types.SpeedTe
 		results = append(results, result)
 	}
 
-	return results, nil
+	return &types.PaginatedSpeedTests{
+		Data:  results,
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}, nil
 }
