@@ -1,3 +1,5 @@
+**THIS README IS A WIP**
+
 <h1 align="center">Netronome</h1>
 
 Netronome (short for Network Metronome) is a modern network speed testing and monitoring tool built with Go and React. It provides a clean web interface for running network speed tests and visualizing results, measuring your network performance with metronome-like precision.
