@@ -68,8 +68,10 @@ export default function SpeedTest() {
       const response = await fetchHistory(timeRange, pageParam);
       return response as PaginatedResponse<SpeedTestResult>;
     },
-    getNextPageParam: (lastPage: PaginatedResponse<SpeedTestResult> | null) => {
-      if (!lastPage || !lastPage.data) return undefined;
+    getNextPageParam: (
+      lastPage: PaginatedResponse<SpeedTestResult> | undefined
+    ) => {
+      if (!lastPage?.data) return undefined;
       if (lastPage.data.length < lastPage.limit) return undefined;
       return lastPage.page + 1;
     },
@@ -79,8 +81,8 @@ export default function SpeedTest() {
   });
 
   const history = useMemo(() => {
-    if (!historyData) return [];
-    return historyData.pages.flatMap((page) => page.data);
+    if (!historyData?.pages) return [];
+    return historyData.pages.flatMap((page) => page?.data ?? []);
   }, [historyData]);
 
   const { data: schedules = [] } = useQuery({
@@ -292,16 +294,18 @@ export default function SpeedTest() {
         )}
 
         {/* Latest Results */}
-        {history && history.length > 0 && (
+        {history && history.length > 0 && history[0] && (
           <div className="mb-6">
             <h2 className="text-white text-xl font-semibold">Latest Run</h2>
             <div className="flex justify-between items-center text-gray-400 text-sm mb-4">
               <div>
                 Last test run:{" "}
-                {new Date(history[0].createdAt).toLocaleString(undefined, {
-                  dateStyle: "short",
-                  timeStyle: "short",
-                })}
+                {history[0]?.createdAt
+                  ? new Date(history[0].createdAt).toLocaleString(undefined, {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })
+                  : "N/A"}
               </div>
               {schedules && schedules.length > 0 && (
                 <div>
@@ -346,14 +350,12 @@ export default function SpeedTest() {
         )}
 
         {/* Speed History Chart */}
-        {historyData &&
-          historyData.pages[0] &&
-          historyData.pages[0].data.length > 0 && (
-            <SpeedHistoryChart
-              timeRange={timeRange}
-              onTimeRangeChange={setTimeRange}
-            />
-          )}
+        {Boolean(historyData?.pages?.[0]?.data?.length) && (
+          <SpeedHistoryChart
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+          />
+        )}
 
         {/* Server Selection */}
         <Disclosure defaultOpen={false}>
