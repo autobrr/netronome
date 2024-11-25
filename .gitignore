@@ -11,8 +11,6 @@ vendor/
 bin/
 
 # Build artifacts
-dist/
-dist-ssr/
 tmp/
 main
 *templ.go
@@ -38,4 +36,8 @@ results.json
 
 # Project specific
 data/
-frontend/dist/
+
+# Web build
+web/dist/*
+!web/dist/.gitkeep
+web/tsconfig.app.tsbuildinfo

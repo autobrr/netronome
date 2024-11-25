@@ -5,8 +5,6 @@ DOCKER_IMAGE=netronome
 
 .PHONY: all build clean run docker-build docker-run watch dev
 
-export GIN_MODE=debug
-
 all: clean build
 
 build: 
@@ -18,7 +16,7 @@ build:
 clean:
 	@echo "Cleaning up..."
 	@rm -rf $(BUILD_DIR)
-	@rm -rf web/dist
+	@find web/dist -mindepth 1 ! -name '.gitkeep' -delete
 	@rm -rf web/node_modules
 
 run: build
@@ -36,8 +34,8 @@ docker-run: docker-build
 # Development with live reload
 dev:
 	@echo "Starting development servers..."
-	@tmux new-session -d -s dev 'cd web && pnpm dev'
-	@tmux split-window -h 'make watch'
+	@GIN_MODE=debug tmux new-session -d -s dev 'cd web && pnpm dev'
+	@GIN_MODE=debug tmux split-window -h 'make watch'
 	@tmux -2 attach-session -d
 
 watch:

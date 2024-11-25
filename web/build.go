@@ -158,24 +158,9 @@ func serveIndex(c *gin.Context) {
 	io.Copy(c.Writer, file)
 }
 
-// Add this function after BuildFrontend()
+// Verify dist directory exists in embedded FS
 func init() {
-	// Verify dist directory exists in embedded FS
 	if _, err := Dist.ReadDir("dist"); err != nil {
 		panic(fmt.Errorf("dist directory not found in embedded filesystem: %w", err))
 	}
-}
-
-func init() {
-	entries, err := Dist.ReadDir("dist")
-	if err != nil {
-		panic(fmt.Errorf("failed to read dist directory: %w", err))
-	}
-
-	// Print embedded files for debugging
-	var files []string
-	for _, entry := range entries {
-		files = append(files, entry.Name())
-	}
-	log.Info().Strs("embedded_files", files).Msg("Embedded files in dist directory")
 }
