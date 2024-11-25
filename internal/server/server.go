@@ -4,17 +4,17 @@
 package server
 
 import (
-	"net/http"
-	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/database"
-	"github.com/autobrr/netronome/internal/middleware"
 	"github.com/autobrr/netronome/internal/scheduler"
+	"github.com/autobrr/netronome/internal/server/middleware"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
 )
@@ -27,6 +27,7 @@ type Server struct {
 	auth       *AuthHandler
 	mu         sync.RWMutex
 	lastUpdate *types.SpeedUpdate
+	config     *Config
 }
 
 func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service) *Server {
@@ -36,17 +37,20 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 	router := gin.New()
 
 	router.Use(LoggerMiddleware())
-
 	router.Use(gin.Recovery())
 
-	// CORS middleware
-	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+	// Initialize default config
+	config := NewConfig()
 
+	// CORS middleware with config
+	router.Use(func(c *gin.Context) {
 		if c.Request.Method == "OPTIONS" {
+			for _, origin := range config.CORS.AllowedOrigins {
+				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			}
+			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+			c.Writer.Header().Set("Access-Control-Allow-Headers", strings.Join(config.CORS.AllowedHeaders, ","))
+			c.Writer.Header().Set("Access-Control-Allow-Methods", strings.Join(config.CORS.AllowedMethods, ","))
 			c.AbortWithStatus(204)
 			return
 		}
@@ -61,6 +65,7 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 		scheduler:  scheduler,
 		auth:       NewAuthHandler(db),
 		lastUpdate: &types.SpeedUpdate{},
+		config:     config,
 	}
 
 	s.RegisterRoutes()
@@ -110,125 +115,6 @@ func (s *Server) RegisterRoutes() {
 	}
 }
 
-func (s *Server) handleSpeedTest(c *gin.Context) {
-	var opts types.TestOptions
-	if err := c.ShouldBindJSON(&opts); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
-		return
-	}
-
-	// Reset lastUpdate before starting new test
-	s.mu.Lock()
-	s.lastUpdate = &types.SpeedUpdate{}
-	s.mu.Unlock()
-
-	result, err := s.speedtest.RunTest(&opts)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Ensure final update is set
-	s.mu.Lock()
-	s.lastUpdate.IsComplete = true
-	s.mu.Unlock()
-
-	c.JSON(http.StatusOK, result)
-}
-
-func (s *Server) handleSpeedTestHistory(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	timeRange := c.DefaultQuery("timeRange", "1w")
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
-
-	results, err := s.db.GetSpeedTests(ctx, timeRange, page, limit)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to retrieve speed test history")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve speed test history"})
-		return
-	}
-
-	c.JSON(http.StatusOK, results)
-}
-
-func (s *Server) handleGetServers(c *gin.Context) {
-	servers, err := s.speedtest.GetServers()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, servers)
-}
-
-func (s *Server) handleSpeedTestStatus(c *gin.Context) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	log.Printf("Sending status update: %+v", s.lastUpdate)
-	c.JSON(http.StatusOK, s.lastUpdate)
-}
-
-func (s *Server) handleGetSchedules(c *gin.Context) {
-	schedules, err := s.db.GetSchedules(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, schedules)
-}
-
-func (s *Server) handleCreateSchedule(c *gin.Context) {
-	var schedule types.Schedule
-	if err := c.ShouldBindJSON(&schedule); err != nil {
-		log.Printf("Failed to bind JSON: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
-		return
-	}
-
-	log.Printf("Received schedule: %+v", schedule)
-
-	createdSchedule, err := s.db.CreateSchedule(c.Request.Context(), schedule)
-	if err != nil {
-		log.Printf("Failed to create schedule: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	log.Printf("Created schedule: %+v", createdSchedule)
-	c.JSON(http.StatusCreated, createdSchedule)
-}
-
-func (s *Server) handleUpdateSchedule(c *gin.Context) {
-	var schedule types.Schedule
-	if err := c.ShouldBindJSON(&schedule); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
-		return
-	}
-
-	err := s.db.UpdateSchedule(c.Request.Context(), schedule)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Schedule updated successfully"})
-}
-
-func (s *Server) handleDeleteSchedule(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid schedule ID"})
-		return
-	}
-
-	err = s.db.DeleteSchedule(c.Request.Context(), int64(id))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Schedule deleted successfully"})
-}
-
 func LoggerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -237,15 +123,19 @@ func LoggerMiddleware() gin.HandlerFunc {
 
 		c.Next()
 
-		// Skip successful health check endpoints to reduce noise
-		if path == "/health" && c.Writer.Status() == 200 {
+		// Skip certain endpoints to reduce noise
+		if path == "/health" || path == "/api/speedtest/status" && c.Writer.Status() == 200 {
 			return
 		}
 
-		event := log.Info()
-
-		if c.Errors.String() != "" {
-			event = event.Str("error", c.Errors.String())
+		var event *zerolog.Event
+		switch {
+		case c.Writer.Status() >= 500:
+			event = log.Error()
+		case c.Writer.Status() >= 400:
+			event = log.Warn()
+		default:
+			event = log.Info()
 		}
 
 		event.
@@ -257,5 +147,15 @@ func LoggerMiddleware() gin.HandlerFunc {
 		if query != "" {
 			event.Str("query", query)
 		}
+
+		if len(c.Errors) > 0 {
+			event.Str("error", c.Errors.String())
+		}
+
+		if requestID := c.GetHeader("X-Request-ID"); requestID != "" {
+			event.Str("request_id", requestID)
+		}
+
+		event.Msg("HTTP Request")
 	}
 }

@@ -4,7 +4,7 @@
 package server
 
 import (
-	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -25,13 +25,12 @@ func NewAuthHandler(db database.Service) *AuthHandler {
 	}
 }
 
-// checks if registration is allowed (no users exist)
 func (h *AuthHandler) CheckRegistrationStatus(c *gin.Context) {
 	var count int
 	err := h.db.QueryRow(c.Request.Context(), "SELECT COUNT(*) FROM users").Scan(&count)
 	if err != nil && !isTableNotExistsError(err) {
-		log.Error().Err(err).Msg("failed to check existing users")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		log.Error().Err(err).Msg("Failed to check existing users")
+		_ = c.Error(fmt.Errorf("failed to check registration status: %w", err))
 		return
 	}
 
@@ -45,13 +44,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	var count int
 	err := h.db.QueryRow(c.Request.Context(), "SELECT COUNT(*) FROM users").Scan(&count)
 	if err != nil && !isTableNotExistsError(err) {
-		log.Error().Err(err).Msg("failed to check existing users")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		log.Error().Err(err).Msg("Failed to check existing users")
+		_ = c.Error(fmt.Errorf("failed to check existing users: %w", err))
 		return
 	}
 
 	if err == nil && count > 0 {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Registration is disabled. A user already exists."})
+		_ = c.Error(fmt.Errorf("registration disabled: user already exists"))
 		return
 	}
 
@@ -60,34 +59,34 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Password string `json:"password"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		_ = c.Error(fmt.Errorf("invalid request data: %w", err))
 		return
 	}
 
 	if err := utils.ValidatePassword(req.Password); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		_ = c.Error(fmt.Errorf("invalid password: %w", err))
 		return
 	}
 
 	user, err := h.db.CreateUser(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		if err == database.ErrUserAlreadyExists {
-			c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+			_ = c.Error(fmt.Errorf("username already exists: %w", err))
 			return
 		}
-		log.Error().Err(err).Msg("failed to create user")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		log.Error().Err(err).Msg("Failed to create user")
+		_ = c.Error(fmt.Errorf("failed to create user: %w", err))
 		return
 	}
 
 	sessionToken, err := utils.GenerateSecureToken(32)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to generate session token")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		log.Error().Err(err).Msg("Failed to generate session token")
+		_ = c.Error(fmt.Errorf("failed to generate session token: %w", err))
 		return
 	}
 
-	var isSecure = c.GetHeader("X-Forwarded-Proto") == "https"
+	isSecure := c.GetHeader("X-Forwarded-Proto") == "https"
 
 	c.SetCookie(
 		"session",
@@ -114,34 +113,34 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		Password string `json:"password"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		_ = c.Error(fmt.Errorf("invalid request data: %w", err))
 		return
 	}
 
-	user, err := h.db.GetUserByUsername(context.Background(), req.Username)
+	user, err := h.db.GetUserByUsername(c.Request.Context(), req.Username)
 	if err != nil {
 		if err == database.ErrUserNotFound {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+			_ = c.Error(fmt.Errorf("invalid credentials: %w", err))
 			return
 		}
-		log.Error().Err(err).Msg("failed to get user")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		log.Error().Err(err).Msg("Failed to get user")
+		_ = c.Error(fmt.Errorf("failed to get user: %w", err))
 		return
 	}
 
 	if !h.db.ValidatePassword(user, req.Password) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		_ = c.Error(fmt.Errorf("invalid credentials"))
 		return
 	}
 
 	sessionToken, err := utils.GenerateSecureToken(32)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to generate session token")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		log.Error().Err(err).Msg("Failed to generate session token")
+		_ = c.Error(fmt.Errorf("failed to generate session token: %w", err))
 		return
 	}
 
-	var isSecure = c.GetHeader("X-Forwarded-Proto") == "https"
+	isSecure := c.GetHeader("X-Forwarded-Proto") == "https"
 
 	c.SetCookie(
 		"session",
@@ -167,7 +166,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) Verify(c *gin.Context) {
 	_, err := c.Cookie("session")
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "No session found"})
+		_ = c.Error(fmt.Errorf("no session found: %w", err))
 		return
 	}
 
@@ -177,9 +176,8 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
-	var isSecure = c.GetHeader("X-Forwarded-Proto") == "https"
+	isSecure := c.GetHeader("X-Forwarded-Proto") == "https"
 
-	// Clear session cookie
 	c.SetCookie(
 		"session",
 		"",
@@ -196,14 +194,14 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 func (h *AuthHandler) GetUserInfo(c *gin.Context) {
 	username := c.GetString("username")
 	if username == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "No session found"})
+		_ = c.Error(fmt.Errorf("no session found"))
 		return
 	}
 
 	user, err := h.db.GetUserByUsername(c.Request.Context(), username)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get user info")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		log.Error().Err(err).Msg("Failed to get user info")
+		_ = c.Error(fmt.Errorf("failed to get user info: %w", err))
 		return
 	}
 

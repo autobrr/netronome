@@ -4,9 +4,10 @@
 package middleware
 
 import (
-	"net/http"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/database"
 )
@@ -15,7 +16,9 @@ func RequireAuth(db database.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		_, err := c.Cookie("session")
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			log.Debug().Err(err).Msg("No session cookie found")
+			_ = c.Error(fmt.Errorf("authentication required: %w", err))
+			c.Abort()
 			return
 		}
 
@@ -23,12 +26,13 @@ func RequireAuth(db database.Service) gin.HandlerFunc {
 		var username string
 		err = db.QueryRow(c.Request.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid session"})
+			log.Error().Err(err).Msg("Failed to validate session")
+			_ = c.Error(fmt.Errorf("invalid session: %w", err))
+			c.Abort()
 			return
 		}
 
 		c.Set("username", username)
-
 		c.Next()
 	}
 }
