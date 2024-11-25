@@ -83,7 +83,7 @@ func (s *Server) handleSpeedTestStatus(c *gin.Context) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	log.Debug().
+	log.Trace().
 		Interface("lastUpdate", s.lastUpdate).
 		Msg("Sending status update")
 

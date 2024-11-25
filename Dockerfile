@@ -32,7 +32,7 @@ RUN go build -ldflags "-s -w \
     -X netronome/internal/buildinfo.Version=${VERSION} \
     -X netronome/internal/buildinfo.Commit=${REVISION} \
     -X netronome/internal/buildinfo.Date=${BUILDTIME}" \
-    -o /app/netronome cmd/api/main.go
+    -o /app/netronome cmd/netronome/main.go
 
 FROM alpine:3.20
 

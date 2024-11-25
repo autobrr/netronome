@@ -5,11 +5,12 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Container } from "@mui/material";
-import { IoIosPulse, IoMdGitCompare } from "react-icons/io";
+import { FaWaveSquare } from "react-icons/fa";
+import { IoIosPulse } from "react-icons/io";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
-import { ServerList } from "./speedtest/ServerList";
-import { TestProgress } from "./speedtest/TestProgress";
-import { SpeedHistoryChart } from "./speedtest/SpeedHistoryChart";
+import { ServerList } from "./ServerList";
+import { TestProgress } from "./TestProgress";
+import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import ScheduleManager from "./ScheduleManager";
 import {
   Server,
@@ -18,8 +19,8 @@ import {
   TimeRange,
   TestOptions,
   PaginatedResponse,
-} from "../types/types";
-import logo from "../assets/logo.png";
+} from "../../types/types";
+import logo from "../../assets/logo.png";
 import {
   useQuery,
   useMutation,
@@ -32,7 +33,7 @@ import {
   fetchSchedules,
   runSpeedTest,
   fetchTestStatus,
-} from "../api/speedtest";
+} from "../../api/speedtest";
 import { motion } from "motion/react";
 
 export default function SpeedTest() {
@@ -390,28 +391,28 @@ export default function SpeedTest() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 cursor-default">
               <MetricCard
-                icon={<IoIosPulse className="w-5 h-5 text-blue-400" />}
+                icon={<IoIosPulse className="w-5 h-5 text-amber-500" />}
                 title="Latency"
                 value={parseFloat(history[0].latency).toFixed(2)}
                 unit="ms"
                 average={calculateAverage(history, "latency", timeRange)}
               />
               <MetricCard
-                icon={<FaArrowDown className="w-5 h-5 text-emerald-400" />}
+                icon={<FaArrowDown className="w-5 h-5 text-blue-500" />}
                 title="Download"
                 value={history[0].downloadSpeed.toFixed(2)}
                 unit="Mbps"
                 average={calculateAverage(history, "downloadSpeed", timeRange)}
               />
               <MetricCard
-                icon={<FaArrowUp className="w-5 h-5 text-purple-400" />}
+                icon={<FaArrowUp className="w-5 h-5 text-emerald-500" />}
                 title="Upload"
                 value={history[0].uploadSpeed.toFixed(2)}
                 unit="Mbps"
                 average={calculateAverage(history, "uploadSpeed", timeRange)}
               />
               <MetricCard
-                icon={<IoMdGitCompare className="w-5 h-5 text-blue-400" />}
+                icon={<FaWaveSquare className="w-5 h-5 text-purple-500" />}
                 title="Jitter"
                 value={history[0].jitter?.toFixed(2) ?? "N/A"}
                 unit="ms"

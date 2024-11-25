@@ -10,7 +10,7 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import App from "./App";
-import SpeedTest from "./components/SpeedTest";
+import SpeedTest from "./components/speedtest/SpeedTest";
 import Login from "./components/auth/Login";
 import Register from "./components/auth/Register";
 import { useAuth } from "./context/auth";

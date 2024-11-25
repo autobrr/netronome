@@ -5,13 +5,15 @@ DOCKER_IMAGE=netronome
 
 .PHONY: all build clean run docker-build docker-run watch dev
 
+export GIN_MODE=debug
+
 all: clean build
 
 build: 
 	@echo "Building frontend and backend..."
 	@mkdir -p $(BUILD_DIR)
 	@cd web && pnpm install && pnpm build
-	@go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/api
+	@go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/netronome
 
 clean:
 	@echo "Cleaning up..."

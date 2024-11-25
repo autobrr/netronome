@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Schedule, Server } from "../types/types";
+import { Schedule, Server } from "../../types/types";
 import {
   DisclosureButton,
   Listbox,

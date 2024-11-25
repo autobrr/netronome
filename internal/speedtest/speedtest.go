@@ -24,17 +24,25 @@ type Service interface {
 }
 
 type service struct {
-	client *st.Speedtest
-	server *Server
-	db     database.Service
+	client        *st.Speedtest
+	server        *Server
+	db            database.Service
+	serverCache   []ServerResponse
+	cacheExpiry   time.Time
+	cacheDuration time.Duration
 }
 
 func New(server *Server, db database.Service) Service {
-	return &service{
-		client: st.New(),
-		server: server,
-		db:     db,
+	svc := &service{
+		client:        st.New(),
+		server:        server,
+		db:            db,
+		cacheDuration: 30 * time.Minute,
+		cacheExpiry:   time.Now(),
 	}
+
+	log.Debug().Msg("Initialized speedtest service")
+	return svc
 }
 
 func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
@@ -257,23 +265,39 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 }
 
 func (s *service) GetServers() ([]ServerResponse, error) {
-	// Create new speedtest client
-	client := st.New()
+	log.Trace().
+		Int("cache_size", len(s.serverCache)).
+		Time("cache_expiry", s.cacheExpiry).
+		Bool("cache_valid", time.Now().Before(s.cacheExpiry)).
+		Msg("Checking cache status")
 
-	// Get user info first to initialize the client
-	_, err := client.FetchUserInfo()
+	if len(s.serverCache) > 0 && time.Now().Before(s.cacheExpiry) {
+		log.Debug().
+			Int("server_count", len(s.serverCache)).
+			Time("cache_expiry", s.cacheExpiry).
+			Msg("Returning cached speedtest servers")
+		return s.serverCache, nil
+	}
+
+	log.Debug().Msg("Cache miss, fetching fresh speedtest servers")
+
+	// FetchUserInfo returns information about caller determined by speedtest.net
+	_, err := s.client.FetchUserInfo()
 	if err != nil {
+		log.Error().Err(err).Msg("Failed to fetch speedtest user info")
 		return nil, fmt.Errorf("failed to fetch user info: %w", err)
 	}
 
 	// Fetch servers using the initialized client
-	serverList, err := client.FetchServers()
+	serverList, err := s.client.FetchServers()
 	if err != nil {
+		log.Error().Err(err).Msg("Failed to fetch speedtest servers")
 		return nil, fmt.Errorf("failed to fetch servers: %w", err)
 	}
 
 	availableServers := serverList.Available()
 	if availableServers == nil {
+		log.Error().Msg("No available speedtest servers found")
 		return nil, fmt.Errorf("no available servers found")
 	}
 
@@ -301,6 +325,14 @@ func (s *service) GetServers() ([]ServerResponse, error) {
 		return response[i].Distance < response[j].Distance
 	})
 
-	log.Info().Int("server_count", len(response)).Msg("Retrieved speedtest servers")
+	// Update cache
+	s.serverCache = response
+	s.cacheExpiry = time.Now().Add(s.cacheDuration)
+
+	log.Debug().
+		Int("server_count", len(response)).
+		Time("cache_expiry", s.cacheExpiry).
+		Msg("Retrieved and cached speedtest servers")
+
 	return response, nil
 }

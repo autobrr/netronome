@@ -16,9 +16,9 @@ export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
   const getStatusColor = () => {
     switch (progress.type) {
       case "download":
-        return "text-blue-400";
+        return "text-blue-500";
       case "upload":
-        return "text-emerald-400";
+        return "text-emerald-500";
       case "ping":
       case "complete":
         return "text-yellow-500";
@@ -67,9 +67,9 @@ export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
         {progress.type !== "ping" && (
           <div className="flex items-center justify-center">
             {progress.type === "download" ? (
-              <FaArrowDown className="text-emerald-400" />
+              <FaArrowDown className="text-blue-500" />
             ) : (
-              <FaArrowUp className="text-purple-400" />
+              <FaArrowUp className="text-emerald-500" />
             )}
             <span className="text-white font-bold text-sm ml-1">
               {getTestPhase()}

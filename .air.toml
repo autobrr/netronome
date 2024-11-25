@@ -5,9 +5,9 @@ tmp_dir = "tmp"
 [build]
 args_bin = []
 bin = "./tmp/main"
-cmd = "go build -o ./tmp/main ./cmd/api"
+cmd = "go build -o ./tmp/main ./cmd/netronome"
 delay = 1000
-exclude_dir = ["assets", "tmp", "vendor", "testdata", "frontend/node_modules"]
+exclude_dir = ["assets", "tmp", "vendor", "testdata", "web", "node_modules"]
 exclude_file = []
 exclude_regex = ["_test.go"]
 exclude_unchanged = false

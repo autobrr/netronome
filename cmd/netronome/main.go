@@ -62,13 +62,6 @@ func main() {
 	// Initialize logger
 	logger.Init()
 
-	// Build frontend in development mode
-	if os.Getenv("GIN_MODE") == "debug" {
-		if err := web.BuildFrontend(); err != nil {
-			log.Fatal().Err(err).Msg("failed to build frontend")
-		}
-	}
-
 	// Set Gin mode to release if not in development
 	if os.Getenv("GIN_MODE") != "debug" {
 		gin.SetMode(gin.ReleaseMode)
