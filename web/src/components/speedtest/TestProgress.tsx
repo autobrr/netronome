@@ -4,8 +4,9 @@
  */
 
 import React from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { TestProgress as TestProgressType } from "../../types/types";
+import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 
 interface TestProgressProps {
   progress: TestProgressType;
@@ -15,14 +16,14 @@ export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
   const getStatusColor = () => {
     switch (progress.type) {
       case "download":
-        return "rgb(59, 130, 246)"; // blue-500
+        return "text-blue-400";
       case "upload":
-        return "rgb(16, 185, 129)"; // green-500
+        return "text-emerald-400";
       case "ping":
       case "complete":
-        return "rgb(245, 158, 11)"; // yellow-500
+        return "text-yellow-500";
       default:
-        return "rgb(156, 163, 175)"; // gray-400
+        return "text-gray-400";
     }
   };
 
@@ -33,79 +34,92 @@ export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
     return `${speed.toFixed(2)} Mbps`;
   };
 
+  const getTestPhase = () => {
+    switch (progress.type) {
+      case "download":
+        return "Download Test";
+      case "upload":
+        return "Upload Test";
+      case "ping":
+        return "Latency Test";
+      default:
+        return progress.currentTest;
+    }
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-gray-850/95 p-6 rounded-xl shadow-lg mb-6 border border-gray-900"
-    >
-      <div className="flex flex-col gap-4">
-        {/* Test Type Indicator */}
-        <div className="flex justify-between items-center">
-          <span className="text-gray-400">Test Type:</span>
-          <span
-            className={`font-medium ${
-              progress.isScheduled ? "text-blue-400" : "text-white"
-            }`}
-          >
-            {progress.isScheduled ? "Scheduled Test" : "Manual Test"}
-          </span>
-        </div>
-
-        {/* Server Info */}
-        <div className="flex justify-between items-center">
-          <span className="text-gray-400">Testing Server:</span>
-          <span className="text-white font-medium">
-            {progress.currentServer}
-          </span>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="relative pt-1">
-          <div className="flex mb-2 items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-white bg-gray-800">
-                {progress.currentTest}
-              </span>
-            </div>
-            <div className="text-right">
-              <motion.span
-                className="text-xs font-semibold inline-block text-white"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                key={progress.progress}
-              >
-                {progress.progress.toFixed(1)}%
-              </motion.span>
-            </div>
-          </div>
-          <div className="flex h-2 mb-4 overflow-hidden rounded bg-gray-800">
-            <motion.div
-              initial={{ width: "0%" }}
-              animate={{ width: `${progress.progress}%` }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-              className="flex flex-col justify-center rounded"
-              style={{ backgroundColor: getStatusColor() }}
-            />
-          </div>
-        </div>
-
-        {/* Current Speed */}
-        <div className="flex justify-between items-center">
-          <span className="text-gray-400">Current Speed:</span>
-          <span className="text-white font-medium">
-            {formatSpeed(progress.currentSpeed)}
-          </span>
-        </div>
-
-        {/* Additional Metrics */}
-        {progress.latency && (
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400">Latency:</span>
-            <span className="text-white font-medium">{progress.latency}</span>
+    <motion.div className="flex justify-end items-center mb-0">
+      <motion.div
+        className="flex flex-col items-center"
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: { opacity: 0 },
+          visible: {
+            opacity: 1,
+            transition: {
+              staggerChildren: 0.05,
+            },
+          },
+        }}
+      >
+        {/* Active Test Display */}
+        {progress.type !== "ping" && (
+          <div className="flex items-center justify-center">
+            {progress.type === "download" ? (
+              <FaArrowDown className="text-emerald-400" />
+            ) : (
+              <FaArrowUp className="text-purple-400" />
+            )}
+            <span className="text-white font-bold text-sm ml-1">
+              {getTestPhase()}
+            </span>
           </div>
         )}
-      </div>
+
+        {/* Current Speed Display */}
+        {(progress.type === "download" || progress.type === "upload") && (
+          <motion.div className="flex items-center justify-center mt-1">
+            <span className="text-gray-400 font-semibold text-sm">
+              Current Speed:
+            </span>
+            <div
+              className="text-white font-bold text-lg ml-1"
+              style={{
+                width: "120px",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={progress.currentSpeed}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                    scale: [1, 1.05, 1], // Subtle pop effect
+                  }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 400,
+                    damping: 40,
+                    mass: 0.8,
+                    scale: {
+                      duration: 0.2,
+                    },
+                  }}
+                  className={getStatusColor()}
+                >
+                  {formatSpeed(progress.currentSpeed)}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </motion.div>
     </motion.div>
   );
 };

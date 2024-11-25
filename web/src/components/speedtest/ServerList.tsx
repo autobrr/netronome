@@ -5,8 +5,15 @@
 
 import React, { useState, useMemo } from "react";
 import { motion } from "motion/react";
-import { Switch, Field, Label } from "@headlessui/react";
+import {
+  Switch,
+  Field,
+  Label,
+  Disclosure,
+  DisclosureButton,
+} from "@headlessui/react";
 import { Server } from "../../types/types";
+import { ChevronDownIcon } from "@heroicons/react/20/solid";
 
 interface ServerListProps {
   servers: Server[];
@@ -27,7 +34,7 @@ export const ServerList: React.FC<ServerListProps> = ({
   onRunTest,
   isLoading,
 }) => {
-  const [displayCount, setDisplayCount] = useState(6);
+  const [displayCount, setDisplayCount] = useState(3);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCountry, setFilterCountry] = useState("");
 
@@ -39,7 +46,7 @@ export const ServerList: React.FC<ServerListProps> = ({
 
   // Filter and sort servers
   const filteredServers = useMemo(() => {
-    return servers.filter((server) => {
+    const filtered = servers.filter((server) => {
       const matchesSearch =
         searchTerm === "" ||
         server.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -51,148 +58,199 @@ export const ServerList: React.FC<ServerListProps> = ({
 
       return matchesSearch && matchesCountry;
     });
+
+    // Sort servers by distance using the distance property
+    return filtered.sort((a, b) => a.distance - b.distance); // Ascending order
   }, [servers, searchTerm, filterCountry]);
 
   return (
-    <motion.div
-      className="mt-1 select-none pointer-events-none server-list-animate pb-4"
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.5,
-        type: "spring",
-        stiffness: 300,
-        damping: 20,
-      }}
-      onAnimationComplete={() => {
-        const element = document.querySelector(".server-list-animate");
-        if (element) {
-          element.classList.remove("select-none", "pointer-events-none");
-        }
-      }}
-    >
-      {/* Controls Header */}
-      <div className="flex justify-end mb-4">
-        <div className="flex flex-col gap-2">
-          {/* Run Test Button */}
-          <button
-            onClick={onRunTest}
-            disabled={isLoading || selectedServers.length === 0}
-            className={`
-              px-3 py-2 
-              rounded-lg 
-              transition-colors
-              mb-2
-              ${
-                isLoading || selectedServers.length === 0
-                  ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                  : "bg-blue-500 hover:bg-blue-600 text-white"
-              }
-            `}
+    <Disclosure defaultOpen={true}>
+      {({ open }) => (
+        <div className="flex flex-col h-full">
+          <DisclosureButton
+            className={`flex justify-between items-center w-full px-4 py-2 bg-gray-850/95 ${
+              open ? "rounded-t-xl border-b-0" : "rounded-xl"
+            } shadow-lg border-b-0 border-gray-900 text-left`}
           >
-            {isLoading
-              ? "Running Test..."
-              : selectedServers.length === 0
-              ? "Select a server"
-              : "Run Test"}
-          </button>
-
-          {/* Multi-select Toggle */}
-          <Field>
-            <div className="flex items-center justify-end gap-3">
-              <Label className="text-sm text-gray-400">Multi-select</Label>
-              <Switch
-                checked={multiSelect}
-                onChange={onMultiSelectChange}
-                className={`${
-                  multiSelect ? "bg-blue-500" : "bg-gray-700"
-                } relative inline-flex h-6 w-11 items-center rounded-full`}
-              >
-                <span
-                  className={`${
-                    multiSelect ? "translate-x-6" : "translate-x-1"
-                  } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
-                />
-              </Switch>
+            <div className="flex flex-col">
+              <h2 className="text-white text-xl font-semibold p-1 select-none">
+                Server Selection
+              </h2>
             </div>
-          </Field>
-        </div>
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-4 mb-4">
-        {/* Search Input */}
-        <div className="flex-1">
-          <input
-            type="text"
-            placeholder="Search servers..."
-            className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        {/* Country Filter */}
-        <select
-          className="px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg focus:outline-none text-gray-300"
-          value={filterCountry}
-          onChange={(e) => setFilterCountry(e.target.value)}
-        >
-          <option value="">All Countries</option>
-          {countries.map((country) => (
-            <option key={country} value={country}>
-              {country}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Server Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredServers.slice(0, displayCount).map((server) => (
-          <motion.div
-            key={server.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <button
-              onClick={() => onSelect(server)}
-              className={`w-full p-4 rounded-lg text-left transition-colors ${
-                selectedServers.some((s) => s.id === server.id)
-                  ? "bg-blue-500/10 border-blue-500/50 shadow-lg"
-                  : "bg-gray-800/50 border-gray-900 hover:bg-gray-800 shadow-lg"
-              } border`}
-            >
-              <div className="flex flex-col gap-1">
-                <span className="text-blue-300 font-medium">
-                  {server.sponsor}
+            <div className="flex items-center gap-2">
+              {selectedServers.length > 0 && (
+                <span className="text-gray-400">
+                  {selectedServers.length} server
+                  {selectedServers.length !== 1 ? "s" : ""} selected
                 </span>
-                <span className="text-gray-400 text-sm">
-                  {server.name} -{" "}
-                  <span className="font-semibold" title={server.host}>
-                    {server.host.length > 30
-                      ? server.host.substring(0, 30) + "..."
-                      : server.host}
-                  </span>
-                </span>
-                <span className="text-gray-400 text-sm">{server.country}</span>
+              )}
+              <ChevronDownIcon
+                className={`${
+                  open ? "transform rotate-180" : ""
+                } w-5 h-5 text-gray-400 transition-transform duration-200`}
+              />
+            </div>
+          </DisclosureButton>
+
+          {open && (
+            <div className="bg-gray-850/95 px-4 rounded-b-xl shadow-lg flex-1">
+              <div className="flex flex-col pl-1">
+                <p className="text-gray-400 text-sm select-none pointer-events-none">
+                  Select one or more servers to test
+                </p>
               </div>
-            </button>
-          </motion.div>
-        ))}
-      </div>
+              <motion.div
+                className="mt-1 px-1 select-none pointer-events-none server-list-animate pb-4"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.5,
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 20,
+                }}
+                onAnimationComplete={() => {
+                  const element = document.querySelector(
+                    ".server-list-animate"
+                  );
+                  if (element) {
+                    element.classList.remove(
+                      "select-none",
+                      "pointer-events-none"
+                    );
+                  }
+                }}
+              >
+                {/* Controls Header */}
+                <div className="flex justify-between items-center mb-4">
+                  {/* Multi-select Toggle */}
+                  <Field className="flex items-center gap-3">
+                    <Label className="text-sm text-gray-400">
+                      Multi-select
+                    </Label>
+                    <Switch
+                      checked={multiSelect}
+                      onChange={onMultiSelectChange}
+                      className={`${
+                        multiSelect ? "bg-blue-500" : "bg-gray-700"
+                      } relative inline-flex h-6 w-11 items-center rounded-full`}
+                    >
+                      <span
+                        className={`${
+                          multiSelect ? "translate-x-6" : "translate-x-1"
+                        } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                      />
+                    </Switch>
+                  </Field>
 
-      {/* Load More Button */}
-      {filteredServers.length > displayCount && (
-        <div className="flex justify-center mt-4">
-          <button
-            onClick={() => setDisplayCount((prev) => prev + 6)}
-            className="px-4 py-2 mb-4 bg-gray-800/50 text-white rounded-lg hover:bg-gray-800 transition-colors"
-          >
-            Load More
-          </button>
+                  {/* Run Test Button */}
+                  <button
+                    onClick={onRunTest}
+                    disabled={isLoading || selectedServers.length === 0}
+                    className={`
+                      px-4 py-2 
+                      rounded-lg 
+                      transition-colors
+                      ${
+                        isLoading || selectedServers.length === 0
+                          ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                          : "bg-blue-500 hover:bg-blue-600 text-white"
+                      }
+                    `}
+                  >
+                    {isLoading
+                      ? "Running Test..."
+                      : selectedServers.length === 0
+                      ? "Select a server"
+                      : "Run Test"}
+                  </button>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-4 mb-4">
+                  {/* Search Input */}
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      placeholder="Search servers..."
+                      className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Country Filter */}
+                  <select
+                    className="px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg focus:outline-none text-gray-300 min-w-[160px]"
+                    value={filterCountry}
+                    onChange={(e) => setFilterCountry(e.target.value)}
+                  >
+                    <option value="">All Countries</option>
+                    {countries.map((country) => (
+                      <option key={country} value={country}>
+                        {country}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Server Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredServers.slice(0, displayCount).map((server) => {
+                    const distance = server.distance; // Use the distance from the server response
+                    return (
+                      <motion.div
+                        key={server.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <button
+                          onClick={() => onSelect(server)}
+                          className={`w-full p-4 rounded-lg text-left transition-colors ${
+                            selectedServers.some((s) => s.id === server.id)
+                              ? "bg-blue-500/10 border-blue-500/50 shadow-lg"
+                              : "bg-gray-800/50 border-gray-900 hover:bg-gray-800 shadow-lg"
+                          } border`}
+                        >
+                          <div className="flex flex-col gap-1">
+                            <span className="text-blue-300 font-medium truncate">
+                              {server.sponsor}
+                            </span>
+                            <span className="text-gray-400 text-sm">
+                              {server.name}
+                              <span
+                                className="block truncate text-xs"
+                                title={server.host}
+                              >
+                                {server.host}
+                              </span>
+                            </span>
+                            <span className="text-gray-400 text-sm mt-1">
+                              {server.country} - {Math.floor(distance)} km
+                            </span>
+                          </div>
+                        </button>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                {/* Load More Button */}
+                {filteredServers.length > displayCount && (
+                  <div className="flex justify-center mt-6">
+                    <button
+                      onClick={() => setDisplayCount((prev) => prev + 6)}
+                      className="px-4 py-2 bg-gray-800/50 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                    >
+                      Load More
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            </div>
+          )}
         </div>
       )}
-    </motion.div>
+    </Disclosure>
   );
 };

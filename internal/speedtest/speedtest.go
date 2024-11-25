@@ -18,60 +18,9 @@ import (
 	"github.com/autobrr/netronome/internal/types"
 )
 
-type Result struct {
-	ID            int64     `json:"id"`
-	Timestamp     time.Time `json:"timestamp"`
-	Server        string    `json:"server"`
-	DownloadSpeed float64   `json:"downloadSpeed"`
-	UploadSpeed   float64   `json:"uploadSpeed"`
-	Latency       string    `json:"latency"`
-	PacketLoss    float64   `json:"packetLoss"`
-	Jitter        float64   `json:"jitter"`
-	Error         string    `json:"error,omitempty"`
-	Download      float64   `json:"-"`
-	Upload        float64   `json:"-"`
-}
-
 type Service interface {
 	RunTest(opts *types.TestOptions) (*Result, error)
 	GetServers() ([]ServerResponse, error)
-}
-
-type ServerResponse struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Host     string  `json:"host"`
-	Distance float64 `json:"distance"`
-	Country  string  `json:"country"`
-	Sponsor  string  `json:"sponsor"`
-	URL      string  `json:"url"`
-	Lat      float64 `json:"lat,string"`
-	Lon      float64 `json:"lon,string"`
-}
-
-type Server struct {
-	ID              string  `json:"id"`
-	Name            string  `json:"name"`
-	Host            string  `json:"host"`
-	Distance        float64 `json:"distance"`
-	Country         string  `json:"country"`
-	BroadcastUpdate func(types.SpeedUpdate)
-}
-
-type ProgressUpdate struct {
-	ServerName   string  `json:"serverName"`
-	TestType     string  `json:"testType"`
-	CurrentSpeed float64 `json:"currentSpeed"`
-}
-
-type SpeedUpdate struct {
-	Type        string  `json:"type"`
-	ServerName  string  `json:"serverName"`
-	Speed       float64 `json:"speed"`
-	Progress    float64 `json:"progress"`
-	IsComplete  bool    `json:"isComplete"`
-	Latency     string  `json:"latency,omitempty"`
-	IsScheduled bool    `json:"isScheduled"`
 }
 
 type service struct {
@@ -165,94 +114,106 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 	}
 
 	if opts.EnableDownload {
-		startTime := time.Now()
-		expectedDuration := 10 * time.Second // Typical test duration
+		var downloadStartTime time.Time
+		var progress float64
 
 		selectedServer.Context.SetCallbackDownload(func(speed st.ByteRate) {
-			if s.server.BroadcastUpdate != nil {
-				elapsed := time.Since(startTime)
-				progress := math.Min(100, (elapsed.Seconds()/expectedDuration.Seconds())*100)
+			if downloadStartTime.IsZero() {
+				downloadStartTime = time.Now()
+			}
 
+			// Update progress more frequently (every ~100ms)
+			elapsed := time.Since(downloadStartTime).Seconds()
+			progress = math.Min(100, (elapsed/10.0)*100)
+
+			// Ensure we're not sending too many updates
+			if progress > 0 && s.server.BroadcastUpdate != nil {
 				s.server.BroadcastUpdate(types.SpeedUpdate{
 					Type:        "download",
 					ServerName:  selectedServer.Name,
 					Speed:       speed.Mbps(),
 					Progress:    progress,
-					IsComplete:  false,
+					IsComplete:  progress >= 100,
 					IsScheduled: opts.IsScheduled,
 				})
 			}
 		})
 
-		if err := selectedServer.DownloadTest(); err != nil {
-			result.Error = fmt.Sprintf("download test failed: %v", err)
-			return result, err
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := selectedServer.DownloadTestContext(ctx); err != nil {
+			return nil, fmt.Errorf("download test failed: %w", err)
 		}
-		result.Download = selectedServer.DLSpeed.Mbps()
-		result.DownloadSpeed = result.Download
+
+		result.DownloadSpeed = selectedServer.DLSpeed.Mbps()
+
+		// Broadcast download completion
 		if s.server.BroadcastUpdate != nil {
 			s.server.BroadcastUpdate(types.SpeedUpdate{
 				Type:        "download",
 				ServerName:  selectedServer.Name,
 				Speed:       result.DownloadSpeed,
-				Progress:    1.0,
+				Progress:    100,
 				IsComplete:  true,
 				IsScheduled: opts.IsScheduled,
 			})
 		}
-
-		log.Info().
-			Str("server", selectedServer.Name).
-			Str("server_host", selectedServer.Host).
-			Str("server_country", selectedServer.Country).
-			Str("provider", selectedServer.Sponsor).
-			Str("server_url", selectedServer.URL).
-			Float64("speed_mbps", result.DownloadSpeed).
-			Msg("Download test complete")
 	}
 
 	if opts.EnableUpload {
-		startTime := time.Now()
-		expectedDuration := 10 * time.Second // Typical test duration
+		var uploadStartTime time.Time
+		var progress float64
 
 		selectedServer.Context.SetCallbackUpload(func(speed st.ByteRate) {
-			if s.server.BroadcastUpdate != nil {
-				elapsed := time.Since(startTime)
-				progress := math.Min(100, (elapsed.Seconds()/expectedDuration.Seconds())*100)
+			if uploadStartTime.IsZero() {
+				uploadStartTime = time.Now()
+			}
 
+			// Update progress more frequently (every ~100ms)
+			elapsed := time.Since(uploadStartTime).Seconds()
+			progress = math.Min(100, (elapsed/10.0)*100)
+
+			// Ensure we're not sending too many updates
+			if progress > 0 && s.server.BroadcastUpdate != nil {
 				s.server.BroadcastUpdate(types.SpeedUpdate{
 					Type:        "upload",
 					ServerName:  selectedServer.Name,
 					Speed:       speed.Mbps(),
 					Progress:    progress,
-					IsComplete:  false,
+					IsComplete:  progress >= 100,
 					IsScheduled: opts.IsScheduled,
 				})
 			}
 		})
 
-		if err := selectedServer.UploadTestContext(context.Background()); err != nil {
-			result.Error = fmt.Sprintf("upload test failed: %v", err)
-			return result, err
+		// Perform the upload test
+		if err := selectedServer.UploadTest(); err != nil {
+			return nil, fmt.Errorf("upload test failed: %w", err)
 		}
-		result.Upload = selectedServer.ULSpeed.Mbps()
-		result.UploadSpeed = result.Upload
 
-		log.Info().
-			Str("server", selectedServer.Name).
-			Str("server_host", selectedServer.Host).
-			Str("server_country", selectedServer.Country).
-			Str("provider", selectedServer.Sponsor).
-			Str("server_url", selectedServer.URL).
-			Float64("speed_mbps", result.UploadSpeed).
-			Msg("Upload test complete")
+		// After the upload test is complete, set the final upload speed
+		result.UploadSpeed = selectedServer.ULSpeed.Mbps()
 
+		// Broadcast upload completion only after the upload test is done
 		if s.server.BroadcastUpdate != nil {
 			s.server.BroadcastUpdate(types.SpeedUpdate{
 				Type:        "upload",
 				ServerName:  selectedServer.Name,
 				Speed:       result.UploadSpeed,
-				Progress:    1.0,
+				Progress:    100,
+				IsComplete:  true,
+				IsScheduled: opts.IsScheduled,
+			})
+		}
+
+		// Send final completion update
+		if s.server.BroadcastUpdate != nil {
+			s.server.BroadcastUpdate(types.SpeedUpdate{
+				Type:        "complete",
+				ServerName:  selectedServer.Name,
+				Speed:       result.UploadSpeed,
+				Progress:    100,
 				IsComplete:  true,
 				IsScheduled: opts.IsScheduled,
 			})

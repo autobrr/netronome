@@ -30,18 +30,16 @@ type Server struct {
 }
 
 func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service) *Server {
-	// Disable default GIN logger and recovery
 	gin.SetMode(gin.ReleaseMode)
 	gin.DefaultWriter = nil
 
 	router := gin.New()
 
-	// Use zerolog for gin logging
 	router.Use(LoggerMiddleware())
 
 	router.Use(gin.Recovery())
 
-	// Add CORS middleware
+	// CORS middleware
 	router.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -96,12 +94,10 @@ func (s *Server) RegisterRoutes() {
 		protected := api.Group("")
 		protected.Use(middleware.RequireAuth(s.db))
 		{
-			// Protected auth routes
 			protected.POST("/auth/logout", s.auth.Logout)
 			protected.GET("/auth/verify", s.auth.Verify)
 			protected.GET("/auth/user", s.auth.GetUserInfo)
 
-			// Other protected routes
 			protected.GET("/servers", s.handleGetServers)
 			protected.POST("/speedtest", s.handleSpeedTest)
 			protected.GET("/speedtest/status", s.handleSpeedTestStatus)
@@ -114,7 +110,6 @@ func (s *Server) RegisterRoutes() {
 	}
 }
 
-// Handler methods
 func (s *Server) handleSpeedTest(c *gin.Context) {
 	var opts types.TestOptions
 	if err := c.ShouldBindJSON(&opts); err != nil {
@@ -247,7 +242,6 @@ func LoggerMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Only include fields that have values
 		event := log.Info()
 
 		if c.Errors.String() != "" {

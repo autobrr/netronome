@@ -11,7 +11,6 @@ import (
 	"github.com/autobrr/netronome/internal/database"
 )
 
-// RequireAuth middleware checks if user is authenticated
 func RequireAuth(db database.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		_, err := c.Cookie("session")
@@ -20,7 +19,6 @@ func RequireAuth(db database.Service) gin.HandlerFunc {
 			return
 		}
 
-		// Get user from database using the session token
 		// For simplicity, we'll just get the first user since we only allow one user
 		var username string
 		err = db.QueryRow(c.Request.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
@@ -29,7 +27,6 @@ func RequireAuth(db database.Service) gin.HandlerFunc {
 			return
 		}
 
-		// Set username in context
 		c.Set("username", username)
 
 		c.Next()

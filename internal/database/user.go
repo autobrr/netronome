@@ -23,7 +23,6 @@ type User struct {
 	PasswordHash string `json:"-"`
 }
 
-// Add these methods to the Service interface in database.go
 type UserService interface {
 	CreateUser(ctx context.Context, username, password string) (*User, error)
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
@@ -42,20 +41,18 @@ func (s *service) CreateUser(ctx context.Context, username, password string) (*U
 		return nil, ErrRegistrationDisabled
 	}
 
-	// Hash password
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
 
-	// Start transaction
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	// Create user
+	// create user
 	result, err := tx.ExecContext(ctx,
 		"INSERT INTO users (username, password_hash) VALUES (?, ?)",
 		username, string(hash),
@@ -69,14 +66,14 @@ func (s *service) CreateUser(ctx context.Context, username, password string) (*U
 		return nil, err
 	}
 
-	// After creating the first user, ensure registration is disabled
+	// ensuring registration is disabled
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO registration_status (is_registration_enabled) 
 		VALUES (0) 
 		ON CONFLICT (rowid) DO UPDATE SET is_registration_enabled = 0
 	`)
+
 	if err != nil {
-		// If the table doesn't exist, that's fine - the migration will create it
 		if !isTableNotExistsError(err) {
 			return nil, err
 		}

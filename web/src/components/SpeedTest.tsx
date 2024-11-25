@@ -19,8 +19,6 @@ import {
   TestOptions,
   PaginatedResponse,
 } from "../types/types";
-import { Disclosure, DisclosureButton } from "@headlessui/react";
-import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import logo from "../assets/logo.png";
 import {
   useQuery,
@@ -43,6 +41,7 @@ export default function SpeedTest() {
     enableDownload: true,
     enableUpload: true,
     enablePacketLoss: true,
+    enableJitter: true,
     multiServer: false,
   });
   const [selectedServers, setSelectedServers] = useState<Server[]>([]);
@@ -55,6 +54,7 @@ export default function SpeedTest() {
     return (saved as TimeRange) || "1w";
   });
   const [scheduledTestRunning, setScheduledTestRunning] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Queries
   const { data: servers = [] } = useQuery({
@@ -93,6 +93,9 @@ export default function SpeedTest() {
   // Mutations
   const speedTestMutation = useMutation({
     mutationFn: runSpeedTest,
+    onMutate: () => {
+      console.log("Starting speed test with options:", options);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["history"] });
       setProgress(null);
@@ -124,18 +127,25 @@ export default function SpeedTest() {
 
     setError(null);
     setTestStatus("running");
+    setIsLoading(true);
 
-    speedTestMutation.mutate({
-      ...options,
-      serverIds: selectedServers.map((s) => s.id),
-    });
+    try {
+      await speedTestMutation.mutateAsync({
+        ...options,
+        serverIds: selectedServers.map((s) => s.id),
+      });
+    } catch (error) {
+      console.error("Error running test:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
     if (testStatus !== "running" && !scheduledTestRunning) return;
 
     let pollCount = 0;
-    const maxPolls = 180;
+    const maxPolls = 360;
     let lastUpdate = Date.now();
 
     const pollInterval = setInterval(async () => {
@@ -143,42 +153,65 @@ export default function SpeedTest() {
         pollCount++;
         if (pollCount > maxPolls) {
           clearInterval(pollInterval);
-          setError("Test timed out after 3 minutes");
+          setError("Test timed out after 6 minutes");
           setTestStatus("idle");
           return;
         }
 
-        const now = Date.now();
-        if (now - lastUpdate < 2000) {
+        // Ensure at least 1 second between updates
+        if (Date.now() - lastUpdate < 1000) {
           return;
         }
-        lastUpdate = now;
 
         const update = await fetchTestStatus();
 
-        if (update.isComplete || update.type === "complete") {
+        setProgress((prev) => {
+          if (!prev) {
+            lastUpdate = Date.now();
+            return {
+              currentServer: update.serverName || "",
+              currentTest: update.type,
+              currentSpeed: update.speed || 0,
+              isComplete: update.isComplete,
+              type: update.type,
+              speed: update.speed || 0,
+              latency: update.latency,
+              isScheduled: update.isScheduled,
+              progress: update.progress || 0,
+            };
+          }
+
+          // Increase threshold for speed updates
+          const speedDiff = Math.abs(
+            (prev.currentSpeed || 0) - (update.speed || 0)
+          );
+          if (speedDiff < 2.0) return prev; // Increased from 0.5 to 2.0 Mbps
+
+          lastUpdate = Date.now();
+          return {
+            ...prev,
+            currentServer: update.serverName || prev.currentServer,
+            currentTest: update.type,
+            currentSpeed: update.speed || 0,
+            isComplete: update.isComplete,
+            type: update.type,
+            speed: update.speed || 0,
+            latency: update.latency,
+            isScheduled: update.isScheduled,
+            progress: update.progress || prev.progress,
+          };
+        });
+
+        if (update.type === "complete" && update.isComplete) {
           clearInterval(pollInterval);
           setTestStatus("complete");
           setProgress(null);
           queryClient.invalidateQueries({ queryKey: ["history"] });
-        } else if (update.speed > 0) {
-          setTestStatus("running");
-          setProgress({
-            currentServer: update.serverName,
-            currentTest: update.type,
-            currentSpeed: update.speed,
-            progress: update.progress,
-            isComplete: update.isComplete,
-            type: update.type,
-            speed: update.speed,
-            latency: update.latency,
-            isScheduled: update.isScheduled,
-          });
         }
       } catch (error) {
-        console.error("Status check error:", error);
+        console.error("Error polling test status:", error);
       }
-    }, 2000);
+    }, 1000); // 1000ms
 
     return () => clearInterval(pollInterval);
   }, [testStatus, scheduledTestRunning, queryClient]);
@@ -191,16 +224,39 @@ export default function SpeedTest() {
         if (update.isScheduled) {
           setScheduledTestRunning(true);
           setTestStatus("running");
-          setProgress({
-            currentServer: update.serverName,
-            currentTest: update.type,
-            currentSpeed: update.speed,
-            progress: update.progress,
-            isComplete: update.isComplete,
-            type: update.type,
-            speed: update.speed,
-            latency: update.latency,
-            isScheduled: update.isScheduled,
+
+          setProgress((prev) => {
+            if (!prev) {
+              return {
+                currentServer: update.serverName || "",
+                currentTest: update.type,
+                currentSpeed: update.speed || 0,
+                isComplete: update.isComplete,
+                type: update.type,
+                speed: update.speed || 0,
+                latency: update.latency,
+                isScheduled: update.isScheduled,
+                progress: update.progress || 0,
+              };
+            }
+
+            const speedDiff = Math.abs(
+              (prev.currentSpeed || 0) - (update.speed || 0)
+            );
+            if (speedDiff < 2.0) return prev; // Increased threshold here too
+
+            return {
+              ...prev,
+              currentServer: update.serverName || prev.currentServer,
+              currentTest: update.type,
+              currentSpeed: update.speed || 0,
+              isComplete: update.isComplete,
+              type: update.type,
+              speed: update.speed || 0,
+              latency: update.latency,
+              isScheduled: update.isScheduled,
+              progress: update.progress || prev.progress,
+            };
           });
 
           if (update.isComplete) {
@@ -216,7 +272,7 @@ export default function SpeedTest() {
       } catch (error) {
         console.error("Scheduled test status check error:", error);
       }
-    }, 1000);
+    }, 3000); // Changed from 2000ms to 3000ms
 
     return () => clearInterval(pollScheduledTests);
   }, [queryClient]);
@@ -225,7 +281,7 @@ export default function SpeedTest() {
     <div className="min-h-screen">
       <Container maxWidth="lg" className="pb-8">
         {/* Header */}
-        <div className="flex justify-between items-center -ml-2 mb-8 pt-8">
+        <div className="flex flex-col items-center md:flex-row justify-between -ml-2 mb-8 pt-8 relative">
           <div className="flex items-center gap-3">
             <img
               src={logo}
@@ -233,17 +289,24 @@ export default function SpeedTest() {
               className="h-12 w-12 select-none pointer-events-none"
               draggable="false"
             />
-            <h1 className="text-3xl font-bold text-white select-none">
-              Netronome
-            </h1>
+            <div>
+              <h1 className="text-3xl font-bold text-white select-none">
+                Netronome
+              </h1>
+              <h2 className="text-sm font-medium text-gray-300 select-none">
+                Network Speed Testing
+              </h2>
+            </div>
           </div>
+          {(testStatus === "running" || scheduledTestRunning) && (
+            <div
+              className="mt-8 md:mt-0 flex items-center"
+              style={{ minWidth: "120px", height: "40px" }}
+            >
+              {progress !== null && <TestProgress progress={progress} />}
+            </div>
+          )}
         </div>
-
-        {/* Test Progress */}
-        {(testStatus === "running" || scheduledTestRunning) && progress && (
-          <TestProgress progress={progress} />
-        )}
-
         {/* Error Messages */}
         {error && (
           <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-xl mb-4">
@@ -253,7 +316,7 @@ export default function SpeedTest() {
 
         {/* No History Message - Only show when explicitly empty and not loading */}
         {!isHistoryLoading && (!history || history.length === 0) && (
-          <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900 mb-6">
+          <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900 mb-2">
             <div className="text-center space-y-4">
               <div>
                 <h2 className="text-white text-xl font-semibold mb-2">
@@ -295,9 +358,11 @@ export default function SpeedTest() {
 
         {/* Latest Results */}
         {history && history.length > 0 && history[0] && (
-          <div className="mb-6">
-            <h2 className="text-white text-xl font-semibold">Latest Run</h2>
-            <div className="flex justify-between items-center text-gray-400 text-sm mb-4">
+          <div className="" mb-6>
+            <h2 className="text-white text-xl ml-1 font-semibold">
+              Latest Run
+            </h2>
+            <div className="flex justify-between ml-1 items-center text-gray-400 text-sm mb-4">
               <div>
                 Last test run:{" "}
                 {history[0]?.createdAt
@@ -310,7 +375,7 @@ export default function SpeedTest() {
               {schedules && schedules.length > 0 && (
                 <div>
                   Next scheduled run:{" "}
-                  <span className="text-blue-400">
+                  <span className="text-blue-400 mr-1">
                     {formatNextRun(schedules[0].nextRun)}
                   </span>
                 </div>
@@ -357,66 +422,34 @@ export default function SpeedTest() {
           />
         )}
 
-        {/* Server Selection */}
-        <Disclosure defaultOpen={false}>
-          {({ open }) => (
-            <div className="flex flex-col mb-6">
-              <DisclosureButton
-                className={`flex justify-between items-center w-full px-4 py-2 bg-gray-850/95 ${
-                  open ? "rounded-t-xl border-b-0" : "rounded-xl"
-                } shadow-lg border-b-0 border-gray-900 text-left`}
-              >
-                <div className="flex flex-col">
-                  <h2 className="text-white text-xl font-semibold p-1 select-none">
-                    Server Selection
-                  </h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  {selectedServers.length > 0 && (
-                    <span className="text-gray-400">
-                      {selectedServers.length} server
-                      {selectedServers.length !== 1 ? "s" : ""} selected
-                    </span>
-                  )}
-                  <ChevronDownIcon
-                    className={`${
-                      open ? "transform rotate-180" : ""
-                    } w-5 h-5 text-gray-400 transition-transform duration-200`}
-                  />
-                </div>
-              </DisclosureButton>
+        {/* Server Selection and Schedule Manager Container */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
+          <div>
+            <ServerList
+              servers={servers}
+              selectedServers={selectedServers}
+              onSelect={handleServerSelect}
+              multiSelect={options.multiServer}
+              onMultiSelectChange={(enabled) =>
+                setOptions((prev) => ({
+                  ...prev,
+                  multiServer: enabled,
+                }))
+              }
+              onRunTest={runTest}
+              isLoading={isLoading}
+            />
+          </div>
 
-              {open && (
-                <div className="bg-gray-850/95 px-4 rounded-b-xl shadow-lg">
-                  <div className="flex flex-col">
-                    <p className="text-gray-400 text-sm pl-1 select-none pointer-events-none">
-                      Select one or more servers to test
-                    </p>
-                  </div>
-                  <ServerList
-                    servers={servers}
-                    selectedServers={selectedServers}
-                    onSelect={handleServerSelect}
-                    multiSelect={options.multiServer}
-                    onMultiSelectChange={(enabled) =>
-                      setOptions((prev) => ({ ...prev, multiServer: enabled }))
-                    }
-                    onRunTest={runTest}
-                    isLoading={speedTestMutation.isPending}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-        </Disclosure>
-
-        {/* Schedule Manager */}
-        <ScheduleManager
-          servers={servers}
-          selectedServers={selectedServers}
-          onServerSelect={handleServerSelect}
-          loading={speedTestMutation.isPending}
-        />
+          <div className="sticky top-6">
+            <ScheduleManager
+              servers={servers}
+              selectedServers={selectedServers}
+              onServerSelect={handleServerSelect}
+              loading={isLoading}
+            />
+          </div>
+        </div>
       </Container>
     </div>
   );

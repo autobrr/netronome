@@ -11,6 +11,8 @@ export interface Server {
   distance: number;
   country: string;
   sponsor: string;
+  latitude: number;
+  longitude: number;
 }
 
 export interface SpeedTestResult {
@@ -35,6 +37,7 @@ export interface TestProgress {
   type: string;
   speed: number;
   latency?: string;
+  jitter?: number;
   isScheduled: boolean;
 }
 
@@ -57,6 +60,7 @@ export interface TestOptions {
   enableDownload: boolean;
   enableUpload: boolean;
   enablePacketLoss: boolean;
+  enableJitter: boolean;
   multiServer: boolean;
 }
 

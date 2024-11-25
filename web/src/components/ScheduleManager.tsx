@@ -11,9 +11,6 @@ import {
   ListboxButton,
   ListboxOption,
   ListboxOptions,
-  Popover,
-  PopoverButton,
-  PopoverPanel,
 } from "@headlessui/react";
 import { ChevronUpDownIcon } from "@heroicons/react/20/solid";
 import { Disclosure } from "@headlessui/react";
@@ -43,24 +40,22 @@ const intervalOptions: IntervalOption[] = [
   { value: "7d", label: "Every Week" },
 ];
 
-// Add parseInterval function before other utility functions
 const parseInterval = (intervalStr: string): number => {
   const value = parseInt(intervalStr);
   const unit = intervalStr.slice(-1);
 
   switch (unit) {
     case "m":
-      return value * 60 * 1000; // minutes to milliseconds
+      return value * 60 * 1000;
     case "h":
-      return value * 60 * 60 * 1000; // hours to milliseconds
+      return value * 60 * 60 * 1000;
     case "d":
-      return value * 24 * 60 * 60 * 1000; // days to milliseconds
+      return value * 24 * 60 * 60 * 1000;
     default:
-      return value * 60 * 1000; // default to minutes
+      return value * 60 * 1000;
   }
 };
 
-// Update calculateNextRun to use parseInterval
 const calculateNextRun = (intervalStr: string): string => {
   const milliseconds = parseInterval(intervalStr);
   return new Date(Date.now() + milliseconds).toISOString();
@@ -71,7 +66,7 @@ export default function ScheduleManager({
   selectedServers,
 }: ScheduleManagerProps) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [interval, setInterval] = useState<string>("5m");
+  const [interval, setInterval] = useState<string>("1h");
   const [enabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const [, setError] = useState<string | null>(null);
@@ -167,7 +162,7 @@ export default function ScheduleManager({
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = date.getTime() - now.getTime();
-    const diffMins = Math.round(diffMs / (60 * 1000)); // Convert ms to minutes
+    const diffMins = Math.round(diffMs / (60 * 1000));
 
     if (diffMins < 60) {
       return `in ${diffMins} minute${diffMins !== 1 ? "s" : ""}`;
@@ -199,10 +194,10 @@ export default function ScheduleManager({
   }
 
   return (
-    <div className="mt-4">
-      <Disclosure defaultOpen={false}>
+    <div className="h-full">
+      <Disclosure defaultOpen={true}>
         {({ open }) => (
-          <div className="flex flex-col">
+          <div className="flex flex-col h-full">
             <DisclosureButton
               className={`flex justify-between items-center w-full px-4 py-2 bg-gray-850/95 ${
                 open ? "rounded-t-xl" : "rounded-xl"
@@ -220,7 +215,7 @@ export default function ScheduleManager({
 
             {open && (
               <motion.div
-                className="bg-gray-850/95 p-4 rounded-b-xl shadow-lg border-t-0 border-gray-900 select-none pointer-events-none schedule-manager-animate"
+                className="bg-gray-850/95 p-4 rounded-b-xl shadow-lg border-t-0 border-gray-900 select-none pointer-events-none schedule-manager-animate h-full"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{
@@ -241,8 +236,8 @@ export default function ScheduleManager({
                   }
                 }}
               >
-                <div className="flex flex-col gap-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex flex-col gap-4 pb-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
                       <Listbox value={interval} onChange={setInterval}>
                         <div className="relative">
@@ -287,76 +282,66 @@ export default function ScheduleManager({
                             ))}
                           </ListboxOptions>
                         </div>
-                        <div className="flex items-center justify-between pt-4 pl-1">
-                          <Popover className="relative">
-                            <PopoverButton
-                              className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded"
-                              onClick={handleCreateSchedule}
-                            >
-                              {loading
-                                ? "Creating schedule..."
-                                : "Create schedule"}
-                            </PopoverButton>
-                            <PopoverPanel className="absolute z-10 left-full ml-2 top-1/2 -translate-y-1/2 transform w-64">
-                              <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
-                                <div className="relative bg-gray-800 p-3">
-                                  <p className="text-sm text-white">
-                                    Please select one or more servers from the
-                                    Server Selection section to create a
-                                    schedule
-                                  </p>
-                                </div>
-                              </div>
-                            </PopoverPanel>
-                          </Popover>
-                        </div>
                       </Listbox>
+
+                      <div className="flex items-center justify-between mt-4">
+                        <button
+                          className={`ml-1 px-3 py-2 rounded-lg transition-colors ${
+                            loading || selectedServers.length === 0
+                              ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                              : "bg-blue-500 hover:bg-blue-600 text-white"
+                          }`}
+                          onClick={handleCreateSchedule}
+                          disabled={loading || selectedServers.length === 0}
+                        >
+                          {loading ? "Creating schedule..." : "Create schedule"}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between mt-4"></div>
-
                   {schedules.length > 0 && (
-                    <div className="p-6 rounded-xl">
+                    <div className="mt-6 px-1">
                       <h6 className="text-white mb-4 text-lg font-semibold">
                         Active Schedules
                       </h6>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4">
                         {schedules.map((schedule) => (
                           <motion.div
                             key={schedule.id}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3 }}
-                            className="bg-gray-800/50 p-4 rounded-lg border border-gray-900 flex flex-col"
+                            className="bg-gray-800/50 p-4 rounded-lg border border-gray-900"
                           >
-                            <div className="flex flex-col">
-                              <h6 className="text-white font-medium">
-                                <strong>Test Frequency:</strong> Every{" "}
-                                {schedule.interval}
-                              </h6>
-                              <p className="text-gray-300">
-                                <strong>Selected Servers:</strong>{" "}
-                                {getServerNames(schedule.serverIds)}
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center justify-between">
+                                <h6 className="text-white font-medium">
+                                  Every {schedule.interval}
+                                </h6>
+                                <button
+                                  onClick={() =>
+                                    schedule.id &&
+                                    handleDeleteSchedule(schedule.id)
+                                  }
+                                  className="text-red-500 hover:text-red-400 transition-colors"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                              <p className="text-gray-400 text-sm">
+                                <span className="font-medium">Servers:</span>{" "}
+                                <span className="truncate">
+                                  {getServerNames(schedule.serverIds)}
+                                </span>
                               </p>
-                              <p className="text-gray-300">
-                                <strong>Next Run:</strong>{" "}
+                              <p className="text-gray-400 text-sm">
+                                <span className="font-medium">Next run:</span>{" "}
                                 <span className="text-blue-400">
                                   {formatNextRun(schedule.nextRun)}
                                 </span>
                               </p>
-                            </div>
-                            <div className="flex justify-end mt-2">
-                              <button
-                                onClick={() =>
-                                  schedule.id &&
-                                  handleDeleteSchedule(schedule.id)
-                                }
-                                className="border-red-500 text-red-500 bg-red-200/10 hover:bg-red-500/10 transition-colors ease-in-out ml-2 px-4 py-2 rounded"
-                              >
-                                Delete
-                              </button>
                             </div>
                           </motion.div>
                         ))}

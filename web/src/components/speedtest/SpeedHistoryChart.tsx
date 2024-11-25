@@ -20,6 +20,10 @@ import {
 } from "../../types/types";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { fetchHistory } from "../../api/speedtest";
+import { motion, AnimatePresence } from "motion/react";
+import { Disclosure, DisclosureButton } from "@headlessui/react";
+import { ChevronDownIcon } from "@heroicons/react/20/solid";
+import { FaDownload, FaUpload, FaClock, FaWaveSquare } from "react-icons/fa";
 
 interface SpeedHistoryChartProps {
   timeRange: TimeRange;
@@ -42,9 +46,14 @@ const timeRangeOptions: { value: TimeRange; label: string }[] = [
 ];
 
 const ChartSkeleton: React.FC = () => (
-  <div className="animate-pulse h-full w-full">
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="animate-pulse h-full w-full"
+  >
     <div className="h-full w-full bg-gray-800/50 rounded-lg" />
-  </div>
+  </motion.div>
 );
 
 export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
@@ -161,7 +170,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               position: "insideLeft",
               angle: -90,
               offset: 0,
-              className: "fill-gray-400",
+              style: {
+                textAnchor: "middle",
+                fill: "rgb(156 163 175)",
+              },
+              dy: 0,
             }}
             domain={[0, "auto"]}
             allowDataOverflow={false}
@@ -271,91 +284,179 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   );
 
   return (
-    <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg mb-6 border border-gray-900">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-          <h2 className="text-white text-xl font-semibold">Speed History</h2>
-          <div className="flex gap-2">
-            {[
-              { key: "download", color: "#3B82F6", label: "Download" },
-              { key: "upload", color: "#10B981", label: "Upload" },
-              { key: "latency", color: "#F59E0B", label: "Latency" },
-              { key: "jitter", color: "#9333EA", label: "Jitter" },
-            ].map(({ key, label, color }) => {
-              const isActive =
-                visibleMetrics[key as keyof typeof visibleMetrics];
-              return (
-                <button
-                  key={key}
-                  onClick={() =>
-                    handleMetricToggle(key as keyof typeof visibleMetrics)
-                  }
-                  className={`
-                    px-3 py-1.5 
-                    rounded-md 
-                    text-sm 
-                    font-medium
-                    flex items-center gap-2 
-                    transition-all duration-150 ease-in-out
-                    focus:outline-none
-                    focus:ring-0
-                    ${
-                      isActive
-                        ? `bg-opacity-20 border hover:bg-opacity-30`
-                        : "bg-gray-800 text-gray-400 border border-gray-700 hover:bg-gray-750 hover:border-gray-600"
-                    }
-                  `}
-                  style={{
-                    backgroundColor: isActive ? `${color}20` : undefined,
-                    borderColor: isActive ? color : undefined,
-                    color: isActive ? color : undefined,
-                  }}
-                >
-                  <div
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: isActive ? color : "#6B7280" }}
-                  />
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="flex gap-2">
-          {timeRangeOptions.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => handleTimeRangeChange(option.value)}
-              className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                timeRange === option.value
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <Disclosure defaultOpen={true}>
+      {({ open }) => (
+        <div className="flex flex-col h-full mb-6">
+          <DisclosureButton
+            className={`flex justify-between items-center w-full px-4 py-2 bg-gray-850/95 ${
+              open ? "rounded-t-xl border-b-0" : "rounded-xl"
+            } shadow-lg border-b-0 border-gray-900 text-left`}
+          >
+            <h2 className="text-white text-xl font-semibold p-1 select-none">
+              Speed History
+            </h2>
+            <ChevronDownIcon
+              className={`${
+                open ? "transform rotate-180" : ""
+              } w-5 h-5 text-gray-400 transition-transform duration-200`}
+            />
+          </DisclosureButton>
 
-      <div className="h-[400px]">
-        {isLoading ? (
-          <ChartSkeleton />
-        ) : (
-          <div className="h-full transition-opacity duration-300 ease-in-out">
-            {chart}
-          </div>
-        )}
-      </div>
-      {hasNextPage && (
-        <button
-          onClick={() => fetchNextPage()}
-          disabled={isFetchingNextPage}
-          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
-        >
-          {isFetchingNextPage ? "Loading more..." : "Load more"}
-        </button>
+          {open && (
+            <div className="bg-gray-850/95 px-4 rounded-b-xl shadow-lg flex-1">
+              <motion.div
+                className="mt-1 speed-history-animate"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.5,
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 20,
+                }}
+              >
+                {/* Controls */}
+                <div className="flex flex-col md:flex-row justify-between items-center mb-6">
+                  <div className="flex flex-wrap items-center gap-2 mb-4 md:mb-0">
+                    {[
+                      {
+                        key: "download",
+                        color: "#3B82F6",
+                        label: "Download",
+                        icon: <FaDownload />,
+                      },
+                      {
+                        key: "upload",
+                        color: "#10B981",
+                        label: "Upload",
+                        icon: <FaUpload />,
+                      },
+                      {
+                        key: "latency",
+                        color: "#F59E0B",
+                        label: "Latency",
+                        icon: <FaClock />,
+                      },
+                      {
+                        key: "jitter",
+                        color: "#9333EA",
+                        label: "Jitter",
+                        icon: <FaWaveSquare />,
+                      },
+                    ].map(({ key, label, icon, color }) => {
+                      const isActive =
+                        visibleMetrics[key as keyof typeof visibleMetrics];
+                      return (
+                        <motion.button
+                          key={key}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() =>
+                            handleMetricToggle(
+                              key as keyof typeof visibleMetrics
+                            )
+                          }
+                          className={`
+                            px-3 py-1.5
+                            rounded-md 
+                            text-sm 
+                            font-medium
+                            flex items-center gap-2 
+                            transition-all duration-150 ease-in-out
+                            focus:outline-none
+                            focus:ring-0
+                            ${
+                              isActive
+                                ? `bg-opacity-20 border hover:bg-opacity-30`
+                                : "bg-gray-800 text-gray-400 border border-gray-700 hover:bg-gray-750 hover:border-gray-600"
+                            }
+                          `}
+                          style={{
+                            backgroundColor: isActive
+                              ? `${color}20`
+                              : undefined,
+                            borderColor: isActive ? color : undefined,
+                            color: isActive ? color : undefined,
+                          }}
+                        >
+                          <motion.div
+                            layout
+                            className="w-2 h-2 rounded-full"
+                            style={{
+                              backgroundColor: isActive ? color : "#6B7280",
+                            }}
+                          />
+                          <span className="hidden md:inline">{label}</span>
+                          <span className="md:hidden">{icon}</span>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2">
+                    {timeRangeOptions.map((option) => (
+                      <motion.button
+                        key={option.value}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleTimeRangeChange(option.value)}
+                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                          timeRange === option.value
+                            ? "bg-blue-500 text-white"
+                            : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                        }`}
+                      >
+                        <span className="hidden md:inline">{option.label}</span>
+                        <span className="md:hidden">
+                          {option.label
+                            .replace("Hours", "H")
+                            .replace("Days", "D")
+                            .replace("Week", "W")
+                            .replace("Month", "M")
+                            .replace("All Time", "All")}
+                        </span>
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Chart Area */}
+                <div className="h-[300px] md:h-[400px]">
+                  <AnimatePresence mode="wait">
+                    {isLoading ? (
+                      <ChartSkeleton />
+                    ) : (
+                      <motion.div
+                        key="chart"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="h-full"
+                      >
+                        {chart}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {hasNextPage && (
+                  <motion.button
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
+                  >
+                    {isFetchingNextPage ? "Loading more..." : "Load more"}
+                  </motion.button>
+                )}
+              </motion.div>
+            </div>
+          )}
+        </div>
       )}
-    </div>
+    </Disclosure>
   );
 };
