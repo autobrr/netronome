@@ -176,13 +176,19 @@ export default function ScheduleManager({
   };
 
   const getServerNames = (serverIds: string[] | undefined) => {
-    return (serverIds || [])
+    const serversList = (serverIds || [])
       .map((id: string) => {
         const server = servers.find((s: Server) => s.id === id);
         return server ? `${server.sponsor} - ${server.name}` : null;
       })
-      .filter(Boolean)
-      .join(", ");
+      .filter(Boolean);
+
+    if (serversList.length === 1) {
+      return serversList[0];
+    } else if (serversList.length > 1) {
+      return `${serversList.length} servers`;
+    }
+    return "No servers";
   };
 
   if (isInitialLoading) {
