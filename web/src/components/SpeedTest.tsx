@@ -33,6 +33,7 @@ import {
   runSpeedTest,
   fetchTestStatus,
 } from "../api/speedtest";
+import { motion } from "motion/react";
 
 export default function SpeedTest() {
   const queryClient = useQueryClient();
@@ -279,9 +280,9 @@ export default function SpeedTest() {
 
   return (
     <div className="min-h-screen">
-      <Container maxWidth="lg" className="pb-8">
+      <Container maxWidth="xl" className="pb-8">
         {/* Header */}
-        <div className="flex flex-col items-center md:flex-row justify-between -ml-2 mb-8 pt-8 relative">
+        <div className="flex flex-col md:flex-row justify-center md:justify-between mb-8 pt-8 relative">
           <div className="flex items-center gap-3">
             <img
               src={logo}
@@ -300,7 +301,7 @@ export default function SpeedTest() {
           </div>
           {(testStatus === "running" || scheduledTestRunning) && (
             <div
-              className="mt-8 md:mt-0 flex items-center"
+              className="mt-8 md:mt-0 flex items-center justify-center"
               style={{ minWidth: "120px", height: "40px" }}
             >
               {progress !== null && <TestProgress progress={progress} />}
@@ -358,7 +359,13 @@ export default function SpeedTest() {
 
         {/* Latest Results */}
         {history && history.length > 0 && history[0] && (
-          <div className="" mb-6>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} // Initial state for animation
+            animate={{ opacity: 1, y: 0 }} // Animate to this state
+            exit={{ opacity: 0, y: 20 }} // Exit animation state
+            transition={{ duration: 0.5 }} // Duration of the animation
+            className="mb-6"
+          >
             <h2 className="text-white text-xl ml-1 font-semibold">
               Latest Run
             </h2>
@@ -411,20 +418,32 @@ export default function SpeedTest() {
                 average={calculateAverage(history, "jitter", timeRange)}
               />
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Speed History Chart */}
         {Boolean(historyData?.pages?.[0]?.data?.length) && (
-          <SpeedHistoryChart
-            timeRange={timeRange}
-            onTimeRangeChange={setTimeRange}
-          />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.5 }}
+          >
+            <SpeedHistoryChart
+              timeRange={timeRange}
+              onTimeRangeChange={setTimeRange}
+            />
+          </motion.div>
         )}
 
         {/* Server Selection and Schedule Manager Container */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
-          <div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.5 }}
+          >
             <ServerList
               servers={servers}
               selectedServers={selectedServers}
@@ -439,16 +458,22 @@ export default function SpeedTest() {
               onRunTest={runTest}
               isLoading={isLoading}
             />
-          </div>
+          </motion.div>
 
-          <div className="sticky top-6">
+          <motion.div
+            className="sticky top-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.5 }}
+          >
             <ScheduleManager
               servers={servers}
               selectedServers={selectedServers}
               onServerSelect={handleServerSelect}
               loading={isLoading}
             />
-          </div>
+          </motion.div>
         </div>
       </Container>
     </div>
