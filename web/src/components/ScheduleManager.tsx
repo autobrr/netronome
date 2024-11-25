@@ -325,7 +325,7 @@ export default function ScheduleManager({
                                     schedule.id &&
                                     handleDeleteSchedule(schedule.id)
                                   }
-                                  className="text-red-500 hover:text-red-400 transition-colors"
+                                  className="text-red-500 px-2 py-1 bg-red-800/50 border border-gray-900 rounded-lg hover:bg-red-900/70 hover:text-red-400 transition-colors"
                                 >
                                   Delete
                                 </button>

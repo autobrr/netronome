@@ -381,7 +381,7 @@ export default function SpeedTest() {
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 cursor-default">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 cursor-default">
               <MetricCard
                 icon={<IoIosPulse className="w-5 h-5 text-blue-400" />}
                 title="Latency"
