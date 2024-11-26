@@ -11,6 +11,7 @@ import {
   ListboxButton,
   ListboxOption,
   ListboxOptions,
+  Transition,
 } from "@headlessui/react";
 import { ChevronUpDownIcon } from "@heroicons/react/20/solid";
 import { Disclosure } from "@headlessui/react";
@@ -221,7 +222,7 @@ export default function ScheduleManager({
 
             {open && (
               <motion.div
-                className="bg-gray-850/95 p-4 rounded-b-xl shadow-lg border-t-0 border-gray-900 select-none pointer-events-none schedule-manager-animate h-full"
+                className="bg-gray-800/50 p-4 rounded-b-xl shadow-lg border-t-0 border-gray-900 select-none pointer-events-none schedule-manager-animate h-full"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{
@@ -247,8 +248,8 @@ export default function ScheduleManager({
                     <div>
                       <Listbox value={interval} onChange={setInterval}>
                         <div className="relative">
-                          <ListboxButton className="relative w-full cursor-pointer rounded-lg bg-gray-800/50 py-2 pl-3 pr-10 text-left border border-gray-900 focus:outline-none focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500">
-                            <span className="block truncate text-gray-200">
+                          <ListboxButton className="relative w-full px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg text-left text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
+                            <span className="block truncate">
                               {
                                 intervalOptions.find(
                                   (opt) => opt.value === interval
@@ -262,41 +263,42 @@ export default function ScheduleManager({
                               />
                             </span>
                           </ListboxButton>
-                          <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-gray-800 py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                            {intervalOptions.map((option) => (
-                              <ListboxOption
-                                key={option.value}
-                                value={option.value}
-                                className={({ active }) =>
-                                  `relative cursor-pointer select-none py-2 pl-3 pr-9 ${
-                                    active
-                                      ? "bg-gray-700 text-white"
-                                      : "text-gray-200"
-                                  }`
-                                }
-                              >
-                                {({ selected }) => (
-                                  <span
-                                    className={`block truncate ${
-                                      selected ? "font-medium" : "font-normal"
-                                    }`}
-                                  >
-                                    {option.label}
-                                  </span>
-                                )}
-                              </ListboxOption>
-                            ))}
-                          </ListboxOptions>
+                          <Transition
+                            enter="transition duration-100 ease-out"
+                            enterFrom="transform scale-95 opacity-0"
+                            enterTo="transform scale-100 opacity-100"
+                            leave="transition duration-75 ease-out"
+                            leaveFrom="transform scale-100 opacity-100"
+                            leaveTo="transform scale-95 opacity-0"
+                          >
+                            <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-gray-800 border border-gray-900 py-1 shadow-lg focus:outline-none">
+                              {intervalOptions.map((option) => (
+                                <ListboxOption
+                                  key={option.value}
+                                  value={option.value}
+                                  className={({ focus }) =>
+                                    `relative cursor-pointer select-none py-2 px-4 ${
+                                      focus
+                                        ? "bg-blue-500/10 text-blue-200"
+                                        : "text-gray-300"
+                                    }`
+                                  }
+                                >
+                                  {option.label}
+                                </ListboxOption>
+                              ))}
+                            </ListboxOptions>
+                          </Transition>
                         </div>
                       </Listbox>
 
                       <div className="flex items-center justify-between mt-4">
                         <div className="relative inline-block group">
                           <button
-                            className={`ml-1 px-3 py-2 rounded-lg transition-colors ${
+                            className={`ml-1 px-3 py-2 rounded-lg shadow-md transition-colors border ${
                               loading || selectedServers.length === 0
-                                ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                                : "bg-blue-500 hover:bg-blue-600 text-white"
+                                ? "bg-gray-700 text-gray-400 cursor-not-allowed border-gray-900"
+                                : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
                             }`}
                             onClick={handleCreateSchedule}
                             disabled={loading || selectedServers.length === 0}
@@ -306,7 +308,7 @@ export default function ScheduleManager({
                               : "Create schedule"}
                           </button>
                           {selectedServers.length === 0 && (
-                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 text-sm text-white bg-gray-800 rounded-md invisible group-hover:visible transition-all duration-200 whitespace-nowrap">
+                            <div className="absolute bottom-full border border-gray-900 left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 text-sm text-white bg-gray-800 rounded-md invisible group-hover:visible transition-all duration-200 whitespace-nowrap">
                               Pick a server first
                             </div>
                           )}
@@ -328,7 +330,7 @@ export default function ScheduleManager({
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3 }}
-                            className="bg-gray-800/50 p-4 rounded-lg border border-gray-900"
+                            className="bg-gray-800/50 p-4 rounded-lg shadow-lg border border-gray-900"
                           >
                             <div className="flex flex-col gap-2">
                               <div className="flex items-center justify-between">

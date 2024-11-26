@@ -11,9 +11,14 @@ import {
   Label,
   Disclosure,
   DisclosureButton,
+  Listbox,
+  Transition,
+  ListboxButton,
+  ListboxOptions,
+  ListboxOption,
 } from "@headlessui/react";
 import { Server } from "@/types/types";
-import { ChevronDownIcon } from "@heroicons/react/20/solid";
+import { ChevronDownIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid";
 
 interface ServerListProps {
   servers: Server[];
@@ -151,11 +156,13 @@ export const ServerList: React.FC<ServerListProps> = ({
                       className={`
                         px-4 py-2 
                         rounded-lg 
+                        shadow-md
                         transition-colors
+                        border
                         ${
                           isLoading || selectedServers.length === 0
-                            ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                            : "bg-blue-500 hover:bg-blue-600 text-white"
+                            ? "bg-gray-700 text-gray-400 cursor-not-allowed border-gray-900"
+                            : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
                         }
                       `}
                     >
@@ -166,7 +173,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                         : "Run Test"}
                     </button>
                     {selectedServers.length === 0 && (
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 text-sm text-white bg-gray-800 rounded-md invisible group-hover:visible transition-all duration-200 whitespace-nowrap">
+                      <div className="absolute bottom-full border border-gray-900 left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 text-sm text-white bg-gray-800 rounded-md invisible group-hover:visible transition-all duration-200 whitespace-nowrap">
                         Pick a server first
                       </div>
                     )}
@@ -179,25 +186,66 @@ export const ServerList: React.FC<ServerListProps> = ({
                     <input
                       type="text"
                       placeholder="Search servers..."
-                      className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
 
                   {/* Country Filter */}
-                  <select
-                    className="px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg focus:outline-none text-gray-300 min-w-[160px]"
-                    value={filterCountry}
-                    onChange={(e) => setFilterCountry(e.target.value)}
-                  >
-                    <option value="">All Countries</option>
-                    {countries.map((country) => (
-                      <option key={country} value={country}>
-                        {country}
-                      </option>
-                    ))}
-                  </select>
+                  <Listbox value={filterCountry} onChange={setFilterCountry}>
+                    <div className="relative min-w-[160px]">
+                      <ListboxButton className="relative w-full px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg text-left text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
+                        <span className="block truncate">
+                          {filterCountry || "All Countries"}
+                        </span>
+                        <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                          <ChevronUpDownIcon
+                            className="h-5 w-5 text-gray-400"
+                            aria-hidden="true"
+                          />
+                        </span>
+                      </ListboxButton>
+                      <Transition
+                        enter="transition duration-100 ease-out"
+                        enterFrom="transform scale-95 opacity-0"
+                        enterTo="transform scale-100 opacity-100"
+                        leave="transition duration-75 ease-out"
+                        leaveFrom="transform scale-100 opacity-100"
+                        leaveTo="transform scale-95 opacity-0"
+                      >
+                        <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-gray-800 border border-gray-900 py-1 shadow-lg focus:outline-none">
+                          <ListboxOption
+                            className={({ focus }) =>
+                              `relative cursor-pointer select-none py-2 px-4 ${
+                                focus
+                                  ? "bg-blue-500/10 text-blue-200"
+                                  : "text-gray-300"
+                              }`
+                            }
+                            value=""
+                          >
+                            All Countries
+                          </ListboxOption>
+                          {countries.map((country) => (
+                            <ListboxOption
+                              key={country}
+                              value={country}
+                              className={({ focus }) =>
+                                `relative cursor-pointer select-none py-2 px-4 ${
+                                  focus
+                                    ? "bg-blue-500/10 text-blue-200"
+                                    : "text-gray-300"
+                                }`
+                              }
+                            >
+                              {country}
+                            </ListboxOption>
+                          ))}
+                        </ListboxOptions>
+                      </Transition>
+                    </div>
+                  </Listbox>
                 </div>
 
                 {/* Server Grid */}
@@ -215,7 +263,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                           onClick={() => onSelect(server)}
                           className={`w-full p-4 rounded-lg text-left transition-colors ${
                             selectedServers.some((s) => s.id === server.id)
-                              ? "bg-blue-500/10 border-blue-500/50 shadow-lg"
+                              ? "bg-blue-500/10 border-blue-400/50 shadow-lg"
                               : "bg-gray-800/50 border-gray-900 hover:bg-gray-800 shadow-lg"
                           } border`}
                         >
@@ -247,7 +295,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                   <div className="flex justify-center mt-6">
                     <button
                       onClick={() => setDisplayCount((prev) => prev + 6)}
-                      className="px-4 py-2 bg-gray-800/50 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                      className="px-4 py-2 bg-gray-800/50 border border-gray-900/80 text-gray-300/50 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors"
                     >
                       Load More
                     </button>

@@ -397,8 +397,8 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                         onClick={() => handleTimeRangeChange(option.value)}
                         className={`px-3 py-2 rounded-lg text-sm transition-colors ${
                           timeRange === option.value
-                            ? "bg-blue-500 text-white"
-                            : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                            ? "bg-blue-500 text-white border border-blue-600 hover:border-blue-700"
+                            : "bg-gray-800 text-gray-400 border border-gray-900/80 hover:bg-gray-700"
                         }`}
                       >
                         <span className="hidden md:inline">{option.label}</span>
