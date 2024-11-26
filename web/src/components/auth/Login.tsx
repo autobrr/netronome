@@ -4,9 +4,9 @@
  */
 
 import { useState, useEffect } from "react";
-import { useAuth } from "../../context/auth";
-import { router } from "../../routes";
-import logo from "../../assets/logo.png";
+import { useAuth } from "@/context/auth";
+import { router } from "@/routes";
+import logo from "@/assets/logo.png";
 
 export default function Login() {
   const { login, checkRegistrationStatus } = useAuth();
@@ -44,16 +44,29 @@ export default function Login() {
     setError("");
 
     try {
-      await login(username, password);
-    } catch (err) {
-      console.error("Login error:", err);
-
-      if (err instanceof Error && err.message.includes("User not found")) {
-        console.log("No users found during login, redirecting...");
-        router.navigate({ to: "/register" });
+      // Basic frontend validation
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters");
         return;
       }
-      setError(err instanceof Error ? err.message : "Login failed");
+
+      await login(username, password);
+    } catch (err) {
+      // Enhanced error handling
+      if (err instanceof Error) {
+        if (err.message.includes("User not found")) {
+          console.log("No users found during login, redirecting...");
+          router.navigate({ to: "/register" });
+          return;
+        }
+        // Extract specific error message from the API response
+        const message = err.message.includes("Error #01:")
+          ? err.message.split("Error #01:")[1].trim()
+          : err.message;
+        setError(message);
+      } else {
+        setError("Login failed");
+      }
     }
   };
 

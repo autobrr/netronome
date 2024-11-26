@@ -4,10 +4,10 @@
  */
 
 import { useState, useEffect } from "react";
-import { useAuth } from "../../context/auth";
-import { checkRegistrationStatus } from "../../api/auth";
-import { router } from "../../routes";
-import logo from "../../assets/logo.png";
+import { useAuth } from "@/context/auth";
+import { checkRegistrationStatus } from "@/api/auth";
+import { router } from "@/routes";
+import logo from "@/assets/logo.png";
 
 export default function Register() {
   const [username, setUsername] = useState("");
@@ -37,10 +37,22 @@ export default function Register() {
     setError("");
 
     try {
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters");
+        return;
+      }
+
       await register(username, password);
       router.navigate({ to: "/login" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      if (err instanceof Error) {
+        const message = err.message.includes("Error #01:")
+          ? err.message.split("Error #01:")[1].trim()
+          : err.message;
+        setError(message);
+      } else {
+        setError("Registration failed");
+      }
     }
   };
 

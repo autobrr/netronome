@@ -6,8 +6,8 @@
 import { useEffect } from "react";
 import { Outlet } from "@tanstack/react-router";
 import { ArrowRightStartOnRectangleIcon as LogoutIcon } from "@heroicons/react/24/outline";
-import { initializeDarkMode } from "./utils/darkMode";
-import { useAuth } from "./context/auth";
+import { initializeDarkMode } from "@/utils/darkMode";
+import { useAuth } from "@/context/auth";
 
 function App() {
   const { isAuthenticated, logout } = useAuth();

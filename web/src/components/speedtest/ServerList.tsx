@@ -12,7 +12,7 @@ import {
   Disclosure,
   DisclosureButton,
 } from "@headlessui/react";
-import { Server } from "../../types/types";
+import { Server } from "@/types/types";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 
 interface ServerListProps {
@@ -144,26 +144,33 @@ export const ServerList: React.FC<ServerListProps> = ({
                   </Field>
 
                   {/* Run Test Button */}
-                  <button
-                    onClick={onRunTest}
-                    disabled={isLoading || selectedServers.length === 0}
-                    className={`
-                      px-4 py-2 
-                      rounded-lg 
-                      transition-colors
-                      ${
-                        isLoading || selectedServers.length === 0
-                          ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                          : "bg-blue-500 hover:bg-blue-600 text-white"
-                      }
-                    `}
-                  >
-                    {isLoading
-                      ? "Running Test..."
-                      : selectedServers.length === 0
-                      ? "Select a server"
-                      : "Run Test"}
-                  </button>
+                  <div className="relative inline-block group">
+                    <button
+                      onClick={onRunTest}
+                      disabled={isLoading || selectedServers.length === 0}
+                      className={`
+                        px-4 py-2 
+                        rounded-lg 
+                        transition-colors
+                        ${
+                          isLoading || selectedServers.length === 0
+                            ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                            : "bg-blue-500 hover:bg-blue-600 text-white"
+                        }
+                      `}
+                    >
+                      {isLoading
+                        ? "Running Test..."
+                        : selectedServers.length === 0
+                        ? "Select a server"
+                        : "Run Test"}
+                    </button>
+                    {selectedServers.length === 0 && (
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 text-sm text-white bg-gray-800 rounded-md invisible group-hover:visible transition-all duration-200 whitespace-nowrap">
+                        Pick a server first
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex flex-col md:flex-row gap-4 mb-4">

@@ -9,11 +9,11 @@ import {
   createRootRoute,
   Outlet,
 } from "@tanstack/react-router";
-import App from "./App";
-import SpeedTest from "./components/speedtest/SpeedTest";
-import Login from "./components/auth/Login";
-import Register from "./components/auth/Register";
-import { useAuth } from "./context/auth";
+import App from "@/App";
+import SpeedTest from "@/components/speedtest/SpeedTest";
+import Login from "@/components/auth/Login";
+import Register from "@/components/auth/Register";
+import { useAuth } from "@/context/auth";
 import { useEffect } from "react";
 
 // Protected route wrapper component

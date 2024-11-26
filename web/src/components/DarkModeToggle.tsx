@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { toggleDarkMode } from "../utils/darkMode";
+import { toggleDarkMode } from "@/utils/darkMode";
 
 export const DarkModeToggle: React.FC = () => {
   return (

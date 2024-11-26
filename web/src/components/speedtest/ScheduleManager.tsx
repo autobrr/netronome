@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Schedule, Server } from "../../types/types";
+import { Schedule, Server } from "@/types/types";
 import {
   DisclosureButton,
   Listbox,
@@ -291,17 +291,26 @@ export default function ScheduleManager({
                       </Listbox>
 
                       <div className="flex items-center justify-between mt-4">
-                        <button
-                          className={`ml-1 px-3 py-2 rounded-lg transition-colors ${
-                            loading || selectedServers.length === 0
-                              ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                              : "bg-blue-500 hover:bg-blue-600 text-white"
-                          }`}
-                          onClick={handleCreateSchedule}
-                          disabled={loading || selectedServers.length === 0}
-                        >
-                          {loading ? "Creating schedule..." : "Create schedule"}
-                        </button>
+                        <div className="relative inline-block group">
+                          <button
+                            className={`ml-1 px-3 py-2 rounded-lg transition-colors ${
+                              loading || selectedServers.length === 0
+                                ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                                : "bg-blue-500 hover:bg-blue-600 text-white"
+                            }`}
+                            onClick={handleCreateSchedule}
+                            disabled={loading || selectedServers.length === 0}
+                          >
+                            {loading
+                              ? "Creating schedule..."
+                              : "Create schedule"}
+                          </button>
+                          {selectedServers.length === 0 && (
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 text-sm text-white bg-gray-800 rounded-md invisible group-hover:visible transition-all duration-200 whitespace-nowrap">
+                              Pick a server first
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

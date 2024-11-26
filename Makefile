@@ -11,7 +11,6 @@ build:
 	@echo "Building frontend and backend..."
 	@mkdir -p $(BUILD_DIR)
 	@mkdir -p web/dist
-	@touch web/dist/.gitkeep
 	@cd web && pnpm install && pnpm build
 	@touch web/dist/.gitkeep
 	@go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/netronome
@@ -40,6 +39,7 @@ docker-run: docker-build
 dev:
 	@echo "Starting development servers..."
 	@GIN_MODE=debug tmux new-session -d -s dev 'cd web && pnpm dev'
+	@touch web/dist/.gitkeep > /dev/null 2>&1
 	@GIN_MODE=debug tmux split-window -h 'make watch'
 	@tmux -2 attach-session -d
 
@@ -58,3 +58,4 @@ watch:
 			exit 1; \
 		fi; \
 	fi
+

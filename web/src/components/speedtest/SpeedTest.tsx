@@ -19,8 +19,8 @@ import {
   TimeRange,
   TestOptions,
   PaginatedResponse,
-} from "../../types/types";
-import logo from "../../assets/logo.png";
+} from "@/types/types";
+import logo from "@/assets/logo.png";
 import {
   useQuery,
   useMutation,
@@ -33,7 +33,7 @@ import {
   fetchSchedules,
   runSpeedTest,
   fetchTestStatus,
-} from "../../api/speedtest";
+} from "@/api/speedtest";
 import { motion } from "motion/react";
 
 export default function SpeedTest() {
@@ -318,7 +318,7 @@ export default function SpeedTest() {
 
         {/* No History Message - Only show when explicitly empty and not loading */}
         {!isHistoryLoading && (!history || history.length === 0) && (
-          <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900 mb-2">
+          <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900 mb-6">
             <div className="text-center space-y-4">
               <div>
                 <h2 className="text-white text-xl font-semibold mb-2">

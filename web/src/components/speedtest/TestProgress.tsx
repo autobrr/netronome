@@ -5,7 +5,7 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { TestProgress as TestProgressType } from "../../types/types";
+import { TestProgress as TestProgressType } from "@/types/types";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 
 interface TestProgressProps {

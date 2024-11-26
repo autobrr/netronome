@@ -10,8 +10,8 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { router } from "../routes";
-import * as authApi from "../api/auth";
+import { router } from "@/routes";
+import * as authApi from "@/api/auth";
 
 interface User {
   id: number;

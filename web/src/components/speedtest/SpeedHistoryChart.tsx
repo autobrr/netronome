@@ -13,13 +13,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import {
-  SpeedTestResult,
-  TimeRange,
-  PaginatedResponse,
-} from "../../types/types";
+import { SpeedTestResult, TimeRange, PaginatedResponse } from "@/types/types";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { fetchHistory } from "../../api/speedtest";
+import { fetchHistory } from "@/api/speedtest";
 import { motion, AnimatePresence } from "motion/react";
 import { Disclosure, DisclosureButton } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";

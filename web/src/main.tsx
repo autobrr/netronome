@@ -8,9 +8,9 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import "./index.css";
-import { router } from "./routes";
-import { AuthProvider } from "./context/auth";
-import { ErrorBoundary } from "./components/ErrorBoundary";
+import { router } from "@/routes";
+import { AuthProvider } from "@/context/auth";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
