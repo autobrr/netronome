@@ -5,18 +5,23 @@ DOCKER_IMAGE=netronome
 
 .PHONY: all build clean run docker-build docker-run watch dev
 
-all: clean build
+all: build
 
 build: 
 	@echo "Building frontend and backend..."
 	@mkdir -p $(BUILD_DIR)
+	@mkdir -p web/dist
+	@touch web/dist/.gitkeep
 	@cd web && pnpm install && pnpm build
+	@touch web/dist/.gitkeep
 	@go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/netronome
 
 clean:
 	@echo "Cleaning up..."
 	@rm -rf $(BUILD_DIR)
-	@find web/dist -mindepth 1 ! -name '.gitkeep' -delete
+	@rm -rf web/dist
+	@mkdir -p web/dist
+	@touch web/dist/.gitkeep
 	@rm -rf web/node_modules
 
 run: build
