@@ -29,10 +29,15 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
   - Customizable test configurations
 
 - **Modern Interface**
+
   - Clean, responsive design
   - Dark mode optimized
   - Real-time updates
   - Interactive charts and visualizations
+
+- **Flexible Authentication**
+  - Built-in user authentication
+  - OpenID Connect support
 
 ## 🚀 Getting Started
 
@@ -109,6 +114,43 @@ make docker-run
    - Filter by time range
    - Analyze trends with interactive charts
    - Export test data
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+| Variable             | Description                            | Default                                      | Required      |
+| -------------------- | -------------------------------------- | -------------------------------------------- | ------------- |
+| `GIN_MODE`           | Gin framework mode (`debug`/`release`) | `release`                                    | No            |
+| `OIDC_ISSUER`        | OpenID Connect issuer URL              | https://authentik.example.com/oidc/auth      | Only for OIDC |
+| `OIDC_CLIENT_ID`     | OpenID Connect client ID               | -                                            | Only for OIDC |
+| `OIDC_CLIENT_SECRET` | OpenID Connect client secret           | -                                            | Only for OIDC |
+| `OIDC_REDIRECT_URL`  | OpenID Connect redirect URL            | http://localhost:5173/api/auth/oidc/callback | Only for OIDC |
+| `PORT`               | Server port                            | `8080`                                       | No            |
+| `netronome_DB_PATH`  | SQLite database file path              | `./netronome.db`                             | No            |
+
+### Database
+
+Netronome uses SQLite for data storage, providing a lightweight and reliable database solution that requires no additional setup.
+Default location: `./netronome.db`
+
+### Authentication
+
+Netronome supports two authentication methods:
+
+1. **Built-in Authentication**
+
+   - Username/password authentication
+   - Default option if no OIDC is configured
+
+2. **OpenID Connect (OIDC)**
+   - Integration with identity providers (Google, Okta, Auth0, Keycloak, Pocket-ID etc.)
+   - Configure via environment variables:
+     ```bash
+     OIDC_ISSUER=https://your-provider/.well-known/openid-configuration
+     OIDC_CLIENT_ID=your-client-id
+     OIDC_CLIENT_SECRET=your-client-secret
+     ```
 
 ## 🤝 Contributing
 
