@@ -66,22 +66,27 @@ func New() Service {
 		return dbInstance
 	}
 
-	dbDir := filepath.Dir(dburl)
 	absPath, err := filepath.Abs(dburl)
 	if err != nil {
 		log.Fatal().Err(err).Str("path", dburl).Msg("Failed to get absolute database path")
 	}
+	dburl = absPath
+	dbDir := filepath.Dir(dburl)
 
 	log.Info().
 		Str("dir", dbDir).
-		Str("path", absPath).
+		Str("path", dburl).
 		Msg("Initializing database")
 
-	if err := os.MkdirAll(dbDir, 0777); err != nil {
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
 		log.Fatal().Err(err).Str("path", dbDir).Msg("Failed to create database directory")
 	}
 
-	db, err := sql.Open("sqlite", dburl)
+	if err := os.Chmod(dbDir, 0755); err != nil {
+		log.Fatal().Err(err).Msg("Failed to set database directory permissions")
+	}
+
+	db, err := sql.Open("sqlite", fmt.Sprintf("file:%s?cache=shared&mode=rwc", dburl))
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to open database")
 	}
