@@ -17,7 +17,7 @@ func RequireAuth(db database.Service, oidc *auth.OIDCConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionToken, err := c.Cookie("session")
 		if err != nil {
-			log.Debug().Err(err).Msg("No session cookie found")
+			log.Trace().Err(err).Msg("No session cookie found")
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}

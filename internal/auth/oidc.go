@@ -30,14 +30,14 @@ type Claims struct {
 func NewOIDC(ctx context.Context) (*OIDCConfig, error) {
 	issuer := os.Getenv("OIDC_ISSUER")
 	if issuer == "" {
-		log.Info().Msg("OIDC not configured: OIDC_ISSUER is empty")
+		log.Debug().Msg("Using built-in authentication")
 		return nil, nil
 	}
 
-	log.Info().Str("issuer", issuer).Msg("Initializing OIDC provider")
+	log.Debug().Str("issuer", issuer).Msg("Initializing OIDC provider")
 
 	// Perform manual discovery
-	endpoints, userinfoURL, err := getProviderEndpoints(ctx, http.DefaultClient, issuer)
+	endpoints, _, err := getProviderEndpoints(ctx, http.DefaultClient, issuer)
 	if err != nil {
 		log.Error().Err(err).Str("issuer", issuer).Msg("Failed to discover OIDC provider endpoints")
 		return nil, fmt.Errorf("failed to discover OIDC provider endpoints: %w", err)
@@ -58,12 +58,12 @@ func NewOIDC(ctx context.Context) (*OIDCConfig, error) {
 		Scopes:       []string{oidc.ScopeOpenID, "profile"},
 	}
 
-	log.Debug().
+	log.Trace().
 		Str("clientID", config.ClientID).
 		Str("redirectURL", config.RedirectURL).
 		Str("authURL", endpoints.AuthURL).
 		Str("tokenURL", endpoints.TokenURL).
-		Str("userinfoURL", userinfoURL).
+		//Str("userinfoURL", userinfoURL).
 		Strs("scopes", config.Scopes).
 		Msg("OIDC configuration created")
 
@@ -82,7 +82,7 @@ func getProviderEndpoints(ctx context.Context, client *http.Client, issuer strin
 		wellKnown = issuer
 	}
 
-	log.Debug().Str("well_known_url", wellKnown).Msg("Fetching OIDC discovery document")
+	log.Trace().Str("well_known_url", wellKnown).Msg("Fetching OIDC discovery document")
 
 	req, err := http.NewRequestWithContext(ctx, "GET", wellKnown, nil)
 	if err != nil {
@@ -115,15 +115,15 @@ func getProviderEndpoints(ctx context.Context, client *http.Client, issuer strin
 		return oauth2.Endpoint{}, "", fmt.Errorf("parsing discovery document: %w", err)
 	}
 
-	log.Info().
+	log.Debug().
 		Str("issuer", discovery.Issuer).
 		Str("auth_url", discovery.AuthURL).
 		Str("token_url", discovery.TokenURL).
-		Str("userinfo_url", discovery.UserinfoURL).
-		Str("jwks_url", discovery.JWKSURL).
-		Strs("response_types", discovery.ResponseTypes).
-		Strs("subject_types", discovery.SubjectTypes).
-		Strs("signing_algs", discovery.SigningAlgs).
+		//Str("userinfo_url", discovery.UserinfoURL).
+		//Str("jwks_url", discovery.JWKSURL).
+		//Strs("response_types", discovery.ResponseTypes).
+		//Strs("subject_types", discovery.SubjectTypes).
+		//Strs("signing_algs", discovery.SigningAlgs).
 		Msg("OIDC discovery successful")
 
 	return oauth2.Endpoint{
