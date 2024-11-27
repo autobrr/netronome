@@ -1,50 +1,53 @@
-# Go related
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-go.work
-vendor/
-bin/
-
 # Build artifacts
-tmp/
 main
+tmp/
 *templ.go
+
+# Database files
+*.db
+netronome.db
+netronome.db-shm
+netronome.db-wal
+results.json
 
 # Dependencies
 node_modules/
-
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-.DS_Store
-license.sh
+vendor/
 
 # Environment and config
 .env
 *.local
 
-# Database files
-*.db
-results.json
+# Generated files
+web/vite.config.d.ts
+web/vite.config.js
+
+# Go related
+*.dll
+*.dylib
+*.exe
+*.exe~
+*.out
+*.so
+*.test
+bin/
+go.work
+
+# IDE and editor files
+.DS_Store
+.idea/
+.vscode/
+*.swo
+*.swp
+license.sh
 
 # Project specific
 data/
+
+# TypeScript build info
+*.tsbuildinfo
 
 # Web build
 web/dist/*
 !web/dist/.gitkeep
 web/tsconfig.app.tsbuildinfo
-
-# TypeScript build info
-*.tsbuildinfo
-
-# Generated files
-web/vite.config.js
-web/vite.config.d.ts

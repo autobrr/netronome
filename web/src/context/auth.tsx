@@ -18,6 +18,12 @@ interface User {
   username: string;
 }
 
+interface RegistrationStatus {
+  registrationEnabled: boolean;
+  hasUsers: boolean;
+  oidcEnabled: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
@@ -25,10 +31,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  checkRegistrationStatus: () => Promise<{
-    registrationEnabled: boolean;
-    hasUsers: boolean;
-  }>;
+  checkRegistrationStatus: () => Promise<RegistrationStatus>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);

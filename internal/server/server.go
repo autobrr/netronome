@@ -4,6 +4,7 @@
 package server
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/server/middleware"
@@ -35,6 +37,13 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 	gin.DefaultWriter = nil
 
 	router := gin.New()
+
+	// Initialize OIDC if configured
+	oidcConfig, err := auth.NewOIDC(context.Background())
+	if err != nil {
+		log.Error().Err(err).Msg("failed to initialize OIDC")
+		// Continue without OIDC
+	}
 
 	router.Use(LoggerMiddleware())
 	router.Use(gin.Recovery())
@@ -63,7 +72,7 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 		speedtest:  speedtest,
 		db:         db,
 		scheduler:  scheduler,
-		auth:       NewAuthHandler(db),
+		auth:       NewAuthHandler(db, oidcConfig),
 		lastUpdate: &types.SpeedUpdate{},
 		config:     config,
 	}
@@ -93,11 +102,15 @@ func (s *Server) RegisterRoutes() {
 			auth.GET("/status", s.auth.CheckRegistrationStatus)
 			auth.POST("/register", s.auth.Register)
 			auth.POST("/login", s.auth.Login)
+			if s.auth.oidc != nil {
+				auth.GET("/oidc/login", s.auth.handleOIDCLogin)
+				auth.GET("/oidc/callback", s.auth.handleOIDCCallback)
+			}
 		}
 
 		// Protected routes
 		protected := api.Group("")
-		protected.Use(middleware.RequireAuth(s.db))
+		protected.Use(middleware.RequireAuth(s.db, s.auth.oidc))
 		{
 			protected.POST("/auth/logout", s.auth.Logout)
 			protected.GET("/auth/verify", s.auth.Verify)
