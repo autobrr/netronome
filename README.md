@@ -1,38 +1,50 @@
-**THIS README IS A WIP**
-
 <h1 align="center">Netronome</h1>
-
-Netronome (short for Network Metronome) is a modern network speed testing and monitoring tool built with Go and React. It provides a clean web interface for running network speed tests and visualizing results, measuring your network performance with metronome-like precision.
 
 <p align="center">
   <img src=".github/assets/netronome.png" alt="Netronome">
 </p>
 
-## Features
+Netronome (Network Metronome) is a modern network speed testing and monitoring tool that provides precise network performance measurements with a clean, intuitive web interface. It offers both scheduled and on-demand speed tests with detailed visualizations and historical tracking.
 
-- Network speed testing using speedtest-go
-- Real-time monitoring dashboard
-- Modern React frontend
-- SQLite database for storing test results
-- Docker support
+## ✨ Features
 
-## Tech Stack
+- **Advanced Speed Testing**
 
-- Backend: Go
-- Frontend: React
-- Database: SQLite
-- UI: Tailwind CSS
-- Build Tools: Vite, pnpm
+  - Multi-server testing capability
+  - Support for both Speedtest.net and iPerf servers
+  - Real-time test progress visualization
+  - Detailed latency measurements
 
-## Prerequisites
+- **Comprehensive Monitoring**
+
+  - Interactive historical data charts
+  - Customizable time ranges (1d, 3d, 1w, 1m, all)
+  - Real-time speed and latency monitoring
+  - Paginated test history
+
+- **Scheduling & Automation**
+
+  - Automated speed tests with flexible scheduling
+  - Multi-server test scheduling
+  - Customizable test configurations
+
+- **Modern Interface**
+  - Clean, responsive design
+  - Dark mode optimized
+  - Real-time updates
+  - Interactive charts and visualizations
+
+## 🚀 Getting Started
+
+### Prerequisites
 
 - Go 1.23 or later
 - Node.js 22 or later
-- pnpm and vite
+- pnpm package manager
 - Docker (optional)
 - Make (optional)
 
-## Getting Started
+### Quick Start
 
 1. Clone the repository:
 
@@ -52,15 +64,22 @@ cd ..
 go mod download
 ```
 
-3. Run the development environment:
+3. Start the development environment:
 
 ```bash
 make dev
 ```
 
-This will start both the frontend and backend development servers with live reload.
+### Docker Installation
 
-## Development Commands
+For containerized deployment:
+
+```bash
+make docker-build
+make docker-run
+```
+
+## 🛠️ Development Commands
 
 - `make all` - Clean build frontend and backend
 - `make build` - Build frontend and backend
@@ -69,12 +88,31 @@ This will start both the frontend and backend development servers with live relo
 - `make watch` - Live reload backend only
 - `make clean` - Clean build artifacts
 
-## Docker Commands
+## 📊 Usage
 
-- `make docker-build` - Build Docker image
-- `make docker-run` - Build and run Docker container
+1. **Speed Testing**
 
-## Contributing
+   - Select one or multiple test servers
+   - Toggle between Speedtest.net and iPerf servers
+   - Monitor real-time test progress
+   - View detailed results including download, upload, and latency
+
+2. **Test Scheduling**
+
+   - Create automated test schedules
+   - Configure multiple servers per schedule
+   - Set custom intervals and timing
+   - View scheduled test results in history
+
+3. **History & Analytics**
+   - Browse historical test results
+   - Filter by time range
+   - Analyze trends with interactive charts
+   - Export test data
+
+## 🤝 Contributing
+
+We welcome contributions! Please follow these steps:
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -82,6 +120,6 @@ This will start both the frontend and backend development servers with live relo
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## License
+## 📝 License
 
 This project is licensed under the GNU General Public License v2.0 - see the [LICENSE](LICENSE) file for details.
