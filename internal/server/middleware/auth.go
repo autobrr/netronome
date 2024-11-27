@@ -4,38 +4,38 @@
 package middleware
 
 import (
-	"database/sql"
-	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
+	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/database"
 )
 
-func RequireAuth(db database.Service) gin.HandlerFunc {
+func RequireAuth(db database.Service, oidc *auth.OIDCConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		_, err := c.Cookie("session")
+		sessionToken, err := c.Cookie("session")
 		if err != nil {
-			log.Debug().Err(err).Msg("No session cookie found")
-			_ = c.Error(fmt.Errorf("authentication required: %w", err))
-			c.Abort()
+			log.Trace().Err(err).Msg("No session cookie found")
+			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 
-		// For simplicity, we'll just get the first user since we only allow one user
+		// If OIDC is configured, try to verify the token
+		if oidc != nil {
+			if err := oidc.VerifyToken(c.Request.Context(), sessionToken); err == nil {
+				c.Next()
+				return
+			}
+		}
+
+		// Fall back to regular auth check
 		var username string
 		err = db.QueryRow(c.Request.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				// Log a different message for no users found
-				log.Debug().Msg("No users found in the database")
-			} else {
-				log.Error().Err(err).Msg("Failed to validate session")
-				_ = c.Error(fmt.Errorf("invalid session: %w", err))
-				c.Abort()
-				return
-			}
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
 
 		c.Set("username", username)

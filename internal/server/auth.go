@@ -11,17 +11,20 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
+	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/utils"
 )
 
 type AuthHandler struct {
-	db database.Service
+	db   database.Service
+	oidc *auth.OIDCConfig
 }
 
-func NewAuthHandler(db database.Service) *AuthHandler {
+func NewAuthHandler(db database.Service, oidc *auth.OIDCConfig) *AuthHandler {
 	return &AuthHandler{
-		db: db,
+		db:   db,
+		oidc: oidc,
 	}
 }
 
@@ -35,8 +38,8 @@ func (h *AuthHandler) CheckRegistrationStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"registrationEnabled": count == 0,
-		"hasUsers":            count > 0,
+		"hasUsers":    count > 0,
+		"oidcEnabled": h.oidc != nil,
 	})
 }
 
@@ -164,14 +167,36 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 func (h *AuthHandler) Verify(c *gin.Context) {
-	_, err := c.Cookie("session")
+	sessionToken, err := c.Cookie("session")
 	if err != nil {
+		log.Debug().Err(err).Msg("No session cookie found")
 		_ = c.Error(fmt.Errorf("no session found: %w", err))
+		return
+	}
+
+	// First try OIDC verification if enabled
+	if h.oidc != nil {
+		if err := h.oidc.VerifyToken(c.Request.Context(), sessionToken); err == nil {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Token is valid",
+				"type":    "oidc",
+			})
+			return
+		}
+	}
+
+	// Fall back to regular session verification
+	var username string
+	err = h.db.QueryRow(c.Request.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
+	if err != nil {
+		log.Debug().Err(err).Msg("Failed to verify session")
+		_ = c.Error(fmt.Errorf("invalid session: %w", err))
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Token is valid",
+		"type":    "session",
 	})
 }
 
@@ -192,6 +217,27 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 }
 
 func (h *AuthHandler) GetUserInfo(c *gin.Context) {
+	sessionToken, err := c.Cookie("session")
+	if err != nil {
+		_ = c.Error(fmt.Errorf("no session found"))
+		return
+	}
+
+	// Try OIDC first
+	if h.oidc != nil {
+		claims, err := h.oidc.GetClaims(c.Request.Context(), sessionToken)
+		if err == nil {
+			c.JSON(http.StatusOK, gin.H{
+				"user": gin.H{
+					"id":       0, // OIDC users don't have local IDs
+					"username": claims.Subject,
+				},
+			})
+			return
+		}
+	}
+
+	// Fall back to regular user lookup
 	username := c.GetString("username")
 	if username == "" {
 		_ = c.Error(fmt.Errorf("no session found"))
@@ -200,8 +246,7 @@ func (h *AuthHandler) GetUserInfo(c *gin.Context) {
 
 	user, err := h.db.GetUserByUsername(c.Request.Context(), username)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to get user info")
-		_ = c.Error(fmt.Errorf("failed to get user info: %w", err))
+		_ = c.Error(fmt.Errorf("failed to get user: %w", err))
 		return
 	}
 

@@ -21,15 +21,19 @@ func Init() {
 			if ll, ok := i.(string); ok {
 				switch ll {
 				case "trace":
-					return "\033[36m" + strings.ToUpper(ll) + "\033[0m" // Cyan
+					return "\033[37m" + strings.ToUpper(ll) + "\033[0m" // White/Gray
 				case "debug":
-					return "\033[33m" + strings.ToUpper(ll) + "\033[0m" // Orange
+					return "\033[36m" + strings.ToUpper(ll) + "\033[0m" // Cyan
 				case "info":
-					return "\033[34m" + strings.ToUpper(ll) + "\033[0m" // Blue
+					return "\033[32m" + strings.ToUpper(ll) + "\033[0m" // Green
 				case "warn":
 					return "\033[33m" + strings.ToUpper(ll) + "\033[0m" // Yellow
 				case "error":
 					return "\033[31m" + strings.ToUpper(ll) + "\033[0m" // Red
+				case "fatal":
+					return "\033[35m" + strings.ToUpper(ll) + "\033[0m" // Magenta
+				case "panic":
+					return "\033[41m\033[37m" + strings.ToUpper(ll) + "\033[0m" // White on Red background
 				default:
 					return strings.ToUpper(ll)
 				}
@@ -46,7 +50,7 @@ func Init() {
 
 	ginMode := os.Getenv("GIN_MODE")
 	if ginMode == "debug" {
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		zerolog.SetGlobalLevel(zerolog.TraceLevel)
 		log.Debug().Msgf("Logger initialized in debug mode (GIN_MODE=%s)", ginMode)
 	} else {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
