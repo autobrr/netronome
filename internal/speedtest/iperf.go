@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -56,13 +58,31 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 		Bool("download", opts.EnableDownload).
 		Msg("Starting iperf3 test")
 
+	testDuration := "10"
+	if envDuration := os.Getenv("NETRONOME_IPERF_TEST_DURATION"); envDuration != "" {
+		if _, err := strconv.Atoi(envDuration); err == nil {
+			testDuration = envDuration
+		} else {
+			log.Warn().Str("value", envDuration).Msg("invalid NETRONOME_IPERF_TEST_DURATION, using default")
+		}
+	}
+
+	parallelConns := "4"
+	if envConns := os.Getenv("NETRONOME_IPERF_PARALLEL_CONNS"); envConns != "" {
+		if _, err := strconv.Atoi(envConns); err == nil {
+			parallelConns = envConns
+		} else {
+			log.Warn().Str("value", envConns).Msg("invalid NETRONOME_IPERF_PARALLEL_CONNS, using default")
+		}
+	}
+
 	args := []string{
 		"-c", host,
 		"-p", port,
 		"-J",        // JSON output
 		"-i", "0.5", // Half-second interval for smoother updates
-		"-t", "10", // 10 second test
-		"-P", "4", // 4 parallel connections
+		"-t", testDuration, // Test duration in seconds
+		"-P", parallelConns, // Number of parallel connections
 		"--format", "m", // Force Mbps output
 	}
 

@@ -59,7 +59,7 @@ var (
 )
 
 func getDBURL() string {
-	path := os.Getenv("netronome_DB_PATH")
+	path := os.Getenv("NETRONOME_DB_PATH")
 	if path == "" {
 		path = "netronome.db"
 	}

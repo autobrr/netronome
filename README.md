@@ -119,15 +119,16 @@ make docker-run
 
 ### Environment Variables
 
-| Variable             | Description                            | Default                                      | Required      |
-| -------------------- | -------------------------------------- | -------------------------------------------- | ------------- |
-| `GIN_MODE`           | Gin framework mode (`debug`/`release`) | `release`                                    | No            |
-| `OIDC_ISSUER`        | OpenID Connect issuer URL              | https://authentik.example.com/oidc/auth      | Only for OIDC |
-| `OIDC_CLIENT_ID`     | OpenID Connect client ID               | -                                            | Only for OIDC |
-| `OIDC_CLIENT_SECRET` | OpenID Connect client secret           | -                                            | Only for OIDC |
-| `OIDC_REDIRECT_URL`  | OpenID Connect redirect URL            | http://localhost:5173/api/auth/oidc/callback | Only for OIDC |
-| `PORT`               | Server port                            | `8080`                                       | No            |
-| `netronome_DB_PATH`  | SQLite database file path              | `./netronome.db`                             | No            |
+| Variable                         | Description                            | Default                                      | Required      |
+| -------------------------------- | -------------------------------------- | -------------------------------------------- | ------------- |
+| `GIN_MODE`                       | Gin framework mode (`debug`/`release`) | `release`                                    | No            |
+| `OIDC_ISSUER`                    | OpenID Connect issuer URL              | https://authentik.example.com/oidc/auth      | Only for OIDC |
+| `OIDC_CLIENT_ID`                 | OpenID Connect client ID               | -                                            | Only for OIDC |
+| `OIDC_CLIENT_SECRET`             | OpenID Connect client secret           | -                                            | Only for OIDC |
+| `OIDC_REDIRECT_URL`              | OpenID Connect redirect URL            | http://localhost:5173/api/auth/oidc/callback | Only for OIDC |
+| `NETRONOME_DB_PATH`              | SQLite database file path              | `./netronome.db`                             | No            |
+| `NETRONOME_IPERF_TEST_DURATION`  | Duration of iPerf tests in seconds     | `10`                                         | No            |
+| `NETRONOME_IPERF_PARALLEL_CONNS` | Number of parallel iPerf connections   | `4`                                          | No            |
 
 ### Database
 
