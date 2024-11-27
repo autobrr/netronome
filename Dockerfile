@@ -38,7 +38,6 @@ FROM alpine:3.20
 
 LABEL org.opencontainers.image.source="https://github.com/s0up420/netronome"
 
-# Install SQLite dependencies
 RUN apk add --no-cache sqlite
 
 ENV HOME="/data" \
@@ -55,7 +54,7 @@ RUN addgroup -S netronome && \
     adduser -S netronome -G netronome && \
     mkdir -p /data && \
     chown -R netronome:netronome /data && \
-    chmod 777 /data  # Ensure directory is writable
+    chmod 755 /data
 
 USER netronome
 
