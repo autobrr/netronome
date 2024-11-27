@@ -18,21 +18,25 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 		Columns(
 			"server_name",
 			"server_id",
+			"test_type",
 			"download_speed",
 			"upload_speed",
 			"latency",
 			"packet_loss",
 			"jitter",
+			"is_scheduled",
 			"created_at",
 		).
 		Values(
 			result.ServerName,
 			result.ServerID,
+			result.TestType,
 			result.DownloadSpeed,
 			result.UploadSpeed,
 			result.Latency,
 			result.PacketLoss,
 			result.Jitter,
+			result.IsScheduled,
 			sq.Expr("CURRENT_TIMESTAMP"),
 		).
 		Suffix("RETURNING id, created_at")
@@ -84,11 +88,13 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 			"id",
 			"server_name",
 			"server_id",
+			"test_type",
 			"download_speed",
 			"upload_speed",
 			"latency",
 			"packet_loss",
 			"jitter",
+			"is_scheduled",
 			"created_at",
 		).
 		OrderBy("created_at DESC").
@@ -108,11 +114,13 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 			&result.ID,
 			&result.ServerName,
 			&result.ServerID,
+			&result.TestType,
 			&result.DownloadSpeed,
 			&result.UploadSpeed,
 			&result.Latency,
 			&result.PacketLoss,
 			&result.Jitter,
+			&result.IsScheduled,
 			&result.CreatedAt,
 		)
 		if err != nil {

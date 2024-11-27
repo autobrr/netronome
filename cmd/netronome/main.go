@@ -7,8 +7,6 @@ import (
 	"context"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -23,41 +21,6 @@ import (
 	"github.com/autobrr/netronome/web"
 )
 
-func gracefulShutdown(
-	apiServer *http.Server,
-	db database.Service,
-	scheduler scheduler.Service,
-	schedulerCancel context.CancelFunc,
-	done chan bool,
-) {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	<-ctx.Done()
-
-	log.Info().Msg("shutting down gracefully, press Ctrl+C again to force")
-
-	// Cancel scheduler context
-	schedulerCancel()
-
-	// Stop the scheduler
-	scheduler.Stop()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := apiServer.Shutdown(ctx); err != nil {
-		log.Printf("Server forced to shutdown with error: %v", err)
-	}
-
-	if err := db.Close(); err != nil {
-		log.Printf("Database connection closed with error: %v", err)
-	}
-
-	log.Info().Msg("Server exiting")
-	done <- true
-}
-
 func main() {
 	// Initialize logger
 	logger.Init()
@@ -71,7 +34,12 @@ func main() {
 
 	// Initialize database service
 	db := database.New()
-	defer db.Close()
+	defer func() {
+		log.Info().Msg("Closing database connection...")
+		if err := db.Close(); err != nil {
+			log.Printf("Database connection closed with error: %v", err)
+		}
+	}()
 
 	// Check database health
 	healthStatus := db.Health()
@@ -90,20 +58,21 @@ func main() {
 	speedtestService := speedtest.New(speedServer, db)
 
 	// Initialize scheduler service
-	schedulerService := scheduler.New(db, speedtestService)
+	schedulerSvc := scheduler.New(db, speedtestService)
 
-	// Create context for the scheduler
-	schedulerCtx, schedulerCancel := context.WithCancel(context.Background())
-	defer schedulerCancel()
+	// Create a context that will be canceled on shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// Start the scheduler in a goroutine
-	go schedulerService.Start(schedulerCtx)
+	// Start the scheduler service
+	schedulerSvc.Start(ctx)
+	defer schedulerSvc.Stop()
 
 	// Create the server handler with all services
 	serverHandler := server.NewServer(
 		speedtestService,
 		db,
-		schedulerService,
+		schedulerSvc,
 	)
 
 	// Now set the broadcast function to use the server handler
@@ -120,18 +89,10 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Create a done channel to signal when the shutdown is complete
-	done := make(chan bool, 1)
-
-	// Run graceful shutdown in a separate goroutine
-	go gracefulShutdown(apiServer, db, schedulerService, schedulerCancel, done)
-
 	log.Info().Msgf("Starting server on %s", apiServer.Addr)
 	if err := apiServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal().Msgf("Server error: %v", err)
 	}
 
-	// Wait for the graceful shutdown to complete
-	<-done
-	log.Info().Msg("Graceful shutdown complete.")
+	log.Info().Msg("Server exiting")
 }

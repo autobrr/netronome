@@ -45,6 +45,7 @@ export default function SpeedTest() {
     enablePacketLoss: true,
     enableJitter: true,
     multiServer: false,
+    useIperf: false,
   });
   const [selectedServers, setSelectedServers] = useState<Server[]>([]);
   const [progress, setProgress] = useState<TestProgressType | null>(null);
@@ -55,7 +56,7 @@ export default function SpeedTest() {
     const saved = localStorage.getItem("speedtest-time-range");
     return (saved as TimeRange) || "1w";
   });
-  const [scheduledTestRunning, setScheduledTestRunning] = useState(false);
+  const [scheduledTestRunning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Queries
@@ -106,6 +107,7 @@ export default function SpeedTest() {
     onError: (error: Error) => {
       setError(error.message);
       setTestStatus("idle");
+      console.error("Speed test error:", error);
     },
   });
 
@@ -132,152 +134,81 @@ export default function SpeedTest() {
     setIsLoading(true);
 
     try {
+      const isIperfServer = selectedServers[0].isIperf;
+
       await speedTestMutation.mutateAsync({
         ...options,
-        serverIds: selectedServers.map((s) => s.id),
+        useIperf: isIperfServer,
+        serverIds: isIperfServer ? [] : selectedServers.map((s) => s.id),
+        serverHost: isIperfServer ? selectedServers[0].host : undefined,
       });
     } catch (error) {
       console.error("Error running test:", error);
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
+      setTestStatus("idle");
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (testStatus !== "running" && !scheduledTestRunning) return;
+    if (testStatus === "running") {
+      const pollInterval = setInterval(async () => {
+        try {
+          const update = await fetchTestStatus();
 
-    let pollCount = 0;
-    const maxPolls = 360;
-    let lastUpdate = Date.now();
-
-    const pollInterval = setInterval(async () => {
-      try {
-        pollCount++;
-        if (pollCount > maxPolls) {
-          clearInterval(pollInterval);
-          setError("Test timed out after 6 minutes");
-          setTestStatus("idle");
-          return;
-        }
-
-        // Ensure at least 1 second between updates
-        if (Date.now() - lastUpdate < 1000) {
-          return;
-        }
-
-        const update = await fetchTestStatus();
-
-        setProgress((prev) => {
-          if (!prev) {
-            lastUpdate = Date.now();
-            return {
-              currentServer: update.serverName || "",
-              currentTest: update.type,
-              currentSpeed: update.speed || 0,
-              isComplete: update.isComplete,
-              type: update.type,
-              speed: update.speed || 0,
-              latency: update.latency,
-              isScheduled: update.isScheduled,
-              progress: update.progress || 0,
-            };
-          }
-
-          // Increase threshold for speed updates
-          const speedDiff = Math.abs(
-            (prev.currentSpeed || 0) - (update.speed || 0)
-          );
-          if (speedDiff < 2.0) return prev; // Increased from 0.5 to 2.0 Mbps
-
-          lastUpdate = Date.now();
-          return {
-            ...prev,
-            currentServer: update.serverName || prev.currentServer,
-            currentTest: update.type,
-            currentSpeed: update.speed || 0,
-            isComplete: update.isComplete,
-            type: update.type,
-            speed: update.speed || 0,
-            latency: update.latency,
-            isScheduled: update.isScheduled,
-            progress: update.progress || prev.progress,
-          };
-        });
-
-        if (update.type === "complete" && update.isComplete) {
-          clearInterval(pollInterval);
-          setTestStatus("complete");
-          setProgress(null);
-          queryClient.invalidateQueries({ queryKey: ["history"] });
-        }
-      } catch (error) {
-        console.error("Error polling test status:", error);
-      }
-    }, 1000); // 1000ms
-
-    return () => clearInterval(pollInterval);
-  }, [testStatus, scheduledTestRunning, queryClient]);
-
-  useEffect(() => {
-    const pollScheduledTests = setInterval(async () => {
-      try {
-        const update = await fetchTestStatus();
-
-        if (update.isScheduled) {
-          setScheduledTestRunning(true);
-          setTestStatus("running");
-
-          setProgress((prev) => {
-            if (!prev) {
-              return {
+          if (update) {
+            setProgress((prev) => {
+              const baseProgress = {
                 currentServer: update.serverName || "",
                 currentTest: update.type,
                 currentSpeed: update.speed || 0,
                 isComplete: update.isComplete,
                 type: update.type,
                 speed: update.speed || 0,
-                latency: update.latency,
+                latency:
+                  typeof update.latency === "string"
+                    ? parseFloat(update.latency)
+                    : update.latency || 0,
                 isScheduled: update.isScheduled,
                 progress: update.progress || 0,
+                isIperf: options.useIperf,
               };
+
+              if (!prev) {
+                return baseProgress;
+              }
+
+              const speedDiff = Math.abs(
+                (prev.currentSpeed || 0) - (update.speed || 0)
+              );
+              if (speedDiff < 2.0) return prev;
+
+              return {
+                ...prev,
+                ...baseProgress,
+              };
+            });
+
+            if (update.isComplete && update.type !== "download") {
+              setTestStatus("complete");
+              setProgress(null);
+              await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["history"] }),
+                queryClient.invalidateQueries({ queryKey: ["schedules"] }),
+              ]);
             }
-
-            const speedDiff = Math.abs(
-              (prev.currentSpeed || 0) - (update.speed || 0)
-            );
-            if (speedDiff < 2.0) return prev; // Increased threshold here too
-
-            return {
-              ...prev,
-              currentServer: update.serverName || prev.currentServer,
-              currentTest: update.type,
-              currentSpeed: update.speed || 0,
-              isComplete: update.isComplete,
-              type: update.type,
-              speed: update.speed || 0,
-              latency: update.latency,
-              isScheduled: update.isScheduled,
-              progress: update.progress || prev.progress,
-            };
-          });
-
-          if (update.isComplete) {
-            setScheduledTestRunning(false);
-            setTestStatus("complete");
-            setProgress(null);
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ["history"] }),
-              queryClient.invalidateQueries({ queryKey: ["schedules"] }),
-            ]);
           }
+        } catch (error) {
+          console.error("Test status check error:", error);
         }
-      } catch (error) {
-        console.error("Scheduled test status check error:", error);
-      }
-    }, 3000); // Changed from 2000ms to 3000ms
+      }, 1000);
 
-    return () => clearInterval(pollScheduledTests);
-  }, [queryClient]);
+      return () => clearInterval(pollInterval);
+    }
+  }, [testStatus, queryClient, options.useIperf]);
 
   return (
     <div className="min-h-screen">
@@ -458,6 +389,10 @@ export default function SpeedTest() {
               }
               onRunTest={runTest}
               isLoading={isLoading}
+              useIperf={options.useIperf}
+              onIperfChange={(enabled) =>
+                setOptions((prev) => ({ ...prev, useIperf: enabled }))
+              }
             />
           </motion.div>
 

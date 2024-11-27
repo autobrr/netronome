@@ -11,6 +11,8 @@ type TestOptions struct {
 	EnablePacketLoss bool     `json:"enablePacketLoss"`
 	ServerIDs        []string `json:"serverIds"`
 	IsScheduled      bool     `json:"isScheduled"`
+	UseIperf         bool     `json:"useIperf"`
+	ServerHost       string   `json:"serverHost"`
 }
 
 type SpeedUpdate struct {
@@ -38,11 +40,13 @@ type SpeedTestResult struct {
 	ID            int64     `json:"id"`
 	ServerName    string    `json:"serverName"`
 	ServerID      string    `json:"serverId"`
+	TestType      string    `json:"testType"`
 	DownloadSpeed float64   `json:"downloadSpeed"`
 	UploadSpeed   float64   `json:"uploadSpeed"`
-	Latency       string    `json:"latency"`
-	PacketLoss    float64   `json:"packetLoss"`
-	Jitter        *float64  `json:"jitter"`
+	Latency       string    `json:"latency,omitempty"`
+	PacketLoss    float64   `json:"packetLoss,omitempty"`
+	Jitter        *float64  `json:"jitter,omitempty"`
+	IsScheduled   bool      `json:"isScheduled"`
 	CreatedAt     time.Time `json:"createdAt"`
 }
 

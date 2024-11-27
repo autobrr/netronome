@@ -38,7 +38,8 @@ FROM alpine:3.20
 
 LABEL org.opencontainers.image.source="https://github.com/s0up420/netronome"
 
-RUN apk add --no-cache sqlite
+# Install dependencies
+RUN apk add --no-cache sqlite iperf3
 
 ENV HOME="/data" \
     XDG_CONFIG_HOME="/data" \

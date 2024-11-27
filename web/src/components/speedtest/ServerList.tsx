@@ -28,6 +28,8 @@ interface ServerListProps {
   onMultiSelectChange: (enabled: boolean) => void;
   onRunTest: () => Promise<void>;
   isLoading: boolean;
+  useIperf: boolean;
+  onIperfChange: (enabled: boolean) => void;
 }
 
 export const ServerList: React.FC<ServerListProps> = ({
@@ -38,10 +40,13 @@ export const ServerList: React.FC<ServerListProps> = ({
   onMultiSelectChange,
   onRunTest,
   isLoading,
+  useIperf,
+  onIperfChange,
 }) => {
   const [displayCount, setDisplayCount] = useState(3);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCountry, setFilterCountry] = useState("");
+  const [iperfHost, setIperfHost] = useState("");
 
   // Get unique countries for filter dropdown
   const countries = useMemo(() => {
@@ -64,9 +69,21 @@ export const ServerList: React.FC<ServerListProps> = ({
       return matchesSearch && matchesCountry;
     });
 
-    // Sort servers by distance using the distance property
-    return filtered.sort((a, b) => a.distance - b.distance); // Ascending order
+    return filtered.sort((a, b) => a.distance - b.distance);
   }, [servers, searchTerm, filterCountry]);
+
+  const handleServerSelect = (server: Server) => {
+    onSelect(server);
+  };
+
+  // Handle iperf toggle change
+  const handleIperfChange = (enabled: boolean) => {
+    if (enabled) {
+      // Clear selected servers when switching to iperf
+      selectedServers.forEach((server) => onSelect(server)); // This will deselect each server
+    }
+    onIperfChange(enabled);
+  };
 
   return (
     <Disclosure defaultOpen={true}>
@@ -83,7 +100,7 @@ export const ServerList: React.FC<ServerListProps> = ({
               </h2>
             </div>
             <div className="flex items-center gap-2">
-              {selectedServers.length > 0 && (
+              {!useIperf && selectedServers.length > 0 && (
                 <span className="text-gray-400">
                   {selectedServers.length} server
                   {selectedServers.length !== 1 ? "s" : ""} selected
@@ -101,7 +118,9 @@ export const ServerList: React.FC<ServerListProps> = ({
             <div className="bg-gray-850/95 px-4 rounded-b-xl shadow-lg flex-1">
               <div className="flex flex-col pl-1">
                 <p className="text-gray-400 text-sm select-none pointer-events-none">
-                  Select one or more servers to test
+                  {useIperf
+                    ? "Enter iperf3 server details"
+                    : "Select one or more servers to test"}
                 </p>
               </div>
               <motion.div
@@ -128,31 +147,63 @@ export const ServerList: React.FC<ServerListProps> = ({
               >
                 {/* Controls Header */}
                 <div className="flex justify-between items-center mb-4">
-                  {/* Multi-select Toggle */}
-                  <Field className="flex items-center gap-3">
-                    <Label className="text-sm text-gray-400">
-                      Multi-select
-                    </Label>
-                    <Switch
-                      checked={multiSelect}
-                      onChange={onMultiSelectChange}
-                      className={`${
-                        multiSelect ? "bg-blue-500" : "bg-gray-700"
-                      } relative inline-flex h-6 w-11 items-center rounded-full`}
+                  <div className="flex items-center gap-6">
+                    {/* Multi-select Toggle */}
+                    <Field
+                      className={`flex items-center gap-3 transition-opacity duration-200 ${
+                        useIperf
+                          ? "opacity-30 pointer-events-none"
+                          : "opacity-100"
+                      }`}
                     >
-                      <span
+                      <Label className="text-sm text-gray-400">
+                        Multi-select
+                      </Label>
+                      <Switch
+                        checked={multiSelect}
+                        onChange={onMultiSelectChange}
                         className={`${
-                          multiSelect ? "translate-x-6" : "translate-x-1"
-                        } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
-                      />
-                    </Switch>
-                  </Field>
+                          multiSelect ? "bg-blue-500" : "bg-gray-700"
+                        } relative inline-flex h-6 w-11 items-center rounded-full`}
+                      >
+                        <span
+                          className={`${
+                            multiSelect ? "translate-x-6" : "translate-x-1"
+                          } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                        />
+                      </Switch>
+                    </Field>
+
+                    {/* iperf3 Toggle */}
+                    <Field className="flex items-center gap-3">
+                      <Label className="text-sm text-gray-400">
+                        Use iperf3
+                      </Label>
+                      <Switch
+                        checked={useIperf}
+                        onChange={handleIperfChange}
+                        className={`${
+                          useIperf ? "bg-blue-500" : "bg-gray-700"
+                        } relative inline-flex h-6 w-11 items-center rounded-full`}
+                      >
+                        <span
+                          className={`${
+                            useIperf ? "translate-x-6" : "translate-x-1"
+                          } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                        />
+                      </Switch>
+                    </Field>
+                  </div>
 
                   {/* Run Test Button */}
                   <div className="relative inline-block group">
                     <button
                       onClick={onRunTest}
-                      disabled={isLoading || selectedServers.length === 0}
+                      disabled={
+                        isLoading ||
+                        (!useIperf && selectedServers.length === 0) ||
+                        (useIperf && !iperfHost)
+                      }
                       className={`
                         px-4 py-2 
                         rounded-lg 
@@ -160,7 +211,9 @@ export const ServerList: React.FC<ServerListProps> = ({
                         transition-colors
                         border
                         ${
-                          isLoading || selectedServers.length === 0
+                          isLoading ||
+                          (!useIperf && selectedServers.length === 0) ||
+                          (useIperf && !iperfHost)
                             ? "bg-gray-700 text-gray-400 cursor-not-allowed border-gray-900"
                             : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
                         }
@@ -168,69 +221,102 @@ export const ServerList: React.FC<ServerListProps> = ({
                     >
                       {isLoading
                         ? "Running Test..."
-                        : selectedServers.length === 0
+                        : !useIperf && selectedServers.length === 0
                         ? "Select a server"
+                        : useIperf && !iperfHost
+                        ? "Enter iperf3 host"
                         : "Run Test"}
                     </button>
-                    {selectedServers.length === 0 && (
-                      <div className="absolute bottom-full border border-gray-900 left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 text-sm text-white bg-gray-800 rounded-md invisible group-hover:visible transition-all duration-200 whitespace-nowrap">
-                        Pick a server first
+                    {/* Tooltip */}
+                    {((!useIperf && selectedServers.length === 0) ||
+                      (useIperf && !iperfHost)) && (
+                      <div className="absolute bottom-full z-10 left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 text-sm text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        {!useIperf
+                          ? "Please select a server to run the test"
+                          : "Please enter an iperf3 server host to run the test"}
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                          <div className="border-4 border-transparent border-t-gray-900" />
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="flex flex-col md:flex-row gap-4 mb-4">
-                  {/* Search Input */}
-                  <div className="flex-1">
+                {/* iperf3 Host Input */}
+                {useIperf && (
+                  <div className="flex flex-col gap-2 mb-4">
                     <input
                       type="text"
-                      placeholder="Search servers..."
+                      value={iperfHost}
+                      onChange={(e) => {
+                        const newHost = e.target.value;
+                        setIperfHost(newHost);
+                        if (newHost) {
+                          const iperfServer: Server = {
+                            id: `iperf3-${newHost}`,
+                            name: "iperf3 Server",
+                            host: newHost.includes(":")
+                              ? newHost
+                              : `${newHost}:5201`,
+                            location: "Custom",
+                            distance: 0,
+                            country: "Custom",
+                            sponsor: "Custom iperf3",
+                            latitude: 0,
+                            longitude: 0,
+                            isIperf: true,
+                          };
+                          onSelect(iperfServer);
+                        }
+                      }}
+                      placeholder="Enter iperf3 server host (e.g., iperf.example.com)"
                       className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
                     />
+                    <p className="pl-1 text-sm text-gray-500">
+                      Default port is 5201. Use host:port format to specify a
+                      different port.
+                    </p>
                   </div>
+                )}
 
-                  {/* Country Filter */}
-                  <Listbox value={filterCountry} onChange={setFilterCountry}>
-                    <div className="relative min-w-[160px]">
-                      <ListboxButton className="relative w-full px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg text-left text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
-                        <span className="block truncate">
-                          {filterCountry || "All Countries"}
-                        </span>
-                        <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                          <ChevronUpDownIcon
-                            className="h-5 w-5 text-gray-400"
-                            aria-hidden="true"
-                          />
-                        </span>
-                      </ListboxButton>
-                      <Transition
-                        enter="transition duration-100 ease-out"
-                        enterFrom="transform scale-95 opacity-0"
-                        enterTo="transform scale-100 opacity-100"
-                        leave="transition duration-75 ease-out"
-                        leaveFrom="transform scale-100 opacity-100"
-                        leaveTo="transform scale-95 opacity-0"
-                      >
-                        <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-gray-800 border border-gray-900 py-1 shadow-lg focus:outline-none">
-                          <ListboxOption
-                            className={({ focus }) =>
-                              `relative cursor-pointer select-none py-2 px-4 ${
-                                focus
-                                  ? "bg-blue-500/10 text-blue-200"
-                                  : "text-gray-300"
-                              }`
-                            }
-                            value=""
-                          >
-                            All Countries
-                          </ListboxOption>
-                          {countries.map((country) => (
+                {/* Server Search and Filter Controls */}
+                {!useIperf && (
+                  <div className="flex flex-col md:flex-row gap-4 mb-4">
+                    {/* Search Input */}
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        placeholder="Search servers..."
+                        className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Country Filter */}
+                    <Listbox value={filterCountry} onChange={setFilterCountry}>
+                      <div className="relative min-w-[160px]">
+                        <ListboxButton className="relative w-full px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg text-left text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
+                          <span className="block truncate">
+                            {filterCountry || "All Countries"}
+                          </span>
+                          <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                            <ChevronUpDownIcon
+                              className="h-5 w-5 text-gray-400"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </ListboxButton>
+                        <Transition
+                          enter="transition duration-100 ease-out"
+                          enterFrom="transform scale-95 opacity-0"
+                          enterTo="transform scale-100 opacity-100"
+                          leave="transition duration-75 ease-out"
+                          leaveFrom="transform scale-100 opacity-100"
+                          leaveTo="transform scale-95 opacity-0"
+                        >
+                          <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-gray-800 border border-gray-900 py-1 shadow-lg focus:outline-none">
                             <ListboxOption
-                              key={country}
-                              value={country}
                               className={({ focus }) =>
                                 `relative cursor-pointer select-none py-2 px-4 ${
                                   focus
@@ -238,60 +324,78 @@ export const ServerList: React.FC<ServerListProps> = ({
                                     : "text-gray-300"
                                 }`
                               }
+                              value=""
                             >
-                              {country}
+                              All Countries
                             </ListboxOption>
-                          ))}
-                        </ListboxOptions>
-                      </Transition>
-                    </div>
-                  </Listbox>
-                </div>
+                            {countries.map((country) => (
+                              <ListboxOption
+                                key={country}
+                                value={country}
+                                className={({ focus }) =>
+                                  `relative cursor-pointer select-none py-2 px-4 ${
+                                    focus
+                                      ? "bg-blue-500/10 text-blue-200"
+                                      : "text-gray-300"
+                                  }`
+                                }
+                              >
+                                {country}
+                              </ListboxOption>
+                            ))}
+                          </ListboxOptions>
+                        </Transition>
+                      </div>
+                    </Listbox>
+                  </div>
+                )}
 
                 {/* Server Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredServers.slice(0, displayCount).map((server) => {
-                    const distance = server.distance; // Use the distance from the server response
-                    return (
-                      <motion.div
-                        key={server.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <button
-                          onClick={() => onSelect(server)}
-                          className={`w-full p-4 rounded-lg text-left transition-colors ${
-                            selectedServers.some((s) => s.id === server.id)
-                              ? "bg-blue-500/10 border-blue-400/50 shadow-lg"
-                              : "bg-gray-800/50 border-gray-900 hover:bg-gray-800 shadow-lg"
-                          } border`}
+                {!useIperf && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredServers.slice(0, displayCount).map((server) => {
+                      const distance = server.distance;
+                      return (
+                        <motion.div
+                          key={server.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
                         >
-                          <div className="flex flex-col gap-1">
-                            <span className="text-blue-300 font-medium truncate">
-                              {server.sponsor}
-                            </span>
-                            <span className="text-gray-400 text-sm">
-                              {server.name}
-                              <span
-                                className="block truncate text-xs"
-                                title={server.host}
-                              >
-                                {server.host}
+                          <button
+                            onClick={() => handleServerSelect(server)}
+                            className={`w-full p-4 rounded-lg text-left transition-colors ${
+                              selectedServers.some((s) => s.id === server.id)
+                                ? "bg-blue-500/10 border-blue-400/50 shadow-lg"
+                                : "bg-gray-800/50 border-gray-900 hover:bg-gray-800 shadow-lg"
+                            } border`}
+                          >
+                            <div className="flex flex-col gap-1">
+                              <span className="text-blue-300 font-medium truncate">
+                                {server.sponsor}
                               </span>
-                            </span>
-                            <span className="text-gray-400 text-sm mt-1">
-                              {server.country} - {Math.floor(distance)} km
-                            </span>
-                          </div>
-                        </button>
-                      </motion.div>
-                    );
-                  })}
-                </div>
+                              <span className="text-gray-400 text-sm">
+                                {server.name}
+                                <span
+                                  className="block truncate text-xs"
+                                  title={server.host}
+                                >
+                                  {server.host}
+                                </span>
+                              </span>
+                              <span className="text-gray-400 text-sm mt-1">
+                                {server.country} - {Math.floor(distance)} km
+                              </span>
+                            </div>
+                          </button>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Load More Button */}
-                {filteredServers.length > displayCount && (
+                {!useIperf && filteredServers.length > displayCount && (
                   <div className="flex justify-center mt-6">
                     <button
                       onClick={() => setDisplayCount((prev) => prev + 6)}

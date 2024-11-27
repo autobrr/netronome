@@ -9,6 +9,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -48,11 +49,87 @@ func New(server *Server, db database.Service) Service {
 func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 	log.Debug().
 		Bool("isScheduled", opts.IsScheduled).
+		Bool("useIperf", opts.UseIperf).
 		Str("server_ids", fmt.Sprintf("%v", opts.ServerIDs)).
+		Str("server_host", opts.ServerHost).
 		Msg("Starting speed test")
+
+	if opts.UseIperf && opts.ServerHost != "" {
+		log.Info().
+			Str("server_host", opts.ServerHost).
+			Bool("enable_download", opts.EnableDownload).
+			Bool("enable_upload", opts.EnableUpload).
+			Msg("Starting iperf3 test")
+
+		var downloadSpeed, uploadSpeed float64
+
+		// Run download test if enabled
+		if opts.EnableDownload {
+			downloadOpts := *opts
+			downloadOpts.EnableDownload = true
+			downloadOpts.EnableUpload = false
+
+			downloadResult, err := s.RunIperfTest(context.Background(), &downloadOpts)
+			if err != nil {
+				return nil, fmt.Errorf("download test failed: %w", err)
+			}
+			downloadSpeed = downloadResult.DownloadSpeed
+		}
+
+		// Short pause between tests
+		time.Sleep(2 * time.Second)
+
+		// Run upload test if enabled
+		if opts.EnableUpload {
+			uploadOpts := *opts
+			uploadOpts.EnableDownload = false
+			uploadOpts.EnableUpload = true
+
+			uploadResult, err := s.RunIperfTest(context.Background(), &uploadOpts)
+			if err != nil {
+				return nil, fmt.Errorf("upload test failed: %w", err)
+			}
+			uploadSpeed = uploadResult.UploadSpeed
+		}
+
+		result := &Result{
+			Timestamp:     time.Now(),
+			Server:        opts.ServerHost,
+			DownloadSpeed: downloadSpeed,
+			UploadSpeed:   uploadSpeed,
+			Latency:       "0ms",
+			PacketLoss:    0.0,
+			Jitter:        0.0,
+			Download:      downloadSpeed,
+			Upload:        uploadSpeed,
+		}
+
+		// Save to database
+		dbResult, err := s.db.SaveSpeedTest(context.Background(), types.SpeedTestResult{
+			ServerName:    opts.ServerHost,
+			ServerID:      fmt.Sprintf("iperf3-%s", opts.ServerHost),
+			TestType:      "iperf3",
+			DownloadSpeed: downloadSpeed,
+			UploadSpeed:   uploadSpeed,
+			Latency:       "0ms",
+			PacketLoss:    0.0,
+			Jitter:        &result.Jitter,
+			IsScheduled:   opts.IsScheduled,
+		})
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to save iperf3 result to database")
+		}
+
+		if dbResult != nil {
+			result.ID = dbResult.ID
+		}
+
+		return result, nil
+	}
 
 	serverList, err := s.client.FetchServers()
 	if err != nil {
+		log.Error().Err(err).Msg("Failed to fetch servers")
 		return nil, fmt.Errorf("failed to fetch servers: %w", err)
 	}
 
@@ -124,26 +201,31 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 	if opts.EnableDownload {
 		var downloadStartTime time.Time
 		var progress float64
+		var lastUpdate atomic.Int64 // For rate limiting updates
 
 		selectedServer.Context.SetCallbackDownload(func(speed st.ByteRate) {
 			if downloadStartTime.IsZero() {
 				downloadStartTime = time.Now()
 			}
 
-			// Update progress more frequently (every ~100ms)
-			elapsed := time.Since(downloadStartTime).Seconds()
-			progress = math.Min(100, (elapsed/10.0)*100)
+			now := time.Now().Unix()
+			lastUpdateTime := lastUpdate.Load()
 
-			// Ensure we're not sending too many updates
-			if progress > 0 && s.server.BroadcastUpdate != nil {
-				s.server.BroadcastUpdate(types.SpeedUpdate{
-					Type:        "download",
-					ServerName:  selectedServer.Name,
-					Speed:       speed.Mbps(),
-					Progress:    progress,
-					IsComplete:  progress >= 100,
-					IsScheduled: opts.IsScheduled,
-				})
+			if now-lastUpdateTime >= 1 {
+				elapsed := time.Since(downloadStartTime).Seconds()
+				progress = math.Min(100, (elapsed/10.0)*100)
+
+				if progress > 0 && s.server.BroadcastUpdate != nil {
+					s.server.BroadcastUpdate(types.SpeedUpdate{
+						Type:        "download",
+						ServerName:  selectedServer.Name,
+						Speed:       speed.Mbps(),
+						Progress:    progress,
+						IsComplete:  progress >= 100,
+						IsScheduled: opts.IsScheduled,
+					})
+					lastUpdate.Store(now)
+				}
 			}
 		})
 
@@ -172,30 +254,35 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 	if opts.EnableUpload {
 		var uploadStartTime time.Time
 		var progress float64
+		var lastUpdate atomic.Int64 // For rate limiting updates
 
 		selectedServer.Context.SetCallbackUpload(func(speed st.ByteRate) {
 			if uploadStartTime.IsZero() {
 				uploadStartTime = time.Now()
 			}
 
-			// Update progress more frequently (every ~100ms)
-			elapsed := time.Since(uploadStartTime).Seconds()
-			progress = math.Min(100, (elapsed/10.0)*100)
+			now := time.Now().Unix()
+			lastUpdateTime := lastUpdate.Load()
 
-			// Ensure we're not sending too many updates
-			if progress > 0 && s.server.BroadcastUpdate != nil {
-				s.server.BroadcastUpdate(types.SpeedUpdate{
-					Type:        "upload",
-					ServerName:  selectedServer.Name,
-					Speed:       speed.Mbps(),
-					Progress:    progress,
-					IsComplete:  progress >= 100,
-					IsScheduled: opts.IsScheduled,
-				})
+			// Only broadcast once per second
+			if now-lastUpdateTime >= 1 {
+				elapsed := time.Since(uploadStartTime).Seconds()
+				progress = math.Min(100, (elapsed/10.0)*100)
+
+				if progress > 0 && s.server.BroadcastUpdate != nil {
+					s.server.BroadcastUpdate(types.SpeedUpdate{
+						Type:        "upload",
+						ServerName:  selectedServer.Name,
+						Speed:       speed.Mbps(),
+						Progress:    progress,
+						IsComplete:  progress >= 100,
+						IsScheduled: opts.IsScheduled,
+					})
+					lastUpdate.Store(now)
+				}
 			}
 		})
 
-		// Perform the upload test
 		if err := selectedServer.UploadTest(); err != nil {
 			return nil, fmt.Errorf("upload test failed: %w", err)
 		}
@@ -215,7 +302,7 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 			})
 		}
 
-		// Send final completion update
+		// Send final completion update with both speeds
 		if s.server.BroadcastUpdate != nil {
 			s.server.BroadcastUpdate(types.SpeedUpdate{
 				Type:        "complete",
@@ -247,11 +334,13 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 	dbResult, err := s.db.SaveSpeedTest(context.Background(), types.SpeedTestResult{
 		ServerName:    selectedServer.Name,
 		ServerID:      selectedServer.ID,
+		TestType:      "speedtest",
 		DownloadSpeed: result.DownloadSpeed,
 		UploadSpeed:   result.UploadSpeed,
 		Latency:       result.Latency,
 		PacketLoss:    result.PacketLoss,
 		Jitter:        &jitterFloat,
+		IsScheduled:   opts.IsScheduled,
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to save result to database")
@@ -259,6 +348,106 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 
 	if dbResult != nil {
 		result.ID = dbResult.ID
+	}
+
+	return result, nil
+}
+
+func (s *service) runIperfTest(opts *types.TestOptions) (*Result, error) {
+	if opts.ServerHost == "" {
+		return nil, fmt.Errorf("server host is required for iperf3 test")
+	}
+
+	result := &Result{
+		Timestamp: time.Now(),
+		Server:    opts.ServerHost,
+	}
+
+	// Run download test first
+	downloadOpts := *opts
+	downloadOpts.EnableDownload = true
+	downloadOpts.EnableUpload = false
+
+	log.Debug().
+		Str("host", opts.ServerHost).
+		Msg("Starting iperf3 download test")
+
+	// Initial download status
+	if s.server.BroadcastUpdate != nil {
+		s.server.BroadcastUpdate(types.SpeedUpdate{
+			Type:        "download",
+			ServerName:  opts.ServerHost,
+			Progress:    0.0,
+			Speed:       0,
+			IsComplete:  false,
+			IsScheduled: opts.IsScheduled,
+		})
+	}
+
+	downloadResult, err := s.RunIperfTest(context.Background(), &downloadOpts)
+	if err != nil {
+		log.Error().Err(err).Msg("Download test failed")
+		return nil, fmt.Errorf("download test failed: %w", err)
+	}
+	result.DownloadSpeed = downloadResult.DownloadSpeed
+
+	// Short pause between tests
+	time.Sleep(2 * time.Second)
+
+	// Run upload test
+	uploadOpts := *opts
+	uploadOpts.EnableDownload = false
+	uploadOpts.EnableUpload = true
+
+	log.Debug().
+		Str("host", opts.ServerHost).
+		Msg("Starting iperf3 upload test")
+
+	// Initial upload status
+	if s.server.BroadcastUpdate != nil {
+		s.server.BroadcastUpdate(types.SpeedUpdate{
+			Type:        "upload",
+			ServerName:  opts.ServerHost,
+			Progress:    0.0,
+			Speed:       0,
+			IsComplete:  false,
+			IsScheduled: opts.IsScheduled,
+		})
+	}
+
+	uploadResult, err := s.RunIperfTest(context.Background(), &uploadOpts)
+	if err != nil {
+		log.Error().Err(err).Msg("Upload test failed")
+		return nil, fmt.Errorf("upload test failed: %w", err)
+	}
+	result.UploadSpeed = uploadResult.UploadSpeed
+
+	// Save to database
+	dbResult, err := s.db.SaveSpeedTest(context.Background(), types.SpeedTestResult{
+		ServerName:    opts.ServerHost,
+		ServerID:      "iperf3",
+		TestType:      "iperf3",
+		DownloadSpeed: result.DownloadSpeed,
+		UploadSpeed:   result.UploadSpeed,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to save iperf3 result to database")
+	}
+
+	if dbResult != nil {
+		result.ID = dbResult.ID
+	}
+
+	// Final completion status
+	if s.server.BroadcastUpdate != nil {
+		s.server.BroadcastUpdate(types.SpeedUpdate{
+			Type:        "complete",
+			ServerName:  opts.ServerHost,
+			Speed:       result.DownloadSpeed,
+			Progress:    100.0,
+			IsComplete:  true,
+			IsScheduled: opts.IsScheduled,
+		})
 	}
 
 	return result, nil
