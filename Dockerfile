@@ -55,7 +55,7 @@ RUN addgroup -S netronome && \
     adduser -S netronome -G netronome && \
     mkdir -p /data && \
     chown -R netronome:netronome /data && \
-    chmod 777 /data  # Ensure directory is writable
+    chmod 755 /data
 
 USER netronome
 
