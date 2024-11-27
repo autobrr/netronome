@@ -34,37 +34,32 @@ export const fetchSchedules = async (): Promise<Schedule[]> => {
   return data || []
 }
 
-export const runSpeedTest = async (options: TestOptions & { serverIds: string[] }): Promise<void> => {
-  const response = await fetch("/api/speedtest", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-cache",
-      Pragma: "no-cache",
-    },
-    credentials: "same-origin",
-    cache: "no-store",
-    body: JSON.stringify(options),
-  })
+export const runSpeedTest = async (options: TestOptions): Promise<SpeedTestResult> => {
+  try {
+    const response = await fetch('/api/speedtest', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(options),
+    });
 
-  const contentType = response.headers.get("content-type")
-  let result
-  if (contentType && contentType.includes("application/json")) {
-    result = await response.json()
-  } else {
-    const text = await response.text()
-    console.error("Non-JSON response:", text)
-    throw new Error("Invalid response format from server")
-  }
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Server error: ${errorText}`);
+    }
 
-  if (!response.ok) {
-    throw new Error(result.error || `HTTP error! status: ${response.status}`)
-  }
+    const data = await response.json();
+    if (!data) {
+      throw new Error('Empty response from server');
+    }
 
-  if (result.error) {
-    throw new Error(result.error)
+    return data;
+  } catch (error) {
+    console.error('Speed test error:', error);
+    throw error;
   }
-}
+};
 
 export const fetchTestStatus = async (): Promise<SpeedUpdate> => {
   const response = await fetch("/api/speedtest/status", {

@@ -224,12 +224,36 @@ func (s *service) getAppliedMigrations(ctx context.Context) ([]int, error) {
 }
 
 func (s *service) applyPendingMigrations(ctx context.Context, applied []int) error {
+	log.Debug().Interface("applied_migrations", applied).Msg("Current applied migrations")
+	log.Debug().Interface("migration_files", migrations.MigrationFiles).Msg("Available migrations")
+
 	for _, fileName := range migrations.MigrationFiles {
 		version := getMigrationVersion(fileName)
+		log.Debug().
+			Str("file", fileName).
+			Int("version", version).
+			Bool("already_applied", contains(applied, version)).
+			Msg("Checking migration")
+
 		if !contains(applied, version) {
+			log.Info().
+				Str("file", fileName).
+				Int("version", version).
+				Msg("Applying new migration")
+
 			if err := s.applyMigration(ctx, fileName, version); err != nil {
+				log.Error().
+					Err(err).
+					Str("file", fileName).
+					Int("version", version).
+					Msg("Failed to apply migration")
 				return fmt.Errorf("failed to apply migration %s: %w", fileName, err)
 			}
+
+			log.Info().
+				Str("file", fileName).
+				Int("version", version).
+				Msg("Successfully applied migration")
 		}
 	}
 	return nil

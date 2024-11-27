@@ -1,0 +1,1 @@
+ALTER TABLE speed_tests ADD COLUMN is_scheduled INTEGER NOT NULL DEFAULT 0;

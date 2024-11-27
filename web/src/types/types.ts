@@ -13,6 +13,7 @@ export interface Server {
   sponsor: string;
   latitude: number;
   longitude: number;
+  isIperf: boolean;
 }
 
 export interface SpeedTestResult {
@@ -20,6 +21,7 @@ export interface SpeedTestResult {
   serverId: string;
   serverName: string;
   serverHost: string;
+  testType: 'speedtest' | 'iperf3';
   downloadSpeed: number;
   uploadSpeed: number;
   latency: string;
@@ -32,13 +34,13 @@ export interface TestProgress {
   currentServer: string;
   currentTest: string;
   currentSpeed: number;
-  progress: number;
   isComplete: boolean;
   type: string;
   speed: number;
-  latency?: string;
-  jitter?: number;
+  latency: number;
   isScheduled: boolean;
+  progress: number;
+  isIperf: boolean;
 }
 
 export interface Schedule {
@@ -52,16 +54,20 @@ export interface Schedule {
     enableUpload: boolean;
     enablePacketLoss: boolean;
     serverIds: string[];
+    useIperf: boolean;
+    serverHost: string | undefined;
   };
 }
 
 export interface TestOptions {
-  serverId?: string;
   enableDownload: boolean;
   enableUpload: boolean;
   enablePacketLoss: boolean;
   enableJitter: boolean;
   multiServer: boolean;
+  useIperf: boolean;
+  serverIds?: string[];
+  serverHost?: string;
 }
 
 export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";

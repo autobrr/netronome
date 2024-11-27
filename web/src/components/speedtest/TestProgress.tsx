@@ -13,6 +13,16 @@ interface TestProgressProps {
 }
 
 export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
+  if (progress.isIperf) {
+    return (
+      <div className="flex items-center justify-center">
+        <span className="text-white font-bold text-sm">
+          Running iperf3 test...
+        </span>
+      </div>
+    );
+  }
+
   const getStatusColor = () => {
     switch (progress.type) {
       case "download":

@@ -105,6 +105,8 @@ export default function ScheduleManager({
     setLoading(true);
     setError(null);
 
+    const isIperfServer = selectedServers[0].isIperf;
+
     const newSchedule: Schedule = {
       serverIds: selectedServers.map((s) => s.id),
       interval: interval,
@@ -115,6 +117,8 @@ export default function ScheduleManager({
         enableUpload: true,
         enablePacketLoss: true,
         serverIds: selectedServers.map((s) => s.id),
+        useIperf: isIperfServer,
+        serverHost: isIperfServer ? selectedServers[0].host : undefined,
       },
     };
 
@@ -179,6 +183,11 @@ export default function ScheduleManager({
   const getServerNames = (serverIds: string[] | undefined) => {
     const serversList = (serverIds || [])
       .map((id: string) => {
+        if (id.startsWith("iperf3-")) {
+          const host = id.substring(7);
+          return `${host} (iperf3)`;
+        }
+
         const server = servers.find((s: Server) => s.id === id);
         return server ? `${server.sponsor} - ${server.name}` : null;
       })

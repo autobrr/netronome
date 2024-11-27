@@ -115,11 +115,18 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
           hour: "numeric",
           minute: "numeric",
         }),
-        download: item.downloadSpeed,
-        upload: item.uploadSpeed,
-        latency: parseFloat(item.latency.replace("ms", "")),
-        jitter: item.jitter,
-      }));
+        download: Number(item.downloadSpeed) || 0,
+        upload: Number(item.uploadSpeed) || 0,
+        latency: Number(parseFloat(item.latency?.replace("ms", "")) || 0),
+        jitter: Number(item.jitter) || 0,
+      }))
+      .filter(
+        (item) =>
+          !isNaN(item.download) &&
+          !isNaN(item.upload) &&
+          !isNaN(item.latency) &&
+          !isNaN(item.jitter)
+      );
   }, [data]);
 
   const handleTimeRangeChange = (range: TimeRange) => {
@@ -196,6 +203,12 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
             }}
             labelStyle={{ color: "#9CA3AF" }}
             itemStyle={{ color: "#E5E7EB" }}
+            formatter={(value: number, name: string) => {
+              if (name === "Download" || name === "Upload") {
+                return [`${value.toFixed(2)} Mbps`, name];
+              }
+              return [`${value.toFixed(2)} ms`, name];
+            }}
           />
           {visibleMetrics.download && (
             <Area

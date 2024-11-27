@@ -4,6 +4,7 @@
 package middleware
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -26,10 +27,15 @@ func RequireAuth(db database.Service) gin.HandlerFunc {
 		var username string
 		err = db.QueryRow(c.Request.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to validate session")
-			_ = c.Error(fmt.Errorf("invalid session: %w", err))
-			c.Abort()
-			return
+			if err == sql.ErrNoRows {
+				// Log a different message for no users found
+				log.Debug().Msg("No users found in the database")
+			} else {
+				log.Error().Err(err).Msg("Failed to validate session")
+				_ = c.Error(fmt.Errorf("invalid session: %w", err))
+				c.Abort()
+				return
+			}
 		}
 
 		c.Set("username", username)
