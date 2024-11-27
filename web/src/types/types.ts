@@ -88,3 +88,12 @@ export interface PaginatedResponse<T> {
   limit: number;
   total?: number;
 }
+
+export interface SavedIperfServer {
+  id: number;
+  name: string;
+  host: string;
+  port: number;
+  createdAt: string;
+  updatedAt: string;
+}

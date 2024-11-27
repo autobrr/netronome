@@ -17,4 +17,5 @@ var MigrationFiles = []string{
 	"003_add_test_type.sql",
 	"004_add_is_scheduled_column.sql",
 	"005_drop_user_id_and_cv.sql",
+	"006_create_saved_iperf_servers.sql",
 }

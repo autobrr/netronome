@@ -15,6 +15,7 @@ import (
 
 	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/handlers"
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/server/middleware"
 	"github.com/autobrr/netronome/internal/speedtest"
@@ -124,6 +125,11 @@ func (s *Server) RegisterRoutes() {
 			protected.POST("/schedules", s.handleCreateSchedule)
 			protected.PUT("/schedules/:id", s.handleUpdateSchedule)
 			protected.DELETE("/schedules/:id", s.handleDeleteSchedule)
+
+			iperfHandler := handlers.NewIperfHandler(s.db)
+			protected.POST("/iperf/servers", iperfHandler.SaveServer)
+			protected.GET("/iperf/servers", iperfHandler.GetServers)
+			protected.DELETE("/iperf/servers/:id", iperfHandler.DeleteServer)
 		}
 	}
 }

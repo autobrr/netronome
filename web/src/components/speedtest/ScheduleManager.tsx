@@ -231,7 +231,7 @@ export default function ScheduleManager({
 
             {open && (
               <motion.div
-                className="bg-gray-800/50 p-4 rounded-b-xl shadow-lg border-t-0 border-gray-900 select-none pointer-events-none schedule-manager-animate h-full"
+                className="bg-gray-850/95 p-4 rounded-b-xl shadow-lg border-t-0 border-gray-900 select-none pointer-events-none schedule-manager-animate h-full"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{
