@@ -56,3 +56,12 @@ type PaginatedSpeedTests struct {
 	Page  int               `json:"page"`
 	Limit int               `json:"limit"`
 }
+
+type SavedIperfServer struct {
+	ID        int       `db:"id" json:"id"`
+	Name      string    `db:"name" json:"name"`
+	Host      string    `db:"host" json:"host"`
+	Port      int       `db:"port" json:"port"`
+	CreatedAt time.Time `db:"created_at" json:"createdAt"`
+	UpdatedAt time.Time `db:"updated_at" json:"updatedAt"`
+}

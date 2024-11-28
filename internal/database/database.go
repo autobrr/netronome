@@ -41,6 +41,11 @@ type Service interface {
 	CreateUser(ctx context.Context, username, password string) (*User, error)
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 	ValidatePassword(user *User, password string) bool
+
+	// New iperf methods
+	SaveIperfServer(ctx context.Context, name, host string, port int) (*types.SavedIperfServer, error)
+	GetIperfServers(ctx context.Context) ([]types.SavedIperfServer, error)
+	DeleteIperfServer(ctx context.Context, id int) error
 }
 
 type service struct {
@@ -54,7 +59,7 @@ var (
 )
 
 func getDBURL() string {
-	path := os.Getenv("netronome_DB_PATH")
+	path := os.Getenv("NETRONOME_DB_PATH")
 	if path == "" {
 		path = "netronome.db"
 	}

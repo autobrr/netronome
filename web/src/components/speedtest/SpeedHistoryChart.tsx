@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   AreaChart,
   Area,
@@ -52,10 +52,29 @@ const ChartSkeleton: React.FC = () => (
   </motion.div>
 );
 
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  return isMobile;
+};
+
 export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   timeRange = "1w",
   onTimeRangeChange,
 }) => {
+  const isMobile = useIsMobile();
+
   const [visibleMetrics, setVisibleMetrics] = useState<VisibleMetrics>(() => {
     const saved = localStorage.getItem("speedtest-visible-metrics");
     return saved
@@ -140,7 +159,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         <AreaChart
           key={`${timeRange}-${filteredData.length}`}
           data={filteredData}
-          margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
+          margin={
+            isMobile
+              ? { top: 5, right: 5, left: 0, bottom: 5 }
+              : { top: 5, right: 30, left: 20, bottom: 25 }
+          }
         >
           <defs>
             <linearGradient id="downloadGradient" x1="0" y1="0" x2="0" y2="1">
@@ -165,33 +188,84 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
             horizontal={true}
             vertical={false}
           />
-          <XAxis dataKey="timestamp" height={60} tickMargin={10} />
+          <XAxis
+            dataKey="timestamp"
+            height={isMobile ? 50 : 60}
+            tickMargin={isMobile ? 5 : 10}
+            tick={{ fontSize: isMobile ? 11 : 12 }}
+            tickFormatter={(value) => {
+              if (isMobile) {
+                const date = new Date(value);
+                return date.toLocaleTimeString(undefined, {
+                  hour: "numeric",
+                  minute: "2-digit",
+                });
+              }
+              return value;
+            }}
+          />
           <YAxis
             yAxisId="speed"
-            label={{
-              value: "Speed (Mbps)",
-              position: "insideLeft",
-              angle: -90,
-              offset: 0,
-              style: {
-                textAnchor: "middle",
-                fill: "rgb(156 163 175)",
-              },
-              dy: 0,
-            }}
+            label={
+              isMobile
+                ? {
+                    value: "Mbps",
+                    position: "insideLeft",
+                    angle: -90,
+                    offset: 0,
+                    style: {
+                      textAnchor: "middle",
+                      fill: "rgb(156 163 175)",
+                      fontSize: 11,
+                    },
+                    dy: 40,
+                  }
+                : {
+                    value: "Speed (Mbps)",
+                    position: "insideLeft",
+                    angle: -90,
+                    offset: 0,
+                    style: {
+                      textAnchor: "middle",
+                      fill: "rgb(156 163 175)",
+                    },
+                    dy: 0,
+                  }
+            }
+            tick={{ fontSize: isMobile ? 11 : 12 }}
+            tickFormatter={(value) => (isMobile ? Math.round(value) : value)}
+            width={isMobile ? 35 : 45}
             domain={[0, "auto"]}
             allowDataOverflow={false}
           />
           <YAxis
             yAxisId="latency"
             orientation="right"
-            label={{
-              value: "ms",
-              position: "insideRight",
-              angle: -90,
-              offset: 0,
-              className: "fill-gray-400",
-            }}
+            label={
+              isMobile
+                ? {
+                    value: "ms",
+                    position: "insideRight",
+                    angle: -90,
+                    offset: 0,
+                    style: {
+                      textAnchor: "middle",
+                      fill: "rgb(156 163 175)",
+                      fontSize: 11,
+                    },
+                    dy: 20,
+                  }
+                : {
+                    value: "ms",
+                    position: "insideRight",
+                    angle: -90,
+                    offset: 0,
+                    className: "fill-gray-400",
+                  }
+            }
+            tick={{ fontSize: isMobile ? 11 : 12 }}
+            tickFormatter={(value) => (isMobile ? Math.round(value) : value)}
+            width={isMobile ? 30 : 45}
             domain={[0, "auto"]}
             allowDataOverflow={false}
           />
@@ -200,14 +274,22 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               backgroundColor: "#1F2937",
               border: "1px solid #374151",
               borderRadius: "0.5rem",
+              fontSize: isMobile ? "12px" : "14px",
+              padding: isMobile ? "8px" : "12px",
             }}
-            labelStyle={{ color: "#9CA3AF" }}
-            itemStyle={{ color: "#E5E7EB" }}
+            labelStyle={{
+              color: "#9CA3AF",
+              fontSize: isMobile ? "11px" : "12px",
+            }}
+            itemStyle={{
+              color: "#E5E7EB",
+              padding: isMobile ? "2px 0" : "4px 0",
+            }}
             formatter={(value: number, name: string) => {
               if (name === "Download" || name === "Upload") {
-                return [`${value.toFixed(2)} Mbps`, name];
+                return [`${value.toFixed(isMobile ? 1 : 2)} Mbps`, name];
               }
-              return [`${value.toFixed(2)} ms`, name];
+              return [`${value.toFixed(isMobile ? 1 : 2)} ms`, name];
             }}
           />
           {visibleMetrics.download && (
@@ -289,7 +371,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         </AreaChart>
       </ResponsiveContainer>
     ),
-    [filteredData, timeRange, visibleMetrics]
+    [filteredData, timeRange, visibleMetrics, isMobile]
   );
 
   return (
@@ -312,7 +394,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
           </DisclosureButton>
 
           {open && (
-            <div className="bg-gray-850/95 px-4 rounded-b-xl shadow-lg flex-1">
+            <div className="bg-gray-850/95 px-2 sm:px-4 rounded-b-xl shadow-lg flex-1">
               <motion.div
                 className="mt-1 speed-history-animate"
                 initial={{ opacity: 0, y: -20 }}
@@ -325,32 +407,33 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                 }}
               >
                 {/* Controls */}
-                <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-                  <div className="flex flex-wrap items-center gap-2 mb-4 md:mb-0">
+                <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+                  {/* Metric Toggle Controls */}
+                  <div className="grid grid-cols-4 sm:flex sm:flex-wrap items-center gap-1 sm:gap-2 w-full sm:w-auto mb-4 sm:mb-0">
                     {[
                       {
                         key: "download",
                         color: "#3B82F6",
                         label: "Download",
-                        icon: <FaDownload />,
+                        icon: <FaDownload size={14} />,
                       },
                       {
                         key: "upload",
                         color: "#10B981",
                         label: "Upload",
-                        icon: <FaUpload />,
+                        icon: <FaUpload size={14} />,
                       },
                       {
                         key: "latency",
                         color: "#F59E0B",
                         label: "Latency",
-                        icon: <FaClock />,
+                        icon: <FaClock size={14} />,
                       },
                       {
                         key: "jitter",
                         color: "#9333EA",
                         label: "Jitter",
-                        icon: <FaWaveSquare />,
+                        icon: <FaWaveSquare size={14} />,
                       },
                     ].map(({ key, label, icon, color }) => {
                       const isActive =
@@ -366,11 +449,12 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                             )
                           }
                           className={`
-                            px-3 py-1.5
+                            px-1.5 sm:px-3 
+                            py-1 sm:py-1.5
                             rounded-md 
-                            text-sm 
+                            text-xs sm:text-sm
                             font-medium
-                            flex items-center gap-2 
+                            flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2
                             transition-all duration-150 ease-in-out
                             focus:outline-none
                             focus:ring-0
@@ -390,38 +474,50 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                         >
                           <motion.div
                             layout
-                            className="w-2 h-2 rounded-full"
+                            className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
                             style={{
                               backgroundColor: isActive ? color : "#6B7280",
                             }}
                           />
-                          <span className="hidden md:inline">{label}</span>
-                          <span className="md:hidden">{icon}</span>
+                          <span className="hidden sm:inline">{label}</span>
+                          <span className="sm:hidden">{icon}</span>
                         </motion.button>
                       );
                     })}
                   </div>
-                  <div className="flex gap-2">
+
+                  {/* Time Range Controls */}
+                  <div className="grid grid-cols-5 sm:flex gap-1 sm:gap-2 w-full sm:w-auto">
                     {timeRangeOptions.map((option) => (
                       <motion.button
                         key={option.value}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleTimeRangeChange(option.value)}
-                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                          timeRange === option.value
-                            ? "bg-blue-500 text-white border border-blue-600 hover:border-blue-700"
-                            : "bg-gray-800 text-gray-400 border border-gray-900/80 hover:bg-gray-700"
-                        }`}
+                        className={`
+                          px-1.5 sm:px-3 
+                          py-1 sm:py-2 
+                          rounded-lg 
+                          text-xs sm:text-sm 
+                          transition-colors 
+                          ${
+                            timeRange === option.value
+                              ? "bg-blue-500 text-white border border-blue-600 hover:border-blue-700"
+                              : "bg-gray-800 text-gray-400 border border-gray-900/80 hover:bg-gray-700"
+                          }
+                        `}
                       >
-                        <span className="hidden md:inline">{option.label}</span>
-                        <span className="md:hidden">
-                          {option.label
-                            .replace("Hours", "H")
-                            .replace("Days", "D")
-                            .replace("Week", "W")
-                            .replace("Month", "M")
-                            .replace("All Time", "All")}
+                        <span className="hidden sm:inline">{option.label}</span>
+                        <span className="sm:hidden">
+                          {option.value === "1d"
+                            ? "24H"
+                            : option.value === "3d"
+                            ? "3D"
+                            : option.value === "1w"
+                            ? "1W"
+                            : option.value === "1m"
+                            ? "1M"
+                            : "All"}
                         </span>
                       </motion.button>
                     ))}
@@ -429,7 +525,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                 </div>
 
                 {/* Chart Area */}
-                <div className="h-[300px] md:h-[400px]">
+                <div className="h-[250px] sm:h-[300px] md:h-[400px]">
                   <AnimatePresence mode="wait">
                     {isLoading ? (
                       <ChartSkeleton />
