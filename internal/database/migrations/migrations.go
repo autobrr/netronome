@@ -3,19 +3,88 @@
 
 package migrations
 
-import "embed"
-
-var (
-	//go:embed *.sql
-	SchemaMigrations embed.FS
+import (
+	"embed"
+	"fmt"
+	"io/fs"
+	"strings"
 )
 
-// MigrationFiles holds all migration file names in order
-var MigrationFiles = []string{
-	"001_initial_schema.sql",
-	"002_auth_schema.sql",
-	"003_add_test_type.sql",
-	"004_add_is_scheduled_column.sql",
-	"005_drop_user_id_and_cv.sql",
-	"006_create_saved_iperf_servers.sql",
+//go:embed *.sql
+var SchemaMigrations embed.FS
+
+// DatabaseType represents the type of database being used
+type DatabaseType string
+
+const (
+	SQLite   DatabaseType = "sqlite"
+	Postgres DatabaseType = "postgres"
+)
+
+// GetMigrationFiles returns the appropriate migration files for the given database type
+func GetMigrationFiles(dbType DatabaseType) ([]string, error) {
+	entries, err := SchemaMigrations.ReadDir(".")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read migrations directory: %w", err)
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".sql") {
+			// For SQLite, use files without _postgres suffix
+			// For PostgreSQL, use files with _postgres suffix
+			if dbType == Postgres && strings.Contains(entry.Name(), "_postgres.sql") {
+				files = append(files, entry.Name())
+			} else if dbType == SQLite && !strings.Contains(entry.Name(), "_postgres.sql") {
+				files = append(files, entry.Name())
+			}
+		}
+	}
+
+	// Sort files by version number to ensure correct order
+	sortMigrationFiles(files)
+
+	return files, nil
+}
+
+// sortMigrationFiles sorts migration files by their version number
+func sortMigrationFiles(files []string) {
+	// Simple bubble sort since we have a small number of files
+	n := len(files)
+	for i := 0; i < n-1; i++ {
+		for j := 0; j < n-i-1; j++ {
+			if getMigrationVersion(files[j]) > getMigrationVersion(files[j+1]) {
+				files[j], files[j+1] = files[j+1], files[j]
+			}
+		}
+	}
+}
+
+// getMigrationVersion extracts the version number from a migration filename
+func getMigrationVersion(fileName string) int {
+	parts := strings.Split(fileName, "_")
+	if len(parts) > 0 {
+		version := strings.TrimPrefix(parts[0], "0")
+		if v, err := parseInt(version); err == nil {
+			return v
+		}
+	}
+	return 0
+}
+
+// parseInt safely converts a string to an integer
+func parseInt(s string) (int, error) {
+	var result int
+	for _, ch := range s {
+		if ch < '0' || ch > '9' {
+			return 0, fmt.Errorf("invalid integer: %s", s)
+		}
+		result = result*10 + int(ch-'0')
+	}
+	return result, nil
+}
+
+// ReadMigration reads the content of a migration file
+func ReadMigration(fileName string) ([]byte, error) {
+	return fs.ReadFile(SchemaMigrations, fileName)
 }

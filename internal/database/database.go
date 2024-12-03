@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,12 +15,31 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 	_ "github.com/joho/godotenv/autoload"
+	_ "github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 	_ "modernc.org/sqlite"
 
 	"github.com/autobrr/netronome/internal/database/migrations"
 	"github.com/autobrr/netronome/internal/types"
 )
+
+type DatabaseType string
+
+const (
+	SQLite   DatabaseType = "sqlite"
+	Postgres DatabaseType = "postgres"
+)
+
+type Config struct {
+	Type     DatabaseType
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DBName   string
+	SSLMode  string
+	Path     string // For SQLite
+}
 
 // Service represents the core database functionality
 type Service interface {
@@ -49,21 +67,56 @@ type Service interface {
 }
 
 type service struct {
-	db *sql.DB
+	db     *sql.DB
+	config Config
 }
 
 var (
-	dburl      = getDBURL()
 	dbInstance *service
 	sqlBuilder = sq.StatementBuilder.PlaceholderFormat(sq.Question)
 )
 
-func getDBURL() string {
-	path := os.Getenv("NETRONOME_DB_PATH")
-	if path == "" {
-		path = "netronome.db"
+func getConfig() Config {
+	dbType := DatabaseType(os.Getenv("NETRONOME_DB_TYPE"))
+	if dbType == "" {
+		dbType = SQLite
 	}
-	return path
+
+	config := Config{
+		Type: dbType,
+	}
+
+	switch dbType {
+	case Postgres:
+		config.Host = getEnvOrDefault("NETRONOME_DB_HOST", "localhost")
+		config.Port = getEnvIntOrDefault("NETRONOME_DB_PORT", 5432)
+		config.User = getEnvOrDefault("NETRONOME_DB_USER", "postgres")
+		config.Password = os.Getenv("NETRONOME_DB_PASSWORD")
+		config.DBName = getEnvOrDefault("NETRONOME_DB_NAME", "netronome")
+		config.SSLMode = getEnvOrDefault("NETRONOME_DB_SSLMODE", "disable")
+		sqlBuilder = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+	case SQLite:
+		config.Path = getEnvOrDefault("NETRONOME_DB_PATH", "netronome.db")
+		sqlBuilder = sq.StatementBuilder.PlaceholderFormat(sq.Question)
+	}
+
+	return config
+}
+
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func getEnvIntOrDefault(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
 }
 
 func New() Service {
@@ -71,40 +124,49 @@ func New() Service {
 		return dbInstance
 	}
 
-	absPath, err := filepath.Abs(dburl)
-	if err != nil {
-		log.Fatal().Err(err).Str("path", dburl).Msg("Failed to get absolute database path")
+	config := getConfig()
+	var db *sql.DB
+	var err error
+
+	switch config.Type {
+	case Postgres:
+		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+			config.Host, config.Port, config.User, config.Password, config.DBName, config.SSLMode)
+		db, err = sql.Open("postgres", dsn)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to open PostgreSQL database")
+		}
+	case SQLite:
+		absPath, err := filepath.Abs(config.Path)
+		if err != nil {
+			log.Fatal().Err(err).Str("path", config.Path).Msg("Failed to get absolute database path")
+		}
+		config.Path = absPath
+		dbDir := filepath.Dir(config.Path)
+
+		if err := os.MkdirAll(dbDir, 0755); err != nil {
+			log.Fatal().Err(err).Str("path", dbDir).Msg("Failed to create database directory")
+		}
+
+		if err := os.Chmod(dbDir, 0755); err != nil {
+			log.Fatal().Err(err).Msg("Failed to set database directory permissions")
+		}
+
+		db, err = sql.Open("sqlite", fmt.Sprintf("file:%s?cache=shared&mode=rwc", config.Path))
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to open SQLite database")
+		}
+
+		if err := initializeSQLite(db); err != nil {
+			log.Fatal().Err(err).Msg("Failed to initialize SQLite database")
+		}
+
+		if err := os.Chmod(config.Path, 0640); err != nil {
+			log.Fatal().Err(err).Msg("Failed to set database file permissions")
+		}
 	}
-	dburl = absPath
-	dbDir := filepath.Dir(dburl)
 
-	log.Info().
-		Str("dir", dbDir).
-		Str("path", dburl).
-		Msg("Initializing database")
-
-	if err := os.MkdirAll(dbDir, 0755); err != nil {
-		log.Fatal().Err(err).Str("path", dbDir).Msg("Failed to create database directory")
-	}
-
-	if err := os.Chmod(dbDir, 0755); err != nil {
-		log.Fatal().Err(err).Msg("Failed to set database directory permissions")
-	}
-
-	db, err := sql.Open("sqlite", fmt.Sprintf("file:%s?cache=shared&mode=rwc", dburl))
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to open database")
-	}
-
-	if err := initializeDatabase(db); err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialize database")
-	}
-
-	dbInstance = &service{db: db}
-
-	if err := os.Chmod(dburl, 0640); err != nil {
-		log.Fatal().Err(err).Msg("Failed to set database file permissions")
-	}
+	dbInstance = &service{db: db, config: config}
 
 	ctx := context.Background()
 	if err := dbInstance.InitializeTables(ctx); err != nil {
@@ -114,7 +176,7 @@ func New() Service {
 	return dbInstance
 }
 
-func initializeDatabase(db *sql.DB) error {
+func initializeSQLite(db *sql.DB) error {
 	if err := db.Ping(); err != nil {
 		return fmt.Errorf("failed to create database file: %w", err)
 	}
@@ -155,6 +217,7 @@ func (s *service) Health() map[string]string {
 
 	stats["status"] = "up"
 	stats["message"] = "It's healthy"
+	stats["type"] = string(s.config.Type)
 
 	dbStats := s.db.Stats()
 	stats["open_connections"] = strconv.Itoa(dbStats.OpenConnections)
@@ -186,7 +249,9 @@ func (s *service) evaluateHealthStats(dbStats sql.DBStats, stats map[string]stri
 }
 
 func (s *service) Close() error {
-	log.Info().Str("url", dburl).Msg("Disconnected from database")
+	log.Info().
+		Str("type", string(s.config.Type)).
+		Msg("Disconnected from database")
 	return s.db.Close()
 }
 
@@ -204,10 +269,19 @@ func (s *service) InitializeTables(ctx context.Context) error {
 }
 
 func (s *service) createMigrationsTable(ctx context.Context) error {
-	query := `CREATE TABLE IF NOT EXISTS schema_migrations (
-		version INTEGER PRIMARY KEY,
-		applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	);`
+	var query string
+	switch s.config.Type {
+	case Postgres:
+		query = `CREATE TABLE IF NOT EXISTS schema_migrations (
+			version INTEGER PRIMARY KEY,
+			applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`
+	case SQLite:
+		query = `CREATE TABLE IF NOT EXISTS schema_migrations (
+			version INTEGER PRIMARY KEY,
+			applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`
+	}
 
 	if _, err := s.db.ExecContext(ctx, query); err != nil {
 		return fmt.Errorf("failed to create schema_migrations table: %w", err)
@@ -234,10 +308,15 @@ func (s *service) getAppliedMigrations(ctx context.Context) ([]int, error) {
 }
 
 func (s *service) applyPendingMigrations(ctx context.Context, applied []int) error {
-	log.Trace().Interface("applied_migrations", applied).Msg("Current applied migrations")
-	log.Trace().Interface("migration_files", migrations.MigrationFiles).Msg("Available migrations")
+	migrationFiles, err := migrations.GetMigrationFiles(migrations.DatabaseType(s.config.Type))
+	if err != nil {
+		return fmt.Errorf("failed to get migration files: %w", err)
+	}
 
-	for _, fileName := range migrations.MigrationFiles {
+	log.Trace().Interface("applied_migrations", applied).Msg("Current applied migrations")
+	log.Trace().Interface("migration_files", migrationFiles).Msg("Available migrations")
+
+	for _, fileName := range migrationFiles {
 		version := getMigrationVersion(fileName)
 		log.Trace().
 			Str("file", fileName).
@@ -270,7 +349,7 @@ func (s *service) applyPendingMigrations(ctx context.Context, applied []int) err
 }
 
 func (s *service) applyMigration(ctx context.Context, fileName string, version int) error {
-	content, err := fs.ReadFile(migrations.SchemaMigrations, fileName)
+	content, err := migrations.ReadMigration(fileName)
 	if err != nil {
 		return err
 	}
@@ -285,7 +364,7 @@ func (s *service) applyMigration(ctx context.Context, fileName string, version i
 		return err
 	}
 
-	if _, err := tx.ExecContext(ctx, "INSERT INTO schema_migrations (version) VALUES (?)", version); err != nil {
+	if _, err := tx.ExecContext(ctx, "INSERT INTO schema_migrations (version) VALUES ($1)", version); err != nil {
 		return err
 	}
 
