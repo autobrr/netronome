@@ -10,18 +10,28 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	_ "modernc.org/sqlite"
 
 	"github.com/autobrr/netronome/internal/database/migrations"
 	"github.com/autobrr/netronome/internal/types"
+	"github.com/autobrr/netronome/pkg/migrator"
 )
+
+// ZerologAdapter adapts zerolog.Logger to migrator.Logger
+type ZerologAdapter struct {
+	logger zerolog.Logger
+}
+
+func (z *ZerologAdapter) Printf(format string, args ...interface{}) {
+	z.logger.Info().Msgf(format, args...)
+}
 
 type DatabaseType string
 
@@ -256,135 +266,31 @@ func (s *service) Close() error {
 }
 
 func (s *service) InitializeTables(ctx context.Context) error {
-	if err := s.createMigrationsTable(ctx); err != nil {
-		return err
-	}
+	// Create a new migrator instance with zerolog adapter
+	logger := &ZerologAdapter{logger: log.Logger}
+	m := migrator.NewMigrate(s.db,
+		migrator.WithLogger(logger),
+		migrator.WithEmbedFS(migrations.SchemaMigrations),
+	)
 
-	applied, err := s.getAppliedMigrations(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get applied migrations: %w", err)
-	}
-
-	return s.applyPendingMigrations(ctx, applied)
-}
-
-func (s *service) createMigrationsTable(ctx context.Context) error {
-	var query string
-	switch s.config.Type {
-	case Postgres:
-		query = `CREATE TABLE IF NOT EXISTS schema_migrations (
-			version INTEGER PRIMARY KEY,
-			applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)`
-	case SQLite:
-		query = `CREATE TABLE IF NOT EXISTS schema_migrations (
-			version INTEGER PRIMARY KEY,
-			applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)`
-	}
-
-	if _, err := s.db.ExecContext(ctx, query); err != nil {
-		return fmt.Errorf("failed to create schema_migrations table: %w", err)
-	}
-	return nil
-}
-
-func (s *service) getAppliedMigrations(ctx context.Context) ([]int, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT version FROM schema_migrations ORDER BY version")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var versions []int
-	for rows.Next() {
-		var version int
-		if err := rows.Scan(&version); err != nil {
-			return nil, err
-		}
-		versions = append(versions, version)
-	}
-	return versions, nil
-}
-
-func (s *service) applyPendingMigrations(ctx context.Context, applied []int) error {
+	// Get migration files based on database type
 	migrationFiles, err := migrations.GetMigrationFiles(migrations.DatabaseType(s.config.Type))
 	if err != nil {
 		return fmt.Errorf("failed to get migration files: %w", err)
 	}
 
-	log.Trace().Interface("applied_migrations", applied).Msg("Current applied migrations")
-	log.Trace().Interface("migration_files", migrationFiles).Msg("Available migrations")
-
+	// Add migrations to the migrator
 	for _, fileName := range migrationFiles {
-		version := getMigrationVersion(fileName)
-		log.Trace().
-			Str("file", fileName).
-			Int("version", version).
-			Bool("already_applied", contains(applied, version)).
-			Msg("Checking migration")
-
-		if !contains(applied, version) {
-			log.Info().
-				Str("file", fileName).
-				Int("version", version).
-				Msg("Applying new migration")
-
-			if err := s.applyMigration(ctx, fileName, version); err != nil {
-				log.Error().
-					Err(err).
-					Str("file", fileName).
-					Int("version", version).
-					Msg("Failed to apply migration")
-				return fmt.Errorf("failed to apply migration %s: %w", fileName, err)
-			}
-
-			log.Info().
-				Str("file", fileName).
-				Int("version", version).
-				Msg("Successfully applied migration")
-		}
+		m.Add(&migrator.Migration{
+			Name: fileName,
+			File: fileName,
+		})
 	}
+
+	// Run migrations
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("failed to apply migrations: %w", err)
+	}
+
 	return nil
-}
-
-func (s *service) applyMigration(ctx context.Context, fileName string, version int) error {
-	content, err := migrations.ReadMigration(fileName)
-	if err != nil {
-		return err
-	}
-
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	if _, err := tx.ExecContext(ctx, string(content)); err != nil {
-		return err
-	}
-
-	if _, err := tx.ExecContext(ctx, "INSERT INTO schema_migrations (version) VALUES ($1)", version); err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
-
-func getMigrationVersion(fileName string) int {
-	parts := strings.Split(fileName, "_")
-	if len(parts) > 0 {
-		version, _ := strconv.Atoi(parts[0])
-		return version
-	}
-	return 0
-}
-
-func contains(slice []int, item int) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
 }
