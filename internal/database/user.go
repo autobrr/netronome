@@ -32,7 +32,11 @@ type UserService interface {
 func (s *service) CreateUser(ctx context.Context, username, password string) (*User, error) {
 	// Check if any user exists first
 	var count int
-	err := s.QueryRow(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
+	query, args, err := s.sqlBuilder.Select("COUNT(*)").From("users").ToSql()
+	if err != nil {
+		return nil, err
+	}
+	err = s.QueryRow(ctx, query, args...).Scan(&count)
 	if err != nil && !isTableNotExistsError(err) {
 		return nil, err
 	}
@@ -52,27 +56,59 @@ func (s *service) CreateUser(ctx context.Context, username, password string) (*U
 	}
 	defer tx.Rollback()
 
-	// create user
-	result, err := tx.ExecContext(ctx,
-		"INSERT INTO users (username, password_hash) VALUES (?, ?)",
-		username, string(hash),
-	)
+	var insertQuery string
+	var queryArgs []interface{}
+
+	if s.config.Type == Postgres {
+		insertQuery, queryArgs, err = s.sqlBuilder.
+			Insert("users").
+			Columns("username", "password_hash").
+			Values(username, string(hash)).
+			Suffix("RETURNING id").
+			ToSql()
+	} else {
+		insertQuery, queryArgs, err = s.sqlBuilder.
+			Insert("users").
+			Columns("username", "password_hash").
+			Values(username, string(hash)).
+			ToSql()
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, err
+	var id int64
+	if s.config.Type == Postgres {
+		err = tx.QueryRowContext(ctx, insertQuery, queryArgs...).Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		result, err := tx.ExecContext(ctx, insertQuery, queryArgs...)
+		if err != nil {
+			return nil, err
+		}
+		id, err = result.LastInsertId()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// ensuring registration is disabled
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO registration_status (is_registration_enabled) 
-		VALUES (0) 
-		ON CONFLICT (rowid) DO UPDATE SET is_registration_enabled = 0
-	`)
+	var disableRegQuery string
+	if s.config.Type == Postgres {
+		// For Postgres, use DELETE + INSERT to ensure only one row exists
+		disableRegQuery = `
+			DELETE FROM registration_status;
+			INSERT INTO registration_status (is_registration_enabled) VALUES (false);`
+	} else {
+		disableRegQuery = `
+			INSERT INTO registration_status (is_registration_enabled) 
+			VALUES (0) 
+			ON CONFLICT (rowid) DO UPDATE SET is_registration_enabled = 0`
+	}
 
+	_, err = tx.ExecContext(ctx, disableRegQuery)
 	if err != nil {
 		if !isTableNotExistsError(err) {
 			return nil, err
@@ -91,11 +127,18 @@ func (s *service) CreateUser(ctx context.Context, username, password string) (*U
 }
 
 func (s *service) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+	query, args, err := s.sqlBuilder.
+		Select("id", "username", "password_hash").
+		From("users").
+		Where("username = ?", username).
+		ToSql()
+	if err != nil {
+		return nil, err
+	}
+
 	user := &User{}
-	err := s.db.QueryRowContext(ctx,
-		"SELECT id, username, password_hash FROM users WHERE username = ?",
-		username,
-	).Scan(&user.ID, &user.Username, &user.PasswordHash)
+	err = s.db.QueryRowContext(ctx, query, args...).
+		Scan(&user.ID, &user.Username, &user.PasswordHash)
 
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound

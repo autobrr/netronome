@@ -10,7 +10,7 @@ import (
 )
 
 func (s *service) SaveIperfServer(ctx context.Context, name, host string, port int) (*types.SavedIperfServer, error) {
-	query := sq.
+	query := s.sqlBuilder.
 		Insert("saved_iperf_servers").
 		Columns("name", "host", "port").
 		Values(name, host, port).
@@ -26,7 +26,7 @@ func (s *service) SaveIperfServer(ctx context.Context, name, host string, port i
 }
 
 func (s *service) GetIperfServers(ctx context.Context) ([]types.SavedIperfServer, error) {
-	query := sq.
+	query := s.sqlBuilder.
 		Select("id", "name", "host", "port", "created_at", "updated_at").
 		From("saved_iperf_servers").
 		OrderBy("created_at DESC")
@@ -55,7 +55,7 @@ func (s *service) GetIperfServers(ctx context.Context) ([]types.SavedIperfServer
 }
 
 func (s *service) DeleteIperfServer(ctx context.Context, id int) error {
-	query := sq.
+	query := s.sqlBuilder.
 		Delete("saved_iperf_servers").
 		Where(sq.Eq{"id": id})
 

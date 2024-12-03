@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -77,14 +78,12 @@ type Service interface {
 }
 
 type service struct {
-	db     *sql.DB
-	config Config
+	db         *sql.DB
+	config     Config
+	sqlBuilder sq.StatementBuilderType
 }
 
-var (
-	dbInstance *service
-	sqlBuilder = sq.StatementBuilder.PlaceholderFormat(sq.Question)
-)
+var dbInstance *service
 
 func getConfig() Config {
 	dbType := DatabaseType(os.Getenv("NETRONOME_DB_TYPE"))
@@ -104,10 +103,8 @@ func getConfig() Config {
 		config.Password = os.Getenv("NETRONOME_DB_PASSWORD")
 		config.DBName = getEnvOrDefault("NETRONOME_DB_NAME", "netronome")
 		config.SSLMode = getEnvOrDefault("NETRONOME_DB_SSLMODE", "disable")
-		sqlBuilder = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 	case SQLite:
 		config.Path = getEnvOrDefault("NETRONOME_DB_PATH", "netronome.db")
-		sqlBuilder = sq.StatementBuilder.PlaceholderFormat(sq.Question)
 	}
 
 	return config
@@ -137,6 +134,7 @@ func New() Service {
 	config := getConfig()
 	var db *sql.DB
 	var err error
+	var builder sq.StatementBuilderType
 
 	switch config.Type {
 	case Postgres:
@@ -146,6 +144,7 @@ func New() Service {
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to open PostgreSQL database")
 		}
+		builder = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 	case SQLite:
 		absPath, err := filepath.Abs(config.Path)
 		if err != nil {
@@ -174,9 +173,16 @@ func New() Service {
 		if err := os.Chmod(config.Path, 0640); err != nil {
 			log.Fatal().Err(err).Msg("Failed to set database file permissions")
 		}
+		builder = sq.StatementBuilder.PlaceholderFormat(sq.Question)
 	}
 
-	dbInstance = &service{db: db, config: config}
+	builder = builder.RunWith(db)
+
+	dbInstance = &service{
+		db:         db,
+		config:     config,
+		sqlBuilder: builder,
+	}
 
 	ctx := context.Background()
 	if err := dbInstance.InitializeTables(ctx); err != nil {
@@ -265,6 +271,18 @@ func (s *service) Close() error {
 	return s.db.Close()
 }
 
+// getMigrationVersion extracts the version number from a migration filename
+func getMigrationVersion(fileName string) int {
+	parts := strings.Split(fileName, "_")
+	if len(parts) > 0 {
+		version := strings.TrimPrefix(parts[0], "0")
+		if v, err := strconv.Atoi(version); err == nil {
+			return v
+		}
+	}
+	return 0
+}
+
 func (s *service) InitializeTables(ctx context.Context) error {
 	// Create a new migrator instance with zerolog adapter
 	logger := &ZerologAdapter{logger: log.Logger}
@@ -279,8 +297,11 @@ func (s *service) InitializeTables(ctx context.Context) error {
 		return fmt.Errorf("failed to get migration files: %w", err)
 	}
 
-	// Add migrations to the migrator
+	log.Debug().Interface("migration_files", migrationFiles).Msg("Found migration files")
+
 	for _, fileName := range migrationFiles {
+		version := getMigrationVersion(fileName)
+		log.Debug().Str("file", fileName).Int("version", version).Msg("Adding migration")
 		m.Add(&migrator.Migration{
 			Name: fileName,
 			File: fileName,

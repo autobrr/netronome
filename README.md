@@ -120,23 +120,24 @@ make docker-run
 
 ### Environment Variables
 
-| Variable                         | Description                            | Default                                      | Required            |
-| -------------------------------- | -------------------------------------- | -------------------------------------------- | ------------------- |
-| `GIN_MODE`                       | Gin framework mode (`debug`/`release`) | `release`                                    | No                  |
-| `OIDC_ISSUER`                    | OpenID Connect issuer URL              | https://authentik.example.com/oidc/auth      | Only for OIDC       |
-| `OIDC_CLIENT_ID`                 | OpenID Connect client ID               | -                                            | Only for OIDC       |
-| `OIDC_CLIENT_SECRET`             | OpenID Connect client secret           | -                                            | Only for OIDC       |
-| `OIDC_REDIRECT_URL`              | OpenID Connect redirect URL            | http://localhost:5173/api/auth/oidc/callback | Only for OIDC       |
-| `NETRONOME_DB_TYPE`              | Database type (`sqlite`/`postgres`)    | `sqlite`                                     | No                  |
-| `NETRONOME_DB_PATH`              | SQLite database file path              | `./netronome.db`                             | Only for SQLite     |
-| `NETRONOME_DB_HOST`              | PostgreSQL host                        | `localhost`                                  | Only for PostgreSQL |
-| `NETRONOME_DB_PORT`              | PostgreSQL port                        | `5432`                                       | Only for PostgreSQL |
-| `NETRONOME_DB_USER`              | PostgreSQL user                        | `postgres`                                   | Only for PostgreSQL |
-| `NETRONOME_DB_PASSWORD`          | PostgreSQL password                    | -                                            | Only for PostgreSQL |
-| `NETRONOME_DB_NAME`              | PostgreSQL database name               | `netronome`                                  | Only for PostgreSQL |
-| `NETRONOME_DB_SSLMODE`           | PostgreSQL SSL mode                    | `disable`                                    | Only for PostgreSQL |
-| `NETRONOME_IPERF_TEST_DURATION`  | Duration of iPerf tests in seconds     | `10`                                         | No                  |
-| `NETRONOME_IPERF_PARALLEL_CONNS` | Number of parallel iPerf connections   | `4`                                          | No                  |
+| Variable                         | Description                                                       | Default                                      | Required            |
+| -------------------------------- | ----------------------------------------------------------------- | -------------------------------------------- | ------------------- |
+| `NETRONOME_DB_TYPE`              | Database type (`sqlite`/`postgres`)                               | `sqlite`                                     | No                  |
+| `NETRONOME_DB_PATH`              | SQLite database file path                                         | `./netronome.db`                             | Only for SQLite     |
+| `NETRONOME_DB_HOST`              | PostgreSQL host                                                   | `localhost`                                  | Only for PostgreSQL |
+| `NETRONOME_DB_PORT`              | PostgreSQL port                                                   | `5432`                                       | Only for PostgreSQL |
+| `NETRONOME_DB_USER`              | PostgreSQL user                                                   | `postgres`                                   | Only for PostgreSQL |
+| `NETRONOME_DB_PASSWORD`          | PostgreSQL password                                               | -                                            | Only for PostgreSQL |
+| `NETRONOME_DB_NAME`              | PostgreSQL database name                                          | `netronome`                                  | Only for PostgreSQL |
+| `NETRONOME_DB_SSLMODE`           | PostgreSQL SSL mode                                               | `disable`                                    | Only for PostgreSQL |
+| `NETRONOME_IPERF_TEST_DURATION`  | Duration of iPerf tests in seconds                                | `10`                                         | No                  |
+| `NETRONOME_IPERF_PARALLEL_CONNS` | Number of parallel iPerf connections                              | `4`                                          | No                  |
+| `NETRONOME_LOG_LEVEL`            | Log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`/`panic`) | `info`                                       | No                  |
+| `GIN_MODE`                       | Gin framework mode (`debug`/`release`)                            | `release`                                    | No                  |
+| `OIDC_ISSUER`                    | OpenID Connect issuer URL                                         | -                                            | Only for OIDC       |
+| `OIDC_CLIENT_ID`                 | OpenID Connect client ID                                          | -                                            | Only for OIDC       |
+| `OIDC_CLIENT_SECRET`             | OpenID Connect client secret                                      | -                                            | Only for OIDC       |
+| `OIDC_REDIRECT_URL`              | OpenID Connect redirect URL                                       | http://localhost:8080/api/auth/oidc/callback | Only for OIDC       |
 
 ### Database
 

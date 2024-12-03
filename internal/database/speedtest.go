@@ -13,7 +13,7 @@ import (
 )
 
 func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResult) (*types.SpeedTestResult, error) {
-	query := sqlBuilder.
+	query := s.sqlBuilder.
 		Insert("speed_tests").
 		Columns(
 			"server_name",
@@ -50,20 +50,32 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 }
 
 func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, limit int) (*types.PaginatedSpeedTests, error) {
-	// Base query builder
-	baseQuery := sqlBuilder.Select().From("speed_tests")
+	baseQuery := s.sqlBuilder.Select().From("speed_tests")
 
-	// Add time range condition
 	var whereClause string
-	switch timeRange {
-	case "1d":
-		whereClause = "created_at >= datetime('now', '-1 day')"
-	case "3d":
-		whereClause = "created_at >= datetime('now', '-3 days')"
-	case "1w":
-		whereClause = "created_at >= datetime('now', '-7 days')"
-	case "1m":
-		whereClause = "created_at >= datetime('now', '-1 month')"
+	switch s.config.Type {
+	case Postgres:
+		switch timeRange {
+		case "1d":
+			whereClause = "created_at >= NOW() - INTERVAL '1 day'"
+		case "3d":
+			whereClause = "created_at >= NOW() - INTERVAL '3 days'"
+		case "1w":
+			whereClause = "created_at >= NOW() - INTERVAL '7 days'"
+		case "1m":
+			whereClause = "created_at >= NOW() - INTERVAL '1 month'"
+		}
+	case SQLite:
+		switch timeRange {
+		case "1d":
+			whereClause = "created_at >= datetime('now', '-1 day')"
+		case "3d":
+			whereClause = "created_at >= datetime('now', '-3 days')"
+		case "1w":
+			whereClause = "created_at >= datetime('now', '-7 days')"
+		case "1m":
+			whereClause = "created_at >= datetime('now', '-1 month')"
+		}
 	}
 
 	if whereClause != "" {
@@ -71,7 +83,7 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 	}
 
 	// Count query
-	countQuery := sqlBuilder.Select("COUNT(*)").From("speed_tests")
+	countQuery := s.sqlBuilder.Select("COUNT(*)").From("speed_tests")
 	if whereClause != "" {
 		countQuery = countQuery.Where(whereClause)
 	}

@@ -25,22 +25,27 @@ func (s *service) CreateSchedule(ctx context.Context, schedule types.Schedule) (
 		return nil, fmt.Errorf("failed to marshal options: %w", err)
 	}
 
-	query := `
-    INSERT INTO schedules (
-        server_ids, interval, next_run, enabled, options, created_at
-    ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    RETURNING id, created_at`
+	query := s.sqlBuilder.
+		Insert("schedules").
+		Columns(
+			"server_ids",
+			"interval",
+			"next_run",
+			"enabled",
+			"options",
+			"created_at",
+		).
+		Values(
+			string(serverIDs),
+			schedule.Interval,
+			schedule.NextRun,
+			schedule.Enabled,
+			string(options),
+			sq.Expr("CURRENT_TIMESTAMP"),
+		).
+		Suffix("RETURNING id, created_at")
 
-	err = s.db.QueryRowContext(
-		ctx,
-		query,
-		string(serverIDs),
-		schedule.Interval,
-		schedule.NextRun,
-		schedule.Enabled,
-		string(options),
-	).Scan(&schedule.ID, &schedule.CreatedAt)
-
+	err = query.RunWith(s.db).QueryRowContext(ctx).Scan(&schedule.ID, &schedule.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schedule: %w", err)
 	}
@@ -49,7 +54,7 @@ func (s *service) CreateSchedule(ctx context.Context, schedule types.Schedule) (
 }
 
 func (s *service) GetSchedules(ctx context.Context) ([]types.Schedule, error) {
-	query := sqlBuilder.
+	query := s.sqlBuilder.
 		Select(
 			"id",
 			"server_ids",
@@ -117,7 +122,7 @@ func (s *service) UpdateSchedule(ctx context.Context, schedule types.Schedule) e
 		return fmt.Errorf("failed to marshal options: %w", err)
 	}
 
-	query := sqlBuilder.
+	query := s.sqlBuilder.
 		Update("schedules").
 		Set("server_ids", string(serverIDs)).
 		Set("interval", schedule.Interval).
@@ -135,9 +140,11 @@ func (s *service) UpdateSchedule(ctx context.Context, schedule types.Schedule) e
 }
 
 func (s *service) DeleteSchedule(ctx context.Context, id int64) error {
-	query := `DELETE FROM schedules WHERE id = ?`
+	query := s.sqlBuilder.
+		Delete("schedules").
+		Where(sq.Eq{"id": id})
 
-	_, err := s.db.ExecContext(ctx, query, id)
+	_, err := query.RunWith(s.db).ExecContext(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete schedule: %w", err)
 	}

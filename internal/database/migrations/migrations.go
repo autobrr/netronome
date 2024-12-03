@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-//go:embed *.sql
+//go:embed postgres/*.sql sqlite/*.sql
 var SchemaMigrations embed.FS
 
 // DatabaseType represents the type of database being used
@@ -23,21 +23,28 @@ const (
 
 // GetMigrationFiles returns the appropriate migration files for the given database type
 func GetMigrationFiles(dbType DatabaseType) ([]string, error) {
-	entries, err := SchemaMigrations.ReadDir(".")
+	var basePath string
+	var suffix string
+	switch dbType {
+	case Postgres:
+		basePath = "postgres"
+		suffix = "_postgres.sql"
+	case SQLite:
+		basePath = "sqlite"
+		suffix = ".sql"
+	default:
+		return nil, fmt.Errorf("unsupported database type: %s", dbType)
+	}
+
+	entries, err := SchemaMigrations.ReadDir(basePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read migrations directory: %w", err)
 	}
 
 	var files []string
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".sql") {
-			// For SQLite, use files without _postgres suffix
-			// For PostgreSQL, use files with _postgres suffix
-			if dbType == Postgres && strings.Contains(entry.Name(), "_postgres.sql") {
-				files = append(files, entry.Name())
-			} else if dbType == SQLite && !strings.Contains(entry.Name(), "_postgres.sql") {
-				files = append(files, entry.Name())
-			}
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), suffix) {
+			files = append(files, fmt.Sprintf("%s/%s", basePath, entry.Name()))
 		}
 	}
 
