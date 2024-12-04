@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io/fs"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 //go:embed postgres/*.sql sqlite/*.sql
@@ -36,17 +38,41 @@ func GetMigrationFiles(dbType DatabaseType) ([]string, error) {
 		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}
 
+	// Log the base path and suffix being used at info level
+	log.Debug().
+		Str("basePath", basePath).
+		Str("suffix", suffix).
+		Msg("Looking for migration files")
+
 	entries, err := SchemaMigrations.ReadDir(basePath)
 	if err != nil {
+		log.Error().Err(err).Str("basePath", basePath).Msg("Failed to read migrations directory")
 		return nil, fmt.Errorf("failed to read migrations directory: %w", err)
 	}
+
+	// Log the number of entries found at info level
+	log.Debug().Int("entryCount", len(entries)).Msg("Found entries in migrations directory")
 
 	var files []string
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), suffix) {
-			files = append(files, fmt.Sprintf("%s/%s", basePath, entry.Name()))
+			filePath := fmt.Sprintf("%s/%s", basePath, entry.Name())
+
+			// Log only errors when reading files
+			_, err := fs.ReadFile(SchemaMigrations, filePath)
+			if err != nil {
+				log.Error().Err(err).Str("file", filePath).Msg("Failed to read migration file")
+			}
+
+			files = append(files, filePath)
 		}
 	}
+
+	// Log the final list of migration files at info level
+	log.Debug().
+		Strs("files", files).
+		Int("fileCount", len(files)).
+		Msg("Final migration files list")
 
 	// Sort files by version number to ensure correct order
 	sortMigrationFiles(files)
@@ -93,5 +119,16 @@ func parseInt(s string) (int, error) {
 
 // ReadMigration reads the content of a migration file
 func ReadMigration(fileName string) ([]byte, error) {
-	return fs.ReadFile(SchemaMigrations, fileName)
+	content, err := fs.ReadFile(SchemaMigrations, fileName)
+	if err != nil {
+		log.Error().Err(err).Str("file", fileName).Msg("Failed to read migration file")
+		return nil, err
+	}
+
+	log.Debug().
+		Str("file", fileName).
+		Int("contentLength", len(content)).
+		Msg("Successfully read migration content")
+
+	return content, nil
 }

@@ -273,10 +273,14 @@ func (s *service) Close() error {
 
 // getMigrationVersion extracts the version number from a migration filename
 func getMigrationVersion(fileName string) int {
-	parts := strings.Split(fileName, "_")
+	parts := strings.Split(fileName, "/")
 	if len(parts) > 0 {
-		version := strings.TrimPrefix(parts[0], "0")
-		if v, err := strconv.Atoi(version); err == nil {
+		fileName = parts[len(parts)-1]
+	}
+
+	parts = strings.Split(fileName, "_")
+	if len(parts) > 0 {
+		if v, err := strconv.Atoi(parts[0]); err == nil {
 			return v
 		}
 	}
@@ -297,11 +301,11 @@ func (s *service) InitializeTables(ctx context.Context) error {
 		return fmt.Errorf("failed to get migration files: %w", err)
 	}
 
-	log.Debug().Interface("migration_files", migrationFiles).Msg("Found migration files")
+	log.Trace().Interface("migration_files", migrationFiles).Msg("Found migration files")
 
 	for _, fileName := range migrationFiles {
 		version := getMigrationVersion(fileName)
-		log.Debug().Str("file", fileName).Int("version", version).Msg("Adding migration")
+		log.Trace().Str("file", fileName).Int("version", version).Msg("Adding migration")
 		m.Add(&migrator.Migration{
 			Name: fileName,
 			File: fileName,

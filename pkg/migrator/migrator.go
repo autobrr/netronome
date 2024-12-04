@@ -184,7 +184,7 @@ func (m *Migrator) Migrate() error {
 	}
 
 	if appliedCount == 0 {
-		m.logger.Printf("preparing to apply base schema migration")
+		m.logger.Printf("Starting initial schema migration")
 
 		if len(m.migrations) == 0 {
 			return errors.New("migrator: no migrations defined")
@@ -195,33 +195,31 @@ func (m *Migrator) Migrate() error {
 			return errors.Wrap(err, "migrator: could not apply base schema")
 		}
 
-		m.logger.Printf("successfully applied all migrations!")
-
-		return nil
+		appliedCount = 1
 	}
 
-	// TODO check base schema migrations++
-	//if appliedCount-1 > len(m.migrations) {
 	if appliedCount > len(m.migrations) {
 		return errors.New("migrator: applied migration number on db cannot be greater than the defined migration list")
 	}
 
 	if appliedCount == len(m.migrations) {
-		m.logger.Printf("database schema up to date")
+		m.logger.Printf("Database schema is up to date")
 		return nil
 	}
 
-	// TODO count new pending?
+	if appliedCount < len(m.migrations) {
+		m.logger.Printf("Applying %d pending migrations...", len(m.migrations)-appliedCount)
 
-	//for idx, migration := range m.migrations[appliedCount-1 : len(m.migrations)] {
-	for idx, migration := range m.migrations[appliedCount:len(m.migrations)] {
-		if err := m.migrate(idx+appliedCount, migration); err != nil {
-			return errors.Wrapf(err, "migrator: error while running migration: %s", migration.String())
+		for idx, migration := range m.migrations[appliedCount:] {
+			m.logger.Printf("Applying migration %d/%d: %s", idx+appliedCount+1, len(m.migrations), migration.Name)
+
+			if err := m.migrate(idx+appliedCount, migration); err != nil {
+				return errors.Wrapf(err, "migrator: error while running migration: %s", migration.String())
+			}
 		}
 	}
 
-	m.logger.Printf("successfully applied all migrations!")
-
+	m.logger.Printf("Database schema is up to date")
 	return nil
 }
 
@@ -316,13 +314,11 @@ func (m *Migrator) migrateInitialSchema(migration *Migration) error {
 
 	m.logger.Printf("applied base schema migration")
 
-	for i, migrationItem := range m.migrations {
-		if err = m.updateSchemaVersion(tx, i, migrationItem.Name); err != nil {
-			return errors.Wrapf(err, "error updating migration versions: %s", "initial schema")
-		}
+	if err = m.updateSchemaVersion(tx, 0, migration.Name); err != nil {
+		return errors.Wrapf(err, "error updating migration versions: %s", "initial schema")
 	}
 
-	m.logger.Printf("applied all schema migrations")
+	m.logger.Printf("applied initial schema migration")
 
 	return err
 }
@@ -413,16 +409,11 @@ func (m *Migrator) migrate(migrationNumber int, migration *Migration) error {
 		if err = migration.Run(m.db); err != nil {
 			return errors.Wrapf(err, "error executing migration: %s", migration.Name)
 		}
-
 	} else if migration.RunTx != nil {
 		if err = migration.RunTx(tx); err != nil {
 			return errors.Wrapf(err, "error executing migration: %s", migration.Name)
 		}
-
 	} else if migration.File != "" {
-		m.logger.Printf("applying migration from file: %q %q ...", migration.Name, migration.File)
-
-		// handle file based migration
 		data, err := m.readFile(migration.File)
 		if err != nil {
 			return errors.Wrapf(err, "could not read migration from file: %q", migration.File)
