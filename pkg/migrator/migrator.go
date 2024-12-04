@@ -285,22 +285,16 @@ func (m *Migrator) migrateInitialSchema(migration *Migration) error {
 	m.logger.Printf("applying base schema migration...")
 
 	if migration.Run != nil {
-		m.logger.Printf("applying base migration from Run: %q ...", migration.Name)
-
 		if err = migration.Run(m.db); err != nil {
 			return errors.Wrapf(err, "error executing migration: %s", migration.Name)
 		}
 
 	} else if migration.RunTx != nil {
-		m.logger.Printf("applying base migration from RunTx: %q ...", migration.Name)
-
 		if err = migration.RunTx(tx); err != nil {
 			return errors.Wrapf(err, "error executing migration: %s", migration.Name)
 		}
 
 	} else if migration.File != "" {
-		m.logger.Printf("applying base migration from file: %q %q ...", migration.Name, migration.File)
-
 		// handle file based migration
 		data, err := m.readFile(migration.File)
 		if err != nil {
@@ -311,8 +305,6 @@ func (m *Migrator) migrateInitialSchema(migration *Migration) error {
 			return errors.Wrapf(err, "error applying schema migration from file: %q", migration.File)
 		}
 	}
-
-	m.logger.Printf("applied base schema migration")
 
 	if err = m.updateSchemaVersion(tx, 0, migration.Name); err != nil {
 		return errors.Wrapf(err, "error updating migration versions: %s", "initial schema")
@@ -403,7 +395,7 @@ func (m *Migrator) migrate(migrationNumber int, migration *Migration) error {
 		err = tx.Commit()
 	}()
 
-	m.logger.Printf("applying migration: %q ...", migration.Name)
+	//m.logger.Printf("applying migration: %q ...", migration.Name)
 
 	if migration.Run != nil {
 		if err = migration.Run(m.db); err != nil {
