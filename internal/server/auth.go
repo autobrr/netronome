@@ -261,3 +261,33 @@ func (h *AuthHandler) GetUserInfo(c *gin.Context) {
 func isTableNotExistsError(err error) bool {
 	return err != nil && err.Error() == "SQL logic error: no such table: users (1)"
 }
+
+func RequireAuth(db database.Service, oidc *auth.OIDCConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionToken, err := c.Cookie("session")
+		if err != nil {
+			log.Trace().Err(err).Msg("No session cookie found")
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		// If OIDC is configured, try to verify the token
+		if oidc != nil {
+			if err := oidc.VerifyToken(c.Request.Context(), sessionToken); err == nil {
+				c.Next()
+				return
+			}
+		}
+
+		// Fall back to regular auth check
+		var username string
+		err = db.QueryRow(c.Request.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
+		if err != nil {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		c.Set("username", username)
+		c.Next()
+	}
+}
