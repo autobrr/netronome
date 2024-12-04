@@ -41,10 +41,9 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 }
 
 func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, limit int) (*types.PaginatedSpeedTests, error) {
-	// Build base query
+
 	baseQuery := s.sqlBuilder.Select().From("speed_tests")
 
-	// Add time range condition
 	if timeRange != "" {
 		var timeExpr string
 		switch s.config.Type {
@@ -76,7 +75,6 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 		}
 	}
 
-	// Get total count using the same conditions
 	countQuery := baseQuery.Columns("COUNT(*)")
 	var total int
 	err := countQuery.RunWith(s.db).QueryRowContext(ctx).Scan(&total)
