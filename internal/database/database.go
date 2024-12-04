@@ -25,6 +25,12 @@ import (
 	"github.com/autobrr/netronome/pkg/migrator"
 )
 
+// Common errors
+var (
+	ErrNotFound     = fmt.Errorf("record not found")
+	ErrInvalidInput = fmt.Errorf("invalid input")
+)
+
 // ZerologAdapter adapts zerolog.Logger to migrator.Logger
 type ZerologAdapter struct {
 	logger zerolog.Logger
@@ -59,19 +65,22 @@ type Service interface {
 	InitializeTables(ctx context.Context) error
 	QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row
 
+	// User operations
+	CreateUser(ctx context.Context, username, password string) (*User, error)
+	GetUserByUsername(ctx context.Context, username string) (*User, error)
+	ValidatePassword(user *User, password string) bool
+
+	// SpeedTest operations
 	SaveSpeedTest(ctx context.Context, result types.SpeedTestResult) (*types.SpeedTestResult, error)
 	GetSpeedTests(ctx context.Context, timeRange string, page int, limit int) (*types.PaginatedSpeedTests, error)
 
+	// Schedule operations
 	CreateSchedule(ctx context.Context, schedule types.Schedule) (*types.Schedule, error)
 	GetSchedules(ctx context.Context) ([]types.Schedule, error)
 	UpdateSchedule(ctx context.Context, schedule types.Schedule) error
 	DeleteSchedule(ctx context.Context, id int64) error
 
-	CreateUser(ctx context.Context, username, password string) (*User, error)
-	GetUserByUsername(ctx context.Context, username string) (*User, error)
-	ValidatePassword(user *User, password string) bool
-
-	// New iperf methods
+	// IPerf operations
 	SaveIperfServer(ctx context.Context, name, host string, port int) (*types.SavedIperfServer, error)
 	GetIperfServers(ctx context.Context) ([]types.SavedIperfServer, error)
 	DeleteIperfServer(ctx context.Context, id int) error
@@ -81,6 +90,67 @@ type service struct {
 	db         *sql.DB
 	config     Config
 	sqlBuilder sq.StatementBuilderType
+}
+
+// Common query building methods
+func (s *service) insert(ctx context.Context, table string, data map[string]interface{}) (sql.Result, error) {
+	cols := make([]string, 0, len(data))
+	vals := make([]interface{}, 0, len(data))
+
+	for col, val := range data {
+		cols = append(cols, col)
+		vals = append(vals, val)
+	}
+
+	query := s.sqlBuilder.
+		Insert(table).
+		Columns(cols...).
+		Values(vals...)
+
+	return query.RunWith(s.db).ExecContext(ctx)
+}
+
+func (s *service) update(ctx context.Context, table string, data map[string]interface{}, where sq.Eq) (sql.Result, error) {
+	query := s.sqlBuilder.Update(table)
+
+	for col, val := range data {
+		query = query.Set(col, val)
+	}
+
+	query = query.Where(where)
+	return query.RunWith(s.db).ExecContext(ctx)
+}
+
+func (s *service) delete(ctx context.Context, table string, where sq.Eq) (sql.Result, error) {
+	query := s.sqlBuilder.
+		Delete(table).
+		Where(where)
+
+	return query.RunWith(s.db).ExecContext(ctx)
+}
+
+func (s *service) select_(ctx context.Context, table string, columns []string, where sq.Eq) (*sql.Rows, error) {
+	query := s.sqlBuilder.
+		Select(columns...).
+		From(table).
+		Where(where)
+
+	return query.RunWith(s.db).QueryContext(ctx)
+}
+
+func (s *service) count(ctx context.Context, table string, where sq.Eq) (int, error) {
+	query := s.sqlBuilder.
+		Select("COUNT(*)").
+		From(table).
+		Where(where)
+
+	var count int
+	err := query.RunWith(s.db).QueryRowContext(ctx).Scan(&count)
+	return count, err
+}
+
+func (s *service) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	return s.db.QueryRowContext(ctx, query, args...)
 }
 
 var dbInstance *service
@@ -214,10 +284,6 @@ func initializeSQLite(db *sql.DB) error {
 	return nil
 }
 
-func (s *service) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	return s.db.QueryRowContext(ctx, query, args...)
-}
-
 func (s *service) Health() map[string]string {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -271,7 +337,6 @@ func (s *service) Close() error {
 	return s.db.Close()
 }
 
-// getMigrationVersion extracts the version number from a migration filename
 func getMigrationVersion(fileName string) int {
 	parts := strings.Split(fileName, "/")
 	if len(parts) > 0 {
@@ -288,14 +353,12 @@ func getMigrationVersion(fileName string) int {
 }
 
 func (s *service) InitializeTables(ctx context.Context) error {
-	// Create a new migrator instance with zerolog adapter
 	logger := &ZerologAdapter{logger: log.Logger}
 	m := migrator.NewMigrate(s.db,
 		migrator.WithLogger(logger),
 		migrator.WithEmbedFS(migrations.SchemaMigrations),
 	)
 
-	// Get migration files based on database type
 	migrationFiles, err := migrations.GetMigrationFiles(migrations.DatabaseType(s.config.Type))
 	if err != nil {
 		return fmt.Errorf("failed to get migration files: %w", err)
@@ -312,7 +375,6 @@ func (s *service) InitializeTables(ctx context.Context) error {
 		})
 	}
 
-	// Run migrations
 	if err := m.Migrate(); err != nil {
 		return fmt.Errorf("failed to apply migrations: %w", err)
 	}

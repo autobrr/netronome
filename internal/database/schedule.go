@@ -15,6 +15,10 @@ import (
 )
 
 func (s *service) CreateSchedule(ctx context.Context, schedule types.Schedule) (*types.Schedule, error) {
+	if len(schedule.ServerIDs) == 0 {
+		return nil, fmt.Errorf("%w: server IDs required", ErrInvalidInput)
+	}
+
 	serverIDs, err := json.Marshal(schedule.ServerIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal server IDs: %w", err)
@@ -25,24 +29,18 @@ func (s *service) CreateSchedule(ctx context.Context, schedule types.Schedule) (
 		return nil, fmt.Errorf("failed to marshal options: %w", err)
 	}
 
+	data := map[string]interface{}{
+		"server_ids": string(serverIDs),
+		"interval":   schedule.Interval,
+		"next_run":   schedule.NextRun,
+		"enabled":    schedule.Enabled,
+		"options":    string(options),
+		"created_at": sq.Expr("CURRENT_TIMESTAMP"),
+	}
+
 	query := s.sqlBuilder.
 		Insert("schedules").
-		Columns(
-			"server_ids",
-			"interval",
-			"next_run",
-			"enabled",
-			"options",
-			"created_at",
-		).
-		Values(
-			string(serverIDs),
-			schedule.Interval,
-			schedule.NextRun,
-			schedule.Enabled,
-			string(options),
-			sq.Expr("CURRENT_TIMESTAMP"),
-		).
+		SetMap(data).
 		Suffix("RETURNING id, created_at")
 
 	err = query.RunWith(s.db).QueryRowContext(ctx).Scan(&schedule.ID, &schedule.CreatedAt)
@@ -65,11 +63,12 @@ func (s *service) GetSchedules(ctx context.Context) ([]types.Schedule, error) {
 			"options",
 			"created_at",
 		).
-		From("schedules")
+		From("schedules").
+		OrderBy("created_at DESC")
 
 	rows, err := query.RunWith(s.db).QueryContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query schedules: %w", err)
+		return nil, fmt.Errorf("failed to get schedules: %w", err)
 	}
 	defer rows.Close()
 
@@ -108,10 +107,22 @@ func (s *service) GetSchedules(ctx context.Context) ([]types.Schedule, error) {
 		schedules = append(schedules, schedule)
 	}
 
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating schedules: %w", err)
+	}
+
 	return schedules, nil
 }
 
 func (s *service) UpdateSchedule(ctx context.Context, schedule types.Schedule) error {
+	if schedule.ID <= 0 {
+		return fmt.Errorf("%w: invalid schedule ID", ErrInvalidInput)
+	}
+
+	if len(schedule.ServerIDs) == 0 {
+		return fmt.Errorf("%w: server IDs required", ErrInvalidInput)
+	}
+
 	serverIDs, err := json.Marshal(schedule.ServerIDs)
 	if err != nil {
 		return fmt.Errorf("failed to marshal server IDs: %w", err)
@@ -122,31 +133,57 @@ func (s *service) UpdateSchedule(ctx context.Context, schedule types.Schedule) e
 		return fmt.Errorf("failed to marshal options: %w", err)
 	}
 
+	data := map[string]interface{}{
+		"server_ids": string(serverIDs),
+		"interval":   schedule.Interval,
+		"next_run":   schedule.NextRun,
+		"enabled":    schedule.Enabled,
+		"options":    string(options),
+	}
+
 	query := s.sqlBuilder.
 		Update("schedules").
-		Set("server_ids", string(serverIDs)).
-		Set("interval", schedule.Interval).
-		Set("next_run", schedule.NextRun).
-		Set("enabled", schedule.Enabled).
-		Set("options", string(options)).
+		SetMap(data).
 		Where(sq.Eq{"id": schedule.ID})
 
-	_, err = query.RunWith(s.db).ExecContext(ctx)
+	result, err := query.RunWith(s.db).ExecContext(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to update schedule: %w", err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows: %w", err)
+	}
+
+	if affected == 0 {
+		return ErrNotFound
 	}
 
 	return nil
 }
 
 func (s *service) DeleteSchedule(ctx context.Context, id int64) error {
+	if id <= 0 {
+		return fmt.Errorf("%w: invalid schedule ID", ErrInvalidInput)
+	}
+
 	query := s.sqlBuilder.
 		Delete("schedules").
 		Where(sq.Eq{"id": id})
 
-	_, err := query.RunWith(s.db).ExecContext(ctx)
+	result, err := query.RunWith(s.db).ExecContext(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete schedule: %w", err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows: %w", err)
+	}
+
+	if affected == 0 {
+		return ErrNotFound
 	}
 
 	return nil
