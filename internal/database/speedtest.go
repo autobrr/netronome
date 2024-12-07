@@ -26,14 +26,34 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 		"created_at":     sq.Expr("CURRENT_TIMESTAMP"),
 	}
 
-	res, err := s.insert(ctx, "speed_tests", data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to save speed test: %w", err)
-	}
+	var id int64
 
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get last insert ID: %w", err)
+	switch s.config.Type {
+	case Postgres:
+		query := s.sqlBuilder.Insert("speed_tests").
+			SetMap(data).
+			Suffix("RETURNING id")
+
+		sqlStr, args, err := query.ToSql()
+		if err != nil {
+			return nil, fmt.Errorf("failed to build query: %w", err)
+		}
+
+		err = s.db.QueryRowContext(ctx, sqlStr, args...).Scan(&id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to save speed test: %w", err)
+		}
+
+	case SQLite:
+		res, err := s.insert(ctx, "speed_tests", data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to save speed test: %w", err)
+		}
+
+		id, err = res.LastInsertId()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get last insert ID: %w", err)
+		}
 	}
 
 	result.ID = id
@@ -41,10 +61,9 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 }
 
 func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, limit int) (*types.PaginatedSpeedTests, error) {
-	// Build base query
+
 	baseQuery := s.sqlBuilder.Select().From("speed_tests")
 
-	// Add time range condition
 	if timeRange != "" {
 		var timeExpr string
 		switch s.config.Type {
@@ -76,7 +95,6 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 		}
 	}
 
-	// Get total count using the same conditions
 	countQuery := baseQuery.Columns("COUNT(*)")
 	var total int
 	err := countQuery.RunWith(s.db).QueryRowContext(ctx).Scan(&total)

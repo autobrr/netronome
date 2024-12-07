@@ -32,7 +32,6 @@ func (s *service) SaveIperfServer(ctx context.Context, name, host string, port i
 		return nil, fmt.Errorf("failed to get last insert ID: %w", err)
 	}
 
-	// Query the newly created server to return complete data
 	query := s.sqlBuilder.
 		Select(
 			"id",

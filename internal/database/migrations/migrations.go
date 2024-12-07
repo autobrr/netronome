@@ -15,7 +15,6 @@ import (
 //go:embed postgres/*.sql sqlite/*.sql
 var SchemaMigrations embed.FS
 
-// DatabaseType represents the type of database being used
 type DatabaseType string
 
 const (
@@ -38,7 +37,6 @@ func GetMigrationFiles(dbType DatabaseType) ([]string, error) {
 		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}
 
-	// Log the base path and suffix being used at info level
 	log.Debug().
 		Str("basePath", basePath).
 		Str("suffix", suffix).
@@ -50,7 +48,6 @@ func GetMigrationFiles(dbType DatabaseType) ([]string, error) {
 		return nil, fmt.Errorf("failed to read migrations directory: %w", err)
 	}
 
-	// Log the number of entries found at info level
 	log.Debug().Int("entryCount", len(entries)).Msg("Found entries in migrations directory")
 
 	var files []string
@@ -58,7 +55,6 @@ func GetMigrationFiles(dbType DatabaseType) ([]string, error) {
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), suffix) {
 			filePath := fmt.Sprintf("%s/%s", basePath, entry.Name())
 
-			// Log only errors when reading files
 			_, err := fs.ReadFile(SchemaMigrations, filePath)
 			if err != nil {
 				log.Error().Err(err).Str("file", filePath).Msg("Failed to read migration file")
@@ -68,13 +64,11 @@ func GetMigrationFiles(dbType DatabaseType) ([]string, error) {
 		}
 	}
 
-	// Log the final list of migration files at info level
 	log.Debug().
 		Strs("files", files).
 		Int("fileCount", len(files)).
 		Msg("Final migration files list")
 
-	// Sort files by version number to ensure correct order
 	sortMigrationFiles(files)
 
 	return files, nil
@@ -82,7 +76,6 @@ func GetMigrationFiles(dbType DatabaseType) ([]string, error) {
 
 // sortMigrationFiles sorts migration files by their version number
 func sortMigrationFiles(files []string) {
-	// Simple bubble sort since we have a small number of files
 	n := len(files)
 	for i := 0; i < n-1; i++ {
 		for j := 0; j < n-i-1; j++ {
@@ -105,7 +98,6 @@ func getMigrationVersion(fileName string) int {
 	return 0
 }
 
-// parseInt safely converts a string to an integer
 func parseInt(s string) (int, error) {
 	var result int
 	for _, ch := range s {
@@ -117,7 +109,6 @@ func parseInt(s string) (int, error) {
 	return result, nil
 }
 
-// ReadMigration reads the content of a migration file
 func ReadMigration(fileName string) ([]byte, error) {
 	content, err := fs.ReadFile(SchemaMigrations, fileName)
 	if err != nil {

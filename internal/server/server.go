@@ -17,7 +17,6 @@ import (
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/handlers"
 	"github.com/autobrr/netronome/internal/scheduler"
-	"github.com/autobrr/netronome/internal/server/middleware"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
 )
@@ -111,7 +110,7 @@ func (s *Server) RegisterRoutes() {
 
 		// Protected routes
 		protected := api.Group("")
-		protected.Use(middleware.RequireAuth(s.db, s.auth.oidc))
+		protected.Use(RequireAuth(s.db, s.auth.oidc))
 		{
 			protected.POST("/auth/logout", s.auth.Logout)
 			protected.GET("/auth/verify", s.auth.Verify)
