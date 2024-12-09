@@ -4,29 +4,24 @@
   <img src=".github/assets/netronome.png" alt="Netronome">
 </p>
 
-Netronome (Network Metronome) is a modern network speed testing and monitoring tool that provides precise network performance measurements with a clean, intuitive web interface. It offers both scheduled and on-demand speed tests with detailed visualizations and historical tracking.
+Netronome (Network Metronome) is a modern network speed testing and monitoring tool with a clean, intuitive web interface. It offers both scheduled and on-demand speed tests with detailed visualizations and historical tracking.
 
 ## ✨ Features
 
-- **Advanced Speed Testing**
+- **Speed Testing**
 
-  - Multi-server testing capability
   - Support for both Speedtest.net and iPerf servers
   - Real-time test progress visualization
   - Detailed latency measurements
 
-- **Comprehensive Monitoring**
+- **Monitoring**
 
   - Interactive historical data charts
   - Customizable time ranges (1d, 3d, 1w, 1m, all)
-  - Real-time speed and latency monitoring
-  - Paginated test history
 
 - **Scheduling & Automation**
 
   - Automated speed tests with flexible scheduling
-  - Multi-server test scheduling
-  - Customizable test configurations
 
 - **Modern Interface**
 
@@ -94,28 +89,6 @@ make docker-run
 - `make watch` - Live reload backend only
 - `make clean` - Clean build artifacts
 
-## 📊 Usage
-
-1. **Speed Testing**
-
-   - Select one or multiple test servers
-   - Toggle between Speedtest.net and iPerf servers
-   - Monitor real-time test progress
-   - View detailed results including download, upload, and latency
-
-2. **Test Scheduling**
-
-   - Create automated test schedules
-   - Configure multiple servers per schedule
-   - Set custom intervals and timing
-   - View scheduled test results in history
-
-3. **History & Analytics**
-   - Browse historical test results
-   - Filter by time range
-   - Analyze trends with interactive charts
-   - Export test data
-
 ## ⚙️ Configuration
 
 ### Environment Variables
@@ -145,19 +118,9 @@ Netronome supports two database backends:
 
 1. **SQLite** (Default)
 
-   - Lightweight, serverless database
-   - Perfect for single-instance deployments
    - No additional setup required
-   - Configure via:
-     ```bash
-     NETRONOME_DB_TYPE=sqlite
-     NETRONOME_DB_PATH=./netronome.db
-     ```
 
 2. **PostgreSQL**
-   - Robust, scalable database
-   - Ideal for production deployments
-   - Supports high concurrency
    - Configure via:
      ```bash
      NETRONOME_DB_TYPE=postgres
@@ -182,9 +145,10 @@ Netronome supports two authentication methods:
    - Integration with identity providers (Google, Okta, Auth0, Keycloak, Pocket-ID etc.)
    - Configure via environment variables:
      ```bash
-     OIDC_ISSUER=https://your-provider/.well-known/openid-configuration
+     OIDC_ISSUER=https://pocketid.domain.net
      OIDC_CLIENT_ID=your-client-id
      OIDC_CLIENT_SECRET=your-client-secret
+     OIDC_REDIRECT_URL=https://netronome.domain.net/api/auth/oidc/callback
      ```
 
 ## 🤝 Contributing
