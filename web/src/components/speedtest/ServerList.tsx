@@ -433,7 +433,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                               ? "iperf.example.com:5201"
                               : "Enter iperf3 server host (e.g., iperf.example.com:5201)"
                           }
-                          className="flex-1 px-2 sm:px-4 py-1.5 sm:py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg text-xs sm:text-sm"
+                          className="flex-1 px-2 sm:px-4 py-1.5 sm:py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg text-xs sm:text-sm shadow-md"
                         />
                         <button
                           onClick={() => {
@@ -445,7 +445,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                             setSaveModalOpen(true);
                           }}
                           disabled={!iperfHost.trim()}
-                          className={`px-4 py-2 rounded-lg transition-colors border ${
+                          className={`px-4 py-2 rounded-lg transition-colors border shadow-md ${
                             !iperfHost.trim()
                               ? "bg-gray-700 text-gray-400 cursor-not-allowed border-gray-900"
                               : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"

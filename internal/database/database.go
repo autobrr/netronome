@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,12 +15,48 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 	_ "github.com/joho/godotenv/autoload"
+	_ "github.com/lib/pq"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	_ "modernc.org/sqlite"
 
 	"github.com/autobrr/netronome/internal/database/migrations"
 	"github.com/autobrr/netronome/internal/types"
+	"github.com/autobrr/netronome/pkg/migrator"
 )
+
+// Common errors
+var (
+	ErrNotFound     = fmt.Errorf("record not found")
+	ErrInvalidInput = fmt.Errorf("invalid input")
+)
+
+// ZerologAdapter adapts zerolog.Logger to migrator.Logger
+type ZerologAdapter struct {
+	logger zerolog.Logger
+}
+
+func (z *ZerologAdapter) Printf(format string, args ...interface{}) {
+	z.logger.Info().Msgf(format, args...)
+}
+
+type DatabaseType string
+
+const (
+	SQLite   DatabaseType = "sqlite"
+	Postgres DatabaseType = "postgres"
+)
+
+type Config struct {
+	Type     DatabaseType
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DBName   string
+	SSLMode  string
+	Path     string // For SQLite
+}
 
 // Service represents the core database functionality
 type Service interface {
@@ -30,40 +65,135 @@ type Service interface {
 	InitializeTables(ctx context.Context) error
 	QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row
 
+	// User operations
+	CreateUser(ctx context.Context, username, password string) (*User, error)
+	GetUserByUsername(ctx context.Context, username string) (*User, error)
+	ValidatePassword(user *User, password string) bool
+
+	// SpeedTest operations
 	SaveSpeedTest(ctx context.Context, result types.SpeedTestResult) (*types.SpeedTestResult, error)
 	GetSpeedTests(ctx context.Context, timeRange string, page int, limit int) (*types.PaginatedSpeedTests, error)
 
+	// Schedule operations
 	CreateSchedule(ctx context.Context, schedule types.Schedule) (*types.Schedule, error)
 	GetSchedules(ctx context.Context) ([]types.Schedule, error)
 	UpdateSchedule(ctx context.Context, schedule types.Schedule) error
 	DeleteSchedule(ctx context.Context, id int64) error
 
-	CreateUser(ctx context.Context, username, password string) (*User, error)
-	GetUserByUsername(ctx context.Context, username string) (*User, error)
-	ValidatePassword(user *User, password string) bool
-
-	// New iperf methods
+	// IPerf operations
 	SaveIperfServer(ctx context.Context, name, host string, port int) (*types.SavedIperfServer, error)
 	GetIperfServers(ctx context.Context) ([]types.SavedIperfServer, error)
 	DeleteIperfServer(ctx context.Context, id int) error
 }
 
 type service struct {
-	db *sql.DB
+	db         *sql.DB
+	config     Config
+	sqlBuilder sq.StatementBuilderType
 }
 
-var (
-	dburl      = getDBURL()
-	dbInstance *service
-	sqlBuilder = sq.StatementBuilder.PlaceholderFormat(sq.Question)
-)
+// Common query building methods
+func (s *service) insert(ctx context.Context, table string, data map[string]interface{}) (sql.Result, error) {
+	cols := make([]string, 0, len(data))
+	vals := make([]interface{}, 0, len(data))
 
-func getDBURL() string {
-	path := os.Getenv("NETRONOME_DB_PATH")
-	if path == "" {
-		path = "netronome.db"
+	for col, val := range data {
+		cols = append(cols, col)
+		vals = append(vals, val)
 	}
-	return path
+
+	query := s.sqlBuilder.
+		Insert(table).
+		Columns(cols...).
+		Values(vals...)
+
+	return query.RunWith(s.db).ExecContext(ctx)
+}
+
+func (s *service) update(ctx context.Context, table string, data map[string]interface{}, where sq.Eq) (sql.Result, error) {
+	query := s.sqlBuilder.Update(table)
+
+	for col, val := range data {
+		query = query.Set(col, val)
+	}
+
+	query = query.Where(where)
+	return query.RunWith(s.db).ExecContext(ctx)
+}
+
+func (s *service) delete(ctx context.Context, table string, where sq.Eq) (sql.Result, error) {
+	query := s.sqlBuilder.
+		Delete(table).
+		Where(where)
+
+	return query.RunWith(s.db).ExecContext(ctx)
+}
+
+func (s *service) select_(ctx context.Context, table string, columns []string, where sq.Eq) (*sql.Rows, error) {
+	query := s.sqlBuilder.
+		Select(columns...).
+		From(table).
+		Where(where)
+
+	return query.RunWith(s.db).QueryContext(ctx)
+}
+
+func (s *service) count(ctx context.Context, table string, where sq.Eq) (int, error) {
+	query := s.sqlBuilder.
+		Select("COUNT(*)").
+		From(table).
+		Where(where)
+
+	var count int
+	err := query.RunWith(s.db).QueryRowContext(ctx).Scan(&count)
+	return count, err
+}
+
+func (s *service) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	return s.db.QueryRowContext(ctx, query, args...)
+}
+
+var dbInstance *service
+
+func getConfig() Config {
+	dbType := DatabaseType(os.Getenv("NETRONOME_DB_TYPE"))
+	if dbType == "" {
+		dbType = SQLite
+	}
+
+	config := Config{
+		Type: dbType,
+	}
+
+	switch dbType {
+	case Postgres:
+		config.Host = getEnvOrDefault("NETRONOME_DB_HOST", "localhost")
+		config.Port = getEnvIntOrDefault("NETRONOME_DB_PORT", 5432)
+		config.User = getEnvOrDefault("NETRONOME_DB_USER", "postgres")
+		config.Password = os.Getenv("NETRONOME_DB_PASSWORD")
+		config.DBName = getEnvOrDefault("NETRONOME_DB_NAME", "netronome")
+		config.SSLMode = getEnvOrDefault("NETRONOME_DB_SSLMODE", "disable")
+	case SQLite:
+		config.Path = getEnvOrDefault("NETRONOME_DB_PATH", "netronome.db")
+	}
+
+	return config
+}
+
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func getEnvIntOrDefault(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
 }
 
 func New() Service {
@@ -71,39 +201,57 @@ func New() Service {
 		return dbInstance
 	}
 
-	absPath, err := filepath.Abs(dburl)
-	if err != nil {
-		log.Fatal().Err(err).Str("path", dburl).Msg("Failed to get absolute database path")
+	config := getConfig()
+	var db *sql.DB
+	var err error
+	var builder sq.StatementBuilderType
+
+	switch config.Type {
+	case Postgres:
+		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+			config.Host, config.Port, config.User, config.Password, config.DBName, config.SSLMode)
+		db, err = sql.Open("postgres", dsn)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to open PostgreSQL database")
+		}
+		builder = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+	case SQLite:
+		absPath, err := filepath.Abs(config.Path)
+		if err != nil {
+			log.Fatal().Err(err).Str("path", config.Path).Msg("Failed to get absolute database path")
+		}
+		config.Path = absPath
+		dbDir := filepath.Dir(config.Path)
+
+		if err := os.MkdirAll(dbDir, 0755); err != nil {
+			log.Fatal().Err(err).Str("path", dbDir).Msg("Failed to create database directory")
+		}
+
+		if err := os.Chmod(dbDir, 0755); err != nil {
+			log.Fatal().Err(err).Msg("Failed to set database directory permissions")
+		}
+
+		db, err = sql.Open("sqlite", fmt.Sprintf("file:%s?cache=shared&mode=rwc", config.Path))
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to open SQLite database")
+		}
+
+		if err := initializeSQLite(db); err != nil {
+			log.Fatal().Err(err).Msg("Failed to initialize SQLite database")
+		}
+
+		if err := os.Chmod(config.Path, 0640); err != nil {
+			log.Fatal().Err(err).Msg("Failed to set database file permissions")
+		}
+		builder = sq.StatementBuilder.PlaceholderFormat(sq.Question)
 	}
-	dburl = absPath
-	dbDir := filepath.Dir(dburl)
 
-	log.Info().
-		Str("dir", dbDir).
-		Str("path", dburl).
-		Msg("Initializing database")
+	builder = builder.RunWith(db)
 
-	if err := os.MkdirAll(dbDir, 0755); err != nil {
-		log.Fatal().Err(err).Str("path", dbDir).Msg("Failed to create database directory")
-	}
-
-	if err := os.Chmod(dbDir, 0755); err != nil {
-		log.Fatal().Err(err).Msg("Failed to set database directory permissions")
-	}
-
-	db, err := sql.Open("sqlite", fmt.Sprintf("file:%s?cache=shared&mode=rwc", dburl))
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to open database")
-	}
-
-	if err := initializeDatabase(db); err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialize database")
-	}
-
-	dbInstance = &service{db: db}
-
-	if err := os.Chmod(dburl, 0640); err != nil {
-		log.Fatal().Err(err).Msg("Failed to set database file permissions")
+	dbInstance = &service{
+		db:         db,
+		config:     config,
+		sqlBuilder: builder,
 	}
 
 	ctx := context.Background()
@@ -114,7 +262,7 @@ func New() Service {
 	return dbInstance
 }
 
-func initializeDatabase(db *sql.DB) error {
+func initializeSQLite(db *sql.DB) error {
 	if err := db.Ping(); err != nil {
 		return fmt.Errorf("failed to create database file: %w", err)
 	}
@@ -136,10 +284,6 @@ func initializeDatabase(db *sql.DB) error {
 	return nil
 }
 
-func (s *service) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	return s.db.QueryRowContext(ctx, query, args...)
-}
-
 func (s *service) Health() map[string]string {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -155,6 +299,7 @@ func (s *service) Health() map[string]string {
 
 	stats["status"] = "up"
 	stats["message"] = "It's healthy"
+	stats["type"] = string(s.config.Type)
 
 	dbStats := s.db.Stats()
 	stats["open_connections"] = strconv.Itoa(dbStats.OpenConnections)
@@ -186,126 +331,53 @@ func (s *service) evaluateHealthStats(dbStats sql.DBStats, stats map[string]stri
 }
 
 func (s *service) Close() error {
-	log.Info().Str("url", dburl).Msg("Disconnected from database")
+	log.Info().
+		Str("type", string(s.config.Type)).
+		Msg("Disconnected from database")
 	return s.db.Close()
 }
 
-func (s *service) InitializeTables(ctx context.Context) error {
-	if err := s.createMigrationsTable(ctx); err != nil {
-		return err
-	}
-
-	applied, err := s.getAppliedMigrations(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get applied migrations: %w", err)
-	}
-
-	return s.applyPendingMigrations(ctx, applied)
-}
-
-func (s *service) createMigrationsTable(ctx context.Context) error {
-	query := `CREATE TABLE IF NOT EXISTS schema_migrations (
-		version INTEGER PRIMARY KEY,
-		applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	);`
-
-	if _, err := s.db.ExecContext(ctx, query); err != nil {
-		return fmt.Errorf("failed to create schema_migrations table: %w", err)
-	}
-	return nil
-}
-
-func (s *service) getAppliedMigrations(ctx context.Context) ([]int, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT version FROM schema_migrations ORDER BY version")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var versions []int
-	for rows.Next() {
-		var version int
-		if err := rows.Scan(&version); err != nil {
-			return nil, err
-		}
-		versions = append(versions, version)
-	}
-	return versions, nil
-}
-
-func (s *service) applyPendingMigrations(ctx context.Context, applied []int) error {
-	log.Trace().Interface("applied_migrations", applied).Msg("Current applied migrations")
-	log.Trace().Interface("migration_files", migrations.MigrationFiles).Msg("Available migrations")
-
-	for _, fileName := range migrations.MigrationFiles {
-		version := getMigrationVersion(fileName)
-		log.Trace().
-			Str("file", fileName).
-			Int("version", version).
-			Bool("already_applied", contains(applied, version)).
-			Msg("Checking migration")
-
-		if !contains(applied, version) {
-			log.Info().
-				Str("file", fileName).
-				Int("version", version).
-				Msg("Applying new migration")
-
-			if err := s.applyMigration(ctx, fileName, version); err != nil {
-				log.Error().
-					Err(err).
-					Str("file", fileName).
-					Int("version", version).
-					Msg("Failed to apply migration")
-				return fmt.Errorf("failed to apply migration %s: %w", fileName, err)
-			}
-
-			log.Info().
-				Str("file", fileName).
-				Int("version", version).
-				Msg("Successfully applied migration")
-		}
-	}
-	return nil
-}
-
-func (s *service) applyMigration(ctx context.Context, fileName string, version int) error {
-	content, err := fs.ReadFile(migrations.SchemaMigrations, fileName)
-	if err != nil {
-		return err
-	}
-
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	if _, err := tx.ExecContext(ctx, string(content)); err != nil {
-		return err
-	}
-
-	if _, err := tx.ExecContext(ctx, "INSERT INTO schema_migrations (version) VALUES (?)", version); err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
-
 func getMigrationVersion(fileName string) int {
-	parts := strings.Split(fileName, "_")
+	parts := strings.Split(fileName, "/")
 	if len(parts) > 0 {
-		version, _ := strconv.Atoi(parts[0])
-		return version
+		fileName = parts[len(parts)-1]
+	}
+
+	parts = strings.Split(fileName, "_")
+	if len(parts) > 0 {
+		if v, err := strconv.Atoi(parts[0]); err == nil {
+			return v
+		}
 	}
 	return 0
 }
 
-func contains(slice []int, item int) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
+func (s *service) InitializeTables(ctx context.Context) error {
+	logger := &ZerologAdapter{logger: log.Logger}
+	m := migrator.NewMigrate(s.db,
+		migrator.WithLogger(logger),
+		migrator.WithEmbedFS(migrations.SchemaMigrations),
+	)
+
+	migrationFiles, err := migrations.GetMigrationFiles(migrations.DatabaseType(s.config.Type))
+	if err != nil {
+		return fmt.Errorf("failed to get migration files: %w", err)
 	}
-	return false
+
+	log.Trace().Interface("migration_files", migrationFiles).Msg("Found migration files")
+
+	for _, fileName := range migrationFiles {
+		version := getMigrationVersion(fileName)
+		log.Trace().Str("file", fileName).Int("version", version).Msg("Adding migration")
+		m.Add(&migrator.Migration{
+			Name: fileName,
+			File: fileName,
+		})
+	}
+
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("failed to apply migrations: %w", err)
+	}
+
+	return nil
 }

@@ -7,6 +7,8 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/auth";
 import { router } from "@/routes";
 import logo from "@/assets/logo.png";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faOpenid } from "@fortawesome/free-brands-svg-icons";
 
 export default function Login() {
   const { login, checkRegistrationStatus } = useAuth();
@@ -37,7 +39,7 @@ export default function Login() {
     };
 
     checkStatus();
-  }, [checkRegistrationStatus]);
+  }, [checkRegistrationStatus, oidcEnabled]);
 
   const handleOIDCLogin = () => {
     window.location.href = "/api/auth/oidc/login";
@@ -94,15 +96,24 @@ export default function Login() {
           <h2 className="text-3xl font-bold text-white pointer-events-none select-none">
             Netronome
           </h2>
-          <p className="mt-2 text-sm text-gray-400">Sign in to your account</p>
         </div>
 
         {oidcEnabled ? (
           <button
-            onClick={handleOIDCLogin}
-            className="w-full mt-8 py-2 px-4 bg-blue-600 hover:bg-blue-700 rounded-md text-white"
+            onClick={() => handleOIDCLogin()}
+            className="w-full flex justify-center items-center mt-12 py-2 px-4 border border-gray-750 rounded-md shadow-sm bg-gray-800 hover:bg-gray-825 text-sm font-medium text-white hover:text-blue-450 focus:outline-none focus:ring-1  focus:ring-gray-700"
           >
-            Sign in with SSO
+            <span
+              className="group relative inline-block"
+              aria-label="Sign in with OpenID"
+            >
+              Sign in with
+              <FontAwesomeIcon
+                icon={faOpenid}
+                className="text-lg ml-2"
+                aria-hidden="true"
+              />
+            </span>
           </button>
         ) : (
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>

@@ -5,9 +5,10 @@ package database
 
 import (
 	"context"
-	"database/sql"
 	"errors"
+	"fmt"
 
+	sq "github.com/Masterminds/squirrel"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -30,57 +31,88 @@ type UserService interface {
 }
 
 func (s *service) CreateUser(ctx context.Context, username, password string) (*User, error) {
-	// Check if any user exists first
-	var count int
-	err := s.QueryRow(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
-	if err != nil && !isTableNotExistsError(err) {
-		return nil, err
+	if username == "" || password == "" {
+		return nil, fmt.Errorf("%w: username and password required", ErrInvalidInput)
 	}
 
-	if err == nil && count > 0 {
+	// Check if any user exists first
+	count, err := s.count(ctx, "users", sq.Eq{})
+	if err != nil && !isTableNotExistsError(err) {
+		return nil, fmt.Errorf("failed to check existing users: %w", err)
+	}
+
+	if count > 0 {
 		return nil, ErrRegistrationDisabled
+	}
+
+	// Check if username already exists
+	exists, err := s.count(ctx, "users", sq.Eq{"username": username})
+	if err != nil && !isTableNotExistsError(err) {
+		return nil, fmt.Errorf("failed to check username existence: %w", err)
+	}
+
+	if exists > 0 {
+		return nil, ErrUserAlreadyExists
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
-	// create user
-	result, err := tx.ExecContext(ctx,
-		"INSERT INTO users (username, password_hash) VALUES (?, ?)",
-		username, string(hash),
-	)
-	if err != nil {
-		return nil, err
+	// Insert user
+	query := s.sqlBuilder.
+		Insert("users").
+		Columns("username", "password_hash").
+		Values(username, string(hash))
+
+	if s.config.Type == Postgres {
+		query = query.Suffix("RETURNING id")
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, err
-	}
-
-	// ensuring registration is disabled
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO registration_status (is_registration_enabled) 
-		VALUES (0) 
-		ON CONFLICT (rowid) DO UPDATE SET is_registration_enabled = 0
-	`)
-
-	if err != nil {
-		if !isTableNotExistsError(err) {
-			return nil, err
+	var id int64
+	if s.config.Type == Postgres {
+		err = query.RunWith(tx).QueryRowContext(ctx).Scan(&id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create user: %w", err)
+		}
+	} else {
+		result, err := query.RunWith(tx).ExecContext(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create user: %w", err)
+		}
+		id, err = result.LastInsertId()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get last insert ID: %w", err)
 		}
 	}
 
+	// Disable registration
+	var disableRegQuery string
+	if s.config.Type == Postgres {
+		disableRegQuery = `
+			DELETE FROM registration_status;
+			INSERT INTO registration_status (is_registration_enabled) VALUES (false);`
+	} else {
+		disableRegQuery = `
+			INSERT INTO registration_status (is_registration_enabled) 
+			VALUES (0) 
+			ON CONFLICT (rowid) DO UPDATE SET is_registration_enabled = 0`
+	}
+
+	_, err = tx.ExecContext(ctx, disableRegQuery)
+	if err != nil && !isTableNotExistsError(err) {
+		return nil, fmt.Errorf("failed to disable registration: %w", err)
+	}
+
 	if err := tx.Commit(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return &User{
@@ -91,23 +123,42 @@ func (s *service) CreateUser(ctx context.Context, username, password string) (*U
 }
 
 func (s *service) GetUserByUsername(ctx context.Context, username string) (*User, error) {
-	user := &User{}
-	err := s.db.QueryRowContext(ctx,
-		"SELECT id, username, password_hash FROM users WHERE username = ?",
-		username,
-	).Scan(&user.ID, &user.Username, &user.PasswordHash)
+	if username == "" {
+		return nil, fmt.Errorf("%w: username required", ErrInvalidInput)
+	}
 
-	if err == sql.ErrNoRows {
+	query := s.sqlBuilder.
+		Select("id", "username", "password_hash").
+		From("users").
+		Where(sq.Eq{"username": username})
+
+	rows, err := query.RunWith(s.db).QueryContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query user: %w", err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
 		return nil, ErrUserNotFound
 	}
+
+	user := &User{}
+	err = rows.Scan(&user.ID, &user.Username, &user.PasswordHash)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to scan user: %w", err)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error after scanning user: %w", err)
 	}
 
 	return user, nil
 }
 
 func (s *service) ValidatePassword(user *User, password string) bool {
+	if user == nil || password == "" {
+		return false
+	}
 	err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
 	return err == nil
 }

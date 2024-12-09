@@ -48,14 +48,35 @@ func Init() {
 		Caller().
 		Logger()
 
-	ginMode := os.Getenv("GIN_MODE")
-	if ginMode == "debug" {
+	// Get log level from environment variable, default to "info"
+	logLevel := strings.ToLower(os.Getenv("NETRONOME_LOG_LEVEL"))
+
+	// Set log level based on environment variable
+	switch logLevel {
+	case "trace":
 		zerolog.SetGlobalLevel(zerolog.TraceLevel)
-		log.Debug().Msgf("Logger initialized in debug mode (GIN_MODE=%s)", ginMode)
-	} else {
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-		log.Info().Msg("Logger initialized in production mode")
+	case "debug":
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	case "warn", "warning":
+		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	case "error":
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	case "fatal":
+		zerolog.SetGlobalLevel(zerolog.FatalLevel)
+	case "panic":
+		zerolog.SetGlobalLevel(zerolog.PanicLevel)
+	default:
+		ginMode := os.Getenv("GIN_MODE")
+		if ginMode == "debug" {
+			zerolog.SetGlobalLevel(zerolog.TraceLevel)
+			log.Debug().Msgf("Logger initialized in debug mode (GIN_MODE=%s)", ginMode)
+		} else {
+			zerolog.SetGlobalLevel(zerolog.InfoLevel)
+			log.Info().Msg("Logger initialized in production mode")
+		}
 	}
+
+	log.Info().Msgf("Logger initialized with level: %s", zerolog.GlobalLevel().String())
 }
 
 func Get() zerolog.Logger {

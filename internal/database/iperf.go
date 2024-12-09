@@ -2,7 +2,7 @@ package database
 
 import (
 	"context"
-	"database/sql"
+	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
 
@@ -10,67 +10,120 @@ import (
 )
 
 func (s *service) SaveIperfServer(ctx context.Context, name, host string, port int) (*types.SavedIperfServer, error) {
-	query := sq.
-		Insert("saved_iperf_servers").
-		Columns("name", "host", "port").
-		Values(name, host, port).
-		Suffix("RETURNING id, name, host, port, created_at, updated_at")
-
-	server := new(types.SavedIperfServer)
-	err := query.RunWith(s.db).QueryRowContext(ctx).Scan(&server.ID, &server.Name, &server.Host, &server.Port, &server.CreatedAt, &server.UpdatedAt)
-	if err != nil {
-		return nil, err
+	if name == "" || host == "" || port <= 0 {
+		return nil, ErrInvalidInput
 	}
 
-	return server, nil
+	data := map[string]interface{}{
+		"name":       name,
+		"host":       host,
+		"port":       port,
+		"created_at": sq.Expr("CURRENT_TIMESTAMP"),
+		"updated_at": sq.Expr("CURRENT_TIMESTAMP"),
+	}
+
+	res, err := s.insert(ctx, "saved_iperf_servers", data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save iperf server: %w", err)
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get last insert ID: %w", err)
+	}
+
+	query := s.sqlBuilder.
+		Select(
+			"id",
+			"name",
+			"host",
+			"port",
+			"created_at",
+			"updated_at",
+		).
+		From("saved_iperf_servers").
+		Where(sq.Eq{"id": id})
+
+	var server types.SavedIperfServer
+	err = query.RunWith(s.db).QueryRowContext(ctx).Scan(
+		&server.ID,
+		&server.Name,
+		&server.Host,
+		&server.Port,
+		&server.CreatedAt,
+		&server.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get saved iperf server: %w", err)
+	}
+
+	return &server, nil
 }
 
 func (s *service) GetIperfServers(ctx context.Context) ([]types.SavedIperfServer, error) {
-	query := sq.
-		Select("id", "name", "host", "port", "created_at", "updated_at").
+	query := s.sqlBuilder.
+		Select(
+			"id",
+			"name",
+			"host",
+			"port",
+			"created_at",
+			"updated_at",
+		).
 		From("saved_iperf_servers").
 		OrderBy("created_at DESC")
 
 	rows, err := query.RunWith(s.db).QueryContext(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get iperf servers: %w", err)
 	}
 	defer rows.Close()
 
 	var servers []types.SavedIperfServer
 	for rows.Next() {
 		var server types.SavedIperfServer
-		err := rows.Scan(&server.ID, &server.Name, &server.Host, &server.Port, &server.CreatedAt, &server.UpdatedAt)
+		err := rows.Scan(
+			&server.ID,
+			&server.Name,
+			&server.Host,
+			&server.Port,
+			&server.CreatedAt,
+			&server.UpdatedAt,
+		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan iperf server: %w", err)
 		}
 		servers = append(servers, server)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error iterating iperf servers: %w", err)
 	}
 
 	return servers, nil
 }
 
 func (s *service) DeleteIperfServer(ctx context.Context, id int) error {
-	query := sq.
+	if id <= 0 {
+		return ErrInvalidInput
+	}
+
+	query := s.sqlBuilder.
 		Delete("saved_iperf_servers").
 		Where(sq.Eq{"id": id})
 
 	result, err := query.RunWith(s.db).ExecContext(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete iperf server: %w", err)
 	}
 
 	affected, err := result.RowsAffected()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get affected rows: %w", err)
 	}
 
 	if affected == 0 {
-		return sql.ErrNoRows
+		return ErrNotFound
 	}
 
 	return nil
