@@ -6,6 +6,7 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,14 +18,17 @@ import (
 )
 
 type AuthHandler struct {
-	db   database.Service
-	oidc *auth.OIDCConfig
+	db            database.Service
+	oidc          *auth.OIDCConfig
+	sessionTokens map[string]string
+	sessionMutex  sync.RWMutex
 }
 
 func NewAuthHandler(db database.Service, oidc *auth.OIDCConfig) *AuthHandler {
 	return &AuthHandler{
-		db:   db,
-		oidc: oidc,
+		db:            db,
+		oidc:          oidc,
+		sessionTokens: make(map[string]string),
 	}
 }
 
@@ -94,7 +98,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	c.SetCookie(
 		"session",
 		sessionToken,
-		int((24 * time.Hour).Seconds()),
+		int((30 * 24 * time.Hour).Seconds()),
 		"/",
 		"",
 		isSecure,
@@ -148,7 +152,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.SetCookie(
 		"session",
 		sessionToken,
-		int((24 * time.Hour).Seconds()),
+		int((30 * 24 * time.Hour).Seconds()),
 		"/",
 		"",
 		isSecure,
@@ -290,4 +294,11 @@ func RequireAuth(db database.Service, oidc *auth.OIDCConfig) gin.HandlerFunc {
 		c.Set("username", username)
 		c.Next()
 	}
+}
+
+func (h *AuthHandler) storeSession(sessionToken, idToken string) error {
+	h.sessionMutex.Lock()
+	defer h.sessionMutex.Unlock()
+	h.sessionTokens[sessionToken] = idToken
+	return nil
 }

@@ -51,7 +51,7 @@ func NewOIDC(ctx context.Context) (*OIDCConfig, error) {
 		log.Error().Err(err).Str("issuer", issuer).Msg("Failed to initialize OIDC provider")
 		return nil, fmt.Errorf("failed to initialize OIDC provider: %w", err)
 	}
-	//log.Info().Str("issuer", issuer).Msg("OIDC provider initialized successfully")
+	// log.Info().Str("issuer", issuer).Msg("OIDC provider initialized successfully")
 
 	config := oauth2.Config{
 		ClientID:     os.Getenv("OIDC_CLIENT_ID"),
@@ -66,7 +66,7 @@ func NewOIDC(ctx context.Context) (*OIDCConfig, error) {
 		Str("redirectURL", config.RedirectURL).
 		Str("authURL", endpoints.AuthURL).
 		Str("tokenURL", endpoints.TokenURL).
-		//Str("userinfoURL", userinfoURL).
+		// Str("userinfoURL", userinfoURL).
 		Strs("scopes", config.Scopes).
 		Msg("OIDC configuration created")
 
@@ -122,11 +122,11 @@ func getProviderEndpoints(ctx context.Context, client *http.Client, issuer strin
 		Str("issuer", discovery.Issuer).
 		Str("auth_url", discovery.AuthURL).
 		Str("token_url", discovery.TokenURL).
-		//Str("userinfo_url", discovery.UserinfoURL).
-		//Str("jwks_url", discovery.JWKSURL).
-		//Strs("response_types", discovery.ResponseTypes).
-		//Strs("subject_types", discovery.SubjectTypes).
-		//Strs("signing_algs", discovery.SigningAlgs).
+		// Str("userinfo_url", discovery.UserinfoURL).
+		// Str("jwks_url", discovery.JWKSURL).
+		// Strs("response_types", discovery.ResponseTypes).
+		// Strs("subject_types", discovery.SubjectTypes).
+		// Strs("signing_algs", discovery.SigningAlgs).
 		Msg("OIDC discovery successful")
 
 	return oauth2.Endpoint{

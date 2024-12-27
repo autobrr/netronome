@@ -4,6 +4,8 @@
 package server
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"net/http"
 	"time"
 
@@ -56,11 +58,24 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 		return
 	}
 
-	// Set session cookie
+	sessionToken, err := generateSecureToken(32)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to generate session token")
+		c.Redirect(http.StatusTemporaryRedirect, "/login?error=server_error")
+		return
+	}
+
+	if err := h.storeSession(sessionToken, rawIDToken); err != nil {
+		log.Error().Err(err).Msg("failed to store session")
+		c.Redirect(http.StatusTemporaryRedirect, "/login?error=server_error")
+		return
+	}
+
+	// Set session cookie with the random token instead
 	c.SetCookie(
 		"session",
-		rawIDToken,
-		int((24 * time.Hour).Seconds()), // 24h default
+		sessionToken,
+		int((30 * 24 * time.Hour).Seconds()), // 30 days
 		"/",
 		"",
 		c.Request.URL.Scheme == "https",
@@ -68,4 +83,12 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 	)
 
 	c.Redirect(http.StatusTemporaryRedirect, "/")
+}
+
+func generateSecureToken(length int) (string, error) {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
