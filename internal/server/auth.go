@@ -14,7 +14,6 @@ import (
 
 	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/database"
-	"github.com/autobrr/netronome/internal/utils"
 )
 
 type AuthHandler struct {
@@ -70,7 +69,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	if err := utils.ValidatePassword(req.Password); err != nil {
+	if err := auth.ValidatePassword(req.Password); err != nil {
 		_ = c.Error(fmt.Errorf("invalid password: %w", err))
 		return
 	}
@@ -86,7 +85,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	sessionToken, err := utils.GenerateSecureToken(32)
+	sessionToken, err := auth.GenerateSecureToken(32)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to generate session token")
 		_ = c.Error(fmt.Errorf("failed to generate session token: %w", err))
@@ -140,7 +139,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	sessionToken, err := utils.GenerateSecureToken(32)
+	sessionToken, err := auth.GenerateSecureToken(32)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to generate session token")
 		_ = c.Error(fmt.Errorf("failed to generate session token: %w", err))
