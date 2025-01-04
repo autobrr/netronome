@@ -1,0 +1,45 @@
+# Netronome Configuration
+
+[database]
+type = "sqlite"
+path = "netronome.db"
+
+# PostgreSQL options (uncomment and modify if using postgres)
+#host = "localhost"
+#port = 5432
+#user = "postgres"
+#password = ""
+#dbname = "netronome"
+#sslmode = "disable"
+
+[server]
+host = "0.0.0.0"
+port = 7575
+base_url = ""
+gin_mode = ""
+
+[logging]
+level = "info"
+gin_mode = ""
+
+[oidc]
+issuer = ""
+client_id = ""
+client_secret = ""
+redirect_url = ""
+
+[speedtest]
+timeout = 30
+
+[speedtest.iperf]
+test_duration = 10
+parallel_conns = 4
+
+# Pagination options (defaults work well for most cases)
+# Only uncomment and modify if you need to adjust the API response pagination
+#[pagination]
+#default_page = 1
+#default_page_size = 20
+#max_page_size = 100
+#default_time_range = "1w"
+#default_limit = 20

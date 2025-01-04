@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -28,7 +29,7 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 	s.mu.Unlock()
 
 	// Use configured timeout
-	ctx, cancel := context.WithTimeout(c.Request.Context(), s.config.SpeedTest.Timeout)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(s.config.SpeedTest.Timeout)*time.Second)
 	defer cancel()
 
 	result, err := s.speedtest.RunTest(&opts)

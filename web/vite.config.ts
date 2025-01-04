@@ -2,6 +2,10 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+// Get API details from Netronome env vars
+const apiHost = process.env.NETRONOME__HOST || 'localhost'
+const apiPort = process.env.NETRONOME__PORT || '7575'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -23,7 +27,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: `http://${apiHost}:${apiPort}`,
         changeOrigin: true,
         secure: false,
       }

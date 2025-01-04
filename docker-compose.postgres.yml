@@ -1,28 +1,28 @@
+version: '3'
+
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
+  netronome:
+    image: ghcr.io/autobrr/netronome:latest
+    container_name: netronome
     ports:
-      - 8080:8080
+      - "7575:7575"
     volumes:
       - ./data:/data
     environment:
-      - NETRONOME_DB_TYPE=postgres
-      - NETRONOME_DB_HOST=postgres
-      - NETRONOME_DB_PORT=5432
-      - NETRONOME_DB_USER=netronome
-      - NETRONOME_DB_PASSWORD=netronome
-      - NETRONOME_DB_NAME=netronome
-      - NETRONOME_DB_SSLMODE=disable
+      - NETRONOME__DB_TYPE=postgres
+      - NETRONOME__DB_HOST=postgres
+      - NETRONOME__DB_PORT=5432
+      - NETRONOME__DB_USER=netronome
+      - NETRONOME__DB_PASSWORD=netronome
+      - NETRONOME__DB_NAME=netronome
+      - NETRONOME__DB_SSLMODE=disable
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
+    restart: unless-stopped
 
   postgres:
+    container_name: netronome-postgres
     image: postgres:17-alpine
-    restart: unless-stopped
     environment:
       - POSTGRES_USER=netronome
       - POSTGRES_PASSWORD=netronome
@@ -30,13 +30,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - 5432:5432
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U netronome"]
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 10s
+    restart: unless-stopped
 
 volumes:
   postgres_data:

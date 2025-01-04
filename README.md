@@ -65,7 +65,19 @@ cd ..
 go mod download
 ```
 
-3. Start the development environment:
+3. Generate a default configuration:
+
+```bash
+netronome generate-config
+```
+
+4. Start the server:
+
+```bash
+netronome serve
+```
+
+Or use Make for development:
 
 ```bash
 make dev
@@ -84,33 +96,94 @@ make docker-run
 
 - `make all` - Clean build frontend and backend
 - `make build` - Build frontend and backend
-- `make run` - Run the application
+- `make run` - Run the application in server mode
 - `make dev` - Start development environment with live reload
 - `make watch` - Live reload backend only
 - `make clean` - Clean build artifacts
 
 ## ⚙️ Configuration
 
+### Configuration File (config.toml)
+
+Netronome can be configured using a TOML file. Generate a default configuration:
+
+```bash
+netronome generate-config
+```
+
+This will create a `config.toml` file with default settings:
+
+```toml
+[server]
+port = 7575
+host = "0.0.0.0"
+base_url = ""  # optional
+gin_mode = "release"  # or "debug"
+
+[database]
+type = "sqlite"  # or "postgres"
+path = "./netronome.db"  # for sqlite
+host = "localhost"  # for postgres
+port = 5432  # for postgres
+user = "postgres"  # for postgres
+password = "your-password"  # for postgres
+name = "netronome"  # for postgres
+sslmode = "disable"  # for postgres
+
+[oidc]
+issuer = "https://pocketid.domain.net"
+client_id = "your-client-id"
+client_secret = "your-client-secret"
+redirect_url = "https://netronome.domain.net/api/auth/oidc/callback"
+
+[speedtest]
+timeout = 30  # seconds
+
+[speedtest.iperf]
+test_duration = 10
+parallel_conns = 4
+
+[logging]
+level = "info"
+gin_mode = "release"  # or "debug"
+
+[pagination]
+default_page = 1
+default_page_size = 20
+max_page_size = 100
+default_time_range = "1w"
+default_limit = 20
+```
+
 ### Environment Variables
 
-| Variable                         | Description                                                       | Default                                      | Required            |
-| -------------------------------- | ----------------------------------------------------------------- | -------------------------------------------- | ------------------- |
-| `NETRONOME_DB_TYPE`              | Database type (`sqlite`/`postgres`)                               | `sqlite`                                     | No                  |
-| `NETRONOME_DB_PATH`              | SQLite database file path                                         | `./netronome.db`                             | Only for SQLite     |
-| `NETRONOME_DB_HOST`              | PostgreSQL host                                                   | `localhost`                                  | Only for PostgreSQL |
-| `NETRONOME_DB_PORT`              | PostgreSQL port                                                   | `5432`                                       | Only for PostgreSQL |
-| `NETRONOME_DB_USER`              | PostgreSQL user                                                   | `postgres`                                   | Only for PostgreSQL |
-| `NETRONOME_DB_PASSWORD`          | PostgreSQL password                                               | -                                            | Only for PostgreSQL |
-| `NETRONOME_DB_NAME`              | PostgreSQL database name                                          | `netronome`                                  | Only for PostgreSQL |
-| `NETRONOME_DB_SSLMODE`           | PostgreSQL SSL mode                                               | `disable`                                    | Only for PostgreSQL |
-| `NETRONOME_IPERF_TEST_DURATION`  | Duration of iPerf tests in seconds                                | `10`                                         | No                  |
-| `NETRONOME_IPERF_PARALLEL_CONNS` | Number of parallel iPerf connections                              | `4`                                          | No                  |
-| `NETRONOME_LOG_LEVEL`            | Log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`/`panic`) | `info`                                       | No                  |
-| `GIN_MODE`                       | Gin framework mode (`debug`/`release`)                            | `release`                                    | No                  |
-| `OIDC_ISSUER`                    | OpenID Connect issuer URL                                         | -                                            | Only for OIDC       |
-| `OIDC_CLIENT_ID`                 | OpenID Connect client ID                                          | -                                            | Only for OIDC       |
-| `OIDC_CLIENT_SECRET`             | OpenID Connect client secret                                      | -                                            | Only for OIDC       |
-| `OIDC_REDIRECT_URL`              | OpenID Connect redirect URL                                       | http://localhost:8080/api/auth/oidc/callback | Only for OIDC       |
+| Variable                          | Description                                                       | Default                                      | Required            |
+| --------------------------------- | ----------------------------------------------------------------- | -------------------------------------------- | ------------------- |
+| `NETRONOME__HOST`                 | Server host                                                       | `0.0.0.0`                                    | No                  |
+| `NETRONOME__PORT`                 | Server port                                                       | `7575`                                       | No                  |
+| `NETRONOME__BASE_URL`             | Base URL for the application                                      | -                                            | No                  |
+| `NETRONOME__GIN_MODE`             | Gin framework mode (`debug`/`release`)                            | `release`                                    | No                  |
+| `NETRONOME__DB_TYPE`              | Database type (`sqlite`/`postgres`)                               | `sqlite`                                     | No                  |
+| `NETRONOME__DB_PATH`              | SQLite database file path                                         | `./netronome.db`                             | Only for SQLite     |
+| `NETRONOME__DB_HOST`              | PostgreSQL host                                                   | `localhost`                                  | Only for PostgreSQL |
+| `NETRONOME__DB_PORT`              | PostgreSQL port                                                   | `5432`                                       | Only for PostgreSQL |
+| `NETRONOME__DB_USER`              | PostgreSQL user                                                   | `postgres`                                   | Only for PostgreSQL |
+| `NETRONOME__DB_PASSWORD`          | PostgreSQL password                                               | -                                            | Only for PostgreSQL |
+| `NETRONOME__DB_NAME`              | PostgreSQL database name                                          | `netronome`                                  | Only for PostgreSQL |
+| `NETRONOME__DB_SSLMODE`           | PostgreSQL SSL mode                                               | `disable`                                    | Only for PostgreSQL |
+| `NETRONOME__IPERF_TEST_DURATION`  | Duration of iPerf tests in seconds                                | `10`                                         | No                  |
+| `NETRONOME__IPERF_PARALLEL_CONNS` | Number of parallel iPerf connections                              | `4`                                          | No                  |
+| `NETRONOME__SPEEDTEST_TIMEOUT`    | Speedtest timeout in seconds                                      | `30`                                         | No                  |
+| `NETRONOME__LOG_LEVEL`            | Log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`/`panic`) | `info`                                       | No                  |
+| `NETRONOME__OIDC_ISSUER`          | OpenID Connect issuer URL                                         | -                                            | Only for OIDC       |
+| `NETRONOME__OIDC_CLIENT_ID`       | OpenID Connect client ID                                          | -                                            | Only for OIDC       |
+| `NETRONOME__OIDC_CLIENT_SECRET`   | OpenID Connect client secret                                      | -                                            | Only for OIDC       |
+| `NETRONOME__OIDC_REDIRECT_URL`    | OpenID Connect redirect URL                                       | http://localhost:7575/api/auth/oidc/callback | Only for OIDC       |
+| `NETRONOME__DEFAULT_PAGE`         | Default page number for pagination                                | `1`                                          | No                  |
+| `NETRONOME__DEFAULT_PAGE_SIZE`    | Default page size for pagination                                  | `20`                                         | No                  |
+| `NETRONOME__MAX_PAGE_SIZE`        | Maximum page size for pagination                                  | `100`                                        | No                  |
+| `NETRONOME__DEFAULT_TIME_RANGE`   | Default time range for data queries                               | `1w`                                         | No                  |
+| `NETRONOME__DEFAULT_LIMIT`        | Default limit for data queries                                    | `20`                                         | No                  |
 
 ### Database
 

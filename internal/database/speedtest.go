@@ -9,6 +9,7 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
+	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/types"
 )
 
@@ -29,7 +30,7 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 	var id int64
 
 	switch s.config.Type {
-	case Postgres:
+	case config.Postgres:
 		query := s.sqlBuilder.Insert("speed_tests").
 			SetMap(data).
 			Suffix("RETURNING id")
@@ -44,7 +45,7 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 			return nil, fmt.Errorf("failed to save speed test: %w", err)
 		}
 
-	case SQLite:
+	case config.SQLite:
 		res, err := s.insert(ctx, "speed_tests", data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to save speed test: %w", err)
@@ -61,13 +62,12 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 }
 
 func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, limit int) (*types.PaginatedSpeedTests, error) {
-
 	baseQuery := s.sqlBuilder.Select().From("speed_tests")
 
 	if timeRange != "" {
 		var timeExpr string
 		switch s.config.Type {
-		case Postgres:
+		case config.Postgres:
 			switch timeRange {
 			case "1d":
 				timeExpr = "NOW() - INTERVAL '1 day'"
@@ -78,7 +78,7 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 			case "1m":
 				timeExpr = "NOW() - INTERVAL '1 month'"
 			}
-		case SQLite:
+		case config.SQLite:
 			switch timeRange {
 			case "1d":
 				timeExpr = "datetime('now', '-1 day')"

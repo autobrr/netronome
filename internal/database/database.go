@@ -20,6 +20,7 @@ import (
 	"github.com/rs/zerolog/log"
 	_ "modernc.org/sqlite"
 
+	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database/migrations"
 	"github.com/autobrr/netronome/internal/types"
 	"github.com/autobrr/netronome/pkg/migrator"
@@ -38,24 +39,6 @@ type ZerologAdapter struct {
 
 func (z *ZerologAdapter) Printf(format string, args ...interface{}) {
 	z.logger.Info().Msgf(format, args...)
-}
-
-type DatabaseType string
-
-const (
-	SQLite   DatabaseType = "sqlite"
-	Postgres DatabaseType = "postgres"
-)
-
-type Config struct {
-	Type     DatabaseType
-	Host     string
-	Port     int
-	User     string
-	Password string
-	DBName   string
-	SSLMode  string
-	Path     string // For SQLite
 }
 
 // Service represents the core database functionality
@@ -88,7 +71,7 @@ type Service interface {
 
 type service struct {
 	db         *sql.DB
-	config     Config
+	config     config.DatabaseConfig
 	sqlBuilder sq.StatementBuilderType
 }
 
@@ -155,83 +138,41 @@ func (s *service) QueryRow(ctx context.Context, query string, args ...interface{
 
 var dbInstance *service
 
-func getConfig() Config {
-	dbType := DatabaseType(os.Getenv("NETRONOME_DB_TYPE"))
-	if dbType == "" {
-		dbType = SQLite
-	}
-
-	config := Config{
-		Type: dbType,
-	}
-
-	switch dbType {
-	case Postgres:
-		config.Host = getEnvOrDefault("NETRONOME_DB_HOST", "localhost")
-		config.Port = getEnvIntOrDefault("NETRONOME_DB_PORT", 5432)
-		config.User = getEnvOrDefault("NETRONOME_DB_USER", "postgres")
-		config.Password = os.Getenv("NETRONOME_DB_PASSWORD")
-		config.DBName = getEnvOrDefault("NETRONOME_DB_NAME", "netronome")
-		config.SSLMode = getEnvOrDefault("NETRONOME_DB_SSLMODE", "disable")
-	case SQLite:
-		config.Path = getEnvOrDefault("NETRONOME_DB_PATH", "netronome.db")
-	}
-
-	return config
-}
-
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-func getEnvIntOrDefault(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if intValue, err := strconv.Atoi(value); err == nil {
-			return intValue
-		}
-	}
-	return defaultValue
-}
-
-func New() Service {
+func New(cfg config.DatabaseConfig) Service {
 	if dbInstance != nil {
 		return dbInstance
 	}
 
-	config := getConfig()
 	var db *sql.DB
 	var err error
 	var builder sq.StatementBuilderType
 
-	switch config.Type {
-	case Postgres:
+	switch cfg.Type {
+	case config.Postgres:
 		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-			config.Host, config.Port, config.User, config.Password, config.DBName, config.SSLMode)
+			cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode)
 		db, err = sql.Open("postgres", dsn)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to open PostgreSQL database")
 		}
 		builder = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
-	case SQLite:
-		absPath, err := filepath.Abs(config.Path)
+	case config.SQLite:
+		absPath, err := filepath.Abs(cfg.Path)
 		if err != nil {
-			log.Fatal().Err(err).Str("path", config.Path).Msg("Failed to get absolute database path")
+			log.Fatal().Err(err).Str("path", cfg.Path).Msg("Failed to get absolute database path")
 		}
-		config.Path = absPath
-		dbDir := filepath.Dir(config.Path)
+		cfg.Path = absPath
+		dbDir := filepath.Dir(cfg.Path)
 
-		if err := os.MkdirAll(dbDir, 0755); err != nil {
+		if err := os.MkdirAll(dbDir, 0o755); err != nil {
 			log.Fatal().Err(err).Str("path", dbDir).Msg("Failed to create database directory")
 		}
 
-		if err := os.Chmod(dbDir, 0755); err != nil {
+		if err := os.Chmod(dbDir, 0o755); err != nil {
 			log.Fatal().Err(err).Msg("Failed to set database directory permissions")
 		}
 
-		db, err = sql.Open("sqlite", fmt.Sprintf("file:%s?cache=shared&mode=rwc", config.Path))
+		db, err = sql.Open("sqlite", fmt.Sprintf("file:%s?cache=shared&mode=rwc", cfg.Path))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to open SQLite database")
 		}
@@ -240,7 +181,7 @@ func New() Service {
 			log.Fatal().Err(err).Msg("Failed to initialize SQLite database")
 		}
 
-		if err := os.Chmod(config.Path, 0640); err != nil {
+		if err := os.Chmod(cfg.Path, 0o640); err != nil {
 			log.Fatal().Err(err).Msg("Failed to set database file permissions")
 		}
 		builder = sq.StatementBuilder.PlaceholderFormat(sq.Question)
@@ -250,13 +191,8 @@ func New() Service {
 
 	dbInstance = &service{
 		db:         db,
-		config:     config,
+		config:     cfg,
 		sqlBuilder: builder,
-	}
-
-	ctx := context.Background()
-	if err := dbInstance.InitializeTables(ctx); err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialize tables")
 	}
 
 	return dbInstance

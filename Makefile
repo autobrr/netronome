@@ -25,7 +25,7 @@ clean:
 
 run: build
 	@echo "Running application..."
-	@./$(BUILD_DIR)/$(BINARY_NAME)
+	@./$(BUILD_DIR)/$(BINARY_NAME) serve
 
 docker-build:
 	@echo "Building Docker image..."
@@ -33,7 +33,7 @@ docker-build:
 
 docker-run: docker-build
 	@echo "Running Docker container..."
-	docker run -p 8080:8080 $(DOCKER_IMAGE)
+	docker run -p 7575:7575 $(DOCKER_IMAGE)
 
 # Development with live reload
 dev:

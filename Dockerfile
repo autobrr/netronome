@@ -49,7 +49,7 @@ WORKDIR /data
 
 COPY --from=app-builder /app/netronome /usr/local/bin/netronome
 
-EXPOSE 8080
+EXPOSE 7575
 
 RUN addgroup -S netronome && \
     adduser -S netronome -G netronome && \
@@ -60,3 +60,4 @@ RUN addgroup -S netronome && \
 USER netronome
 
 ENTRYPOINT ["netronome"]
+CMD ["serve"]
