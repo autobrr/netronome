@@ -15,12 +15,10 @@ path = "netronome.db"
 [server]
 host = "0.0.0.0"
 port = 7575
-base_url = ""
-gin_mode = ""
+# gin_mode = "release"  # optional: "debug" or "release"
 
 [logging]
-level = "info"
-gin_mode = ""
+level = "info"  # trace, debug, info, warn, error, fatal, panic
 
 [oidc]
 issuer = ""

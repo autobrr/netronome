@@ -58,8 +58,7 @@ type ServerConfig struct {
 }
 
 type LoggingConfig struct {
-	Level   string `toml:"level" env:"LOG_LEVEL"`
-	GinMode string `toml:"gin_mode" env:"GIN_MODE"`
+	Level string `toml:"level" env:"LOG_LEVEL"`
 }
 
 type OIDCConfig struct {
@@ -217,9 +216,6 @@ func (c *Config) loadLoggingFromEnv() {
 	if v := os.Getenv(EnvPrefix + "LOG_LEVEL"); v != "" {
 		c.Logging.Level = strings.ToLower(v)
 	}
-	if v := os.Getenv(EnvPrefix + "GIN_MODE"); v != "" {
-		c.Logging.GinMode = v
-	}
 }
 
 func (c *Config) loadOIDCFromEnv() {
@@ -301,7 +297,10 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "type = \"%s\"\n", cfg.Database.Type); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "path = \"%s\"\n\n", cfg.Database.Path); err != nil {
+	if _, err := fmt.Fprintf(w, "path = \"%s\"\n", cfg.Database.Path); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
 		return err
 	}
 
@@ -338,10 +337,10 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "port = %d\n", cfg.Server.Port); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "base_url = \"%s\"\n", cfg.Server.BaseURL); err != nil {
+	if _, err := fmt.Fprintln(w, "# gin_mode = \"release\"  # optional: \"debug\" or \"release\""); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "gin_mode = \"%s\"\n\n", cfg.Server.GinMode); err != nil {
+	if _, err := fmt.Fprintln(w, ""); err != nil {
 		return err
 	}
 
@@ -349,10 +348,10 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintln(w, "[logging]"); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "level = \"%s\"\n", cfg.Logging.Level); err != nil {
+	if _, err := fmt.Fprintf(w, "level = \"%s\"  # trace, debug, info, warn, error, fatal, panic\n", cfg.Logging.Level); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "gin_mode = \"%s\"\n\n", cfg.Logging.GinMode); err != nil {
+	if _, err := fmt.Fprintln(w, ""); err != nil {
 		return err
 	}
 
@@ -369,7 +368,10 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "client_secret = \"%s\"\n", cfg.OIDC.ClientSecret); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "redirect_url = \"%s\"\n\n", cfg.OIDC.RedirectURL); err != nil {
+	if _, err := fmt.Fprintf(w, "redirect_url = \"%s\"\n", cfg.OIDC.RedirectURL); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
 		return err
 	}
 
@@ -377,7 +379,10 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintln(w, "[speedtest]"); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "timeout = %d\n\n", cfg.SpeedTest.Timeout); err != nil {
+	if _, err := fmt.Fprintf(w, "timeout = %d\n", cfg.SpeedTest.Timeout); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
 		return err
 	}
 
@@ -388,7 +393,10 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "test_duration = %d\n", cfg.SpeedTest.IPerf.TestDuration); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "parallel_conns = %d\n\n", cfg.SpeedTest.IPerf.ParallelConns); err != nil {
+	if _, err := fmt.Fprintf(w, "parallel_conns = %d\n", cfg.SpeedTest.IPerf.ParallelConns); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
 		return err
 	}
 

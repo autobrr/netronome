@@ -101,7 +101,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 
 	// Initialize logger with config
-	logger.Init(cfg.Logging)
+	logger.Init(cfg.Logging, cfg.Server)
 
 	// Initialize database
 	db := database.New(cfg.Database)

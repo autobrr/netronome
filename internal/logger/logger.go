@@ -14,7 +14,7 @@ import (
 	"github.com/autobrr/netronome/internal/config"
 )
 
-func Init(cfg config.LoggingConfig) {
+func Init(cfg config.LoggingConfig, serverCfg config.ServerConfig) {
 	output := zerolog.ConsoleWriter{
 		Out:        os.Stdout,
 		TimeFormat: time.RFC3339,
@@ -68,8 +68,8 @@ func Init(cfg config.LoggingConfig) {
 	case "panic":
 		zerolog.SetGlobalLevel(zerolog.PanicLevel)
 	default:
-		// Use GinMode from config instead of environment variable
-		if cfg.GinMode == "debug" {
+		// Use GinMode from server config instead of logging config
+		if serverCfg.GinMode == "debug" {
 			zerolog.SetGlobalLevel(zerolog.TraceLevel)
 			log.Debug().Msg("Logger initialized in debug mode")
 		} else {

@@ -114,45 +114,50 @@ netronome generate-config
 This will create a `config.toml` file with default settings:
 
 ```toml
-[server]
-port = 7575
-host = "0.0.0.0"
-base_url = ""  # optional
-gin_mode = "release"  # or "debug"
+# Netronome Configuration
 
 [database]
-type = "sqlite"  # or "postgres"
-path = "./netronome.db"  # for sqlite
-host = "localhost"  # for postgres
-port = 5432  # for postgres
-user = "postgres"  # for postgres
-password = "your-password"  # for postgres
-name = "netronome"  # for postgres
-sslmode = "disable"  # for postgres
+type = "sqlite"
+path = "netronome.db"
+
+# PostgreSQL options (uncomment and modify if using postgres)
+#host = "localhost"
+#port = 5432
+#user = "postgres"
+#password = ""
+#dbname = "netronome"
+#sslmode = "disable"
+
+[server]
+host = "0.0.0.0"
+port = 7575
+#gin_mode = ""  # optional: "debug" or "release"
+
+[logging]
+level = "info"
+#gin_mode = ""  # optional: "debug" or "release"
 
 [oidc]
-issuer = "https://pocketid.domain.net"
-client_id = "your-client-id"
-client_secret = "your-client-secret"
-redirect_url = "https://netronome.domain.net/api/auth/oidc/callback"
+issuer = ""
+client_id = ""
+client_secret = ""
+redirect_url = ""
 
 [speedtest]
-timeout = 30  # seconds
+timeout = 30
 
 [speedtest.iperf]
 test_duration = 10
 parallel_conns = 4
 
-[logging]
-level = "info"
-gin_mode = "release"  # or "debug"
-
-[pagination]
-default_page = 1
-default_page_size = 20
-max_page_size = 100
-default_time_range = "1w"
-default_limit = 20
+# Pagination options (defaults work well for most cases)
+# Only uncomment and modify if you need to adjust the API response pagination
+#[pagination]
+#default_page = 1
+#default_page_size = 20
+#max_page_size = 100
+#default_time_range = "1w"
+#default_limit = 20
 ```
 
 ### Environment Variables
@@ -161,7 +166,6 @@ default_limit = 20
 | --------------------------------- | ----------------------------------------------------------------- | -------------------------------------------- | ------------------- |
 | `NETRONOME__HOST`                 | Server host                                                       | `0.0.0.0`                                    | No                  |
 | `NETRONOME__PORT`                 | Server port                                                       | `7575`                                       | No                  |
-| `NETRONOME__BASE_URL`             | Base URL for the application                                      | -                                            | No                  |
 | `NETRONOME__GIN_MODE`             | Gin framework mode (`debug`/`release`)                            | `release`                                    | No                  |
 | `NETRONOME__DB_TYPE`              | Database type (`sqlite`/`postgres`)                               | `sqlite`                                     | No                  |
 | `NETRONOME__DB_PATH`              | SQLite database file path                                         | `./netronome.db`                             | Only for SQLite     |
