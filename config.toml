@@ -18,7 +18,7 @@ port = 7575
 # gin_mode = "release"  # optional: "debug" or "release"
 
 [logging]
-level = "info"  # trace, debug, info, warn, error, fatal, panic
+level = "trace"  # trace, debug, info, warn, error, fatal, panic
 
 [oidc]
 issuer = ""

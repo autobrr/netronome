@@ -300,11 +300,11 @@ func (s *service) InitializeTables(ctx context.Context) error {
 		return fmt.Errorf("failed to get migration files: %w", err)
 	}
 
-	log.Trace().Interface("migration_files", migrationFiles).Msg("Found migration files")
+	// log.Trace().Interface("migration_files", migrationFiles).Msg("Found migration files")
 
 	for _, fileName := range migrationFiles {
-		version := getMigrationVersion(fileName)
-		log.Trace().Str("file", fileName).Int("version", version).Msg("Adding migration")
+		// version := getMigrationVersion(fileName)
+		// log.Trace().Str("file", fileName).Int("version", version).Msg("Adding migration")
 		m.Add(&migrator.Migration{
 			Name: fileName,
 			File: fileName,

@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -19,6 +21,9 @@ const (
 
 	// EnvPrefix is the prefix for all environment variables
 	EnvPrefix = "NETRONOME__"
+
+	// AppName is used for config directory naming
+	AppName = "netronome"
 )
 
 // DatabaseType represents the type of database
@@ -126,13 +131,33 @@ func New() *Config {
 func Load(configPath string) (*Config, error) {
 	cfg := New()
 
-	// If config file exists, load it
-	if _, err := os.Stat(configPath); err == nil {
+	// If specific config path provided, only try that one
+	if configPath != "" {
 		if _, err := toml.DecodeFile(configPath, cfg); err != nil {
-			return nil, fmt.Errorf("failed to decode config file: %w", err)
+			return nil, fmt.Errorf("failed to decode config file %s: %w", configPath, err)
 		}
-	} else if !os.IsNotExist(err) {
-		return nil, fmt.Errorf("failed to check config file: %w", err)
+		log.Info().
+			Str("path", configPath).
+			Msg("Loaded configuration file")
+	} else {
+		// Try each default path in order
+		found := false
+		for _, path := range DefaultConfigPaths() {
+			if _, err := os.Stat(path); err == nil {
+				if _, err := toml.DecodeFile(path, cfg); err == nil {
+					log.Info().
+						Str("path", path).
+						Msg("Loaded configuration file")
+					found = true
+					break
+				}
+			}
+		}
+		if !found {
+			log.Debug().
+				Strs("searched_paths", DefaultConfigPaths()).
+				Msg("No configuration file found in default locations")
+		}
 	}
 
 	// Override with environment variables
@@ -427,4 +452,30 @@ func (c *Config) WriteToml(w io.Writer) error {
 	}
 
 	return nil
+}
+
+func GetDefaultConfigPath() string {
+	// Check user config directory first (~/.config/netronome/config.toml on Linux)
+	if configDir, err := os.UserConfigDir(); err == nil {
+		configPath := filepath.Join(configDir, AppName, "config.toml")
+		if _, err := os.Stat(configPath); err == nil {
+			return configPath
+		}
+	}
+
+	// Fallback to current directory
+	return "config.toml"
+}
+
+// DefaultConfigPaths returns all possible config file locations in order of preference
+func DefaultConfigPaths() []string {
+	var paths []string
+
+	if configDir, err := os.UserConfigDir(); err == nil {
+		paths = append(paths, filepath.Join(configDir, AppName, "config.toml"))
+	}
+
+	paths = append(paths, "config.toml")
+
+	return paths
 }

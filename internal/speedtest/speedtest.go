@@ -45,7 +45,7 @@ func New(server *Server, db database.Service, cfg config.SpeedTestConfig) Servic
 		cacheExpiry:   time.Now(),
 	}
 
-	log.Debug().Msg("Initialized speedtest service")
+	// log.Debug().Msg("Initialized speedtest service")
 	return svc
 }
 

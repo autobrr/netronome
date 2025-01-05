@@ -70,6 +70,8 @@ func main() {
 }
 
 func generateConfig(cmd *cobra.Command, args []string) error {
+	logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
+
 	cfg := config.New()
 
 	// Check if file already exists
@@ -94,14 +96,17 @@ func generateConfig(cmd *cobra.Command, args []string) error {
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
+	// Initialize logger with default settings first (silent)
+	logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, true)
+
 	// Load configuration
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Initialize logger with config
-	logger.Init(cfg.Logging, cfg.Server)
+	// Reinitialize logger with loaded config (not silent)
+	logger.Init(cfg.Logging, cfg.Server, false)
 
 	// Initialize database
 	db := database.New(cfg.Database)

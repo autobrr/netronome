@@ -14,7 +14,7 @@ import (
 	"github.com/autobrr/netronome/internal/config"
 )
 
-func Init(cfg config.LoggingConfig, serverCfg config.ServerConfig) {
+func Init(cfg config.LoggingConfig, serverCfg config.ServerConfig, silent bool) {
 	output := zerolog.ConsoleWriter{
 		Out:        os.Stdout,
 		TimeFormat: time.RFC3339,
@@ -74,11 +74,8 @@ func Init(cfg config.LoggingConfig, serverCfg config.ServerConfig) {
 			log.Debug().Msg("Logger initialized in debug mode")
 		} else {
 			zerolog.SetGlobalLevel(zerolog.InfoLevel)
-			log.Info().Msg("Logger initialized in production mode")
 		}
 	}
-
-	log.Info().Msgf("Logger initialized with level: %s", zerolog.GlobalLevel().String())
 }
 
 func Get() zerolog.Logger {
