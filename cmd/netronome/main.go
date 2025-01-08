@@ -127,6 +127,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Now set the broadcast function to use the server's broadcast method
 	speedServer.BroadcastUpdate = serverHandler.BroadcastUpdate
 
+	// Start the scheduler service
+	serverHandler.StartScheduler(context.Background())
+
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	srv := &http.Server{

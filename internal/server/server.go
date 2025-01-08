@@ -90,14 +90,19 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 
 func (s *Server) BroadcastUpdate(update types.SpeedUpdate) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.lastUpdate = &update
+	s.mu.Unlock()
 
 	log.Debug().
 		Bool("isScheduled", update.IsScheduled).
 		Str("type", update.Type).
 		Str("server", update.ServerName).
 		Msg("Broadcasting speed test update")
+}
+
+func (s *Server) StartScheduler(ctx context.Context) {
+	s.scheduler.Start(ctx)
+	log.Info().Msg("Scheduler service started")
 }
 
 func (s *Server) RegisterRoutes() {
