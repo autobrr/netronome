@@ -65,8 +65,6 @@ func (s *service) Start(ctx context.Context) {
 			}
 		}
 	}()
-
-	log.Info().Msg("Scheduler service started")
 }
 
 // initializeSchedules prepares schedules on startup without running tests immediately
