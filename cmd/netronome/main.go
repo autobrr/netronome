@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -53,10 +54,10 @@ track and analyze your network performance over time.`,
 func init() {
 	// Load .env file
 	if err := godotenv.Load(); err != nil {
-		log.Debug().Err(err).Msg("No .env file found")
+		// no log needed
 	}
 
-	rootCmd.PersistentFlags().StringVar(&configPath, "config", config.DefaultConfigPath, "path to config file")
+	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "path to config file")
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(generateConfigCmd)
@@ -73,6 +74,36 @@ func generateConfig(cmd *cobra.Command, args []string) error {
 	logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
 
 	cfg := config.New()
+
+	if configPath == "" {
+		// Try ~/.config first
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			configDir := filepath.Join(homeDir, ".config")
+			netronomeDir := filepath.Join(configDir, config.AppName)
+			if err := os.MkdirAll(netronomeDir, 0755); err == nil {
+				configPath = filepath.Join(netronomeDir, "config.toml")
+			} else {
+				// Fall back to platform-specific user config dir
+				if configDir, err := os.UserConfigDir(); err == nil {
+					netronomeDir := filepath.Join(configDir, config.AppName)
+					if err := os.MkdirAll(netronomeDir, 0755); err == nil {
+						configPath = filepath.Join(netronomeDir, "config.toml")
+					} else {
+						log.Warn().
+							Err(err).
+							Msg("could not create config directory, falling back to working directory")
+						configPath = "config.toml"
+					}
+				} else {
+					log.Warn().
+						Err(err).
+						Msg("could not determine user config directory, falling back to working directory")
+					configPath = "config.toml"
+				}
+			}
+		}
+	}
 
 	// Check if file already exists
 	if _, err := os.Stat(configPath); err == nil {

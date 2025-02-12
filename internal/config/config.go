@@ -16,9 +16,6 @@ import (
 )
 
 const (
-	// DefaultConfigPath is the default path to the config file
-	DefaultConfigPath = "config.toml"
-
 	// EnvPrefix is the prefix for all environment variables
 	EnvPrefix = "NETRONOME__"
 
@@ -142,8 +139,17 @@ func Load(configPath string) (*Config, error) {
 	} else {
 		// Try each default path in order
 		found := false
-		for _, path := range DefaultConfigPaths() {
+		paths := DefaultConfigPaths()
+		for _, path := range paths {
+			log.Debug().
+				Str("checking_path", path).
+				Msg("Checking for config file")
+
 			if _, err := os.Stat(path); err == nil {
+				log.Debug().
+					Str("found_at", path).
+					Msg("Found config file")
+
 				if _, err := toml.DecodeFile(path, cfg); err == nil {
 					log.Info().
 						Str("path", path).
@@ -155,7 +161,7 @@ func Load(configPath string) (*Config, error) {
 		}
 		if !found {
 			log.Debug().
-				Strs("searched_paths", DefaultConfigPaths()).
+				Strs("searched_paths", paths).
 				Msg("No configuration file found in default locations")
 		}
 	}
@@ -471,10 +477,15 @@ func GetDefaultConfigPath() string {
 func DefaultConfigPaths() []string {
 	var paths []string
 
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		paths = append(paths, filepath.Join(homeDir, ".config", AppName, "config.toml"))
+	}
+
 	if configDir, err := os.UserConfigDir(); err == nil {
 		paths = append(paths, filepath.Join(configDir, AppName, "config.toml"))
 	}
 
+	// Finally try current directory
 	paths = append(paths, "config.toml")
 
 	return paths
