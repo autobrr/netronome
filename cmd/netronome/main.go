@@ -76,7 +76,6 @@ func generateConfig(cmd *cobra.Command, args []string) error {
 	cfg := config.New()
 
 	if configPath == "" {
-		// Try ~/.config first
 		homeDir, err := os.UserHomeDir()
 		if err == nil {
 			configDir := filepath.Join(homeDir, ".config")
@@ -105,19 +104,16 @@ func generateConfig(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Check if file already exists
 	if _, err := os.Stat(configPath); err == nil {
 		return fmt.Errorf("config file already exists at %s", configPath)
 	}
 
-	// Create config file
 	f, err := os.Create(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)
 	}
 	defer f.Close()
 
-	// Write default config
 	if err := cfg.WriteToml(f); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
@@ -127,48 +123,44 @@ func generateConfig(cmd *cobra.Command, args []string) error {
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
-	// Initialize logger with default settings first (silent)
+	// initialize logger with default settings first (silent)
 	logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, true)
 
-	// Load configuration
+	// load configuration
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Reinitialize logger with loaded config (not silent)
+	// reinitialize logger with loaded config (not silent)
 	logger.Init(cfg.Logging, cfg.Server, false)
 
-	// Initialize database
+	// initialize database
 	db := database.New(cfg.Database)
 	if err := db.InitializeTables(context.Background()); err != nil {
 		return fmt.Errorf("failed to initialize database tables: %w", err)
 	}
 
-	// Create speedtest server with the broadcast function first
+	// create speedtest server with the broadcast function first
 	speedServer := &speedtest.Server{
 		BroadcastUpdate: func(update types.SpeedUpdate) {
 			// We'll set this after creating the server handler
 		},
 	}
 
-	// Create server handler with all services
+	// create server handler with all services
 	serverHandler := server.NewServer(speedtest.New(speedServer, db, cfg.SpeedTest), db, scheduler.New(db, speedtest.New(speedServer, db, cfg.SpeedTest)), cfg)
 
-	// Now set the broadcast function to use the server's broadcast method
 	speedServer.BroadcastUpdate = serverHandler.BroadcastUpdate
 
-	// Start the scheduler service
 	serverHandler.StartScheduler(context.Background())
 
-	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: serverHandler.Router,
 	}
 
-	// Start server
 	go func() {
 		log.Info().Str("addr", addr).Msg("Starting server")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -176,14 +168,14 @@ func runServer(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	// Wait for interrupt signal to gracefully shutdown the server
+	// wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	log.Info().Msg("Shutting down server...")
 
-	// The context is used to inform the server it has 5 seconds to finish
+	// the context is used to inform the server it has 5 seconds to finish
 	// the request it is currently handling
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
