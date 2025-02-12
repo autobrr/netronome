@@ -1,42 +1,85 @@
 version: 2
+
 before:
   hooks:
-  - go mod tidy
-
-env:
-  - PACKAGE_PATH=github.com/<user>/<repo>/cmd
+    - go mod tidy
 
 builds:
-- binary: "{{ .ProjectName }}"
-  main: ./cmd/api
-  goos:
-  - darwin
-  - linux
-  - windows
-  goarch:
-  - amd64
-  - arm64
-  env:
-  - CGO_ENABLED=0
-  ldflags:
-  - -s -w -X {{.Env.PACKAGE_PATH}}={{.Version}} 
-release:
-  prerelease: auto
-
-universal_binaries:
-- replace: true
+  - id: netronome
+    env:
+      - CGO_ENABLED=0
+      - BUILDER
+    goos:
+      - linux
+      - windows
+      - darwin
+      - freebsd
+    goarch:
+      - amd64
+      - arm
+      - arm64
+    goarm:
+      - 6
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: arm64
+      - goos: darwin
+        goarch: arm
+      - goos: freebsd
+        goarch: arm
+      - goos: freebsd
+        goarch: arm64
+    main: ./cmd/netronome/main.go
+    binary: netronome
+    ldflags:
+      - -s -w
 
 archives:
-  - name_template: >
-      {{- .ProjectName }}_{{- .Version }}_{{- title .Os }}_{{- if eq .Arch "amd64" }}x86_64{{- else if eq .Arch "386" }}i386{{- else }}{{ .Arch }}{{ end }}{{- if .Arm }}v{{ .Arm }}{{ end -}}
-    format_overrides:
+  - format_overrides:
       - goos: windows
-        format: zip
-    builds_info:
-      group: root
-      owner: root
-    files:
-      - README.md
+        formats: ['zip']
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+
+release:
+  prerelease: auto
+  footer: |
+    **Full Changelog**: https://github.com/autobrr/netronome/compare/{{ .PreviousTag }}...{{ .Tag }}
 
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+  groups:
+    - title: "New Features"
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: "Bug fixes"
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 10
+    - title: Other work
+      order: 999
+
+nfpms:
+  - package_name: netronome
+    maintainer: autobrr
+    description: |-
+      netronome is a modern network speed testing and monitoring tool.
+    formats:
+      - apk
+      - deb
+      - rpm
+      - archlinux

@@ -43,6 +43,7 @@ license.sh
 
 # Project specific
 data/
+dist/
 
 # TypeScript build info
 *.tsbuildinfo
