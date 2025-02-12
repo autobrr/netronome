@@ -1,5 +1,7 @@
 FROM node:22.10.0-alpine3.20 AS web-builder
-RUN corepack enable
+
+# Install specific pnpm version instead of using corepack
+RUN npm install -g pnpm@9.9.0
 
 WORKDIR /app/web
 
