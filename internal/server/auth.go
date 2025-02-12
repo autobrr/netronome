@@ -230,7 +230,6 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		true,
 	)
 
-	// Also remove any stored session token
 	h.sessionMutex.Lock()
 	if sessionToken, err := c.Cookie("session"); err == nil {
 		delete(h.sessionTokens, sessionToken)

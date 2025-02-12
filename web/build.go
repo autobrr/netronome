@@ -82,20 +82,20 @@ func ServeStatic(r *gin.Engine) {
 		c.Next()
 	})
 
-	// Handle all non-API routes with index.html
+	// handle all non-API routes with index.html
 	r.NoRoute(func(c *gin.Context) {
 		baseURL := c.GetString("base_url")
 		if baseURL == "" {
 			baseURL = "/"
 		}
 
-		// Don't handle API routes
+		// don't handle API routes
 		if strings.HasPrefix(c.Request.URL.Path, strings.TrimSuffix(baseURL, "/")+"/api") {
 			c.AbortWithStatus(404)
 			return
 		}
 
-		// For root base URL, register the root handlers
+		// for root base URL, register the root handlers
 		if baseURL == "/" {
 			switch c.Request.URL.Path {
 			case "/":
@@ -146,7 +146,7 @@ func serveFileFromFS(c *gin.Context, filepath string) {
 		return
 	}
 
-	// Set content type based on file extension
+	// set content type based on file extension
 	ext := strings.ToLower(path.Ext(filepath))
 	var contentType string
 	switch ext {
@@ -178,20 +178,20 @@ func ServeIndex(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// Read the file content
+	// read the file content
 	content, err := io.ReadAll(file)
 	if err != nil {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
 
-	// Get base URL from gin context
+	// get base URL from gin context
 	baseURL := c.GetString("base_url")
 	if baseURL == "" {
 		baseURL = "/"
 	}
 
-	// Replace the template variable
+	// replace the template variable
 	html := strings.Replace(string(content), "{{.BaseURL}}", baseURL, 1)
 
 	c.Header("Content-Type", "text/html; charset=utf-8")
@@ -206,7 +206,7 @@ func ServeStaticFile(c *gin.Context) {
 	serveFileFromFS(c, filePath)
 }
 
-// Verify dist directory exists in embedded FS
+// verify dist directory exists in embedded FS
 func init() {
 	if _, err := Dist.ReadDir("dist"); err != nil {
 		panic(fmt.Errorf("dist directory not found in embedded filesystem: %w", err))
