@@ -17,6 +17,7 @@ import { ChevronUpDownIcon } from "@heroicons/react/20/solid";
 import { Disclosure } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { motion } from "motion/react";
+import { getApiUrl } from "@/utils/baseUrl";
 
 interface ScheduleManagerProps {
   servers: Server[];
@@ -80,7 +81,7 @@ export default function ScheduleManager({
   const fetchSchedules = async () => {
     try {
       setIsInitialLoading(true);
-      const response = await fetch("/api/schedules");
+      const response = await fetch(getApiUrl("/schedules"));
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -123,7 +124,7 @@ export default function ScheduleManager({
     };
 
     try {
-      const response = await fetch("/api/schedules", {
+      const response = await fetch(getApiUrl("/schedules"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -147,7 +148,7 @@ export default function ScheduleManager({
 
   const handleDeleteSchedule = async (id: number) => {
     try {
-      const response = await fetch(`/api/schedules/${id}`, {
+      const response = await fetch(getApiUrl(`/schedules/${id}`), {
         method: "DELETE",
       });
 

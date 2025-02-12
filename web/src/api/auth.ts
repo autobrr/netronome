@@ -3,10 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-interface LoginCredentials {
-  username: string;
-  password: string;
-}
+import { getApiUrl } from '@/utils/baseUrl';
 
 interface User {
   id: number;
@@ -21,7 +18,7 @@ interface LoginResponse {
 }
 
 interface UserResponse {
-  user: User;
+  user: User | null;
 }
 
 interface RegistrationStatus {
@@ -30,88 +27,112 @@ interface RegistrationStatus {
   oidcEnabled: boolean;
 }
 
-export async function login(credentials: LoginCredentials): Promise<User> {
-  const response = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify(credentials),
-  });
+export async function login(username: string, password: string): Promise<LoginResponse> {
+  try {
+    const response = await fetch(getApiUrl('/auth/login'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ username, password }),
+    });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error);
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error);
+    }
+
+    const data: LoginResponse = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
   }
-
-  const data: LoginResponse = await response.json();
-  return data.user;
 }
 
-export async function register(credentials: LoginCredentials): Promise<User> {
-  const response = await fetch('/api/auth/register', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify(credentials),
-  });
+export async function register(username: string, password: string): Promise<LoginResponse> {
+  try {
+    const response = await fetch(getApiUrl('/auth/register'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ username, password }),
+    });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error);
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error);
+    }
+
+    const data: LoginResponse = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Register error:', error);
+    throw error;
   }
-
-  const data: { message: string; user: User } = await response.json();
-  return data.user;
 }
 
 export async function logout(): Promise<void> {
-  const response = await fetch('/api/auth/logout', {
-    method: 'POST',
-    credentials: 'include',
-  });
+  try {
+    const response = await fetch(getApiUrl('/auth/logout'), {
+      method: 'POST',
+      credentials: 'include',
+    });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error);
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error);
+    }
+  } catch (error) {
+    console.error('Logout error:', error);
+    throw error;
   }
 }
 
-export async function verifySession(): Promise<User | null> {
+export async function verify(): Promise<boolean> {
   try {
-    const response = await fetch('/api/auth/verify', {
+    const response = await fetch(getApiUrl('/auth/verify'), {
       credentials: 'include',
     });
 
     if (!response.ok) {
       if (response.status === 401) {
-        return null;
+        return false;
       }
       throw new Error('Session verification failed');
     }
 
-    const userResponse = await fetch('/api/auth/user', {
+    return true;
+  } catch (error) {
+    console.error('Session verification error:', error);
+    return false;
+  }
+}
+
+export async function getUserInfo(): Promise<UserResponse> {
+  try {
+    const response = await fetch(getApiUrl('/auth/user'), {
       credentials: 'include',
     });
 
-    if (!userResponse.ok) {
-      return null;
+    if (!response.ok) {
+      return { user: null };
     }
 
-    const data: UserResponse = await userResponse.json();
-    return data.user;
+    const data: UserResponse = await response.json();
+    return data;
   } catch (error) {
-    console.error('Session verification error:', error);
-    return null;
+    console.error('User info retrieval error:', error);
+    return { user: null };
   }
 }
 
 export async function checkRegistrationStatus(): Promise<RegistrationStatus> {
   try {
-    const response = await fetch('/api/auth/status', {
+    const response = await fetch(getApiUrl('/auth/status'), {
       credentials: 'include',
     });
     
@@ -139,4 +160,8 @@ export async function checkRegistrationStatus(): Promise<RegistrationStatus> {
       oidcEnabled: false
     };
   }
+}
+
+export function getOIDCLoginUrl(): string {
+  return getApiUrl('/auth/oidc/login');
 }

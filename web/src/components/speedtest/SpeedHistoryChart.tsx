@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import { SpeedTestResult, TimeRange, PaginatedResponse } from "@/types/types";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { fetchHistory } from "@/api/speedtest";
+import { getHistory } from "@/api/speedtest";
 import { motion, AnimatePresence } from "motion/react";
 import { Disclosure, DisclosureButton } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
@@ -105,7 +105,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
     useInfiniteQuery({
       queryKey: ["history", timeRange],
       queryFn: async ({ pageParam = 1 }) => {
-        const response = await fetchHistory(timeRange, pageParam, 500);
+        const response = await getHistory(timeRange, pageParam, 500);
         return response;
       },
       getNextPageParam: (lastPage: PaginatedResponse<SpeedTestResult>) => {

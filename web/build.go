@@ -82,21 +82,46 @@ func ServeStatic(r *gin.Engine) {
 		c.Next()
 	})
 
-	// Serve root path and index.html
-	r.GET("/", serveIndex)
-	r.GET("/index.html", serveIndex)
-	r.GET("/favicon.ico", serveStaticFile)
-
-	// Serve static files from assets directory
-	r.GET("/assets/*filepath", serveStaticFile)
-
-	// Handle all other routes
+	// Handle all non-API routes with index.html
 	r.NoRoute(func(c *gin.Context) {
-		if strings.HasPrefix(c.Request.URL.Path, "/api") {
+		baseURL := c.GetString("base_url")
+		if baseURL == "" {
+			baseURL = "/"
+		}
+
+		// Don't handle API routes
+		if strings.HasPrefix(c.Request.URL.Path, strings.TrimSuffix(baseURL, "/")+"/api") {
 			c.AbortWithStatus(404)
 			return
 		}
-		serveIndex(c)
+
+		// For root base URL, register the root handlers
+		if baseURL == "/" {
+			switch c.Request.URL.Path {
+			case "/":
+				ServeIndex(c)
+				return
+			case "/index.html":
+				ServeIndex(c)
+				return
+			case "/favicon.ico":
+				ServeStaticFile(c)
+				return
+			}
+			if strings.HasPrefix(c.Request.URL.Path, "/assets/") {
+				ServeStaticFile(c)
+				return
+			}
+		}
+
+		// Redirect paths without trailing slash to paths with trailing slash
+		// Only for non-root base URL paths
+		if baseURL != "/" && c.Request.URL.Path == strings.TrimSuffix(baseURL, "/") {
+			c.Redirect(http.StatusMovedPermanently, baseURL)
+			return
+		}
+
+		ServeIndex(c)
 	})
 }
 
@@ -144,8 +169,8 @@ func serveFileFromFS(c *gin.Context, filepath string) {
 	http.ServeContent(c.Writer, c.Request, filepath, stat.ModTime(), file.(io.ReadSeeker))
 }
 
-// serveIndex serves index.html with proper headers
-func serveIndex(c *gin.Context) {
+// ServeIndex serves index.html with proper headers
+func ServeIndex(c *gin.Context) {
 	file, err := DistDirFS.Open("index.html")
 	if err != nil {
 		c.Status(http.StatusNotFound)
@@ -153,9 +178,32 @@ func serveIndex(c *gin.Context) {
 	}
 	defer file.Close()
 
+	// Read the file content
+	content, err := io.ReadAll(file)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+
+	// Get base URL from gin context
+	baseURL := c.GetString("base_url")
+	if baseURL == "" {
+		baseURL = "/"
+	}
+
+	// Replace the template variable
+	html := strings.Replace(string(content), "{{.BaseURL}}", baseURL, 1)
+
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Cache-Control", "no-cache")
-	io.Copy(c.Writer, file)
+	c.String(http.StatusOK, html)
+}
+
+// ServeStaticFile serves static files with proper headers
+func ServeStaticFile(c *gin.Context) {
+	filePath := strings.TrimPrefix(c.Request.URL.Path, c.GetString("base_url"))
+	filePath = strings.TrimPrefix(filePath, "/")
+	serveFileFromFS(c, filePath)
 }
 
 // Verify dist directory exists in embedded FS

@@ -93,12 +93,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	isSecure := c.GetHeader("X-Forwarded-Proto") == "https"
+	baseURL := c.GetString("base_url")
+	if baseURL == "" {
+		baseURL = "/"
+	}
 
 	c.SetCookie(
 		"session",
 		sessionToken,
 		int((30 * 24 * time.Hour).Seconds()),
-		"/",
+		baseURL,
 		"",
 		isSecure,
 		true,
@@ -147,12 +151,16 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	isSecure := c.GetHeader("X-Forwarded-Proto") == "https"
+	baseURL := c.GetString("base_url")
+	if baseURL == "" {
+		baseURL = "/"
+	}
 
 	c.SetCookie(
 		"session",
 		sessionToken,
 		int((30 * 24 * time.Hour).Seconds()),
-		"/",
+		baseURL,
 		"",
 		isSecure,
 		true,
@@ -204,17 +212,30 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
+	baseURL := c.GetString("base_url")
+	if baseURL == "" {
+		baseURL = "/"
+	}
+
 	isSecure := c.GetHeader("X-Forwarded-Proto") == "https"
 
+	// Remove the session cookie
 	c.SetCookie(
 		"session",
 		"",
 		-1,
-		"/",
+		baseURL,
 		"",
 		isSecure,
 		true,
 	)
+
+	// Also remove any stored session token
+	h.sessionMutex.Lock()
+	if sessionToken, err := c.Cookie("session"); err == nil {
+		delete(h.sessionTokens, sessionToken)
+	}
+	h.sessionMutex.Unlock()
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }

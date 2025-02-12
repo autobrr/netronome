@@ -111,13 +111,26 @@ func (s *Server) RegisterRoutes() {
 		baseURL = "/"
 	}
 
-	// Ensure baseURL starts with / and doesn't end with /
+	// Ensure baseURL starts with /
 	if !strings.HasPrefix(baseURL, "/") {
 		baseURL = "/" + baseURL
 	}
-	baseURL = strings.TrimSuffix(baseURL, "/")
 
-	api := s.Router.Group(baseURL + "/api")
+	// Remove trailing slash for route registration but preserve it in context
+	routeBase := strings.TrimSuffix(baseURL, "/")
+
+	// Set base URL in context for all routes (preserve trailing slash)
+	s.Router.Use(func(c *gin.Context) {
+		c.Set("base_url", baseURL)
+		c.Next()
+	})
+
+	// Register API routes
+	apiGroup := s.Router.Group(routeBase)
+	if routeBase != "" {
+		apiGroup = apiGroup.Group("")
+	}
+	api := apiGroup.Group("/api")
 	{
 		// Public auth routes
 		auth := api.Group("/auth")
@@ -154,6 +167,21 @@ func (s *Server) RegisterRoutes() {
 			protected.DELETE("/iperf/servers/:id", iperfHandler.DeleteServer)
 		}
 	}
+
+	// Only register explicit routes if we have a base URL
+	if routeBase != "" {
+		// Serve root path and index.html
+		s.Router.GET(routeBase, web.ServeIndex)
+		s.Router.GET(routeBase+"/", web.ServeIndex)
+		s.Router.GET(routeBase+"/index.html", web.ServeIndex)
+
+		// Serve static files
+		s.Router.GET(routeBase+"/assets/*filepath", web.ServeStaticFile)
+		s.Router.GET(routeBase+"/favicon.ico", web.ServeStaticFile)
+	}
+
+	// Register the catch-all handler for SPA routing
+	web.ServeStatic(s.Router)
 }
 
 func LoggerMiddleware() gin.HandlerFunc {

@@ -368,6 +368,9 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "port = %d\n", cfg.Server.Port); err != nil {
 		return err
 	}
+	if _, err := fmt.Fprintf(w, "base_url = \"%s\"\n", cfg.Server.BaseURL); err != nil {
+		return err
+	}
 	if _, err := fmt.Fprintln(w, "# gin_mode = \"release\"  # optional: \"debug\" or \"release\""); err != nil {
 		return err
 	}

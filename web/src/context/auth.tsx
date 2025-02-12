@@ -3,25 +3,12 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
-import { router } from "@/routes";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import * as authApi from "@/api/auth";
 
 interface User {
   id: number;
   username: string;
-}
-
-interface RegistrationStatus {
-  registrationEnabled: boolean;
-  hasUsers: boolean;
-  oidcEnabled: boolean;
 }
 
 interface AuthContextType {
@@ -31,34 +18,64 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  checkRegistrationStatus: () => Promise<RegistrationStatus>;
+  checkRegistrationStatus: () => Promise<{
+    registrationEnabled: boolean;
+    hasUsers: boolean;
+    oidcEnabled: boolean;
+  }>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    verifySession();
+    const checkAuth = async () => {
+      try {
+        const isVerified = await authApi.verify();
+        if (isVerified) {
+          const userInfo = await authApi.getUserInfo();
+          setUser(userInfo.user);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
   }, []);
 
-  const verifySession = async () => {
+  const login = async (username: string, password: string) => {
+    setIsLoading(true);
     try {
-      const response = await fetch("/api/auth/verify");
-      if (response.status === 401) {
-        setUser(null);
-        setIsLoading(false);
-        return;
-      }
-      const userData = await authApi.verifySession();
-      setUser(userData);
-    } catch (err) {
-      // Only log unexpected errors
-      if (err instanceof Error && !err.message.includes("401")) {
-        console.error("Session verification failed:", err);
-      }
+      const response = await authApi.login(username, password);
+      setUser(response.user);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const register = async (username: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const response = await authApi.register(username, password);
+      setUser(response.user);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    setIsLoading(true);
+    try {
+      await authApi.logout();
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -69,78 +86,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return await authApi.checkRegistrationStatus();
   };
 
-  const login = async (username: string, password: string) => {
-    try {
-      const status = await checkRegistrationStatus();
-      if (status.registrationEnabled && !status.hasUsers) {
-        router.navigate({ to: "/register" });
-        return;
-      }
-
-      const userData = await authApi.login({ username, password });
-      setUser(userData);
-      setTimeout(() => {
-        router.navigate({ to: "/" });
-      }, 0);
-    } catch (error) {
-      console.error("Login failed:", error);
-      throw error;
-    }
+  const value = {
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    login,
+    register,
+    logout,
+    checkRegistrationStatus,
   };
 
-  const register = async (username: string, password: string) => {
-    try {
-      const userData = await authApi.register({ username, password });
-      setUser(userData);
-      setTimeout(() => {
-        router.navigate({ to: "/" });
-      }, 0);
-    } catch (error) {
-      console.error("Registration failed:", error);
-      throw error;
-    }
-  };
-
-  const logout = async () => {
-    try {
-      await authApi.logout();
-      setUser(null);
-      const status = await checkRegistrationStatus();
-      setTimeout(() => {
-        if (status.hasUsers) {
-          router.navigate({ to: "/login" });
-        } else {
-          router.navigate({ to: "/register" });
-        }
-      }, 0);
-    } catch (error) {
-      console.error("Logout failed:", error);
-      setTimeout(() => {
-        router.navigate({ to: "/login" });
-      }, 0);
-    }
-  };
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        isLoading,
-        login,
-        register,
-        logout,
-        checkRegistrationStatus,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;

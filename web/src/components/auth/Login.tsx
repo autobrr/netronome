@@ -9,6 +9,7 @@ import { router } from "@/routes";
 import logo from "@/assets/logo.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faOpenid } from "@fortawesome/free-brands-svg-icons";
+import { getApiUrl } from "@/utils/baseUrl";
 
 export default function Login() {
   const { login, checkRegistrationStatus } = useAuth();
@@ -42,7 +43,7 @@ export default function Login() {
   }, [checkRegistrationStatus, oidcEnabled]);
 
   const handleOIDCLogin = () => {
-    window.location.href = "/api/auth/oidc/login";
+    window.location.href = getApiUrl("/auth/oidc/login");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
