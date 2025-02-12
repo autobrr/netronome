@@ -1,5 +1,7 @@
 FROM node:22.10.0-alpine3.20 AS web-builder
-RUN corepack enable
+
+# Install specific pnpm version instead of using corepack
+RUN npm install -g pnpm@9.9.0
 
 WORKDIR /app/web
 
@@ -49,7 +51,7 @@ WORKDIR /data
 
 COPY --from=app-builder /app/netronome /usr/local/bin/netronome
 
-EXPOSE 8080
+EXPOSE 7575
 
 RUN addgroup -S netronome && \
     adduser -S netronome -G netronome && \
@@ -60,3 +62,4 @@ RUN addgroup -S netronome && \
 USER netronome
 
 ENTRYPOINT ["netronome"]
+CMD ["serve"]

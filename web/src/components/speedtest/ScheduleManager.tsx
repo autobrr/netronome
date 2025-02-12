@@ -339,7 +339,7 @@ export default function ScheduleManager({
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3 }}
-                            className="bg-gray-800/50 p-4 rounded-lg shadow-lg border border-gray-900"
+                            className="bg-gray-800/50 p-4 rounded-lg shadow-md border border-gray-900"
                           >
                             <div className="flex flex-col gap-2">
                               <div className="flex items-center justify-between">

@@ -5,6 +5,7 @@ package scheduler
 
 import (
 	"context"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -48,8 +49,8 @@ func (s *service) Start(ctx context.Context) {
 
 	s.ticker = time.NewTicker(1 * time.Minute)
 
-	// Run immediately on start
-	s.checkAndRunScheduledTests(ctx)
+	// Initialize schedules before starting
+	s.initializeSchedules(ctx)
 
 	go func() {
 		for {
@@ -64,8 +65,52 @@ func (s *service) Start(ctx context.Context) {
 			}
 		}
 	}()
+}
 
-	log.Info().Msg("Scheduler service started")
+// initializeSchedules prepares schedules on startup without running tests immediately
+func (s *service) initializeSchedules(ctx context.Context) {
+	schedules, err := s.db.GetSchedules(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Error fetching schedules during initialization")
+		return
+	}
+
+	now := time.Now()
+	for _, schedule := range schedules {
+		if !schedule.Enabled {
+			continue
+		}
+
+		// Parse the interval
+		_, err := time.ParseDuration(schedule.Interval)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Int64("schedule_id", schedule.ID).
+				Msg("Error parsing interval during initialization")
+			continue
+		}
+
+		// If NextRun is in the past, calculate new NextRun with jitter
+		if schedule.NextRun.Before(now) {
+			// Add random jitter between 1-300 seconds (5 minutes) to prevent thundering herd
+			jitter := time.Duration(rand.Int63n(300)+1) * time.Second
+			schedule.NextRun = now.Add(jitter)
+
+			log.Info().
+				Int64("schedule_id", schedule.ID).
+				Time("next_run", schedule.NextRun).
+				Str("interval", schedule.Interval).
+				Msg("Rescheduling test with jitter")
+
+			if err := s.db.UpdateSchedule(ctx, schedule); err != nil {
+				log.Error().
+					Err(err).
+					Int64("schedule_id", schedule.ID).
+					Msg("Error updating schedule during initialization")
+			}
+		}
+	}
 }
 
 func (s *service) Stop() {

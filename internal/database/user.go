@@ -10,6 +10,8 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/autobrr/netronome/internal/config"
 )
 
 var (
@@ -72,12 +74,12 @@ func (s *service) CreateUser(ctx context.Context, username, password string) (*U
 		Columns("username", "password_hash").
 		Values(username, string(hash))
 
-	if s.config.Type == Postgres {
+	if s.config.Type == config.Postgres {
 		query = query.Suffix("RETURNING id")
 	}
 
 	var id int64
-	if s.config.Type == Postgres {
+	if s.config.Type == config.Postgres {
 		err = query.RunWith(tx).QueryRowContext(ctx).Scan(&id)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create user: %w", err)
@@ -95,7 +97,7 @@ func (s *service) CreateUser(ctx context.Context, username, password string) (*U
 
 	// Disable registration
 	var disableRegQuery string
-	if s.config.Type == Postgres {
+	if s.config.Type == config.Postgres {
 		disableRegQuery = `
 			DELETE FROM registration_status;
 			INSERT INTO registration_status (is_registration_enabled) VALUES (false);`

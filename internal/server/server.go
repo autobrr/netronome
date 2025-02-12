@@ -14,11 +14,13 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/auth"
+	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/handlers"
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
+	"github.com/autobrr/netronome/web"
 )
 
 type Server struct {
@@ -29,17 +31,22 @@ type Server struct {
 	auth       *AuthHandler
 	mu         sync.RWMutex
 	lastUpdate *types.SpeedUpdate
-	config     *Config
+	config     *config.Config
 }
 
-func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service) *Server {
-	gin.SetMode(gin.ReleaseMode)
+func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config) *Server {
+	// Set Gin mode from config
+	if cfg.Server.GinMode != "" {
+		gin.SetMode(cfg.Server.GinMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	gin.DefaultWriter = nil
 
 	router := gin.New()
 
 	// Initialize OIDC if configured
-	oidcConfig, err := auth.NewOIDC(context.Background())
+	oidcConfig, err := auth.NewOIDC(context.Background(), cfg.OIDC)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to initialize OIDC")
 		// Continue without OIDC
@@ -48,18 +55,13 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 	router.Use(LoggerMiddleware())
 	router.Use(gin.Recovery())
 
-	// Initialize default config
-	config := NewConfig()
-
 	// CORS middleware with config
 	router.Use(func(c *gin.Context) {
 		if c.Request.Method == "OPTIONS" {
-			for _, origin := range config.CORS.AllowedOrigins {
-				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-			}
+			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-			c.Writer.Header().Set("Access-Control-Allow-Headers", strings.Join(config.CORS.AllowedHeaders, ","))
-			c.Writer.Header().Set("Access-Control-Allow-Methods", strings.Join(config.CORS.AllowedMethods, ","))
+			c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+			c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
 			c.AbortWithStatus(204)
 			return
 		}
@@ -74,17 +76,22 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 		scheduler:  scheduler,
 		auth:       NewAuthHandler(db, oidcConfig),
 		lastUpdate: &types.SpeedUpdate{},
-		config:     config,
+		config:     cfg,
 	}
 
+	// Register API routes first
 	s.RegisterRoutes()
+
+	// Use build.go for static file serving with embedded filesystem
+	web.ServeStatic(router)
+
 	return s
 }
 
 func (s *Server) BroadcastUpdate(update types.SpeedUpdate) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.lastUpdate = &update
+	s.mu.Unlock()
 
 	log.Debug().
 		Bool("isScheduled", update.IsScheduled).
@@ -93,8 +100,24 @@ func (s *Server) BroadcastUpdate(update types.SpeedUpdate) {
 		Msg("Broadcasting speed test update")
 }
 
+func (s *Server) StartScheduler(ctx context.Context) {
+	s.scheduler.Start(ctx)
+	log.Info().Msg("Scheduler service started")
+}
+
 func (s *Server) RegisterRoutes() {
-	api := s.Router.Group("/api")
+	baseURL := s.config.Server.BaseURL
+	if baseURL == "" {
+		baseURL = "/"
+	}
+
+	// Ensure baseURL starts with / and doesn't end with /
+	if !strings.HasPrefix(baseURL, "/") {
+		baseURL = "/" + baseURL
+	}
+	baseURL = strings.TrimSuffix(baseURL, "/")
+
+	api := s.Router.Group(baseURL + "/api")
 	{
 		// Public auth routes
 		auth := api.Group("/auth")

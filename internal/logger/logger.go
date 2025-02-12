@@ -10,9 +10,11 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	"github.com/autobrr/netronome/internal/config"
 )
 
-func Init() {
+func Init(cfg config.LoggingConfig, serverCfg config.ServerConfig, silent bool) {
 	output := zerolog.ConsoleWriter{
 		Out:        os.Stdout,
 		TimeFormat: time.RFC3339,
@@ -48,10 +50,10 @@ func Init() {
 		Caller().
 		Logger()
 
-	// Get log level from environment variable, default to "info"
-	logLevel := strings.ToLower(os.Getenv("NETRONOME_LOG_LEVEL"))
+	// Get log level from config, default to "info"
+	logLevel := strings.ToLower(cfg.Level)
 
-	// Set log level based on environment variable
+	// Set log level based on config
 	switch logLevel {
 	case "trace":
 		zerolog.SetGlobalLevel(zerolog.TraceLevel)
@@ -66,17 +68,14 @@ func Init() {
 	case "panic":
 		zerolog.SetGlobalLevel(zerolog.PanicLevel)
 	default:
-		ginMode := os.Getenv("GIN_MODE")
-		if ginMode == "debug" {
+		// Use GinMode from server config instead of logging config
+		if serverCfg.GinMode == "debug" {
 			zerolog.SetGlobalLevel(zerolog.TraceLevel)
-			log.Debug().Msgf("Logger initialized in debug mode (GIN_MODE=%s)", ginMode)
+			log.Debug().Msg("Logger initialized in debug mode")
 		} else {
 			zerolog.SetGlobalLevel(zerolog.InfoLevel)
-			log.Info().Msg("Logger initialized in production mode")
 		}
 	}
-
-	log.Info().Msgf("Logger initialized with level: %s", zerolog.GlobalLevel().String())
 }
 
 func Get() zerolog.Logger {

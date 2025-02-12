@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 	st "github.com/showwin/speedtest-go/speedtest"
 
+	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/types"
 )
@@ -28,21 +29,23 @@ type service struct {
 	client        *st.Speedtest
 	server        *Server
 	db            database.Service
+	config        config.SpeedTestConfig
 	serverCache   []ServerResponse
 	cacheExpiry   time.Time
 	cacheDuration time.Duration
 }
 
-func New(server *Server, db database.Service) Service {
+func New(server *Server, db database.Service, cfg config.SpeedTestConfig) Service {
 	svc := &service{
 		client:        st.New(),
 		server:        server,
 		db:            db,
+		config:        cfg,
 		cacheDuration: 30 * time.Minute,
 		cacheExpiry:   time.Now(),
 	}
 
-	log.Debug().Msg("Initialized speedtest service")
+	// log.Debug().Msg("Initialized speedtest service")
 	return svc
 }
 

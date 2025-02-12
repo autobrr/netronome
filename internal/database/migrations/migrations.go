@@ -64,10 +64,10 @@ func GetMigrationFiles(dbType DatabaseType) ([]string, error) {
 		}
 	}
 
-	log.Debug().
-		Strs("files", files).
-		Int("fileCount", len(files)).
-		Msg("Final migration files list")
+	// log.Trace().
+	//	Strs("files", files).
+	//	Int("fileCount", len(files)).
+	//	Msg("Final migration files list")
 
 	sortMigrationFiles(files)
 

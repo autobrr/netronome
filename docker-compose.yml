@@ -1,10 +1,14 @@
+version: '3'
+
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
+  netronome:
+    image: ghcr.io/autobrr/netronome:latest
+    container_name: netronome
     ports:
-      - 8080:8080
+      - "7575:7575"
     volumes:
       - ./data:/data
+    environment:
+      - NETRONOME__DB_TYPE=sqlite
+      - NETRONOME__DB_PATH=/data/netronome.db
+    restart: unless-stopped

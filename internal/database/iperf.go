@@ -9,6 +9,7 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
+	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/types"
 )
 
@@ -25,14 +26,34 @@ func (s *service) SaveIperfServer(ctx context.Context, name, host string, port i
 		"updated_at": sq.Expr("CURRENT_TIMESTAMP"),
 	}
 
-	res, err := s.insert(ctx, "saved_iperf_servers", data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to save iperf server: %w", err)
-	}
+	var id int64
 
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get last insert ID: %w", err)
+	switch s.config.Type {
+	case config.Postgres:
+		query := s.sqlBuilder.Insert("saved_iperf_servers").
+			SetMap(data).
+			Suffix("RETURNING id")
+
+		sqlStr, args, err := query.ToSql()
+		if err != nil {
+			return nil, fmt.Errorf("failed to build query: %w", err)
+		}
+
+		err = s.db.QueryRowContext(ctx, sqlStr, args...).Scan(&id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to save iperf server: %w", err)
+		}
+
+	case config.SQLite:
+		res, err := s.insert(ctx, "saved_iperf_servers", data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to save iperf server: %w", err)
+		}
+
+		id, err = res.LastInsertId()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get last insert ID: %w", err)
+		}
 	}
 
 	query := s.sqlBuilder.
@@ -48,7 +69,7 @@ func (s *service) SaveIperfServer(ctx context.Context, name, host string, port i
 		Where(sq.Eq{"id": id})
 
 	var server types.SavedIperfServer
-	err = query.RunWith(s.db).QueryRowContext(ctx).Scan(
+	err := query.RunWith(s.db).QueryRowContext(ctx).Scan(
 		&server.ID,
 		&server.Name,
 		&server.Host,

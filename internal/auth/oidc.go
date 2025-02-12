@@ -9,13 +9,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
+
+	"github.com/autobrr/netronome/internal/config"
 )
 
 type OIDCConfig struct {
@@ -30,33 +31,31 @@ type Claims struct {
 	Username string `json:"preferred_username"`
 }
 
-func NewOIDC(ctx context.Context) (*OIDCConfig, error) {
-	issuer := os.Getenv("OIDC_ISSUER")
-	if issuer == "" {
+func NewOIDC(ctx context.Context, cfg config.OIDCConfig) (*OIDCConfig, error) {
+	if cfg.Issuer == "" {
 		log.Debug().Msg("Using built-in authentication")
 		return nil, nil
 	}
 
-	log.Debug().Str("issuer", issuer).Msg("Initializing OIDC provider")
+	log.Debug().Str("issuer", cfg.Issuer).Msg("Initializing OIDC provider")
 
 	// Perform manual discovery
-	endpoints, _, err := getProviderEndpoints(ctx, http.DefaultClient, issuer)
+	endpoints, _, err := getProviderEndpoints(ctx, http.DefaultClient, cfg.Issuer)
 	if err != nil {
-		log.Error().Err(err).Str("issuer", issuer).Msg("Failed to discover OIDC provider endpoints")
+		log.Error().Err(err).Str("issuer", cfg.Issuer).Msg("Failed to discover OIDC provider endpoints")
 		return nil, fmt.Errorf("failed to discover OIDC provider endpoints: %w", err)
 	}
 
-	provider, err := oidc.NewProvider(ctx, issuer)
+	provider, err := oidc.NewProvider(ctx, cfg.Issuer)
 	if err != nil {
-		log.Error().Err(err).Str("issuer", issuer).Msg("Failed to initialize OIDC provider")
+		log.Error().Err(err).Str("issuer", cfg.Issuer).Msg("Failed to initialize OIDC provider")
 		return nil, fmt.Errorf("failed to initialize OIDC provider: %w", err)
 	}
-	// log.Info().Str("issuer", issuer).Msg("OIDC provider initialized successfully")
 
 	config := oauth2.Config{
-		ClientID:     os.Getenv("OIDC_CLIENT_ID"),
-		ClientSecret: os.Getenv("OIDC_CLIENT_SECRET"),
-		RedirectURL:  os.Getenv("OIDC_REDIRECT_URL"),
+		ClientID:     cfg.ClientID,
+		ClientSecret: cfg.ClientSecret,
+		RedirectURL:  cfg.RedirectURL,
 		Endpoint:     endpoints,
 		Scopes:       []string{oidc.ScopeOpenID, "profile"},
 	}
@@ -66,7 +65,6 @@ func NewOIDC(ctx context.Context) (*OIDCConfig, error) {
 		Str("redirectURL", config.RedirectURL).
 		Str("authURL", endpoints.AuthURL).
 		Str("tokenURL", endpoints.TokenURL).
-		// Str("userinfoURL", userinfoURL).
 		Strs("scopes", config.Scopes).
 		Msg("OIDC configuration created")
 
