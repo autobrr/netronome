@@ -40,6 +40,11 @@ RUN go build -ldflags "-s -w \
 FROM alpine:latest
 
 
+LABEL org.opencontainers.image.source="https://github.com/autobrr/netronome"
+LABEL org.opencontainers.image.licenses="GPL-2.0-or-later"
+LABEL org.opencontainers.image.base.name="alpine:latest"
+
+
 # Install dependencies
 RUN apk add --no-cache sqlite iperf3
 
