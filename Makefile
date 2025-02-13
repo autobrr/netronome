@@ -25,7 +25,7 @@ clean:
 
 run: build
 	@echo "Running application..."
-	@./$(BUILD_DIR)/$(BINARY_NAME) serve
+	@./$(BUILD_DIR)/$(BINARY_NAME) serve --config config.toml
 
 docker-build:
 	@echo "Building Docker image..."
@@ -45,13 +45,13 @@ dev:
 
 watch:
 	@if command -v air > /dev/null; then \
-		air; \
+		GIN_MODE=debug air -- serve --config config.toml; \
 		echo "Watching...";\
 	else \
 		read -p "Go's 'air' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
 		if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
 			go install github.com/cosmtrek/air@latest; \
-			air; \
+			GIN_MODE=debug air -- serve --config config.toml; \
 			echo "Watching...";\
 		else \
 			echo "You chose not to install air. Exiting..."; \
