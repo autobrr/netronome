@@ -48,23 +48,14 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # First verify the web directory and pnpm-lock.yaml exist
-      - name: Verify pnpm lock file
-        run: |
-          if [ ! -f "web/pnpm-lock.yaml" ]; then
-            echo "web/pnpm-lock.yaml does not exist"
-            exit 1
-          fi
-
       - name: Set up corepack
         run: npm install -g corepack@latest && corepack enable
 
-      # Now set up the cache
       - name: Set up cache
         uses: actions/setup-node@v4
         with:
           cache: 'pnpm'
-          cache-dependency-path: 'web/pnpm-lock.yaml'
+          cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Fetch web dependencies
         working-directory: web
