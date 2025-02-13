@@ -6,7 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Netronome</title>
     <script>
-      window.__BASE_URL__ = '{{.BaseURL}}';
+      // Handle empty base URL and template variable cases
+      const rawBaseUrl = '{{.BaseURL}}';
+      window.__BASE_URL__ = rawBaseUrl.startsWith('{{') || !rawBaseUrl ? '/' : rawBaseUrl;
     </script>
     <style>
       html, body {

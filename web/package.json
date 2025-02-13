@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@10.2.1",
   "scripts": {
-    "dev": "vite",
+    "dev": "NETRONOME__BASE_URL=\"\" vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -15,6 +15,7 @@
     "@emotion/styled": "^11.13.5",
     "@fortawesome/fontawesome-svg-core": "^6.7.1",
     "@fortawesome/free-brands-svg-icons": "^6.7.1",
+    "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "^2.2.0",
