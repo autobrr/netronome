@@ -20,7 +20,7 @@ RUN go mod download
 
 COPY . ./
 
-# Build with platform-specific settings and PGO
+# Build with platform-specific settings
 RUN --network=none --mount=target=. \
     export GOOS=$TARGETOS; \
     export GOARCH=$TARGETARCH; \
@@ -28,7 +28,7 @@ RUN --network=none --mount=target=. \
     [[ "$GOARCH" == "arm" ]] && [[ "$TARGETVARIANT" == "v6" ]] && export GOARM=6; \
     [[ "$GOARCH" == "arm" ]] && [[ "$TARGETVARIANT" == "v7" ]] && export GOARM=7; \
     echo "Building for: $GOARCH $GOOS $GOARM$GOAMD64"; \
-    go build -pgo=cpu.pprof -ldflags "-s -w \
+    go build -ldflags "-s -w \
     -X netronome/internal/buildinfo.Version=${VERSION} \
     -X netronome/internal/buildinfo.Commit=${REVISION} \
     -X netronome/internal/buildinfo.Date=${BUILDTIME}" \
