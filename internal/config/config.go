@@ -136,6 +136,11 @@ func Load(configPath string) (*Config, error) {
 		log.Info().
 			Str("path", configPath).
 			Msg("Loaded configuration file")
+
+		// If db path is relative, make it relative to config file
+		if !filepath.IsAbs(cfg.Database.Path) {
+			cfg.Database.Path = filepath.Join(filepath.Dir(configPath), cfg.Database.Path)
+		}
 	} else {
 		// Try each default path in order
 		found := false
@@ -155,14 +160,18 @@ func Load(configPath string) (*Config, error) {
 						Str("path", path).
 						Msg("Loaded configuration file")
 					found = true
+
+					// If db path is relative, make it relative to config file
+					if !filepath.IsAbs(cfg.Database.Path) {
+						cfg.Database.Path = filepath.Join(filepath.Dir(path), cfg.Database.Path)
+					}
 					break
 				}
 			}
 		}
 		if !found {
-			log.Debug().
-				Strs("searched_paths", paths).
-				Msg("No configuration file found in default locations")
+			log.Info().
+				Msg("No configuration file found, running with default values. Use 'netronome generate-config' to create one")
 		}
 	}
 
@@ -312,6 +321,7 @@ func (c *Config) loadPaginationFromEnv() {
 func (c *Config) WriteToml(w io.Writer) error {
 	// Create a copy of config with default values
 	cfg := New()
+	cfg.Database.Path = "netronome.db"
 
 	// Write header comment
 	if _, err := fmt.Fprintln(w, "# Netronome Configuration"); err != nil {
