@@ -99,6 +99,37 @@ jobs:
             dist/*.deb
             dist/*.rpm
 
+  web:
+    name: Build web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.17.0'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Build web frontend
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Upload web production build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+
   docker:
     name: Build Docker images
     runs-on: ubuntu-latest
@@ -126,6 +157,12 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download web production build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
 
       - name: Extract metadata
         id: meta
