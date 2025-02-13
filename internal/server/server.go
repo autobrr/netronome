@@ -174,10 +174,6 @@ func (s *Server) RegisterRoutes() {
 		s.Router.GET(routeBase, web.ServeIndex)
 		s.Router.GET(routeBase+"/", web.ServeIndex)
 		s.Router.GET(routeBase+"/index.html", web.ServeIndex)
-
-		// serve static files
-		s.Router.GET(routeBase+"/assets/*filepath", web.ServeStaticFile)
-		s.Router.GET(routeBase+"/favicon.ico", web.ServeStaticFile)
 	}
 
 	// register the catch-all handler for SPA routing

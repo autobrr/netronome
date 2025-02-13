@@ -245,7 +245,7 @@ func (c *Config) loadServerFromEnv() {
 		}
 	}
 	if v := os.Getenv(EnvPrefix + "BASE_URL"); v != "" {
-		c.Server.BaseURL = v
+		c.Server.BaseURL = strings.Trim(v, `"'`)
 	}
 	if v := os.Getenv(EnvPrefix + "GIN_MODE"); v != "" {
 		c.Server.GinMode = v

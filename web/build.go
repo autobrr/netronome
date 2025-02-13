@@ -95,46 +95,37 @@ func ServeStatic(r *gin.Engine) {
 			return
 		}
 
-		// for root base URL, register the root handlers
-		if baseURL == "/" {
-			switch c.Request.URL.Path {
-			case "/":
-				ServeIndex(c)
-				return
-			case "/index.html":
-				ServeIndex(c)
-				return
-			case "/favicon.ico":
-				ServeStaticFile(c)
-				return
-			}
-			if strings.HasPrefix(c.Request.URL.Path, "/assets/") {
-				ServeStaticFile(c)
-				return
-			}
-		}
+		// strip baseURL prefix for path matching
+		trimmedPath := strings.TrimPrefix(c.Request.URL.Path, strings.TrimSuffix(baseURL, "/"))
 
 		// Redirect paths without trailing slash to paths with trailing slash
-		// Only for non-root base URL paths
-		if baseURL != "/" && c.Request.URL.Path == strings.TrimSuffix(baseURL, "/") {
+		if c.Request.URL.Path == strings.TrimSuffix(baseURL, "/") {
 			c.Redirect(http.StatusMovedPermanently, baseURL)
 			return
 		}
 
+		// Handle static assets
+		if strings.HasPrefix(trimmedPath, "/assets/") || trimmedPath == "/favicon.ico" {
+			serveFileFromFS(c, strings.TrimPrefix(trimmedPath, "/"))
+			return
+		}
+
+		// Handle root paths
+		if c.Request.URL.Path == baseURL || c.Request.URL.Path == baseURL+"index.html" {
+			ServeIndex(c)
+			return
+		}
+
+		// For all other paths, serve index.html for SPA routing
 		ServeIndex(c)
 	})
-}
-
-// serveStaticFile serves static files with proper headers
-func serveStaticFile(c *gin.Context) {
-	filePath := strings.TrimPrefix(c.Request.URL.Path, "/")
-	serveFileFromFS(c, filePath)
 }
 
 // serveFileFromFS serves a file from the embedded filesystem with proper headers
 func serveFileFromFS(c *gin.Context, filepath string) {
 	file, err := DistDirFS.Open(filepath)
 	if err != nil {
+		log.Debug().Str("filepath", filepath).Err(err).Msg("failed to open static file")
 		c.Status(http.StatusNotFound)
 		return
 	}
@@ -142,6 +133,7 @@ func serveFileFromFS(c *gin.Context, filepath string) {
 
 	stat, err := file.Stat()
 	if err != nil {
+		log.Debug().Str("filepath", filepath).Err(err).Msg("failed to stat static file")
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -197,13 +189,6 @@ func ServeIndex(c *gin.Context) {
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Cache-Control", "no-cache")
 	c.String(http.StatusOK, html)
-}
-
-// ServeStaticFile serves static files with proper headers
-func ServeStaticFile(c *gin.Context) {
-	filePath := strings.TrimPrefix(c.Request.URL.Path, c.GetString("base_url"))
-	filePath = strings.TrimPrefix(filePath, "/")
-	serveFileFromFS(c, filePath)
 }
 
 // verify dist directory exists in embedded FS
