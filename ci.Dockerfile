@@ -1,51 +1,45 @@
-FROM node:22.10.0-alpine3.20 AS web-builder
-
-# Install specific pnpm version instead of using corepack
-RUN npm install -g pnpm@9.9.0
-
-WORKDIR /app/web
-
-COPY web/package.json web/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-
-COPY web/ ./
-RUN pnpm run build
-
-FROM golang:1.23-alpine3.20 AS app-builder
+FROM --platform=$BUILDPLATFORM golang:1.23-alpine3.20 AS app-builder
 
 ARG VERSION=dev
 ARG REVISION=dev
 ARG BUILDTIME
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGETVARIANT
 
-RUN apk add --no-cache git build-base tzdata
+RUN apk add --no-cache git tzdata
 
 ENV SERVICE=netronome
 ENV CGO_ENABLED=0
 
 WORKDIR /src
 
+# Cache Go modules
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . ./
-COPY --from=web-builder /app/web/dist ./web/dist
 
-RUN go build -ldflags "-s -w \
+# Build with platform-specific settings
+RUN --network=none --mount=target=. \
+    export GOOS=$TARGETOS; \
+    export GOARCH=$TARGETARCH; \
+    [[ "$GOARCH" == "amd64" ]] && export GOAMD64=$TARGETVARIANT; \
+    [[ "$GOARCH" == "arm" ]] && [[ "$TARGETVARIANT" == "v6" ]] && export GOARM=6; \
+    [[ "$GOARCH" == "arm" ]] && [[ "$TARGETVARIANT" == "v7" ]] && export GOARM=7; \
+    echo "Building for: $GOARCH $GOOS $GOARM$GOAMD64"; \
+    go build -ldflags "-s -w \
     -X netronome/internal/buildinfo.Version=${VERSION} \
     -X netronome/internal/buildinfo.Commit=${REVISION} \
     -X netronome/internal/buildinfo.Date=${BUILDTIME}" \
     -o /app/netronome cmd/netronome/main.go
 
-# build runner
 FROM alpine:latest
-
 
 LABEL org.opencontainers.image.source="https://github.com/autobrr/netronome"
 LABEL org.opencontainers.image.licenses="GPL-2.0-or-later"
 LABEL org.opencontainers.image.base.name="alpine:latest"
 
-
-# Install dependencies
 RUN apk add --no-cache sqlite iperf3
 
 ENV HOME="/data" \

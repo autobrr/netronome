@@ -8,7 +8,6 @@ builds:
   - id: netronome
     env:
       - CGO_ENABLED=0
-      - BUILDER
     goos:
       - linux
       - windows
@@ -33,11 +32,12 @@ builds:
         goarch: arm64
     main: ./cmd/netronome/main.go
     binary: netronome
-    ldflags:
-      - -s -w
 
 archives:
-  - format_overrides:
+  - id: netronome
+    builds:
+      - netronome
+    format_overrides:
       - goos: windows
         formats: ['zip']
     name_template: >-
@@ -52,6 +52,26 @@ release:
   footer: |
     **Full Changelog**: https://github.com/autobrr/netronome/compare/{{ .PreviousTag }}...{{ .Tag }}
 
+    ## 🐳 Docker images
+
+    - `docker pull ghcr.io/autobrr/netronome:{{ .Tag }}`
+    - `docker pull ghcr.io/autobrr/netronome:latest`
+
+    ## 📚 Resources
+
+    - [Documentation](https://netrono.me)
+    - [Discord Community](https://discord.gg/WQ2eUycxyT)
+    - [GitHub Issues](https://github.com/autobrr/netronome/issues)
+    - [GitHub Discussions](https://github.com/autobrr/netronome/discussions)
+
+    ## 💝 Support the project
+
+    If you find Netronome useful, consider:
+    - Starring the repository
+    - Contributing to the project
+    - Sharing your feedback
+    - Sponsoring the project
+
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
 
@@ -60,22 +80,37 @@ changelog:
   use: github
   filters:
     exclude:
+      - '^test:'
+      - '^docs:'
       - Merge pull request
       - Merge remote-tracking branch
       - Merge branch
   groups:
-    - title: "New Features"
+    - title: '🚀 New Features'
       regexp: "^.*feat[(\\w)]*:+.*$"
       order: 0
-    - title: "Bug fixes"
+    - title: '🐛 Bug Fixes'
       regexp: "^.*fix[(\\w)]*:+.*$"
       order: 10
-    - title: Other work
+    - title: '🔧 Maintenance'
+      regexp: "^.*chore[(\\w)]*:+.*$"
+      order: 20
+    - title: '🔒 Security'
+      regexp: "^.*security[(\\w)]*:+.*$"
+      order: 30
+    - title: '⚡ Performance'
+      regexp: "^.*perf[(\\w)]*:+.*$"
+      order: 40
+    - title: '📝 Documentation'
+      regexp: "^.*docs[(\\w)]*:+.*$"
+      order: 50
+    - title: '🔄 Other Changes'
       order: 999
 
 nfpms:
   - package_name: netronome
-    maintainer: autobrr
+    homepage: https://netrono.me
+    maintainer: Netronome <packages@netrono.me>
     description: |-
       netronome is a modern network speed testing and monitoring tool.
     formats:

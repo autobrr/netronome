@@ -10,51 +10,71 @@ on:
     paths-ignore:
       - '.github/ISSUE_TEMPLATE/**'
       - '.github/images/**'
+      - 'config.toml'
+      - 'docker-compose.yml'
+      - 'Makefile'
       - '**.md'
   pull_request:
     paths-ignore:
       - '.github/ISSUE_TEMPLATE/**'
       - '.github/images/**'
+      - 'config.toml'
+      - 'docker-compose.yml'
+      - 'Makefile'
       - '**.md'
 
 env:
   REGISTRY: ghcr.io
   REGISTRY_IMAGE: ghcr.io/${{ github.repository }}
   GO_VERSION: '1.23.4'
+  NODE_VERSION: '22.10.0'
 
 permissions:
   contents: write
   packages: write
 
 jobs:
-  # Commented out until we add tests
-  # test:
-  #   strategy:
-  #     fail-fast: true
-  #     matrix:
-  #       os: [ ubuntu-latest, macos-latest, windows-latest ]
-  #   name: Test ${{ matrix.os }}
-  #   runs-on: ${{ matrix.os }}
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #
-  #     - name: Set up Go
-  #       uses: actions/setup-go@v5
-  #       with:
-  #         go-version: ${{ env.GO_VERSION }}
-  #         cache: true
-  #
-  #     - name: Run Tests
-  #       run: go test ./...
+  web:
+    name: Build web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up corepack
+        run: npm install -g corepack@latest && corepack enable
+
+      - name: Set up cache
+        uses: actions/setup-node@v4
+        with:
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Fetch web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web frontend
+        working-directory: web
+        run: CI= pnpm run build
+
+      - name: Upload web production build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
 
   goreleaserbuild:
     name: Build distribution binaries
     runs-on: ubuntu-latest
-    # Remove dependency on test job
-    # needs: [ test ]
+    needs: [ web ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -102,6 +122,7 @@ jobs:
   docker:
     name: Build Docker images
     runs-on: ubuntu-latest
+    needs: [ web ]
     strategy:
       fail-fast: true
       matrix:
@@ -126,6 +147,12 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download web production build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
 
       - name: Extract metadata
         id: meta
@@ -225,3 +252,8 @@ jobs:
       - name: Inspect image
         run: |
           docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
+
+      - name: Debug directory contents
+        run: |
+          ls -la
+          ls -la web/ || echo "web directory not found"
