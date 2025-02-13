@@ -341,10 +341,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "path = \"%s\"\n", cfg.Database.Path); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintln(w, ""); err != nil {
-		return err
-	}
-
 	// Postgres options (commented out)
 	if _, err := fmt.Fprintln(w, "# PostgreSQL options (uncomment and modify if using postgres)"); err != nil {
 		return err
@@ -400,19 +396,19 @@ func (c *Config) WriteToml(w io.Writer) error {
 	}
 
 	// OIDC section
-	if _, err := fmt.Fprintln(w, "[oidc]"); err != nil {
+	if _, err := fmt.Fprintln(w, "#[oidc]"); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "issuer = \"%s\"\n", cfg.OIDC.Issuer); err != nil {
+	if _, err := fmt.Fprintf(w, "#issuer = \"%s\"\n", cfg.OIDC.Issuer); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "client_id = \"%s\"\n", cfg.OIDC.ClientID); err != nil {
+	if _, err := fmt.Fprintf(w, "#client_id = \"%s\"\n", cfg.OIDC.ClientID); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "client_secret = \"%s\"\n", cfg.OIDC.ClientSecret); err != nil {
+	if _, err := fmt.Fprintf(w, "#client_secret = \"%s\"\n", cfg.OIDC.ClientSecret); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "redirect_url = \"%s\"\n", cfg.OIDC.RedirectURL); err != nil {
+	if _, err := fmt.Fprintf(w, "#redirect_url = \"%s\"\n", cfg.OIDC.RedirectURL); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
@@ -502,4 +498,84 @@ func DefaultConfigPaths() []string {
 	paths = append(paths, "config.toml")
 
 	return paths
+}
+
+// EnsureConfig ensures a config file exists at the given path or in default locations,
+// generating one if necessary. If configPath is empty, it will check default locations.
+func EnsureConfig(configPath string) (string, error) {
+	if configPath != "" {
+		// if specific config path provided, create it if it doesn't exist
+		if _, err := os.Stat(configPath); err != nil {
+			// create the directory structure if it doesn't exist
+			if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+				return "", fmt.Errorf("failed to create config directory: %w", err)
+			}
+
+			// generate the config file
+			cfg := New()
+			f, err := os.Create(configPath)
+			if err != nil {
+				return "", fmt.Errorf("failed to create config file: %w", err)
+			}
+			defer f.Close()
+
+			if err := cfg.WriteToml(f); err != nil {
+				return "", fmt.Errorf("failed to write config file: %w", err)
+			}
+
+			log.Info().Str("path", configPath).Msg("Generated default config file")
+		}
+		return configPath, nil
+	}
+
+	// try each default path
+	paths := DefaultConfigPaths()
+	for _, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+
+	// no config found, generate one in the default location
+	homeDir, err := os.UserHomeDir()
+	if err == nil {
+		configDir := filepath.Join(homeDir, ".config")
+		netronomeDir := filepath.Join(configDir, AppName)
+		if err := os.MkdirAll(netronomeDir, 0755); err == nil {
+			configPath = filepath.Join(netronomeDir, "config.toml")
+		} else {
+			// fall back to platform-specific user config dir
+			if configDir, err := os.UserConfigDir(); err == nil {
+				netronomeDir := filepath.Join(configDir, AppName)
+				if err := os.MkdirAll(netronomeDir, 0755); err == nil {
+					configPath = filepath.Join(netronomeDir, "config.toml")
+				} else {
+					log.Warn().
+						Err(err).
+						Msg("could not create config directory, falling back to working directory")
+					configPath = "config.toml"
+				}
+			} else {
+				log.Warn().
+					Err(err).
+					Msg("could not determine user config directory, falling back to working directory")
+				configPath = "config.toml"
+			}
+		}
+	}
+
+	// generate the config file
+	cfg := New()
+	f, err := os.Create(configPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create config file: %w", err)
+	}
+	defer f.Close()
+
+	if err := cfg.WriteToml(f); err != nil {
+		return "", fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	log.Info().Str("path", configPath).Msg("Generated default config file")
+	return configPath, nil
 }
