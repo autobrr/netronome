@@ -10,7 +10,6 @@ import logo from "@/assets/logo.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faOpenid } from "@fortawesome/free-brands-svg-icons";
 import { Footer } from "@/components/Footer";
-import { getApiUrl } from "@/utils/baseUrl";
 
 export default function Login() {
   const { login, checkRegistrationStatus } = useAuth();

@@ -1,6 +1,6 @@
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment, useEffect, useState } from "react";
-import { RocketLaunchIcon, GlobeAltIcon, UserGroupIcon, ArrowTopRightOnSquareIcon, XMarkIcon, XCircleIcon, HeartIcon } from "@heroicons/react/24/solid";
+import { RocketLaunchIcon, GlobeAltIcon, UserGroupIcon, ArrowTopRightOnSquareIcon, XMarkIcon, HeartIcon } from "@heroicons/react/24/solid";
 
 interface DonationLink {
   name: string;
