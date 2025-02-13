@@ -112,26 +112,22 @@ jobs:
         with:
           node-version: '20.17.0'
 
-      - name: Enable corepack
-        run: corepack enable
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-          run_install: false
+      - name: Set up corepack
+        run: npm install -g corepack@latest && corepack enable
 
       - name: Set up cache
         uses: actions/setup-node@v4
         with:
-          cache: 'pnpm'
+          cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Fetch web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
 
       - name: Build web frontend
         working-directory: web
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run build
+        run: CI= pnpm run build
 
       - name: Upload web production build
         uses: actions/upload-artifact@v4
