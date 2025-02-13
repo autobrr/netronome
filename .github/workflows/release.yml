@@ -112,11 +112,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.17.0'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
+
+      - name: Set up cache
+        uses: actions/setup-node@v4
+        with:
           cache: 'pnpm'
           cache-dependency-path: web/pnpm-lock.yaml
-
-      - name: Install pnpm
-        run: npm install -g pnpm
 
       - name: Build web frontend
         working-directory: web
