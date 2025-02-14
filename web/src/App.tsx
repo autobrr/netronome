@@ -21,7 +21,7 @@ function App() {
       {isAuthenticated && (
         <button
           onClick={() => logout()}
-          className="absolute z-10 top-4 right-4 text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-blue-300"
+          className="absolute z-10 top-4 right-4 text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-blue-400"
           aria-label="Logout"
         >
           <LogoutIcon className="h-6 w-6" />

@@ -361,7 +361,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               dot={false}
               activeDot={{ r: 6 }}
               fill="url(#jitterGradient)"
-              className="!stroke-purple-500"
+              className="!stroke-purple-400"
               strokeDasharray="5 5"
               animationDuration={1750}
               animationBegin={0}
@@ -374,194 +374,205 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
     [filteredData, timeRange, visibleMetrics, isMobile]
   );
 
-  return (
-    <Disclosure defaultOpen={true}>
-      {({ open }) => (
-        <div className="flex flex-col h-full mb-6">
-          <DisclosureButton
-            className={`flex justify-between items-center w-full px-4 py-2 bg-gray-850/95 ${
-              open ? "rounded-t-xl border-b-0" : "rounded-xl"
-            } shadow-lg border-b-0 border-gray-900 text-left`}
-          >
-            <h2 className="text-white text-xl font-semibold p-1 select-none">
-              Speed History
-            </h2>
-            <ChevronDownIcon
-              className={`${
-                open ? "transform rotate-180" : ""
-              } w-5 h-5 text-gray-400 transition-transform duration-200`}
-            />
-          </DisclosureButton>
+  const [isOpen] = useState(() => {
+    const saved = localStorage.getItem('speedtest-chart-open');
+    return saved === null ? true : saved === 'true';
+  });
 
-          {open && (
-            <div className="bg-gray-850/95 px-2 sm:px-4 rounded-b-xl shadow-lg flex-1">
-              <motion.div
-                className="mt-1 speed-history-animate"
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: 0.5,
-                  type: "spring",
-                  stiffness: 300,
-                  damping: 20,
-                }}
-              >
-                {/* Controls */}
-                <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
-                  {/* Metric Toggle Controls */}
-                  <div className="grid grid-cols-4 sm:flex sm:flex-wrap items-center gap-1 sm:gap-2 w-full sm:w-auto mb-4 sm:mb-0">
-                    {[
-                      {
-                        key: "download",
-                        color: "#3B82F6",
-                        label: "Download",
-                        icon: <FaDownload size={14} />,
-                      },
-                      {
-                        key: "upload",
-                        color: "#10B981",
-                        label: "Upload",
-                        icon: <FaUpload size={14} />,
-                      },
-                      {
-                        key: "latency",
-                        color: "#F59E0B",
-                        label: "Latency",
-                        icon: <FaClock size={14} />,
-                      },
-                      {
-                        key: "jitter",
-                        color: "#9333EA",
-                        label: "Jitter",
-                        icon: <FaWaveSquare size={14} />,
-                      },
-                    ].map(({ key, label, icon, color }) => {
-                      const isActive =
-                        visibleMetrics[key as keyof typeof visibleMetrics];
-                      return (
+  return (
+    <Disclosure defaultOpen={isOpen}>
+      {({ open }) => {
+        useEffect(() => {
+          localStorage.setItem('speedtest-chart-open', open.toString());
+        }, [open]);
+
+        return (
+          <div className="flex flex-col h-full mb-6">
+            <DisclosureButton
+              className={`flex justify-between items-center w-full px-4 py-2 bg-gray-850/95 ${
+                open ? "rounded-t-xl border-b-0" : "rounded-xl"
+              } shadow-lg border-b-0 border-gray-900 text-left`}
+            >
+              <h2 className="text-white text-xl font-semibold p-1 select-none">
+                Speed History
+              </h2>
+              <ChevronDownIcon
+                className={`${
+                  open ? "transform rotate-180" : ""
+                } w-5 h-5 text-gray-400 transition-transform duration-200`}
+              />
+            </DisclosureButton>
+
+            {open && (
+              <div className="bg-gray-850/95 px-2 sm:px-4 rounded-b-xl shadow-lg flex-1">
+                <motion.div
+                  className="mt-1 speed-history-animate"
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.5,
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 20,
+                  }}
+                >
+                  {/* Controls */}
+                  <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+                    {/* Metric Toggle Controls */}
+                    <div className="grid grid-cols-4 sm:flex sm:flex-wrap items-center gap-1 sm:gap-2 w-full sm:w-auto mb-4 sm:mb-0">
+                      {[
+                        {
+                          key: "download",
+                          color: "#60a5fa",
+                          label: "Download",
+                          icon: <FaDownload size={14} />,
+                        },
+                        {
+                          key: "upload",
+                          color: "#34d399",
+                          label: "Upload",
+                          icon: <FaUpload size={14} />,
+                        },
+                        {
+                          key: "latency",
+                          color: "#f59e0b",
+                          label: "Latency",
+                          icon: <FaClock size={14} />,
+                        },
+                        {
+                          key: "jitter",
+                          color: "#a855f7",
+                          label: "Jitter",
+                          icon: <FaWaveSquare size={14} />,
+                        },
+                      ].map(({ key, label, icon, color }) => {
+                        const isActive =
+                          visibleMetrics[key as keyof typeof visibleMetrics];
+                        return (
+                          <motion.button
+                            key={key}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() =>
+                              handleMetricToggle(
+                                key as keyof typeof visibleMetrics
+                              )
+                            }
+                            className={`
+                              px-1.5 sm:px-3 
+                              py-1 sm:py-1.5
+                              rounded-md 
+                              text-xs sm:text-sm
+                              font-medium
+                              flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2
+                              transition-all duration-150 ease-in-out
+                              focus:outline-none
+                              focus:ring-0
+                              ${
+                                isActive
+                                  ? `bg-opacity-20 border hover:bg-opacity-30`
+                                  : "bg-gray-800 text-gray-400 border border-gray-700 hover:bg-gray-750 hover:border-gray-600"
+                              }
+                            `}
+                            style={{
+                              backgroundColor: isActive
+                                ? `${color}20`
+                                : undefined,
+                              borderColor: isActive ? color : undefined,
+                              color: isActive ? color : undefined,
+                            }}
+                          >
+                            <motion.div
+                              layout
+                              className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
+                              style={{
+                                backgroundColor: isActive ? color : "#6B7280",
+                              }}
+                            />
+                            <span className="hidden sm:inline">{label}</span>
+                            <span className="sm:hidden">{icon}</span>
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Time Range Controls */}
+                    <div className="grid grid-cols-5 sm:flex gap-1 sm:gap-2 w-full sm:w-auto">
+                      {timeRangeOptions.map((option) => (
                         <motion.button
-                          key={key}
+                          key={option.value}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
-                          onClick={() =>
-                            handleMetricToggle(
-                              key as keyof typeof visibleMetrics
-                            )
-                          }
+                          onClick={() => handleTimeRangeChange(option.value)}
                           className={`
                             px-1.5 sm:px-3 
-                            py-1 sm:py-1.5
-                            rounded-md 
-                            text-xs sm:text-sm
-                            font-medium
-                            flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2
-                            transition-all duration-150 ease-in-out
-                            focus:outline-none
-                            focus:ring-0
+                            py-1 sm:py-2 
+                            rounded-lg 
+                            text-xs sm:text-sm 
+                            transition-colors 
                             ${
-                              isActive
-                                ? `bg-opacity-20 border hover:bg-opacity-30`
-                                : "bg-gray-800 text-gray-400 border border-gray-700 hover:bg-gray-750 hover:border-gray-600"
+                              timeRange === option.value
+                                ? "bg-blue-500 text-white border border-blue-600 hover:border-blue-700"
+                                : "bg-gray-800 text-gray-400 border border-gray-900/80 hover:bg-gray-700"
                             }
                           `}
-                          style={{
-                            backgroundColor: isActive
-                              ? `${color}20`
-                              : undefined,
-                            borderColor: isActive ? color : undefined,
-                            color: isActive ? color : undefined,
-                          }}
                         >
-                          <motion.div
-                            layout
-                            className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
-                            style={{
-                              backgroundColor: isActive ? color : "#6B7280",
-                            }}
-                          />
-                          <span className="hidden sm:inline">{label}</span>
-                          <span className="sm:hidden">{icon}</span>
+                          <span className="hidden sm:inline">{option.label}</span>
+                          <span className="sm:hidden">
+                            {option.value === "1d"
+                              ? "24H"
+                              : option.value === "3d"
+                              ? "3D"
+                              : option.value === "1w"
+                              ? "1W"
+                              : option.value === "1m"
+                              ? "1M"
+                              : "All"}
+                          </span>
                         </motion.button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Time Range Controls */}
-                  <div className="grid grid-cols-5 sm:flex gap-1 sm:gap-2 w-full sm:w-auto">
-                    {timeRangeOptions.map((option) => (
-                      <motion.button
-                        key={option.value}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleTimeRangeChange(option.value)}
-                        className={`
-                          px-1.5 sm:px-3 
-                          py-1 sm:py-2 
-                          rounded-lg 
-                          text-xs sm:text-sm 
-                          transition-colors 
-                          ${
-                            timeRange === option.value
-                              ? "bg-blue-500 text-white border border-blue-600 hover:border-blue-700"
-                              : "bg-gray-800 text-gray-400 border border-gray-900/80 hover:bg-gray-700"
-                          }
-                        `}
-                      >
-                        <span className="hidden sm:inline">{option.label}</span>
-                        <span className="sm:hidden">
-                          {option.value === "1d"
-                            ? "24H"
-                            : option.value === "3d"
-                            ? "3D"
-                            : option.value === "1w"
-                            ? "1W"
-                            : option.value === "1m"
-                            ? "1M"
-                            : "All"}
-                        </span>
-                      </motion.button>
-                    ))}
+                  {/* Chart Area */}
+                  <div className="h-[250px] sm:h-[300px] md:h-[400px]">
+                    <AnimatePresence mode="wait">
+                      {isLoading ? (
+                        <ChartSkeleton />
+                      ) : (
+                        <motion.div
+                          key="chart"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="h-full"
+                        >
+                          {chart}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                </div>
 
-                {/* Chart Area */}
-                <div className="h-[250px] sm:h-[300px] md:h-[400px]">
-                  <AnimatePresence mode="wait">
-                    {isLoading ? (
-                      <ChartSkeleton />
-                    ) : (
-                      <motion.div
-                        key="chart"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="h-full"
-                      >
-                        {chart}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {hasNextPage && (
-                  <motion.button
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => fetchNextPage()}
-                    disabled={isFetchingNextPage}
-                    className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
-                  >
-                    {isFetchingNextPage ? "Loading more..." : "Load more"}
-                  </motion.button>
-                )}
-              </motion.div>
-            </div>
-          )}
-        </div>
-      )}
+                  {hasNextPage && (
+                    <motion.button
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                      className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
+                    >
+                      {isFetchingNextPage ? "Loading more..." : "Load more"}
+                    </motion.button>
+                  )}
+                </motion.div>
+              </div>
+            )}
+          </div>
+        );
+      }}
     </Disclosure>
   );
 };

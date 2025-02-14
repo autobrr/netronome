@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/auth";
 import { router } from "@/routes";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo_small.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faOpenid } from "@fortawesome/free-brands-svg-icons";
 
