@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/auth";
 import { checkRegistrationStatus } from "@/api/auth";
 import { router } from "@/routes";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo_small.png";
 import { Footer } from "@/components/Footer";
 
 export default function Register() {

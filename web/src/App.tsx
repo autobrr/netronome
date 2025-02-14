@@ -32,7 +32,7 @@ function App() {
           </button>
           <button
             onClick={() => logout()}
-            className="text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-blue-300"
+            className="text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-blue-400"
             aria-label="Logout"
           >
             <LogoutIcon className="h-6 w-6" />
@@ -40,7 +40,7 @@ function App() {
         </div>
       )}
 
-      <DonateModal 
+      <DonateModal
         isOpen={isDonateOpen}
         onClose={() => setIsDonateOpen(false)}
       />

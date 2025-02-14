@@ -20,7 +20,7 @@ import {
   TestOptions,
   PaginatedResponse,
 } from "@/types/types";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo_small.png";
 import {
   useQuery,
   useMutation,
@@ -343,7 +343,7 @@ export default function SpeedTest() {
                 average={calculateAverage(history, "uploadSpeed", timeRange)}
               />
               <MetricCard
-                icon={<FaWaveSquare className="w-5 h-5 text-purple-500" />}
+                icon={<FaWaveSquare className="w-5 h-5 text-purple-400" />}
                 title="Jitter"
                 value={history[0].jitter?.toFixed(2) ?? "N/A"}
                 unit="ms"
@@ -397,7 +397,6 @@ export default function SpeedTest() {
           </motion.div>
 
           <motion.div
-            className="sticky top-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
@@ -407,7 +406,6 @@ export default function SpeedTest() {
               servers={servers}
               selectedServers={selectedServers}
               onServerSelect={handleServerSelect}
-              loading={isLoading}
             />
           </motion.div>
         </div>
