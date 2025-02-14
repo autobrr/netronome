@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024-2025, s0up and the autobrr contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment, useEffect, useState } from "react";
 import { RocketLaunchIcon, GlobeAltIcon, UserGroupIcon, ArrowTopRightOnSquareIcon, XMarkIcon, HeartIcon } from "@heroicons/react/24/solid";
