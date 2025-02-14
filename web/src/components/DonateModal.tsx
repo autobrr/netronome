@@ -5,7 +5,14 @@
 
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment, useEffect, useState } from "react";
-import { RocketLaunchIcon, GlobeAltIcon, UserGroupIcon, ArrowTopRightOnSquareIcon, XMarkIcon, HeartIcon } from "@heroicons/react/24/solid";
+import {
+  RocketLaunchIcon,
+  GlobeAltIcon,
+  UserGroupIcon,
+  ArrowTopRightOnSquareIcon,
+  XMarkIcon,
+  HeartIcon,
+} from "@heroicons/react/24/solid";
 
 interface DonationLink {
   name: string;
@@ -17,21 +24,21 @@ interface DonationLink {
 const donationLinks: DonationLink[] = [
   {
     name: "Polar",
-    url: "https://polar.sh/netronome",
+    url: "https://buy.polar.sh/polar_cl_wWoEUigSOTJIoTrKaGIj3NU6oOCc4xJsKnsDN3NaATF",
     description: "Support netronome development via Polar.sh",
-    icon: "https://polar.sh/favicon.ico"
+    icon: "https://polar.sh/favicon.ico",
   },
   {
     name: "s0up",
     url: "https://github.com/sponsors/s0up4200/",
     description: "Support netronome development via GitHub Sponsors",
-    icon: "https://github.com/s0up4200.png"
+    icon: "https://github.com/s0up4200.png",
   },
   {
     name: "zze0s",
     url: "https://github.com/sponsors/zze0s",
     description: "Support netronome development via GitHub Sponsors",
-    icon: "https://github.com/zze0s.png"
+    icon: "https://github.com/zze0s.png",
   },
 ];
 
@@ -60,7 +67,7 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
 
   // Preload images
   useEffect(() => {
-    donationLinks.forEach(link => {
+    donationLinks.forEach((link) => {
       const img = new Image();
       img.src = link.icon;
     });
@@ -78,7 +85,10 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-xs" aria-hidden="true" />
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-xs"
+            aria-hidden="true"
+          />
         </Transition.Child>
 
         <div className="fixed inset-0 flex items-start justify-center p-4 sm:pt-[20vh]">
@@ -109,7 +119,7 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
                 <ul className="list-none space-y-3 text-sm text-gray-600 dark:text-gray-300">
                   <li className="flex items-center gap-2">
                     <RocketLaunchIcon className="h-4 w-4 text-blue-500" />
-                    <a 
+                    <a
                       href="https://github.com/autobrr/netronome/issues"
                       target="_blank"
                       rel="noopener noreferrer"
@@ -125,7 +135,7 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
                   </li>
                   <li className="flex items-center gap-2">
                     <UserGroupIcon className="h-4 w-4 text-purple-500" />
-                    <a 
+                    <a
                       href="https://discord.gg/WQ2eUycxyT"
                       target="_blank"
                       rel="noopener noreferrer"
@@ -147,16 +157,21 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-4 p-4 rounded-lg dark:bg-gray-900/40 border border-gray-200 dark:border-black/60 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                    className="group flex items-center gap-4 p-4 rounded-lg dark:bg-gray-900/40 border border-gray-200 dark:border-black/60 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
                   >
-                    <img 
-                      src={link.icon} 
-                      alt={`${link.name} icon`} 
+                    <img
+                      src={link.icon}
+                      alt={`${link.name} icon`}
                       className="w-10 h-10 rounded-full object-cover"
                     />
                     <div>
-                      <h3 className="font-medium text-gray-900 dark:text-white">{link.name}</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{link.description}</p>
+                      <h3 className="font-medium text-gray-900 dark:text-white group-hover:text-blue-500 dark:group-hover:text-blue-400 flex items-center gap-1 transition-colors">
+                        {link.name}
+                        <ArrowTopRightOnSquareIcon className="h-3 w-3 text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors" />
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {link.description}
+                      </p>
                     </div>
                   </a>
                 ))}
@@ -167,4 +182,4 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
       </Dialog>
     </Transition>
   );
-} 
+}
