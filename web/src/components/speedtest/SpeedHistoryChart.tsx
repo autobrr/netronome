@@ -375,15 +375,15 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   );
 
   const [isOpen] = useState(() => {
-    const saved = localStorage.getItem('speedtest-chart-open');
-    return saved === null ? true : saved === 'true';
+    const saved = localStorage.getItem("speedtest-chart-open");
+    return saved === null ? true : saved === "true";
   });
 
   return (
     <Disclosure defaultOpen={isOpen}>
       {({ open }) => {
         useEffect(() => {
-          localStorage.setItem('speedtest-chart-open', open.toString());
+          localStorage.setItem("speedtest-chart-open", open.toString());
         }, [open]);
 
         return (
@@ -517,7 +517,9 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                             }
                           `}
                         >
-                          <span className="hidden sm:inline">{option.label}</span>
+                          <span className="hidden sm:inline">
+                            {option.label}
+                          </span>
                           <span className="sm:hidden">
                             {option.value === "1d"
                               ? "24H"

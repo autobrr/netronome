@@ -32,11 +32,11 @@
   /* Firefox */
   * {
     scrollbar-width: thin;
-    scrollbar-color: theme('colors.gray.300') theme('colors.gray.100');
+    scrollbar-color: theme("colors.gray.300") theme("colors.gray.100");
   }
 
   .dark * {
-    scrollbar-color: theme('colors.gray.700') theme('colors.gray.900');
+    scrollbar-color: theme("colors.gray.700") theme("colors.gray.900");
   }
 
   /* Small scrollbar styles */
@@ -63,17 +63,17 @@
   *::-webkit-scrollbar-corner {
     background-color: transparent;
   }
-  
+
   *::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
-  
+
   *::-webkit-scrollbar-thumb {
     @apply bg-gray-400 dark:bg-gray-700 rounded-xl;
     background-color: rgba(255, 255, 255, 0.1); /* Very subtle light color */
   }
-  
+
   *::-webkit-scrollbar-track {
     @apply dark:bg-gray-900;
     background-color: transparent;

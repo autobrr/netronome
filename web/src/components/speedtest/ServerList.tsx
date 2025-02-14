@@ -59,8 +59,8 @@ export const ServerList: React.FC<ServerListProps> = ({
     port: string;
   }>({ host: "", port: "5201" });
   const [isOpen] = useState(() => {
-    const saved = localStorage.getItem('server-list-open');
-    return saved === null ? true : saved === 'true';
+    const saved = localStorage.getItem("server-list-open");
+    return saved === null ? true : saved === "true";
   });
 
   // Get unique countries for filter dropdown
@@ -165,7 +165,7 @@ export const ServerList: React.FC<ServerListProps> = ({
     <Disclosure defaultOpen={isOpen}>
       {({ open }) => {
         useEffect(() => {
-          localStorage.setItem('server-list-open', open.toString());
+          localStorage.setItem("server-list-open", open.toString());
         }, [open]);
 
         return (
@@ -489,7 +489,10 @@ export const ServerList: React.FC<ServerListProps> = ({
                       </div>
 
                       {/* Country Filter */}
-                      <Listbox value={filterCountry} onChange={setFilterCountry}>
+                      <Listbox
+                        value={filterCountry}
+                        onChange={setFilterCountry}
+                      >
                         <div className="relative min-w-[160px]">
                           <ListboxButton className="relative w-full px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg text-left text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
                             <span className="block truncate">

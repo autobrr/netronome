@@ -72,8 +72,8 @@ export default function ScheduleManager({
   const [, setError] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isOpen] = useState(() => {
-    const saved = localStorage.getItem('schedule-manager-open');
-    return saved === null ? true : saved === 'true';
+    const saved = localStorage.getItem("schedule-manager-open");
+    return saved === null ? true : saved === "true";
   });
 
   useEffect(() => {
@@ -212,7 +212,10 @@ export default function ScheduleManager({
               s.port === parseInt(host.split(":")[1])
           );
           return (
-            <div className="inline-block group relative cursor-pointer">
+            <span
+              key={id}
+              className="inline-block group relative cursor-pointer"
+            >
               <span>
                 {iperfServer?.name || host} -{" "}
                 <span className="text-purple-400 drop-shadow-[0_0_1px_rgba(168,85,247,0.8)]">
@@ -220,7 +223,7 @@ export default function ScheduleManager({
                 </span>
               </span>
               {iperfServer?.name && (
-                <div 
+                <span
                   className="
                     absolute top-full left-1/2 transform -translate-x-1/2 mt-2
                     px-3 py-2 text-sm
@@ -244,20 +247,20 @@ export default function ScheduleManager({
                   "
                 >
                   {host}
-                </div>
+                </span>
               )}
-            </div>
+            </span>
           );
         }
 
         const server = servers.find((s: Server) => s.id === id);
         return server ? (
-          <>
+          <span key={id}>
             {server.sponsor} - {server.name} -{" "}
             <span className="text-emerald-400 drop-shadow-[0_0_1px_rgba(251,191,36,0.8)]">
               speedtest.net
             </span>
-          </>
+          </span>
         ) : null;
       })
       .filter(Boolean);
@@ -283,7 +286,7 @@ export default function ScheduleManager({
       <Disclosure defaultOpen={isOpen}>
         {({ open }) => {
           useEffect(() => {
-            localStorage.setItem('schedule-manager-open', open.toString());
+            localStorage.setItem("schedule-manager-open", open.toString());
           }, [open]);
 
           return (
@@ -438,7 +441,9 @@ export default function ScheduleManager({
                                       </button>
                                     </div>
                                     <p className="text-gray-400 text-sm">
-                                      <span className="font-medium">Server:</span>{" "}
+                                      <span className="font-medium">
+                                        Server:
+                                      </span>{" "}
                                       <span className="truncate">
                                         {getServerNames(schedule.serverIds)}
                                       </span>
