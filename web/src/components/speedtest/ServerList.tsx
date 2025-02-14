@@ -161,23 +161,26 @@ export const ServerList: React.FC<ServerListProps> = ({
     <Disclosure defaultOpen={true}>
       {({ open }) => (
         <div className="flex flex-col h-full">
-          <DisclosureButton
-            className={`flex justify-between items-center w-full px-4 py-2 bg-gray-850/95 ${
-              open ? "rounded-t-xl border-b-0" : "rounded-xl"
-            } border-b-0 border-gray-900 text-left`}
-          >
+            <DisclosureButton
+              className={`flex justify-between items-center w-full px-4 py-2 bg-gray-850/95 ${
+                open ? "rounded-t-xl" : "rounded-xl"
+              } shadow-lg border-b-0 border-gray-900 text-left`}
+            >
             <div className="flex flex-col">
               <h2 className="text-white text-xl font-semibold p-1 select-none">
                 Server Selection
               </h2>
+              <p className="text-gray-400 text-sm pl-1">
+                Choose between speedtest.net or iperf3 servers
+              </p>
             </div>
             <div className="flex items-center gap-2">
-              {!useIperf && selectedServers.length > 0 && (
+              {/* {!useIperf && selectedServers.length > 0 && (
                 <span className="text-gray-400">
                   {selectedServers.length} server
                   {selectedServers.length !== 1 ? "s" : ""} selected
                 </span>
-              )}
+              )} */}
               <ChevronDownIcon
                 className={`${
                   open ? "transform rotate-180" : ""
@@ -187,13 +190,9 @@ export const ServerList: React.FC<ServerListProps> = ({
           </DisclosureButton>
 
           {open && (
-            <div className="bg-gray-850/95 px-4 rounded-b-xl shadow-lg flex-1">
+            <div className="bg-gray-850/95 px-4 pt-2 rounded-b-xl shadow-lg flex-1">
               <div className="flex flex-col pl-1">
-                <p className="text-gray-400 text-sm select-none pointer-events-none">
-                  {useIperf
-                    ? "Enter iperf3 server details"
-                    : "Select one or more servers to test"}
-                </p>
+
               </div>
               <motion.div
                 className="mt-1 px-1 select-none pointer-events-none server-list-animate pb-4"
@@ -221,6 +220,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                 <div className="flex justify-between items-center mb-4">
                   <div className="flex items-center gap-6">
                     {/* Multi-select Toggle */}
+                    {/* TODO: backend needs some work for multiple server tests
                     <Field
                       className={`flex items-center gap-3 transition-opacity duration-200 ${
                         useIperf
@@ -245,6 +245,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                         />
                       </Switch>
                     </Field>
+                    */}
 
                     {/* iperf3 Toggle */}
                     <Field className="flex items-center gap-2 sm:gap-3">
@@ -299,129 +300,131 @@ export const ServerList: React.FC<ServerListProps> = ({
                 {useIperf && (
                   <div className="flex flex-col gap-4 mb-4">
                     {/* Section for saved servers */}
-                    <div className="flex flex-col gap-2">
-                      <h3 className="text-sm font-medium text-gray-400">
-                        Saved Servers
-                      </h3>
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                        <Listbox
-                          value=""
-                          onChange={(selectedServerId: string) => {
-                            const server = savedIperfServers.find(
-                              (s) => s.id.toString() === selectedServerId
-                            );
-                            if (server) {
-                              const iperfServer: Server = {
-                                id: `iperf3-${server.host}:${server.port}`,
-                                name: server.name,
-                                host: `${server.host}:${server.port}`,
-                                location: "Saved",
-                                distance: 0,
-                                country: "Saved",
-                                sponsor: "Saved iperf3",
-                                latitude: 0,
-                                longitude: 0,
-                                isIperf: true,
-                              };
-                              selectedServers.forEach((s) => onSelect(s));
-                              onSelect(iperfServer);
-                            }
-                          }}
-                        >
-                          <div className="relative w-full sm:min-w-[200px] md:min-w-[300px] lg:min-w-[400px]">
-                            <ListboxButton className="relative w-full px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg text-left text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
-                              <span className="block truncate">
-                                Select Saved Server
-                              </span>
-                              <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                                <ChevronUpDownIcon
-                                  className="h-5 w-5 text-gray-400"
-                                  aria-hidden="true"
-                                />
-                              </span>
-                            </ListboxButton>
-                            <Transition
-                              enter="transition duration-100 ease-out"
-                              enterFrom="transform scale-95 opacity-0"
-                              enterTo="transform scale-100 opacity-100"
-                              leave="transition duration-75 ease-out"
-                              leaveFrom="transform scale-100 opacity-100"
-                              leaveTo="transform scale-95 opacity-0"
-                            >
-                              <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-gray-800 border border-gray-900 py-1 shadow-lg focus:outline-none">
-                                {savedIperfServers.map((server) => (
-                                  <ListboxOption
-                                    key={server.id}
-                                    value={server.id.toString()}
-                                    className={({ active }) =>
-                                      `relative cursor-pointer select-none py-2 px-4 ${
-                                        active
-                                          ? "bg-blue-500/10 text-blue-200"
-                                          : "text-gray-300"
-                                      }`
-                                    }
-                                  >
-                                    {({ selected }) => (
-                                      <div className="flex items-center justify-between space-x-2">
-                                        <div className="flex-1 min-w-0">
-                                          <span
-                                            className={`block truncate ${
-                                              selected
-                                                ? "font-medium"
-                                                : "font-normal"
-                                            }`}
-                                          >
-                                            {server.name}
-                                          </span>
-                                          <span className="block truncate text-xs text-gray-400">
-                                            {server.host}:{server.port}
-                                          </span>
-                                        </div>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setServerToDelete(server.id);
-                                            setDeleteModalOpen(true);
-                                          }}
-                                          className="px-2 py-1 text-sm text-red-400 hover:text-red-300 transition-colors"
-                                        >
-                                          Delete
-                                        </button>
-                                      </div>
-                                    )}
-                                  </ListboxOption>
-                                ))}
-                              </ListboxOptions>
-                            </Transition>
-                          </div>
-                        </Listbox>
-
-                        {selectedServers.length > 0 && (
-                          <div className="flex items-center gap-2 w-full sm:w-auto overflow-hidden">
-                            <span
-                              className="text-gray-300 truncate cursor-default"
-                              title={selectedServers[0].host}
-                            >
-                              <span className="text-gray-400">Selected:</span>{" "}
-                              {selectedServers[0].host}
-                            </span>
-                            <button
-                              onClick={() =>
-                                selectedServers.forEach((s) => onSelect(s))
+                    {savedIperfServers.length > 0 && (
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-sm font-medium text-gray-400">
+                          Saved Servers
+                        </h3>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                          <Listbox
+                            value=""
+                            onChange={(selectedServerId: string) => {
+                              const server = savedIperfServers.find(
+                                (s) => s.id.toString() === selectedServerId
+                              );
+                              if (server) {
+                                const iperfServer: Server = {
+                                  id: `iperf3-${server.host}:${server.port}`,
+                                  name: server.name,
+                                  host: `${server.host}:${server.port}`,
+                                  location: "Saved",
+                                  distance: 0,
+                                  country: "Saved",
+                                  sponsor: "Saved iperf3",
+                                  latitude: 0,
+                                  longitude: 0,
+                                  isIperf: true,
+                                };
+                                selectedServers.forEach((s) => onSelect(s));
+                                onSelect(iperfServer);
                               }
-                              className="px-2 py-1 text-sm text-gray-400 hover:text-gray-200 transition-colors shrink-0"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        )}
+                            }}
+                          >
+                            <div className="relative w-full sm:min-w-[200px] md:min-w-[300px] lg:min-w-[400px]">
+                              <ListboxButton className="relative w-full px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg text-left text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
+                                <span className="block truncate">
+                                  Select a server
+                                </span>
+                                <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                                  <ChevronUpDownIcon
+                                    className="h-5 w-5 text-gray-400"
+                                    aria-hidden="true"
+                                  />
+                                </span>
+                              </ListboxButton>
+                              <Transition
+                                enter="transition duration-100 ease-out"
+                                enterFrom="transform scale-95 opacity-0"
+                                enterTo="transform scale-100 opacity-100"
+                                leave="transition duration-75 ease-out"
+                                leaveFrom="transform scale-100 opacity-100"
+                                leaveTo="transform scale-95 opacity-0"
+                              >
+                                <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-gray-800 border border-gray-900 py-1 shadow-lg focus:outline-none">
+                                  {savedIperfServers.map((server) => (
+                                    <ListboxOption
+                                      key={server.id}
+                                      value={server.id.toString()}
+                                      className={({ active }) =>
+                                        `relative cursor-pointer select-none py-2 px-4 ${
+                                          active
+                                            ? "bg-blue-500/10 text-blue-200"
+                                            : "text-gray-300"
+                                        }`
+                                      }
+                                    >
+                                      {({ selected }) => (
+                                        <div className="flex items-center justify-between space-x-2">
+                                          <div className="flex-1 min-w-0">
+                                            <span
+                                              className={`block truncate ${
+                                                selected
+                                                  ? "font-medium"
+                                                  : "font-normal"
+                                              }`}
+                                            >
+                                              {server.name}
+                                            </span>
+                                            <span className="block truncate text-xs text-gray-400">
+                                              {server.host}:{server.port}
+                                            </span>
+                                          </div>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setServerToDelete(server.id);
+                                              setDeleteModalOpen(true);
+                                            }}
+                                            className="px-2 py-1 text-sm text-red-400 hover:text-red-300 transition-colors"
+                                          >
+                                            Delete
+                                          </button>
+                                        </div>
+                                      )}
+                                    </ListboxOption>
+                                  ))}
+                                </ListboxOptions>
+                              </Transition>
+                            </div>
+                          </Listbox>
+
+                          {selectedServers.length > 0 && (
+                            <div className="flex items-center gap-2 w-full sm:w-auto overflow-hidden">
+                              <span
+                                className="text-gray-300 truncate cursor-default"
+                                title={selectedServers[0].host}
+                              >
+                                <span className="text-gray-400">Selected:</span>{" "}
+                                {selectedServers[0].host}
+                              </span>
+                              <button
+                                onClick={() =>
+                                  selectedServers.forEach((s) => onSelect(s))
+                                }
+                                className="px-2 py-1 text-sm text-gray-400 hover:text-gray-200 transition-colors shrink-0"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Section for adding new servers */}
                     <div className="flex flex-col gap-2">
                       <h3 className="text-sm font-medium text-gray-400">
-                        Add New Server
+                        {savedIperfServers.length === 0 ? "Add iperf3 Server" : "Add New Server"}
                       </h3>
                       <div className="flex gap-4">
                         <input
