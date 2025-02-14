@@ -81,7 +81,7 @@ export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
             ) : (
               <FaArrowUp className="text-emerald-500" />
             )}
-            <span className="text-white font-bold text-sm ml-1">
+            <span className="text-white font-bold text-sm mr-4">
               {getTestPhase()}
             </span>
           </div>
