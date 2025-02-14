@@ -9,6 +9,7 @@ import { router } from "@/routes";
 import logo from "@/assets/logo.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faOpenid } from "@fortawesome/free-brands-svg-icons";
+import { Footer } from "@/components/Footer";
 
 export default function Login() {
   const { login, checkRegistrationStatus } = useAuth();
@@ -85,8 +86,8 @@ export default function Login() {
   }
 
   return (
-    <div className="h-screen flex items-center justify-center bg-gray-900 pattern overflow-hidden m-0 p-0">
-      <div className="max-w-md w-full p-8 bg-gray-850/40 border border-black/40 rounded-lg shadow-lg">
+    <div className="h-screen flex flex-col items-center justify-center bg-gray-900 pattern overflow-hidden m-0 p-0">
+      <div className="max-w-md w-full px-8 pt-8 pb-4 bg-gray-850/40 border border-black/40 rounded-lg shadow-lg">
         <div className="flex flex-col items-center">
           <img
             src={logo}
@@ -168,6 +169,7 @@ export default function Login() {
             </div>
           </form>
         )}
+       <Footer />
       </div>
     </div>
   );
