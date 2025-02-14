@@ -8,6 +8,7 @@ import { useAuth } from "@/context/auth";
 import { checkRegistrationStatus } from "@/api/auth";
 import { router } from "@/routes";
 import logo from "@/assets/logo_small.png";
+import { Footer } from "@/components/Footer";
 
 export default function Register() {
   const [username, setUsername] = useState("");
@@ -65,8 +66,8 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 pattern">
-      <div className="max-w-md w-full space-y-8 p-8 bg-gray-850/40 border border-black/40 rounded-lg shadow-lg">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 pattern">
+      <div className="max-w-md w-full p-8 bg-gray-850/40 border border-black/40 rounded-lg shadow-lg">
         <div className="flex flex-col items-center">
           <img
             src={logo}
@@ -131,6 +132,7 @@ export default function Register() {
           </div>
         </form>
       </div>
+      <Footer />
     </div>
   );
 }
