@@ -18,7 +18,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/logger"
@@ -231,10 +230,6 @@ func changePassword(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to read password: %w", err)
 	}
 	fmt.Println()
-
-	if err := auth.ValidatePassword(string(password)); err != nil {
-		return fmt.Errorf("invalid password: %w", err)
-	}
 
 	if err := db.UpdatePassword(context.Background(), username, string(password)); err != nil {
 		return fmt.Errorf("failed to update password: %w", err)
