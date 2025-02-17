@@ -4,8 +4,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/logger"
@@ -57,6 +60,13 @@ track and analyze your network performance over time.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  changePassword,
 	}
+
+	createUserCmd = &cobra.Command{
+		Use:   "create-user [username]",
+		Short: "Create a new user",
+		Args:  cobra.ExactArgs(1),
+		RunE:  createUser,
+	}
 )
 
 func init() {
@@ -70,6 +80,7 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(generateConfigCmd)
 	rootCmd.AddCommand(changePasswordCmd)
+	rootCmd.AddCommand(createUserCmd)
 }
 
 func main() {
@@ -224,17 +235,105 @@ func changePassword(cmd *cobra.Command, args []string) error {
 
 	username := args[0]
 
-	fmt.Print("Enter new password: ")
-	password, err := term.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		return fmt.Errorf("failed to read password: %w", err)
+	var password []byte
+
+	// Check if we're running in a terminal
+	if term.IsTerminal(int(syscall.Stdin)) {
+		// Interactive mode - prompt for password
+		fmt.Print("Enter new password: ")
+		password, err = term.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			return fmt.Errorf("failed to read password: %w", err)
+		}
+		fmt.Println()
+	} else {
+		// Non-interactive mode - read password from stdin
+		password, err = io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("failed to read password from stdin: %w", err)
+		}
+		// Trim any trailing newlines
+		password = bytes.TrimSpace(password)
 	}
-	fmt.Println()
+
+	if len(password) == 0 {
+		return fmt.Errorf("password cannot be empty")
+	}
+
+	// Validate password
+	if err := auth.ValidatePassword(string(password)); err != nil {
+		return fmt.Errorf("invalid password: %w", err)
+	}
 
 	if err := db.UpdatePassword(context.Background(), username, string(password)); err != nil {
 		return fmt.Errorf("failed to update password: %w", err)
 	}
 
 	log.Info().Str("username", username).Msg("Password updated successfully")
+	return nil
+}
+
+func createUser(cmd *cobra.Command, args []string) error {
+	// initialize logger with default settings
+	logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
+
+	// ensure config exists
+	configPath, err := config.EnsureConfig(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to ensure config exists: %w", err)
+	}
+
+	// load configuration
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	// initialize database
+	db := database.New(cfg.Database)
+	if err := db.InitializeTables(context.Background()); err != nil {
+		return fmt.Errorf("failed to initialize database tables: %w", err)
+	}
+	defer db.Close()
+
+	username := args[0]
+
+	var password []byte
+
+	// Check if we're running in a terminal
+	if term.IsTerminal(int(syscall.Stdin)) {
+		// Interactive mode - prompt for password
+		fmt.Print("Enter password: ")
+		password, err = term.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			return fmt.Errorf("failed to read password: %w", err)
+		}
+		fmt.Println()
+	} else {
+		// Non-interactive mode - read password from stdin
+		password, err = io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("failed to read password from stdin: %w", err)
+		}
+		// Trim any trailing newlines
+		password = bytes.TrimSpace(password)
+	}
+
+	if len(password) == 0 {
+		return fmt.Errorf("password cannot be empty")
+	}
+
+	// Validate password
+	if err := auth.ValidatePassword(string(password)); err != nil {
+		return fmt.Errorf("invalid password: %w", err)
+	}
+
+	// Create user
+	user, err := db.CreateUser(context.Background(), username, string(password))
+	if err != nil {
+		return fmt.Errorf("failed to create user: %w", err)
+	}
+
+	log.Info().Str("username", username).Int64("id", user.ID).Msg("User created successfully")
 	return nil
 }
