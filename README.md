@@ -13,7 +13,6 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
   - [Swizzin](#swizzin)
   - [Linux Generic](#linux-generic)
   - [Docker Installation](#docker-installation)
-- [Development Commands](#️-development-commands)
 - [Configuration](#️-configuration)
   - [Configuration File](#configuration-file-configtoml)
   - [Environment Variables](#environment-variables)
@@ -228,17 +227,16 @@ Netronome supports two authentication methods:
 
 ### CLI Commands
 
-Netronome provides several command-line commands for managing users:
+Netronome provides several command-line commands:
 
-- `generate-config` - Generate a default configuration file
-- `serve` - Start the Netronome server
+- `generate-config` - Generate a default configuration file to `~/.config/netronome/config.toml`
+- `serve` - Starts the Netronome server
 - `create-user` - Create a new user
 - `change-password` - Change password for an existing user
 
 Examples:
 
 ```bash
-# Generate config
 netronome generate-config
 
 # Create a new user (interactive)
