@@ -16,7 +16,9 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
+	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/logger"
@@ -49,6 +51,13 @@ track and analyze your network performance over time.`,
 		Short: "Generate a default configuration file",
 		RunE:  generateConfig,
 	}
+
+	changePasswordCmd = &cobra.Command{
+		Use:   "change-password [username]",
+		Short: "Change password for a user",
+		Args:  cobra.ExactArgs(1),
+		RunE:  changePassword,
+	}
 )
 
 func init() {
@@ -61,6 +70,7 @@ func init() {
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(generateConfigCmd)
+	rootCmd.AddCommand(changePasswordCmd)
 }
 
 func main() {
@@ -191,5 +201,45 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 
 	log.Info().Msg("Server exiting")
+	return nil
+}
+
+func changePassword(cmd *cobra.Command, args []string) error {
+	logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
+
+	configPath, err := config.EnsureConfig(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to ensure config exists: %w", err)
+	}
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	db := database.New(cfg.Database)
+	if err := db.InitializeTables(context.Background()); err != nil {
+		return fmt.Errorf("failed to initialize database tables: %w", err)
+	}
+	defer db.Close()
+
+	username := args[0]
+
+	fmt.Print("Enter new password: ")
+	password, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return fmt.Errorf("failed to read password: %w", err)
+	}
+	fmt.Println()
+
+	if err := auth.ValidatePassword(string(password)); err != nil {
+		return fmt.Errorf("invalid password: %w", err)
+	}
+
+	if err := db.UpdatePassword(context.Background(), username, string(password)); err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	log.Info().Str("username", username).Msg("Password updated successfully")
 	return nil
 }

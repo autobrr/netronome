@@ -30,6 +30,7 @@ type UserService interface {
 	CreateUser(ctx context.Context, username, password string) (*User, error)
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 	ValidatePassword(user *User, password string) bool
+	UpdatePassword(ctx context.Context, username, newPassword string) error
 }
 
 func (s *service) CreateUser(ctx context.Context, username, password string) (*User, error) {
@@ -163,6 +164,43 @@ func (s *service) ValidatePassword(user *User, password string) bool {
 	}
 	err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
 	return err == nil
+}
+
+func (s *service) UpdatePassword(ctx context.Context, username, newPassword string) error {
+	if username == "" || newPassword == "" {
+		return fmt.Errorf("%w: username and password required", ErrInvalidInput)
+	}
+
+	_, err := s.GetUserByUsername(ctx, username)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	query := s.sqlBuilder.
+		Update("users").
+		Set("password_hash", string(hash)).
+		Where(sq.Eq{"username": username})
+
+	result, err := query.RunWith(s.db).ExecContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrUserNotFound
+	}
+
+	return nil
 }
 
 func isTableNotExistsError(err error) bool {
