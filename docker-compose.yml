@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   netronome:
     image: ghcr.io/autobrr/netronome:latest
@@ -7,8 +5,5 @@ services:
     ports:
       - "7575:7575"
     volumes:
-      - ./data:/data
-    environment:
-      - NETRONOME__DB_TYPE=sqlite
-      - NETRONOME__DB_PATH=/data/netronome.db
+      - ./netronome:/data
     restart: unless-stopped

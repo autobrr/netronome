@@ -1,16 +1,32 @@
 <h1 align="center">Netronome</h1>
 
 <p align="center">
-  <img src=".github/assets/netronome.png" alt="Netronome">
+  <img src=".github/assets/netronome_dashboard.png" alt="Netronome">
 </p>
 
 Netronome (Network Metronome) is a modern network speed testing and monitoring tool with a clean, intuitive web interface. It offers both scheduled and on-demand speed tests with detailed visualizations and historical tracking.
+
+## 📑 Table of Contents
+
+- [Features](#-features)
+- [Getting Started](#-getting-started)
+  - [Swizzin](#swizzin)
+  - [Linux Generic](#linux-generic)
+  - [Docker Installation](#docker-installation)
+- [Configuration](#️-configuration)
+  - [Configuration File](#configuration-file-configtoml)
+  - [Environment Variables](#environment-variables)
+  - [Database](#database)
+  - [Authentication](#authentication)
+  - [CLI Commands](#cli-commands)
+- [Contributing](#-contributing)
+- [License](#-license)
 
 ## ✨ Features
 
 - **Speed Testing**
 
-  - Support for both Speedtest.net and iPerf servers
+  - Support for both Speedtest.net and iperf3 servers
   - Real-time test progress visualization
   - Detailed latency measurements
 
@@ -36,70 +52,69 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
 
 ## 🚀 Getting Started
 
-### Prerequisites
-
-- Go 1.23 or later
-- Node.js 22 or later
-- pnpm package manager
-- Docker (optional)
-- Make (optional)
-- PostgreSQL (optional)
-
-### Quick Start
-
-1. Clone the repository:
+### Swizzin
 
 ```bash
-git clone https://github.com/autobrr/netronome.git
-cd netronome
+sudo box install netronome
 ```
 
-2. Install dependencies:
+### Linux Generic
+
+Download the latest release, or download the source code and build it yourself using make build.
 
 ```bash
-# Install frontend dependencies
-cd web && pnpm install
-cd ..
-
-# Install Go dependencies
-go mod download
+wget $(curl -s https://api.github.com/repos/autobrr/netronome/releases/latest | grep download | grep linux_x86_64 | cut -d\" -f4)
 ```
 
-3. Generate a default configuration:
+#### Unpack
+
+Run with root or sudo. If you do not have root, or are on a shared system, place the binaries somewhere in your home directory like ~/.bin.
 
 ```bash
-netronome generate-config
+tar -C /usr/local/bin -xzf netronome*.tar.gz
 ```
 
-4. Start the server:
+This will extract both netronome and netronomectl to /usr/local/bin. Note: If the command fails, prefix it with sudo and re-run again.
+Systemd (Recommended)
+
+On Linux-based systems, it is recommended to run netronome as a sort of service with auto-restarting capabilities, in order to account for potential downtime. The most common way is to do it via systemd.
+
+You will need to create a service file in /etc/systemd/system/ called netronome.service.
 
 ```bash
-netronome serve
+touch /etc/systemd/system/netronome@.service
 ```
 
-Or use Make for development:
+Then place the following content inside the file (e.g. via nano/vim/ed):
+
+```
+[Unit]
+Description=netronome service for %i
+After=syslog.target network-online.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+ExecStart=/usr/bin/netronome --config=/home/%i/.config/netronome/config.toml
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Start the service. Enable will make it startup on reboot.
 
 ```bash
-make dev
+systemctl enable -q --now --user netronome@$USER
 ```
+
+By default, the configuration is set to listen on 127.0.0.1. While netronome works fine as is exposed to the internet, it is recommended to use a reverse proxy like nginx, caddy or traefik.
+
+If you are not running a reverse proxy change host in the config.toml to 0.0.0.0.
 
 ### Docker Installation
 
-For containerized deployment:
-
-```bash
-make docker-build
-make docker-run
-```
-
-## 🛠️ Development Commands
-
-- `make all` - Clean build frontend and backend
-- `make build` - Build frontend and backend
-- `make run` - Run the application in server mode
-- `make dev` - Start development environment with live reload
-- `make watch` - Live reload backend only
-- `make clean` - Clean build artifacts
+For containerized deployment see [docker-compose.yml](docker-compose.yml) and [docker-compose.postgres.yml](docker-compose.postgres.yml).
 
 ## ⚙️ Configuration
 
@@ -120,22 +135,13 @@ This will create a `config.toml` file with default settings:
 type = "sqlite"
 path = "netronome.db"
 
-# PostgreSQL options (uncomment and modify if using postgres)
-#host = "localhost"
-#port = 5432
-#user = "postgres"
-#password = ""
-#dbname = "netronome"
-#sslmode = "disable"
-
 [server]
 host = "127.0.0.1"
 port = 7575
-#gin_mode = ""  # optional: "debug" or "release"
+base_url = ""
 
 [logging]
 level = "info"
-#gin_mode = ""  # optional: "debug" or "release"
 
 [oidc]
 issuer = ""
@@ -149,15 +155,6 @@ timeout = 30
 [speedtest.iperf]
 test_duration = 10
 parallel_conns = 4
-
-# Pagination options (defaults work well for most cases)
-# Only uncomment and modify if you need to adjust the API response pagination
-#[pagination]
-#default_page = 1
-#default_page_size = 20
-#max_page_size = 100
-#default_time_range = "1w"
-#default_limit = 20
 ```
 
 ### Environment Variables
@@ -227,6 +224,33 @@ Netronome supports two authentication methods:
      OIDC_CLIENT_SECRET=your-client-secret
      OIDC_REDIRECT_URL=https://netronome.domain.net/api/auth/oidc/callback
      ```
+
+### CLI Commands
+
+Netronome provides several command-line commands:
+
+- `generate-config` - Generate a default configuration file to `~/.config/netronome/config.toml`
+- `serve` - Starts the Netronome server
+- `create-user` - Create a new user
+- `change-password` - Change password for an existing user
+
+Examples:
+
+```bash
+netronome generate-config
+
+# Create a new user (interactive)
+netronome --config /home/username/.config/netronome/config.toml create-user username
+
+# Create a new user (non-interactive)
+echo "password123" | netronome --config /home/username/.config/netronome/config.toml create-user username
+
+# Change user password (interactive)
+netronome --config /home/username/.config/netronome/config.toml change-password username
+
+# Change user password (non-interactive)
+echo "newpassword123" | netronome --config /home/username/.config/netronome/config.toml change-password username
+```
 
 ## 🤝 Contributing
 
