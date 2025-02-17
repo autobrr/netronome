@@ -188,6 +188,7 @@ parallel_conns = 4
 | `NETRONOME__MAX_PAGE_SIZE`        | Maximum page size for pagination                                  | `100`                                        | No                  |
 | `NETRONOME__DEFAULT_TIME_RANGE`   | Default time range for data queries                               | `1w`                                         | No                  |
 | `NETRONOME__DEFAULT_LIMIT`        | Default limit for data queries                                    | `20`                                         | No                  |
+| `NETRONOME__SESSION_SECRET`       | Session secret for authentication                                 | -                                            | No                  |
 
 ### Database
 
