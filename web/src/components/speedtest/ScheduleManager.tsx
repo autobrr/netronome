@@ -386,83 +386,86 @@ export default function ScheduleManager({
                         </div>
                       </div>
 
-                      {schedules.length > 0 && (
-                        <motion.div
-                          className="mt-6 px-1 select-none pointer-events-none schedule-manager-animate"
-                          initial={{ opacity: 0, y: -20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{
-                            duration: 0.5,
-                            type: "spring",
-                            stiffness: 300,
-                            damping: 20,
-                          }}
-                          onAnimationComplete={() => {
-                            const element = document.querySelector(
-                              ".schedule-manager-animate"
-                            );
-                            if (element) {
-                              element.classList.remove(
-                                "select-none",
-                                "pointer-events-none"
+                      <AnimatePresence mode="popLayout">
+                        {schedules.length > 0 && (
+                          <motion.div
+                            className="mt-6 px-1 select-none pointer-events-none schedule-manager-animate"
+                            initial={{ opacity: 0, y: -20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{
+                              duration: 0.5,
+                              type: "spring",
+                              stiffness: 300,
+                              damping: 20,
+                            }}
+                            onAnimationComplete={() => {
+                              const element = document.querySelector(
+                                ".schedule-manager-animate"
                               );
-                            }
-                          }}
-                        >
-                          <h6 className="text-white mb-4 text-lg font-semibold">
-                            Active Schedules
-                          </h6>
+                              if (element) {
+                                element.classList.remove(
+                                  "select-none",
+                                  "pointer-events-none"
+                                );
+                              }
+                            }}
+                          >
+                            <h6 className="text-white mb-4 text-lg font-semibold">
+                              Active Schedules
+                            </h6>
 
-                          <div className="grid grid-cols-1 gap-4">
-                            <AnimatePresence mode="popLayout">
-                              {schedules.map((schedule) => (
-                                <motion.div
-                                  key={schedule.id}
-                                  initial={{ opacity: 0, y: 20 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: -20 }}
-                                  transition={{ duration: 0.3 }}
-                                  className="bg-gray-800/50 p-3 rounded-lg shadow-md border border-gray-900"
-                                >
-                                  <div className="flex flex-col gap-2">
-                                    <div className="flex items-center justify-between">
-                                      <h6 className="text-white font-medium">
-                                        Every {schedule.interval}
-                                      </h6>
-                                      <button
-                                        onClick={() =>
-                                          schedule.id &&
-                                          handleDeleteSchedule(schedule.id)
-                                        }
-                                        className="text-red-500 p-1 bg-red-900/50 border border-gray-900 rounded-md hover:bg-red-900/70 hover:text-red-400 transition-colors"
-                                        title="Delete schedule"
-                                      >
-                                        <XMarkIcon className="h-4 w-4" />
-                                      </button>
+                            <div className="grid grid-cols-1 gap-4">
+                              <AnimatePresence mode="popLayout">
+                                {schedules.map((schedule) => (
+                                  <motion.div
+                                    key={schedule.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="bg-gray-800/50 p-3 rounded-lg shadow-md border border-gray-900"
+                                  >
+                                    <div className="flex flex-col gap-2">
+                                      <div className="flex items-center justify-between">
+                                        <h6 className="text-white font-medium">
+                                          Every {schedule.interval}
+                                        </h6>
+                                        <button
+                                          onClick={() =>
+                                            schedule.id &&
+                                            handleDeleteSchedule(schedule.id)
+                                          }
+                                          className="text-red-500 p-1 bg-red-900/50 border border-gray-900 rounded-md hover:bg-red-900/70 hover:text-red-400 transition-colors"
+                                          title="Delete schedule"
+                                        >
+                                          <XMarkIcon className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                      <p className="text-gray-400 text-sm">
+                                        <span className="font-medium">
+                                          Server:
+                                        </span>{" "}
+                                        <span className="truncate">
+                                          {getServerNames(schedule.serverIds)}
+                                        </span>
+                                      </p>
+                                      <p className="text-gray-400 text-xs pt-2">
+                                        <span className="font-normal">
+                                          Next run in:
+                                        </span>{" "}
+                                        <span className="font-medium text-blue-400">
+                                          {formatNextRun(schedule.nextRun)}
+                                        </span>
+                                      </p>
                                     </div>
-                                    <p className="text-gray-400 text-sm">
-                                      <span className="font-medium">
-                                        Server:
-                                      </span>{" "}
-                                      <span className="truncate">
-                                        {getServerNames(schedule.serverIds)}
-                                      </span>
-                                    </p>
-                                    <p className="text-gray-400 text-xs pt-2">
-                                      <span className="font-normal">
-                                        Next run in:
-                                      </span>{" "}
-                                      <span className="font-medium text-blue-400">
-                                        {formatNextRun(schedule.nextRun)}
-                                      </span>
-                                    </p>
-                                  </div>
-                                </motion.div>
-                              ))}
-                            </AnimatePresence>
-                          </div>
-                        </motion.div>
-                      )}
+                                  </motion.div>
+                                ))}
+                              </AnimatePresence>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
                 </div>
