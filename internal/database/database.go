@@ -52,6 +52,7 @@ type Service interface {
 	CreateUser(ctx context.Context, username, password string) (*User, error)
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 	ValidatePassword(user *User, password string) bool
+	UpdatePassword(ctx context.Context, username, newPassword string) error
 
 	// SpeedTest operations
 	SaveSpeedTest(ctx context.Context, result types.SpeedTestResult) (*types.SpeedTestResult, error)
