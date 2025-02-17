@@ -69,10 +69,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	if err := auth.ValidatePassword(req.Password); err != nil {
-		_ = c.Error(fmt.Errorf("invalid password: %w", err))
-		return
-	}
+	//if err := auth.ValidatePassword(req.Password); err != nil {
+	//	_ = c.Error(fmt.Errorf("invalid password: %w", err))
+	//	return
+	//}
 
 	user, err := h.db.CreateUser(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
@@ -123,30 +123,40 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		Password string `json:"password"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(fmt.Errorf("invalid request data: %w", err))
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request data",
+		})
 		return
 	}
 
 	user, err := h.db.GetUserByUsername(c.Request.Context(), req.Username)
 	if err != nil {
 		if err == database.ErrUserNotFound {
-			_ = c.Error(fmt.Errorf("invalid credentials: %w", err))
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "Invalid credentials",
+			})
 			return
 		}
 		log.Error().Err(err).Msg("Failed to get user")
-		_ = c.Error(fmt.Errorf("failed to get user: %w", err))
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get user",
+		})
 		return
 	}
 
 	if !h.db.ValidatePassword(user, req.Password) {
-		_ = c.Error(fmt.Errorf("invalid credentials"))
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Invalid credentials",
+		})
 		return
 	}
 
 	sessionToken, err := auth.GenerateSecureToken(32)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to generate session token")
-		_ = c.Error(fmt.Errorf("failed to generate session token: %w", err))
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to generate session token",
+		})
 		return
 	}
 
