@@ -13,12 +13,12 @@ path = "netronome.db"
 #sslmode = "disable"
 
 [server]
-host = "0.0.0.0"
+host = "127.0.0.1"
 port = 7575
 # gin_mode = "release"  # optional: "debug" or "release"
 
 [logging]
-level = "trace"  # trace, debug, info, warn, error, fatal, panic
+level = "trace" # trace, debug, info, warn, error, fatal, panic
 
 [oidc]
 issuer = ""

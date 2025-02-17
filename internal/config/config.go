@@ -88,6 +88,35 @@ type PaginationConfig struct {
 	DefaultLimit     int    `toml:"default_limit" env:"DEFAULT_LIMIT"`
 }
 
+func isRunningInContainer() bool {
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return true
+	}
+
+	if _, err := os.Stat("/dev/.lxc-boot-id"); err == nil {
+		return true
+	}
+
+	if os.Getpid() == 1 {
+		return true
+	}
+
+	if user := os.Getenv("USERNAME"); user == "ContainerAdministrator" || user == "ContainerUser" {
+		return true
+	}
+
+	if pd, _ := os.Open("/proc/1/cgroup"); pd != nil {
+		defer pd.Close()
+		b := make([]byte, 4096)
+		pd.Read(b)
+		if strings.Contains(string(b), "/docker") || strings.Contains(string(b), "/lxc") {
+			return true
+		}
+	}
+
+	return false
+}
+
 // New creates a new Config instance with default values
 func New() *Config {
 	return &Config{
@@ -101,7 +130,7 @@ func New() *Config {
 			Path:    "netronome.db",
 		},
 		Server: ServerConfig{
-			Host: "0.0.0.0",
+			Host: "127.0.0.1",
 			Port: 7575,
 		},
 		Logging: LoggingConfig{
@@ -317,13 +346,15 @@ func (c *Config) loadPaginationFromEnv() {
 	}
 }
 
-// WriteToml writes the configuration to a TOML file
 func (c *Config) WriteToml(w io.Writer) error {
 	// Create a copy of config with default values
 	cfg := New()
 	cfg.Database.Path = "netronome.db"
 
-	// Write header comment
+	if isRunningInContainer() {
+		cfg.Server.Host = "0.0.0.0"
+	}
+
 	if _, err := fmt.Fprintln(w, "# Netronome Configuration"); err != nil {
 		return err
 	}
