@@ -69,10 +69,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	if err := auth.ValidatePassword(req.Password); err != nil {
-		_ = c.Error(fmt.Errorf("invalid password: %w", err))
-		return
-	}
+	//if err := auth.ValidatePassword(req.Password); err != nil {
+	//	_ = c.Error(fmt.Errorf("invalid password: %w", err))
+	//	return
+	//}
 
 	user, err := h.db.CreateUser(c.Request.Context(), req.Username, req.Password)
 	if err != nil {

@@ -20,7 +20,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/logger"
@@ -237,9 +236,8 @@ func changePassword(cmd *cobra.Command, args []string) error {
 
 	var password []byte
 
-	// Check if we're running in a terminal
+	// check if we're running in a terminal
 	if term.IsTerminal(int(syscall.Stdin)) {
-		// Interactive mode - prompt for password
 		fmt.Print("Enter new password: ")
 		password, err = term.ReadPassword(int(syscall.Stdin))
 		if err != nil {
@@ -247,12 +245,10 @@ func changePassword(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Println()
 	} else {
-		// Non-interactive mode - read password from stdin
 		password, err = io.ReadAll(os.Stdin)
 		if err != nil {
 			return fmt.Errorf("failed to read password from stdin: %w", err)
 		}
-		// Trim any trailing newlines
 		password = bytes.TrimSpace(password)
 	}
 
@@ -261,9 +257,9 @@ func changePassword(cmd *cobra.Command, args []string) error {
 	}
 
 	// Validate password
-	if err := auth.ValidatePassword(string(password)); err != nil {
-		return fmt.Errorf("invalid password: %w", err)
-	}
+	//if err := auth.ValidatePassword(string(password)); err != nil {
+	//	return fmt.Errorf("invalid password: %w", err)
+	//}
 
 	if err := db.UpdatePassword(context.Background(), username, string(password)); err != nil {
 		return fmt.Errorf("failed to update password: %w", err)
@@ -274,22 +270,18 @@ func changePassword(cmd *cobra.Command, args []string) error {
 }
 
 func createUser(cmd *cobra.Command, args []string) error {
-	// initialize logger with default settings
 	logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
 
-	// ensure config exists
 	configPath, err := config.EnsureConfig(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to ensure config exists: %w", err)
 	}
 
-	// load configuration
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// initialize database
 	db := database.New(cfg.Database)
 	if err := db.InitializeTables(context.Background()); err != nil {
 		return fmt.Errorf("failed to initialize database tables: %w", err)
@@ -300,9 +292,8 @@ func createUser(cmd *cobra.Command, args []string) error {
 
 	var password []byte
 
-	// Check if we're running in a terminal
+	// check if we're running in a terminal
 	if term.IsTerminal(int(syscall.Stdin)) {
-		// Interactive mode - prompt for password
 		fmt.Print("Enter password: ")
 		password, err = term.ReadPassword(int(syscall.Stdin))
 		if err != nil {
@@ -310,12 +301,10 @@ func createUser(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Println()
 	} else {
-		// Non-interactive mode - read password from stdin
 		password, err = io.ReadAll(os.Stdin)
 		if err != nil {
 			return fmt.Errorf("failed to read password from stdin: %w", err)
 		}
-		// Trim any trailing newlines
 		password = bytes.TrimSpace(password)
 	}
 
@@ -324,11 +313,10 @@ func createUser(cmd *cobra.Command, args []string) error {
 	}
 
 	// Validate password
-	if err := auth.ValidatePassword(string(password)); err != nil {
-		return fmt.Errorf("invalid password: %w", err)
-	}
+	//if err := auth.ValidatePassword(string(password)); err != nil {
+	//	return fmt.Errorf("invalid password: %w", err)
+	//}
 
-	// Create user
 	user, err := db.CreateUser(context.Background(), username, string(password))
 	if err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
