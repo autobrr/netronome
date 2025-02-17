@@ -129,7 +129,7 @@ path = "netronome.db"
 #sslmode = "disable"
 
 [server]
-host = "0.0.0.0"
+host = "127.0.0.1"
 port = 7575
 #gin_mode = ""  # optional: "debug" or "release"
 
@@ -164,7 +164,7 @@ parallel_conns = 4
 
 | Variable                          | Description                                                       | Default                                      | Required            |
 | --------------------------------- | ----------------------------------------------------------------- | -------------------------------------------- | ------------------- |
-| `NETRONOME__HOST`                 | Server host                                                       | `0.0.0.0`                                    | No                  |
+| `NETRONOME__HOST`                 | Server host                                                       | `127.0.0.1`                                  | No                  |
 | `NETRONOME__PORT`                 | Server port                                                       | `7575`                                       | No                  |
 | `NETRONOME__GIN_MODE`             | Gin framework mode (`debug`/`release`)                            | `release`                                    | No                  |
 | `NETRONOME__DB_TYPE`              | Database type (`sqlite`/`postgres`)                               | `sqlite`                                     | No                  |

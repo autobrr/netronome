@@ -80,8 +80,6 @@ changelog:
   use: github
   filters:
     exclude:
-      - '^test:'
-      - '^docs:'
       - Merge pull request
       - Merge remote-tracking branch
       - Merge branch
