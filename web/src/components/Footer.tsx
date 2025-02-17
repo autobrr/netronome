@@ -4,32 +4,45 @@
  */
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGithub } from "@fortawesome/free-brands-svg-icons";
-import { BookOpenIcon } from "@heroicons/react/24/solid";
+import {
+  faGithub,
+  faReadme,
+  faDiscord,
+} from "@fortawesome/free-brands-svg-icons";
 
 export const Footer = () => {
   return (
-    <footer className="mt-6">
-      <div className="flex justify-center space-x-4">
+    <footer className="mt-4">
+      <div className="flex justify-end space-x-4">
+        <a
+          href="https://discord.gg/WQ2eUycxyT"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-gray-400 hover:text-blue-500 transition-colors"
+          title="Discord"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          <FontAwesomeIcon icon={faDiscord} className="h-4 w-4" />
+        </a>
         <a
           href="https://netrono.me"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-gray-400 hover:text-gray-300 transition-colors"
+          className="text-gray-400 hover:text-blue-500 transition-colors"
           title="Documentation"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
         >
-          <BookOpenIcon className="h-5 w-5" />
-        </a>
-        <a
-          href="https://github.com/autobrr/netronome"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-gray-400 hover:text-gray-300 transition-colors"
-          title="View on GitHub"
-        >
-          <FontAwesomeIcon icon={faGithub} className="h-5 w-5" />
+          <FontAwesomeIcon icon={faReadme} className="h-4 w-4" />
         </a>
       </div>
     </footer>
   );
-}; 
+};
