@@ -82,11 +82,13 @@ On Linux-based systems, it is recommended to run netronome as a sort of service 
 
 You will need to create a service file in /etc/systemd/system/ called netronome.service.
 
+```bash
 touch /etc/systemd/system/netronome@.service
+```
 
 Then place the following content inside the file (e.g. via nano/vim/ed):
 
-```toml
+```
 [Unit]
 Description=netronome service for %i
 After=syslog.target network-online.target
@@ -113,21 +115,7 @@ If you are not running a reverse proxy change host in the config.toml to 0.0.0.0
 
 ### Docker Installation
 
-For containerized deployment:
-
-```bash
-make docker-build
-make docker-run
-```
-
-## 🛠️ Development Commands
-
-- `make all` - Clean build frontend and backend
-- `make build` - Build frontend and backend
-- `make run` - Run the application in server mode
-- `make dev` - Start development environment with live reload
-- `make watch` - Live reload backend only
-- `make clean` - Clean build artifacts
+For containerized deployment see [docker-compose.yml](docker-compose.yml) and [docker-compose.postgres.yml](docker-compose.postgres.yml).
 
 ## ⚙️ Configuration
 
