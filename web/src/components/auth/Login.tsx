@@ -51,28 +51,33 @@ export default function Login() {
     setError("");
 
     try {
-      // Basic frontend validation
-      if (password.length < 8) {
-        setError("Password must be at least 8 characters");
-        return;
-      }
-
       await login(username, password);
     } catch (err) {
-      // Enhanced error handling
       if (err instanceof Error) {
-        if (err.message.includes("User not found")) {
-          console.log("No users found during login, redirecting...");
-          router.navigate({ to: "/register" });
-          return;
+        const errorMessage = err.message;
+        switch (errorMessage) {
+          case "Invalid credentials":
+            setError("Incorrect username or password");
+            break;
+          case "Invalid request data":
+            setError("Please check your input and try again");
+            break;
+          case "Failed to get user":
+            setError("Unable to verify user credentials");
+            break;
+          case "Failed to generate session token":
+            setError("Authentication failed, please try again");
+            break;
+          default:
+            if (errorMessage.includes("User not found")) {
+              console.log("No users found during login, redirecting...");
+              router.navigate({ to: "/register" });
+              return;
+            }
+            setError("An error occurred while signing in");
         }
-        // Extract specific error message from the API response
-        const message = err.message.includes("Error #01:")
-          ? err.message.split("Error #01:")[1].trim()
-          : err.message;
-        setError(message);
       } else {
-        setError("Login failed");
+        setError("Unable to sign in at this time");
       }
     }
   };
@@ -97,6 +102,9 @@ export default function Login() {
           <h2 className="text-3xl font-bold text-white pointer-events-none select-none">
             Netronome
           </h2>
+          <p className="text-sm text-gray-500 pointer-events-none select-none mb-0">
+            network speed testing
+          </p>
         </div>
 
         {oidcEnabled ? (
@@ -169,7 +177,7 @@ export default function Login() {
             </div>
           </form>
         )}
-       <Footer />
+        <Footer />
       </div>
     </div>
   );
