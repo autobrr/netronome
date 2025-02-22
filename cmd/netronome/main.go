@@ -69,9 +69,8 @@ track and analyze your network performance over time.`,
 )
 
 func init() {
-	// Load .env file
 	if err := godotenv.Load(); err != nil {
-		// no log needed
+		// no .env file found
 	}
 
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "path to config file")

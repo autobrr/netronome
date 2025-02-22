@@ -20,6 +20,7 @@ import {
 import { SavedIperfServer, Server } from "@/types/types";
 import { ChevronDownIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid";
 import { IperfServerModal } from "./IperfServerModal";
+import { getApiUrl } from "@/utils/baseUrl";
 
 interface ServerListProps {
   servers: Server[];
@@ -109,7 +110,7 @@ export const ServerList: React.FC<ServerListProps> = ({
   };
 
   const fetchSavedIperfServers = async () => {
-    const response = await fetch("/api/iperf/servers");
+    const response = await fetch(getApiUrl("/iperf/servers"));
     if (!response.ok) throw new Error("Failed to fetch saved iperf servers");
     const data = await response.json();
     setSavedIperfServers(data);
@@ -117,7 +118,7 @@ export const ServerList: React.FC<ServerListProps> = ({
 
   const saveIperfServer = async (name: string, host: string, port: number) => {
     try {
-      const response = await fetch("/api/iperf/servers", {
+      const response = await fetch(getApiUrl("/iperf/servers"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -139,7 +140,7 @@ export const ServerList: React.FC<ServerListProps> = ({
 
   const deleteSavedServer = async (id: number) => {
     try {
-      const response = await fetch(`/api/iperf/servers/${id}`, {
+      const response = await fetch(getApiUrl(`/iperf/servers/${id}`), {
         method: "DELETE",
       });
 

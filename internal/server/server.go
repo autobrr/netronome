@@ -111,15 +111,28 @@ func (s *Server) RegisterRoutes() {
 		baseURL = "/"
 	}
 
-	// Ensure baseURL starts with / and doesn't end with /
+	// Ensure baseURL starts with /
 	if !strings.HasPrefix(baseURL, "/") {
 		baseURL = "/" + baseURL
 	}
-	baseURL = strings.TrimSuffix(baseURL, "/")
 
-	api := s.Router.Group(baseURL + "/api")
+	// remove trailing slash for route registration but preserve it in context
+	routeBase := strings.TrimSuffix(baseURL, "/")
+
+	// set base URL in context for all routes (preserve trailing slash)
+	s.Router.Use(func(c *gin.Context) {
+		c.Set("base_url", baseURL)
+		c.Next()
+	})
+
+	// register api routes
+	apiGroup := s.Router.Group(routeBase)
+	if routeBase != "" {
+		apiGroup = apiGroup.Group("")
+	}
+	api := apiGroup.Group("/api")
 	{
-		// Public auth routes
+		// public auth routes
 		auth := api.Group("/auth")
 		{
 			auth.GET("/status", s.auth.CheckRegistrationStatus)
@@ -131,7 +144,7 @@ func (s *Server) RegisterRoutes() {
 			}
 		}
 
-		// Protected routes
+		// protected routes
 		protected := api.Group("")
 		protected.Use(RequireAuth(s.db, s.auth.oidc, s.config.Session.Secret, s.auth))
 		{
@@ -154,6 +167,17 @@ func (s *Server) RegisterRoutes() {
 			protected.DELETE("/iperf/servers/:id", iperfHandler.DeleteServer)
 		}
 	}
+
+	// only register explicit routes if we have a base URL
+	if routeBase != "" {
+		// serve root path and index.html
+		s.Router.GET(routeBase, web.ServeIndex)
+		s.Router.GET(routeBase+"/", web.ServeIndex)
+		s.Router.GET(routeBase+"/index.html", web.ServeIndex)
+	}
+
+	// register the catch-all handler for SPA routing
+	web.ServeStatic(s.Router)
 }
 
 func LoggerMiddleware() gin.HandlerFunc {
@@ -164,7 +188,7 @@ func LoggerMiddleware() gin.HandlerFunc {
 
 		c.Next()
 
-		// Skip certain endpoints to reduce noise
+		// skip certain endpoints to reduce noise
 		if path == "/health" || path == "/api/speedtest/status" && c.Writer.Status() == 200 {
 			return
 		}

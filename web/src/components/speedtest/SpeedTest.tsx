@@ -19,6 +19,7 @@ import {
   TimeRange,
   TestOptions,
   PaginatedResponse,
+  Schedule,
 } from "@/types/types";
 import logo from "@/assets/logo_small.png";
 import {
@@ -28,11 +29,11 @@ import {
   useInfiniteQuery,
 } from "@tanstack/react-query";
 import {
-  fetchServers,
-  fetchHistory,
-  fetchSchedules,
+  getServers,
+  getHistory,
+  getSchedules,
   runSpeedTest,
-  fetchTestStatus,
+  getSpeedTestStatus,
 } from "@/api/speedtest";
 import { motion } from "motion/react";
 
@@ -62,13 +63,13 @@ export default function SpeedTest() {
   // Queries
   const { data: servers = [] } = useQuery({
     queryKey: ["servers"],
-    queryFn: fetchServers,
-  });
+    queryFn: getServers,
+  }) as { data: Server[] };
 
   const { data: historyData, isLoading: isHistoryLoading } = useInfiniteQuery({
     queryKey: ["history", timeRange],
     queryFn: async ({ pageParam = 1 }) => {
-      const response = await fetchHistory(timeRange, pageParam);
+      const response = await getHistory(timeRange, pageParam, 20);
       return response as PaginatedResponse<SpeedTestResult>;
     },
     getNextPageParam: (
@@ -85,13 +86,15 @@ export default function SpeedTest() {
 
   const history = useMemo(() => {
     if (!historyData?.pages) return [];
-    return historyData.pages.flatMap((page) => page?.data ?? []);
+    return historyData.pages.flatMap(
+      (page) => page?.data ?? []
+    ) as SpeedTestResult[];
   }, [historyData]);
 
   const { data: schedules = [] } = useQuery({
     queryKey: ["schedules"],
-    queryFn: fetchSchedules,
-  });
+    queryFn: getSchedules,
+  }) as { data: Schedule[] };
 
   // Mutations
   const speedTestMutation = useMutation({
@@ -157,7 +160,7 @@ export default function SpeedTest() {
     if (testStatus === "running") {
       const pollInterval = setInterval(async () => {
         try {
-          const update = await fetchTestStatus();
+          const update = await getSpeedTestStatus();
 
           if (update) {
             setProgress((prev) => {
@@ -422,22 +425,20 @@ const MetricCard: React.FC<{
   unit: string;
   average?: string;
 }> = ({ icon, title, value, unit, average }) => (
-  <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900">
-    <div className="flex items-center gap-3 mb-4">
-      {icon}
-      <h3 className="text-gray-400 font-medium">{title}</h3>
+  <div className="bg-gray-850/95 p-4 rounded-xl border border-gray-900 shadow-lg">
+    <div className="flex items-center gap-3 mb-2">
+      <div className="text-gray-400">{icon}</div>
+      <h3 className="text-gray-300 font-medium">{title}</h3>
     </div>
-    <div className="flex flex-col">
-      <div className="text-white text-3xl font-bold">
-        {value}
-        <span className="text-xl font-normal text-gray-400 ml-1">{unit}</span>
+    <div className="flex items-baseline gap-2">
+      <span className="text-2xl font-bold text-white">{value}</span>
+      <span className="text-gray-400">{unit}</span>
+    </div>
+    {average && (
+      <div className="mt-1 text-sm text-gray-400">
+        Average: {average} {unit}
       </div>
-      {average && (
-        <div className="text-sm text-gray-400 mt-1">
-          avg: {average} {unit}
-        </div>
-      )}
-    </div>
+    )}
   </div>
 );
 

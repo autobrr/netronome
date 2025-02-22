@@ -3,82 +3,83 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import { Server, SpeedTestResult, Schedule, TestOptions, SpeedUpdate, TimeRange, PaginatedResponse } from '../types/types'
+import { getApiUrl } from '@/utils/baseUrl';
+import { SpeedTestOptions } from '@/types/speedtest';
 
-export const fetchServers = async (): Promise<Server[]> => {
-  const response = await fetch("/api/servers")
-  if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-  const text = await response.text()
+export async function getServers() {
   try {
-    return JSON.parse(text)
-  } catch (parseError) {
-    throw new Error(`Invalid JSON response (${(parseError as Error).message}): ${text.substring(0, 100)}...`)
+    const response = await fetch(getApiUrl("/servers"))
+    if (!response.ok) {
+      throw new Error('Failed to fetch servers');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching servers:', error);
+    throw error;
   }
 }
 
-export const fetchHistory = async (
-  timeRange: TimeRange,
-  page: number,
-  limit: number = 500
-): Promise<PaginatedResponse<SpeedTestResult>> => {
-  const response = await fetch(
-    `/api/speedtest/history?timeRange=${timeRange}&page=${page}&limit=${limit}`
-  );
-  return response.json();
-}
-
-export const fetchSchedules = async (): Promise<Schedule[]> => {
-  const response = await fetch("/api/schedules")
-  if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-  const data = await response.json()
-  return data || []
-}
-
-export const runSpeedTest = async (options: TestOptions): Promise<SpeedTestResult> => {
+export async function getHistory(timeRange: string, page: number, limit: number) {
   try {
-    const response = await fetch('/api/speedtest', {
+    const response = await fetch(
+      getApiUrl(`/speedtest/history?timeRange=${timeRange}&page=${page}&limit=${limit}`)
+    );
+    if (!response.ok) {
+      throw new Error('Failed to fetch history');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching history:', error);
+    throw error;
+  }
+}
+
+export async function getSchedules() {
+  try {
+    const response = await fetch(getApiUrl("/schedules"))
+    if (!response.ok) {
+      throw new Error('Failed to fetch schedules');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching schedules:', error);
+    throw error;
+  }
+}
+
+export async function runSpeedTest(options: SpeedTestOptions) {
+  try {
+    const response = await fetch(getApiUrl('/speedtest'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(options),
     });
-
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Server error: ${errorText}`);
+      throw new Error('Failed to run speed test');
     }
-
-    const data = await response.json();
-    if (!data) {
-      throw new Error('Empty response from server');
-    }
-
-    return data;
+    return await response.json();
   } catch (error) {
-    console.error('Speed test error:', error);
+    console.error('Error running speed test:', error);
     throw error;
   }
-};
+}
 
-export const fetchTestStatus = async (): Promise<SpeedUpdate> => {
-  const response = await fetch("/api/speedtest/status", {
-    headers: {
-      "Cache-Control": "no-cache",
-      Pragma: "no-cache",
-    },
-    credentials: "same-origin",
-    cache: "no-store",
-  })
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`)
+export async function getSpeedTestStatus() {
+  try {
+    const response = await fetch(getApiUrl("/speedtest/status"), {
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to get speed test status');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error getting speed test status:', error);
+    throw error;
   }
-
-  const contentType = response.headers.get("content-type")
-  if (!contentType?.includes("application/json")) {
-    throw new Error("Invalid content type")
-  }
-
-  return response.json()
 }

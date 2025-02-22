@@ -82,34 +82,50 @@ func ServeStatic(r *gin.Engine) {
 		c.Next()
 	})
 
-	// Serve root path and index.html
-	r.GET("/", serveIndex)
-	r.GET("/index.html", serveIndex)
-	r.GET("/favicon.ico", serveStaticFile)
-
-	// Serve static files from assets directory
-	r.GET("/assets/*filepath", serveStaticFile)
-
-	// Handle all other routes
+	// handle all non-API routes with index.html
 	r.NoRoute(func(c *gin.Context) {
-		if strings.HasPrefix(c.Request.URL.Path, "/api") {
+		baseURL := c.GetString("base_url")
+		if baseURL == "" {
+			baseURL = "/"
+		}
+
+		// don't handle API routes
+		if strings.HasPrefix(c.Request.URL.Path, strings.TrimSuffix(baseURL, "/")+"/api") {
 			c.AbortWithStatus(404)
 			return
 		}
-		serveIndex(c)
-	})
-}
 
-// serveStaticFile serves static files with proper headers
-func serveStaticFile(c *gin.Context) {
-	filePath := strings.TrimPrefix(c.Request.URL.Path, "/")
-	serveFileFromFS(c, filePath)
+		// strip baseURL prefix for path matching
+		trimmedPath := strings.TrimPrefix(c.Request.URL.Path, strings.TrimSuffix(baseURL, "/"))
+
+		// Redirect paths without trailing slash to paths with trailing slash
+		if c.Request.URL.Path == strings.TrimSuffix(baseURL, "/") {
+			c.Redirect(http.StatusMovedPermanently, baseURL)
+			return
+		}
+
+		// Handle static assets
+		if strings.HasPrefix(trimmedPath, "/assets/") || trimmedPath == "/favicon.ico" {
+			serveFileFromFS(c, strings.TrimPrefix(trimmedPath, "/"))
+			return
+		}
+
+		// Handle root paths
+		if c.Request.URL.Path == baseURL || c.Request.URL.Path == baseURL+"index.html" {
+			ServeIndex(c)
+			return
+		}
+
+		// For all other paths, serve index.html for SPA routing
+		ServeIndex(c)
+	})
 }
 
 // serveFileFromFS serves a file from the embedded filesystem with proper headers
 func serveFileFromFS(c *gin.Context, filepath string) {
 	file, err := DistDirFS.Open(filepath)
 	if err != nil {
+		log.Debug().Str("filepath", filepath).Err(err).Msg("failed to open static file")
 		c.Status(http.StatusNotFound)
 		return
 	}
@@ -117,11 +133,12 @@ func serveFileFromFS(c *gin.Context, filepath string) {
 
 	stat, err := file.Stat()
 	if err != nil {
+		log.Debug().Str("filepath", filepath).Err(err).Msg("failed to stat static file")
 		c.Status(http.StatusInternalServerError)
 		return
 	}
 
-	// Set content type based on file extension
+	// set content type based on file extension
 	ext := strings.ToLower(path.Ext(filepath))
 	var contentType string
 	switch ext {
@@ -144,8 +161,8 @@ func serveFileFromFS(c *gin.Context, filepath string) {
 	http.ServeContent(c.Writer, c.Request, filepath, stat.ModTime(), file.(io.ReadSeeker))
 }
 
-// serveIndex serves index.html with proper headers
-func serveIndex(c *gin.Context) {
+// ServeIndex serves index.html with proper headers
+func ServeIndex(c *gin.Context) {
 	file, err := DistDirFS.Open("index.html")
 	if err != nil {
 		c.Status(http.StatusNotFound)
@@ -153,12 +170,28 @@ func serveIndex(c *gin.Context) {
 	}
 	defer file.Close()
 
+	// read the file content
+	content, err := io.ReadAll(file)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+
+	// get base URL from gin context
+	baseURL := c.GetString("base_url")
+	if baseURL == "" {
+		baseURL = "/"
+	}
+
+	// replace the template variable
+	html := strings.Replace(string(content), "{{.BaseURL}}", baseURL, 1)
+
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Cache-Control", "no-cache")
-	io.Copy(c.Writer, file)
+	c.String(http.StatusOK, html)
 }
 
-// Verify dist directory exists in embedded FS
+// verify dist directory exists in embedded FS
 func init() {
 	if _, err := Dist.ReadDir("dist"); err != nil {
 		panic(fmt.Errorf("dist directory not found in embedded filesystem: %w", err))

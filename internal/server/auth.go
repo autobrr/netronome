@@ -212,6 +212,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		Str("session_token", sessionToken).
 		Msg("User logged in successfully")
 
+
 	c.JSON(http.StatusOK, gin.H{
 		"access_token": sessionToken,
 		"token_type":   "Bearer",
@@ -275,17 +276,29 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
+	baseURL := c.GetString("base_url")
+	if baseURL == "" {
+		baseURL = "/"
+	}
+
 	isSecure := c.GetHeader("X-Forwarded-Proto") == "https" || strings.HasPrefix(c.Request.Proto, "HTTPS")
 
+	// Remove the session cookie
 	c.SetCookie(
 		"session",
 		"",
 		-1,
-		"/",
-		"",       // empty domain for maximum compatibility
-		isSecure, // secure flag only if HTTPS
-		true,     // httpOnly for security
+		baseURL,
+		"",
+		isSecure,
+		true,
 	)
+
+	h.sessionMutex.Lock()
+	if sessionToken, err := c.Cookie("session"); err == nil {
+		delete(h.sessionTokens, sessionToken)
+	}
+	h.sessionMutex.Unlock()
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }

@@ -136,8 +136,9 @@ func New() *Config {
 			Path:    "netronome.db",
 		},
 		Server: ServerConfig{
-			Host: "127.0.0.1",
-			Port: 7575,
+			Host:    "127.0.0.1",
+			Port:    7575,
+			BaseURL: "/",
 		},
 		Logging: LoggingConfig{
 			Level: "info",
@@ -234,84 +235,84 @@ func (c *Config) loadFromEnv() error {
 }
 
 func (c *Config) loadDatabaseFromEnv() {
-	if v := os.Getenv(EnvPrefix + "DB_TYPE"); v != "" {
+	if v := getEnv("DB_TYPE"); v != "" {
 		c.Database.Type = DatabaseType(v)
 	}
-	if v := os.Getenv(EnvPrefix + "DB_HOST"); v != "" {
+	if v := getEnv("DB_HOST"); v != "" {
 		c.Database.Host = v
 	}
-	if v := os.Getenv(EnvPrefix + "DB_PORT"); v != "" {
+	if v := getEnv("DB_PORT"); v != "" {
 		if port, err := strconv.Atoi(v); err == nil {
 			c.Database.Port = port
 		}
 	}
-	if v := os.Getenv(EnvPrefix + "DB_USER"); v != "" {
+	if v := getEnv("DB_USER"); v != "" {
 		c.Database.User = v
 	}
-	if v := os.Getenv(EnvPrefix + "DB_PASSWORD"); v != "" {
+	if v := getEnv("DB_PASSWORD"); v != "" {
 		c.Database.Password = v
 	}
-	if v := os.Getenv(EnvPrefix + "DB_NAME"); v != "" {
+	if v := getEnv("DB_NAME"); v != "" {
 		c.Database.DBName = v
 	}
-	if v := os.Getenv(EnvPrefix + "DB_SSLMODE"); v != "" {
+	if v := getEnv("DB_SSLMODE"); v != "" {
 		c.Database.SSLMode = v
 	}
-	if v := os.Getenv(EnvPrefix + "DB_PATH"); v != "" {
+	if v := getEnv("DB_PATH"); v != "" {
 		c.Database.Path = v
 	}
 }
 
 func (c *Config) loadServerFromEnv() {
-	if v := os.Getenv(EnvPrefix + "HOST"); v != "" {
+	if v := getEnv("HOST"); v != "" {
 		c.Server.Host = v
 	}
-	if v := os.Getenv(EnvPrefix + "PORT"); v != "" {
+	if v := getEnv("PORT"); v != "" {
 		if port, err := strconv.Atoi(v); err == nil {
 			c.Server.Port = port
 		}
 	}
-	if v := os.Getenv(EnvPrefix + "BASE_URL"); v != "" {
-		c.Server.BaseURL = v
+	if v := getEnv("BASE_URL"); v != "" {
+		c.Server.BaseURL = strings.Trim(v, `"'`)
 	}
-	if v := os.Getenv(EnvPrefix + "GIN_MODE"); v != "" {
+	if v := getEnv("GIN_MODE"); v != "" {
 		c.Server.GinMode = v
 	}
 }
 
 func (c *Config) loadLoggingFromEnv() {
-	if v := os.Getenv(EnvPrefix + "LOG_LEVEL"); v != "" {
+	if v := getEnv("LOG_LEVEL"); v != "" {
 		c.Logging.Level = strings.ToLower(v)
 	}
 }
 
 func (c *Config) loadOIDCFromEnv() {
-	if v := os.Getenv(EnvPrefix + "OIDC_ISSUER"); v != "" {
+	if v := getEnv("OIDC_ISSUER"); v != "" {
 		c.OIDC.Issuer = v
 	}
-	if v := os.Getenv(EnvPrefix + "OIDC_CLIENT_ID"); v != "" {
+	if v := getEnv("OIDC_CLIENT_ID"); v != "" {
 		c.OIDC.ClientID = v
 	}
-	if v := os.Getenv(EnvPrefix + "OIDC_CLIENT_SECRET"); v != "" {
+	if v := getEnv("OIDC_CLIENT_SECRET"); v != "" {
 		c.OIDC.ClientSecret = v
 	}
-	if v := os.Getenv(EnvPrefix + "OIDC_REDIRECT_URL"); v != "" {
+	if v := getEnv("OIDC_REDIRECT_URL"); v != "" {
 		c.OIDC.RedirectURL = v
 	}
 }
 
 func (c *Config) loadSpeedTestFromEnv() {
-	if v := os.Getenv(EnvPrefix + "IPERF_TEST_DURATION"); v != "" {
+	if v := getEnv("IPERF_TEST_DURATION"); v != "" {
 		if duration, err := strconv.Atoi(v); err == nil {
 			c.SpeedTest.IPerf.TestDuration = duration
 		}
 	}
-	if v := os.Getenv(EnvPrefix + "IPERF_PARALLEL_CONNS"); v != "" {
+	if v := getEnv("IPERF_PARALLEL_CONNS"); v != "" {
 		if conns, err := strconv.Atoi(v); err == nil {
 			c.SpeedTest.IPerf.ParallelConns = conns
 		}
 	}
-	if v := os.Getenv(EnvPrefix + "SPEEDTEST_TIMEOUT"); v != "" {
+	if v := getEnv("SPEEDTEST_TIMEOUT"); v != "" {
 		if timeout, err := strconv.Atoi(v); err == nil {
 			c.SpeedTest.Timeout = timeout
 		}
@@ -319,25 +320,25 @@ func (c *Config) loadSpeedTestFromEnv() {
 }
 
 func (c *Config) loadPaginationFromEnv() {
-	if v := os.Getenv(EnvPrefix + "DEFAULT_PAGE"); v != "" {
+	if v := getEnv("DEFAULT_PAGE"); v != "" {
 		if page, err := strconv.Atoi(v); err == nil {
 			c.Pagination.DefaultPage = page
 		}
 	}
-	if v := os.Getenv(EnvPrefix + "DEFAULT_PAGE_SIZE"); v != "" {
+	if v := getEnv("DEFAULT_PAGE_SIZE"); v != "" {
 		if size, err := strconv.Atoi(v); err == nil {
 			c.Pagination.DefaultPageSize = size
 		}
 	}
-	if v := os.Getenv(EnvPrefix + "MAX_PAGE_SIZE"); v != "" {
+	if v := getEnv("MAX_PAGE_SIZE"); v != "" {
 		if size, err := strconv.Atoi(v); err == nil {
 			c.Pagination.MaxPageSize = size
 		}
 	}
-	if v := os.Getenv(EnvPrefix + "DEFAULT_TIME_RANGE"); v != "" {
+	if v := getEnv("DEFAULT_TIME_RANGE"); v != "" {
 		c.Pagination.DefaultTimeRange = v
 	}
-	if v := os.Getenv(EnvPrefix + "DEFAULT_LIMIT"); v != "" {
+	if v := getEnv("DEFAULT_LIMIT"); v != "" {
 		if limit, err := strconv.Atoi(v); err == nil {
 			c.Pagination.DefaultLimit = limit
 		}
@@ -345,7 +346,7 @@ func (c *Config) loadPaginationFromEnv() {
 }
 
 func (c *Config) loadSessionFromEnv() {
-	if v := os.Getenv(EnvPrefix + "SESSION_SECRET"); v != "" {
+	if v := getEnv("SESSION_SECRET"); v != "" {
 		c.Session.Secret = v
 	}
 }
@@ -412,6 +413,9 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "port = %d\n", cfg.Server.Port); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "base_url = \"%s\"\n", cfg.Server.BaseURL); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, "# gin_mode = \"release\"  # optional: \"debug\" or \"release\""); err != nil {
@@ -619,4 +623,8 @@ func EnsureConfig(configPath string) (string, error) {
 
 	log.Info().Str("path", configPath).Msg("Generated default config file")
 	return configPath, nil
+}
+
+func getEnv(key string) string {
+	return os.Getenv(EnvPrefix + key)
 }
