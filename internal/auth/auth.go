@@ -4,9 +4,12 @@
 package auth
 
 import (
-	"crypto/rand"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -14,6 +17,7 @@ import (
 var (
 	ErrPasswordTooShort = errors.New("password must be at least 8 characters")
 	ErrPasswordTooLong  = errors.New("password must be less than 72 characters")
+	ErrInvalidSession   = errors.New("invalid session")
 )
 
 //func ValidatePassword(password string) error {
@@ -39,10 +43,43 @@ func CheckPassword(password, hash string) bool {
 	return err == nil
 }
 
-func GenerateSecureToken(length int) (string, error) {
-	bytes := make([]byte, length)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
+// MemoryOnlyPrefix is used to mark tokens that should only exist in memory
+const MemoryOnlyPrefix = "mem_"
+
+func SignToken(token, secret string) string {
+	if secret == "" {
+		return MemoryOnlyPrefix + token
 	}
-	return hex.EncodeToString(bytes), nil
+
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(token))
+	signature := hex.EncodeToString(h.Sum(nil))
+	return fmt.Sprintf("%s.%s", token, signature)
+}
+
+func VerifyToken(signedToken, secret string) (string, error) {
+	if strings.HasPrefix(signedToken, MemoryOnlyPrefix) {
+		return strings.TrimPrefix(signedToken, MemoryOnlyPrefix), nil
+	}
+
+	if secret != "" {
+		parts := strings.Split(signedToken, ".")
+		if len(parts) != 2 {
+			return "", fmt.Errorf("%w: malformed token", ErrInvalidSession)
+		}
+
+		token, signature := parts[0], parts[1]
+
+		expectedSignature := hmac.New(sha256.New, []byte(secret))
+		expectedSignature.Write([]byte(token))
+		expectedHex := hex.EncodeToString(expectedSignature.Sum(nil))
+
+		if !hmac.Equal([]byte(signature), []byte(expectedHex)) {
+			return "", fmt.Errorf("%w: invalid signature", ErrInvalidSession)
+		}
+
+		return token, nil
+	}
+
+	return "", ErrInvalidSession
 }

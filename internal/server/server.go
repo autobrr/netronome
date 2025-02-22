@@ -74,7 +74,7 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 		speedtest:  speedtest,
 		db:         db,
 		scheduler:  scheduler,
-		auth:       NewAuthHandler(db, oidcConfig),
+		auth:       NewAuthHandler(db, oidcConfig, cfg.Session.Secret),
 		lastUpdate: &types.SpeedUpdate{},
 		config:     cfg,
 	}
@@ -146,7 +146,7 @@ func (s *Server) RegisterRoutes() {
 
 		// protected routes
 		protected := api.Group("")
-		protected.Use(RequireAuth(s.db, s.auth.oidc))
+		protected.Use(RequireAuth(s.db, s.auth.oidc, s.config.Session.Secret, s.auth))
 		{
 			protected.POST("/auth/logout", s.auth.Logout)
 			protected.GET("/auth/verify", s.auth.Verify)
