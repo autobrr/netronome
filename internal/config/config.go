@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/autobrr/netronome/internal/utils"
 	"github.com/rs/zerolog/log"
 )
 
@@ -39,6 +40,7 @@ type Config struct {
 	OIDC       OIDCConfig       `toml:"oidc"`
 	SpeedTest  SpeedTestConfig  `toml:"speedtest"`
 	Pagination PaginationConfig `toml:"pagination"`
+	Session    SessionConfig    `toml:"session"`
 }
 
 type DatabaseConfig struct {
@@ -86,6 +88,10 @@ type PaginationConfig struct {
 	MaxPageSize      int    `toml:"max_page_size" env:"MAX_PAGE_SIZE"`
 	DefaultTimeRange string `toml:"default_time_range" env:"DEFAULT_TIME_RANGE"`
 	DefaultLimit     int    `toml:"default_limit" env:"DEFAULT_LIMIT"`
+}
+
+type SessionConfig struct {
+	Secret string `toml:"session_secret" env:"SESSION_SECRET"`
 }
 
 func isRunningInContainer() bool {
@@ -149,6 +155,9 @@ func New() *Config {
 			MaxPageSize:      100,
 			DefaultTimeRange: "1w",
 			DefaultLimit:     20,
+		},
+		Session: SessionConfig{
+			Secret: "",
 		},
 	}
 }
@@ -214,24 +223,13 @@ func Load(configPath string) (*Config, error) {
 
 // loadFromEnv loads configuration from environment variables
 func (c *Config) loadFromEnv() error {
-	// Database
 	c.loadDatabaseFromEnv()
-
-	// Server
 	c.loadServerFromEnv()
-
-	// Logging
 	c.loadLoggingFromEnv()
-
-	// OIDC
 	c.loadOIDCFromEnv()
-
-	// SpeedTest
 	c.loadSpeedTestFromEnv()
-
-	// Pagination
 	c.loadPaginationFromEnv()
-
+	c.loadSessionFromEnv()
 	return nil
 }
 
@@ -346,10 +344,21 @@ func (c *Config) loadPaginationFromEnv() {
 	}
 }
 
+func (c *Config) loadSessionFromEnv() {
+	if v := os.Getenv(EnvPrefix + "SESSION_SECRET"); v != "" {
+		c.Session.Secret = v
+	}
+}
+
 func (c *Config) WriteToml(w io.Writer) error {
-	// Create a copy of config with default values
 	cfg := New()
 	cfg.Database.Path = "netronome.db"
+
+	secret, err := utils.GenerateSecureToken(32)
+	if err != nil {
+		return fmt.Errorf("failed to generate session secret: %w", err)
+	}
+	cfg.Session.Secret = secret
 
 	if isRunningInContainer() {
 		cfg.Server.Host = "0.0.0.0"
@@ -493,12 +502,22 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "#default_limit = %d\n", cfg.Pagination.DefaultLimit); err != nil {
 		return err
 	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+
+	// Session section
+	if _, err := fmt.Fprintln(w, "[session]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "session_secret = \"%s\"\n", cfg.Session.Secret); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func GetDefaultConfigPath() string {
-	// Check user config directory first (~/.config/netronome/config.toml on Linux)
 	if configDir, err := os.UserConfigDir(); err == nil {
 		configPath := filepath.Join(configDir, AppName, "config.toml")
 		if _, err := os.Stat(configPath); err == nil {
@@ -506,11 +525,9 @@ func GetDefaultConfigPath() string {
 		}
 	}
 
-	// Fallback to current directory
 	return "config.toml"
 }
 
-// DefaultConfigPaths returns all possible config file locations in order of preference
 func DefaultConfigPaths() []string {
 	var paths []string
 
@@ -539,7 +556,6 @@ func EnsureConfig(configPath string) (string, error) {
 				return "", fmt.Errorf("failed to create config directory: %w", err)
 			}
 
-			// generate the config file
 			cfg := New()
 			f, err := os.Create(configPath)
 			if err != nil {
@@ -556,7 +572,6 @@ func EnsureConfig(configPath string) (string, error) {
 		return configPath, nil
 	}
 
-	// try each default path
 	paths := DefaultConfigPaths()
 	for _, path := range paths {
 		if _, err := os.Stat(path); err == nil {
@@ -564,7 +579,6 @@ func EnsureConfig(configPath string) (string, error) {
 		}
 	}
 
-	// no config found, generate one in the default location
 	homeDir, err := os.UserHomeDir()
 	if err == nil {
 		configDir := filepath.Join(homeDir, ".config")
@@ -592,7 +606,6 @@ func EnsureConfig(configPath string) (string, error) {
 		}
 	}
 
-	// generate the config file
 	cfg := New()
 	f, err := os.Create(configPath)
 	if err != nil {

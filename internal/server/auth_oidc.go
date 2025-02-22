@@ -65,7 +65,7 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 		return
 	}
 
-	if err := h.storeSession(sessionToken, rawIDToken); err != nil {
+	if err := h.storeSession(sessionToken); err != nil {
 		log.Error().Err(err).Msg("failed to store session")
 		c.Redirect(http.StatusTemporaryRedirect, "/login?error=server_error")
 		return
