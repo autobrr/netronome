@@ -136,8 +136,9 @@ func New() *Config {
 			Path:    "netronome.db",
 		},
 		Server: ServerConfig{
-			Host: "127.0.0.1",
-			Port: 7575,
+			Host:    "127.0.0.1",
+			Port:    7575,
+			BaseURL: "/",
 		},
 		Logging: LoggingConfig{
 			Level: "info",
