@@ -4,7 +4,8 @@
 package server
 
 import (
-	"fmt"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"sync"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/server/encoder"
 	"github.com/autobrr/netronome/internal/utils"
 )
 
@@ -24,35 +26,41 @@ type AuthHandler struct {
 	sessionTokens map[string]bool // Track valid memory sessions
 	sessionMutex  sync.RWMutex
 	sessionSecret string
+
+	baseUrl string
 }
 
-func NewAuthHandler(db database.Service, oidc *auth.OIDCConfig, sessionSecret string) *AuthHandler {
+func NewAuthHandler(db database.Service, oidc *auth.OIDCConfig, sessionSecret string, baseUrl string) *AuthHandler {
 	return &AuthHandler{
 		db:            db,
 		oidc:          oidc,
 		sessionTokens: make(map[string]bool),
 		sessionSecret: sessionSecret,
+		baseUrl:       baseUrl,
 	}
 }
 
-func (h *AuthHandler) CheckRegistrationStatus(c *gin.Context) {
+func (h *AuthHandler) CheckRegistrationStatus(w http.ResponseWriter, r *http.Request) {
 	var count int
-	err := h.db.QueryRow(c.Request.Context(), "SELECT COUNT(*) FROM users").Scan(&count)
+	// TODO move method to db
+	err := h.db.QueryRow(r.Context(), "SELECT COUNT(*) FROM users").Scan(&count)
 	if err != nil && !isTableNotExistsError(err) {
 		log.Error().Err(err).Msg("Failed to check existing users")
-		_ = c.Error(fmt.Errorf("failed to check registration status: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "Failed to check registration status",
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	encoder.JSON(w, http.StatusOK, encoder.H{
 		"hasUsers":    count > 0,
 		"oidcEnabled": h.oidc != nil,
 	})
 }
 
 // refreshSession updates the session cookie with a new expiry time
-func (h *AuthHandler) refreshSession(c *gin.Context, token string) {
-	isSecure := c.GetHeader("X-Forwarded-Proto") == "https" || strings.HasPrefix(c.Request.Proto, "HTTPS")
+func (h *AuthHandler) refreshSession(w http.ResponseWriter, r *http.Request, token string) {
+	isSecure := r.Header.Get("X-Forwarded-Proto") == "https" || strings.HasPrefix(r.Proto, "HTTPS")
 
 	var signedToken string
 	if strings.Contains(token, ".") && h.sessionSecret != "" {
@@ -82,16 +90,16 @@ func (h *AuthHandler) refreshSession(c *gin.Context, token string) {
 		Bool("memory_only", h.sessionSecret == "").
 		Msg("Setting session cookie")
 
-	// Set domain to empty string to work with both localhost and IP addresses
-	c.SetCookie(
-		"session",
-		signedToken,
-		int((24 * time.Hour).Seconds()), // 24 hour expiry
-		"/",
-		"",       // empty domain for maximum compatibility
-		isSecure, // secure flag only if HTTPS
-		true,     // httpOnly for security
-	)
+	//  Set domain to empty string to work with both localhost and IP addresses
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session",
+		Value:    signedToken,
+		MaxAge:   int((24 * time.Hour).Seconds()), // 24 hour expiry,
+		Path:     h.baseUrl,
+		Domain:   "",       // empty domain for maximum compatibility
+		Secure:   isSecure, // secure flag only if HTTPS
+		HttpOnly: true,     // httpOnly for security
+	})
 }
 
 func (h *AuthHandler) isValidMemorySession(token string) bool {
@@ -105,17 +113,21 @@ func (h *AuthHandler) isValidMemorySession(token string) bool {
 	return valid
 }
 
-func (h *AuthHandler) Register(c *gin.Context) {
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var count int
-	err := h.db.QueryRow(c.Request.Context(), "SELECT COUNT(*) FROM users").Scan(&count)
+	err := h.db.QueryRow(r.Context(), "SELECT COUNT(*) FROM users").Scan(&count)
 	if err != nil && !isTableNotExistsError(err) {
 		log.Error().Err(err).Msg("Failed to check existing users")
-		_ = c.Error(fmt.Errorf("failed to check existing users: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "Failed to check existing users",
+		})
 		return
 	}
 
 	if err == nil && count > 0 {
-		_ = c.Error(fmt.Errorf("registration disabled: user already exists"))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "registration disabled: user already exists",
+		})
 		return
 	}
 
@@ -123,8 +135,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(fmt.Errorf("invalid request data: %w", err))
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "could not decode request body",
+		})
 		return
 	}
 
@@ -133,65 +147,71 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	//	return
 	//}
 
-	user, err := h.db.CreateUser(c.Request.Context(), req.Username, req.Password)
+	user, err := h.db.CreateUser(r.Context(), req.Username, req.Password)
 	if err != nil {
-		if err == database.ErrUserAlreadyExists {
-			_ = c.Error(fmt.Errorf("username already exists: %w", err))
+		if errors.Is(err, database.ErrUserAlreadyExists) {
+			encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+				"error": "username already exists",
+			})
 			return
 		}
 		log.Error().Err(err).Msg("Failed to create user")
-		_ = c.Error(fmt.Errorf("failed to create user: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "failed to create user",
+		})
 		return
 	}
 
 	sessionToken, err := utils.GenerateSecureToken(32)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to generate session token")
-		_ = c.Error(fmt.Errorf("failed to generate session token: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "failed to generate session token",
+		})
 		return
 	}
 
-	h.refreshSession(c, sessionToken)
+	h.refreshSession(w, r, sessionToken)
 
-	c.JSON(http.StatusCreated, gin.H{
+	encoder.JSON(w, http.StatusCreated, encoder.H{
 		"message": "User registered successfully",
-		"user": gin.H{
+		"user": encoder.H{
 			"id":       user.ID,
 			"username": user.Username,
 		},
 	})
 }
 
-func (h *AuthHandler) Login(c *gin.Context) {
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request data",
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "could not decode request body",
 		})
 		return
 	}
 
-	user, err := h.db.GetUserByUsername(c.Request.Context(), req.Username)
+	user, err := h.db.GetUserByUsername(r.Context(), req.Username)
 	if err != nil {
-		if err == database.ErrUserNotFound {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Invalid credentials",
+		if errors.Is(err, database.ErrUserNotFound) {
+			encoder.JSON(w, http.StatusUnauthorized, encoder.H{
+				"error": "invalid credentials",
 			})
 			return
 		}
 		log.Error().Err(err).Msg("Failed to get user")
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get user",
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "failed to get user",
 		})
 		return
 	}
 
 	if !h.db.ValidatePassword(user, req.Password) {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "Invalid credentials",
+		encoder.JSON(w, http.StatusUnauthorized, encoder.H{
+			"error": "invalid credentials",
 		})
 		return
 	}
@@ -199,59 +219,65 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	sessionToken, err := utils.GenerateSecureToken(32)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to generate session token")
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to generate session token",
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "failed to generate session token",
 		})
 		return
 	}
 
-	h.refreshSession(c, sessionToken)
+	h.refreshSession(w, r, sessionToken)
 
 	log.Debug().
 		Str("username", user.Username).
 		Str("session_token", sessionToken).
 		Msg("User logged in successfully")
 
-
-	c.JSON(http.StatusOK, gin.H{
+	encoder.JSON(w, http.StatusOK, encoder.H{
 		"access_token": sessionToken,
 		"token_type":   "Bearer",
 		"expires_in":   int((24 * time.Hour).Seconds()),
-		"user": gin.H{
+		"user": encoder.H{
 			"id":       user.ID,
 			"username": user.Username,
 		},
 	})
 }
 
-func (h *AuthHandler) Verify(c *gin.Context) {
-	signedToken, err := c.Cookie("session")
+func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("session")
 	if err != nil {
 		log.Debug().Err(err).Msg("No session cookie found")
-		_ = c.Error(fmt.Errorf("no session found: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "no session found",
+		})
 		return
 	}
+	signedToken := cookie.Value
 
 	// check if it's a memory session
 	if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
 		if !h.isValidMemorySession(signedToken) {
 			log.Debug().Msg("Invalid memory session")
-			_ = c.Error(fmt.Errorf("invalid memory session"))
+			encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+				"error": "invalid memory session",
+			})
 			return
 		}
 	} else {
 		_, err := auth.VerifyToken(signedToken, h.sessionSecret)
 		if err != nil {
 			log.Debug().Err(err).Msg("Invalid session token")
-			_ = c.Error(fmt.Errorf("invalid session: %w", err))
+			encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+				"error": "invalid session",
+			})
 			return
 		}
 	}
 
 	if h.oidc != nil {
-		if err := h.oidc.VerifyToken(c.Request.Context(), signedToken); err == nil {
-			h.refreshSession(c, signedToken)
-			c.JSON(http.StatusOK, gin.H{
+		if err := h.oidc.VerifyToken(r.Context(), signedToken); err == nil {
+			h.refreshSession(w, r, signedToken)
+			encoder.JSON(w, http.StatusOK, encoder.H{
 				"message": "Token is valid",
 				"type":    "oidc",
 			})
@@ -260,78 +286,85 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 	}
 
 	var username string
-	err = h.db.QueryRow(c.Request.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
+	// TODO move method to db
+	err = h.db.QueryRow(r.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
 	if err != nil {
 		log.Debug().Err(err).Msg("Failed to verify session")
-		_ = c.Error(fmt.Errorf("invalid session: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "invalid session",
+		})
 		return
 	}
 
-	h.refreshSession(c, signedToken)
+	h.refreshSession(w, r, signedToken)
 
-	c.JSON(http.StatusOK, gin.H{
+	encoder.JSON(w, http.StatusOK, encoder.H{
 		"message": "Token is valid",
 		"type":    "session",
 	})
 }
 
-func (h *AuthHandler) Logout(c *gin.Context) {
-	baseURL := c.GetString("base_url")
-	if baseURL == "" {
-		baseURL = "/"
-	}
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	isSecure := r.Header.Get("X-Forwarded-Proto") == "https" || strings.HasPrefix(r.Proto, "HTTPS")
 
-	isSecure := c.GetHeader("X-Forwarded-Proto") == "https" || strings.HasPrefix(c.Request.Proto, "HTTPS")
+	// remove the session cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session",
+		Value:    "",
+		MaxAge:   -1,
+		Path:     h.baseUrl,
+		Domain:   "",
+		Secure:   isSecure,
+		HttpOnly: true,
+	})
+	//
+	// TODO use gorilla session cookiestore
+	//h.sessionMutex.Lock()
+	//if sessionToken, err := c.Cookie("session"); err == nil {
+	//	delete(h.sessionTokens, sessionToken)
+	//}
+	//h.sessionMutex.Unlock()
 
-	// Remove the session cookie
-	c.SetCookie(
-		"session",
-		"",
-		-1,
-		baseURL,
-		"",
-		isSecure,
-		true,
-	)
-
-	h.sessionMutex.Lock()
-	if sessionToken, err := c.Cookie("session"); err == nil {
-		delete(h.sessionTokens, sessionToken)
-	}
-	h.sessionMutex.Unlock()
-
-	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+	encoder.JSON(w, http.StatusOK, encoder.H{"message": "Logged out successfully"})
 }
 
-func (h *AuthHandler) GetUserInfo(c *gin.Context) {
-	signedToken, err := c.Cookie("session")
+func (h *AuthHandler) GetUserInfo(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("session")
 	if err != nil {
-		_ = c.Error(fmt.Errorf("no session found"))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "no session cookie found",
+		})
 		return
 	}
+	// TODO is this correct
+	signedToken := cookie.Value
 
 	// check if it's a memory session
 	if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
 		if !h.isValidMemorySession(signedToken) {
 			log.Debug().Msg("Invalid memory session")
-			_ = c.Error(fmt.Errorf("invalid memory session"))
+			encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+				"error": "invalid memory session",
+			})
 			return
 		}
 	} else {
 		_, err := auth.VerifyToken(signedToken, h.sessionSecret)
 		if err != nil {
 			log.Debug().Err(err).Msg("Invalid session token")
-			_ = c.Error(fmt.Errorf("invalid session: %w", err))
+			encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+				"error": "invalid session",
+			})
 			return
 		}
 	}
 
 	// try oidc first
 	if h.oidc != nil {
-		claims, err := h.oidc.GetClaims(c.Request.Context(), signedToken)
+		claims, err := h.oidc.GetClaims(r.Context(), signedToken)
 		if err == nil {
-			c.JSON(http.StatusOK, gin.H{
-				"user": gin.H{
+			encoder.JSON(w, http.StatusOK, encoder.H{
+				"user": encoder.H{
 					"id":       0, // OIDC users don't have local IDs
 					"username": claims.Subject,
 				},
@@ -341,20 +374,26 @@ func (h *AuthHandler) GetUserInfo(c *gin.Context) {
 	}
 
 	// fall back to regular user lookup
-	username := c.GetString("username")
+	// TODO read from CTX
+	//username := c.GetString("username")
+	username := "username"
 	if username == "" {
-		_ = c.Error(fmt.Errorf("no session found"))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "no session found",
+		})
 		return
 	}
 
-	user, err := h.db.GetUserByUsername(c.Request.Context(), username)
+	user, err := h.db.GetUserByUsername(r.Context(), username)
 	if err != nil {
-		_ = c.Error(fmt.Errorf("failed to get user: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "failed to get user",
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"user": gin.H{
+	encoder.JSON(w, http.StatusOK, encoder.H{
+		"user": encoder.H{
 			"id":       user.ID,
 			"username": user.Username,
 		},

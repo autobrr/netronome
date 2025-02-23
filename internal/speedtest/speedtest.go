@@ -22,7 +22,7 @@ import (
 
 type Service interface {
 	RunTest(opts *types.TestOptions) (*Result, error)
-	GetServers() ([]ServerResponse, error)
+	GetServers(ctx context.Context) ([]ServerResponse, error)
 }
 
 type service struct {
@@ -456,7 +456,7 @@ func (s *service) runIperfTest(opts *types.TestOptions) (*Result, error) {
 	return result, nil
 }
 
-func (s *service) GetServers() ([]ServerResponse, error) {
+func (s *service) GetServers(ctx context.Context) ([]ServerResponse, error) {
 	log.Trace().
 		Int("cache_size", len(s.serverCache)).
 		Time("cache_expiry", s.cacheExpiry).
@@ -474,14 +474,14 @@ func (s *service) GetServers() ([]ServerResponse, error) {
 	log.Debug().Msg("Cache miss, fetching fresh speedtest servers")
 
 	// FetchUserInfo returns information about caller determined by speedtest.net
-	_, err := s.client.FetchUserInfo()
+	_, err := s.client.FetchUserInfoContext(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to fetch speedtest user info")
 		return nil, fmt.Errorf("failed to fetch user info: %w", err)
 	}
 
 	// Fetch servers using the initialized client
-	serverList, err := s.client.FetchServers()
+	serverList, err := s.client.FetchServerListContext(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to fetch speedtest servers")
 		return nil, fmt.Errorf("failed to fetch servers: %w", err)

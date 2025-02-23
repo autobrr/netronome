@@ -103,7 +103,8 @@ func (s *service) GetIperfServers(ctx context.Context) ([]types.SavedIperfServer
 	}
 	defer rows.Close()
 
-	var servers []types.SavedIperfServer
+	servers := make([]types.SavedIperfServer, 0)
+
 	for rows.Next() {
 		var server types.SavedIperfServer
 		err := rows.Scan(

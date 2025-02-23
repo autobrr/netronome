@@ -6,9 +6,11 @@ require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/coreos/go-oidc/v3 v3.12.0
 	github.com/gin-gonic/gin v1.10.0
+	github.com/go-chi/chi/v5 v5.2.1
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
 	github.com/pkg/errors v0.9.1
+	github.com/rs/cors v1.11.1
 	github.com/rs/zerolog v1.33.0
 	github.com/showwin/speedtest-go v1.7.10
 	github.com/spf13/cobra v1.9.1
