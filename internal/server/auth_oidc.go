@@ -7,17 +7,31 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+	"strings"
+	"time"
+
+	"github.com/autobrr/netronome/internal/server/encoder"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
 
 func (h *AuthHandler) handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
+	if h.oidc == nil {
+		encoder.NotFound(w)
+		return
+	}
+
 	authURL := h.oidc.AuthURL()
 	http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
 }
 
 func (h *AuthHandler) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
+	if h.oidc == nil {
+		encoder.NotFound(w)
+		return
+	}
+
 	//baseURL := c.GetString("base_url")
 	//if baseURL == "" {
 	//	baseURL = "/"
@@ -55,20 +69,52 @@ func (h *AuthHandler) handleOIDCCallback(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	sessionToken, err := generateSecureToken(32)
+	session, err := h.cookieStore.Get(r, "user_session")
 	if err != nil {
-		log.Error().Err(err).Msg("failed to generate session token")
-		//c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=server_error")
-		http.Redirect(w, r, h.baseUrl+"login?error=server_error", http.StatusTemporaryRedirect)
+		encoder.JSON(w, http.StatusUnauthorized, encoder.H{
+			"error": "invalid credentials",
+		})
 		return
 	}
 
-	if err := h.storeSession(sessionToken); err != nil {
-		log.Error().Err(err).Msg("failed to store session")
-		//c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=server_error")
-		http.Redirect(w, r, h.baseUrl+"login?error=server_error", http.StatusTemporaryRedirect)
+	session.Values["authenticated"] = true
+	session.Values["created_at"] = time.Now().Unix()
+	//session.Values["id"] = user.ID
+	//session.Values["username"] = user.Username
+	session.Values["auth_method"] = "oidc"
+
+	session.Options.HttpOnly = true
+	session.Options.SameSite = http.SameSiteLaxMode
+	session.Options.MaxAge = int((30 * 24 * time.Hour).Seconds()) // 30 days expiry,
+	session.Options.Path = h.baseUrl
+	session.Options.Domain = "" // empty domain for maximum compatibility
+
+	if r.Header.Get("X-Forwarded-Proto") == "https" || strings.HasPrefix(r.Proto, "HTTPS") {
+		session.Options.Secure = true
+		session.Options.SameSite = http.SameSiteStrictMode
+	}
+
+	if err := session.Save(r, w); err != nil {
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "failed to save session",
+		})
 		return
 	}
+
+	//sessionToken, err := generateSecureToken(32)
+	//if err != nil {
+	//	log.Error().Err(err).Msg("failed to generate session token")
+	//	//c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=server_error")
+	//	http.Redirect(w, r, h.baseUrl+"login?error=server_error", http.StatusTemporaryRedirect)
+	//	return
+	//}
+	//
+	//if err := h.storeSession(sessionToken); err != nil {
+	//	log.Error().Err(err).Msg("failed to store session")
+	//	//c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=server_error")
+	//	http.Redirect(w, r, h.baseUrl+"login?error=server_error", http.StatusTemporaryRedirect)
+	//	return
+	//}
 
 	// TODO Set session cookie with the random token instead
 	//c.SetCookie(

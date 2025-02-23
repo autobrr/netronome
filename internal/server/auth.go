@@ -8,36 +8,54 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
+	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/server/encoder"
-	"github.com/autobrr/netronome/internal/utils"
 )
 
 type AuthHandler struct {
 	db            database.Service
 	oidc          *auth.OIDCConfig
-	sessionTokens map[string]bool // Track valid memory sessions
-	sessionMutex  sync.RWMutex
+	cookieStore   *sessions.CookieStore
 	sessionSecret string
 
 	baseUrl string
 }
 
-func NewAuthHandler(db database.Service, oidc *auth.OIDCConfig, sessionSecret string, baseUrl string) *AuthHandler {
+func NewAuthHandler(db database.Service, oidc *auth.OIDCConfig, sessionSecret string, baseUrl string, cookieStore *sessions.CookieStore) *AuthHandler {
 	return &AuthHandler{
 		db:            db,
 		oidc:          oidc,
-		sessionTokens: make(map[string]bool),
 		sessionSecret: sessionSecret,
 		baseUrl:       baseUrl,
+		cookieStore:   cookieStore,
 	}
+}
+
+func (h *AuthHandler) Routes(r chi.Router) {
+	r.Post("/login", h.Login)
+	r.Post("/register", h.Register)
+
+	r.Group(func(r chi.Router) {
+		r.Use(IsAuthenticated(h.baseUrl, h.cookieStore))
+
+		r.Get("/status", h.CheckRegistrationStatus)
+
+		r.Post("/logout", h.Logout)
+		r.Get("/verify", h.Verify)
+		r.Get("/user", h.GetUserInfo)
+	})
+
+	r.Route("/oidc", func(r chi.Router) {
+		r.Get("/login", h.handleOIDCLogin)
+		r.Get("/callback", h.handleOIDCCallback)
+	})
 }
 
 func (h *AuthHandler) CheckRegistrationStatus(w http.ResponseWriter, r *http.Request) {
@@ -77,11 +95,13 @@ func (h *AuthHandler) refreshSession(w http.ResponseWriter, r *http.Request, tok
 	}
 
 	// Track memory-only sessions
-	if h.sessionSecret == "" {
-		h.sessionMutex.Lock()
-		h.sessionTokens[signedToken] = true
-		h.sessionMutex.Unlock()
-	}
+	//if h.sessionSecret == "" {
+	//	h.sessionMutex.Lock()
+	//	h.sessionTokens[signedToken] = true
+	//	h.sessionMutex.Unlock()
+	//}
+
+	// TODO sessions handling
 
 	log.Debug().
 		Str("token", token).
@@ -91,26 +111,68 @@ func (h *AuthHandler) refreshSession(w http.ResponseWriter, r *http.Request, tok
 		Msg("Setting session cookie")
 
 	//  Set domain to empty string to work with both localhost and IP addresses
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session",
-		Value:    signedToken,
-		MaxAge:   int((24 * time.Hour).Seconds()), // 24 hour expiry,
-		Path:     h.baseUrl,
-		Domain:   "",       // empty domain for maximum compatibility
-		Secure:   isSecure, // secure flag only if HTTPS
-		HttpOnly: true,     // httpOnly for security
-	})
-}
+	//http.SetCookie(w, &http.Cookie{
+	//	Name:     "session",
+	//	Value:    signedToken,
+	//	MaxAge:   int((24 * time.Hour).Seconds()), // 24 hour expiry,
+	//	Path:     h.baseUrl,
+	//	Domain:   "",       // empty domain for maximum compatibility
+	//	Secure:   isSecure, // secure flag only if HTTPS
+	//	HttpOnly: true,     // httpOnly for security
+	//})
 
-func (h *AuthHandler) isValidMemorySession(token string) bool {
-	if !strings.HasPrefix(token, auth.MemoryOnlyPrefix) {
-		return false
+	session, err := h.cookieStore.Get(r, "user_session")
+	if err != nil {
+		encoder.JSON(w, http.StatusUnauthorized, encoder.H{
+			"error": "invalid credentials",
+		})
+		return
 	}
 
-	h.sessionMutex.RLock()
-	valid := h.sessionTokens[token]
-	h.sessionMutex.RUnlock()
-	return valid
+	session.Values["authenticated"] = true
+	session.Values["created_at"] = time.Now().Unix()
+	//session.Values["id"] = user.ID
+	//session.Values["username"] = user.Username
+	session.Values["auth_method"] = "password"
+
+	if created, ok := session.Values["created"].(int64); ok {
+		// created is a unix timestamp MaxAge is in seconds
+		maxAge := time.Duration(session.Options.MaxAge) * time.Second
+		expires := time.Unix(created, 0).Add(maxAge)
+
+		if time.Until(expires) <= 7*24*time.Hour { // 7 days
+			//s.log.Info().Msgf("Cookie is expiring in less than 7 days on %s - extending session", expires.Format("2006-01-02 15:04:05"))
+
+			session.Values["created"] = time.Now().Unix()
+
+			// Call session.Save as needed - since it writes a header (the Set-Cookie
+			// header), making sure you call it before writing out a body is important.
+			// https://github.com/gorilla/sessions/issues/178#issuecomment-447674812
+			if err := session.Save(r, w); err != nil {
+				//s.log.Error().Err(err).Msgf("could not store session: %s", r.RemoteAddr)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+
+	//session.Options.HttpOnly = true
+	//session.Options.SameSite = http.SameSiteLaxMode
+	session.Options.MaxAge = int((24 * time.Hour).Seconds()) // 24 hour expiry,
+	//session.Options.Path = h.baseUrl
+	//session.Options.Domain = "" // empty domain for maximum compatibility
+
+	//if r.Header.Get("X-Forwarded-Proto") == "https" || strings.HasPrefix(r.Proto, "HTTPS") {
+	//	session.Options.Secure = true
+	//	session.Options.SameSite = http.SameSiteStrictMode
+	//}
+
+	if err := session.Save(r, w); err != nil {
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "failed to save session",
+		})
+		return
+	}
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -162,16 +224,16 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionToken, err := utils.GenerateSecureToken(32)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to generate session token")
-		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
-			"error": "failed to generate session token",
-		})
-		return
-	}
-
-	h.refreshSession(w, r, sessionToken)
+	//sessionToken, err := utils.GenerateSecureToken(32)
+	//if err != nil {
+	//	log.Error().Err(err).Msg("Failed to generate session token")
+	//	encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+	//		"error": "failed to generate session token",
+	//	})
+	//	return
+	//}
+	//
+	//h.refreshSession(w, r, sessionToken)
 
 	encoder.JSON(w, http.StatusCreated, encoder.H{
 		"message": "User registered successfully",
@@ -216,26 +278,47 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionToken, err := utils.GenerateSecureToken(32)
+	session, err := h.cookieStore.Get(r, "user_session")
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to generate session token")
-		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
-			"error": "failed to generate session token",
+		encoder.JSON(w, http.StatusUnauthorized, encoder.H{
+			"error": "invalid credentials",
 		})
 		return
 	}
 
-	h.refreshSession(w, r, sessionToken)
+	session.Values["authenticated"] = true
+	session.Values["created_at"] = time.Now().Unix()
+	session.Values["id"] = user.ID
+	session.Values["username"] = user.Username
+	session.Values["auth_method"] = "password"
+
+	session.Options.HttpOnly = true
+	session.Options.SameSite = http.SameSiteLaxMode
+	session.Options.MaxAge = int((24 * time.Hour).Seconds()) // 24 hour expiry,
+	session.Options.Path = h.baseUrl
+	session.Options.Domain = "" // empty domain for maximum compatibility
+
+	if r.Header.Get("X-Forwarded-Proto") == "https" || strings.HasPrefix(r.Proto, "HTTPS") {
+		session.Options.Secure = true
+		session.Options.SameSite = http.SameSiteStrictMode
+	}
+
+	if err := session.Save(r, w); err != nil {
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "failed to save session",
+		})
+		return
+	}
 
 	log.Debug().
 		Str("username", user.Username).
-		Str("session_token", sessionToken).
+		//Str("session_token", sessionToken).
 		Msg("User logged in successfully")
 
 	encoder.JSON(w, http.StatusOK, encoder.H{
-		"access_token": sessionToken,
-		"token_type":   "Bearer",
-		"expires_in":   int((24 * time.Hour).Seconds()),
+		//"access_token": sessionToken,
+		//"token_type":   "Bearer",
+		"expires_in": int((24 * time.Hour).Seconds()),
 		"user": encoder.H{
 			"id":       user.ID,
 			"username": user.Username,
@@ -244,59 +327,67 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("session")
-	if err != nil {
-		log.Debug().Err(err).Msg("No session cookie found")
+	session, ok := r.Context().Value("user_session").(*sessions.Session)
+	if !ok || session == nil {
 		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
 			"error": "no session found",
 		})
 		return
 	}
-	signedToken := cookie.Value
 
-	// check if it's a memory session
-	if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
-		if !h.isValidMemorySession(signedToken) {
-			log.Debug().Msg("Invalid memory session")
-			encoder.JSON(w, http.StatusInternalServerError, encoder.H{
-				"error": "invalid memory session",
-			})
-			return
-		}
-	} else {
-		_, err := auth.VerifyToken(signedToken, h.sessionSecret)
-		if err != nil {
-			log.Debug().Err(err).Msg("Invalid session token")
-			encoder.JSON(w, http.StatusInternalServerError, encoder.H{
-				"error": "invalid session",
-			})
-			return
-		}
-	}
-
-	if h.oidc != nil {
-		if err := h.oidc.VerifyToken(r.Context(), signedToken); err == nil {
-			h.refreshSession(w, r, signedToken)
-			encoder.JSON(w, http.StatusOK, encoder.H{
-				"message": "Token is valid",
-				"type":    "oidc",
-			})
-			return
-		}
-	}
-
-	var username string
-	// TODO move method to db
-	err = h.db.QueryRow(r.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
-	if err != nil {
-		log.Debug().Err(err).Msg("Failed to verify session")
-		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
-			"error": "invalid session",
+	if !session.Values["authenticated"].(bool) == true {
+		encoder.JSON(w, http.StatusUnauthorized, encoder.H{
+			"error": "no session found",
 		})
 		return
 	}
 
-	h.refreshSession(w, r, signedToken)
+	//encoder.NoContent(w)
+
+	//// check if it's a memory session
+	//if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
+	//	if !h.isValidMemorySession(signedToken) {
+	//		log.Debug().Msg("Invalid memory session")
+	//		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+	//			"error": "invalid memory session",
+	//		})
+	//		return
+	//	}
+	//} else {
+	//	_, err := auth.VerifyToken(signedToken, h.sessionSecret)
+	//	if err != nil {
+	//		log.Debug().Err(err).Msg("Invalid session token")
+	//		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+	//			"error": "invalid session",
+	//		})
+	//		return
+	//	}
+	//}
+
+	if h.oidc != nil {
+		// TODO what to do here with OIDC??
+		//if err := h.oidc.VerifyToken(r.Context(), signedToken); err == nil {
+		//	h.refreshSession(w, r, signedToken)
+		//	encoder.JSON(w, http.StatusOK, encoder.H{
+		//		"message": "Token is valid",
+		//		"type":    "oidc",
+		//	})
+		//	return
+		//}
+	}
+
+	//var username string
+	//// TODO move method to db
+	//err = h.db.QueryRow(r.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
+	//if err != nil {
+	//	log.Debug().Err(err).Msg("Failed to verify session")
+	//	encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+	//		"error": "invalid session",
+	//	})
+	//	return
+	//}
+	//
+	//h.refreshSession(w, r, signedToken)
 
 	encoder.JSON(w, http.StatusOK, encoder.H{
 		"message": "Token is valid",
@@ -305,62 +396,80 @@ func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	isSecure := r.Header.Get("X-Forwarded-Proto") == "https" || strings.HasPrefix(r.Proto, "HTTPS")
-
-	// remove the session cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session",
-		Value:    "",
-		MaxAge:   -1,
-		Path:     h.baseUrl,
-		Domain:   "",
-		Secure:   isSecure,
-		HttpOnly: true,
-	})
-	//
-	// TODO use gorilla session cookiestore
-	//h.sessionMutex.Lock()
-	//if sessionToken, err := c.Cookie("session"); err == nil {
-	//	delete(h.sessionTokens, sessionToken)
-	//}
-	//h.sessionMutex.Unlock()
-
-	encoder.JSON(w, http.StatusOK, encoder.H{"message": "Logged out successfully"})
-}
-
-func (h *AuthHandler) GetUserInfo(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("session")
-	if err != nil {
+	session, ok := r.Context().Value("user_session").(*sessions.Session)
+	if !ok || session == nil {
 		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
-			"error": "no session cookie found",
+			"error": "no session found",
 		})
 		return
 	}
-	// TODO is this correct
-	signedToken := cookie.Value
 
-	// check if it's a memory session
-	if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
-		if !h.isValidMemorySession(signedToken) {
-			log.Debug().Msg("Invalid memory session")
-			encoder.JSON(w, http.StatusInternalServerError, encoder.H{
-				"error": "invalid memory session",
-			})
-			return
-		}
-	} else {
-		_, err := auth.VerifyToken(signedToken, h.sessionSecret)
-		if err != nil {
-			log.Debug().Err(err).Msg("Invalid session token")
-			encoder.JSON(w, http.StatusInternalServerError, encoder.H{
-				"error": "invalid session",
-			})
-			return
-		}
+	session.Values["authenticated"] = false
+
+	session.Options.MaxAge = -1
+
+	if err := session.Save(r, w); err != nil {
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "failed to save session",
+		})
+		return
 	}
+
+	encoder.NoContent(w)
+	//encoder.JSON(w, http.StatusOK, encoder.H{"message": "Logged out successfully"})
+}
+
+func (h *AuthHandler) GetUserInfo(w http.ResponseWriter, r *http.Request) {
+	session, ok := r.Context().Value("user_session").(*sessions.Session)
+	if !ok || session == nil {
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "no session found",
+		})
+		return
+	}
+
+	username, ok := session.Values["username"].(string)
+	if !ok || username == "" {
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "no session found",
+		})
+		return
+	}
+
+	//cookie, err := r.Cookie("session")
+	//if err != nil {
+	//	encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+	//		"error": "no session cookie found",
+	//	})
+	//	return
+	//}
+	//// TODO is this correct
+	//signedToken := cookie.Value
+	//
+	//// check if it's a memory session
+	//if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
+	//	if !h.isValidMemorySession(signedToken) {
+	//		log.Debug().Msg("Invalid memory session")
+	//		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+	//			"error": "invalid memory session",
+	//		})
+	//		return
+	//	}
+	//} else {
+	//	_, err := auth.VerifyToken(signedToken, h.sessionSecret)
+	//	if err != nil {
+	//		log.Debug().Err(err).Msg("Invalid session token")
+	//		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+	//			"error": "invalid session",
+	//		})
+	//		return
+	//	}
+	//}
 
 	// try oidc first
 	if h.oidc != nil {
+		// TODO what to do here??
+		signedToken := ""
 		claims, err := h.oidc.GetClaims(r.Context(), signedToken)
 		if err == nil {
 			encoder.JSON(w, http.StatusOK, encoder.H{
@@ -374,16 +483,6 @@ func (h *AuthHandler) GetUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// fall back to regular user lookup
-	// TODO read from CTX
-	//username := c.GetString("username")
-	username := "username"
-	if username == "" {
-		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
-			"error": "no session found",
-		})
-		return
-	}
-
 	user, err := h.db.GetUserByUsername(r.Context(), username)
 	if err != nil {
 		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
@@ -402,63 +501,4 @@ func (h *AuthHandler) GetUserInfo(w http.ResponseWriter, r *http.Request) {
 
 func isTableNotExistsError(err error) bool {
 	return err != nil && err.Error() == "SQL logic error: no such table: users (1)"
-}
-
-func RequireAuth(db database.Service, oidc *auth.OIDCConfig, sessionSecret string, handler *AuthHandler) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		signedToken, err := c.Cookie("session")
-		if err != nil {
-			log.Debug().Err(err).Msg("No session cookie found")
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		// check if it's a memory session
-		if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
-			if !handler.isValidMemorySession(signedToken) {
-				log.Debug().Msg("Invalid memory session")
-				c.AbortWithStatus(http.StatusUnauthorized)
-				return
-			}
-		} else {
-			_, err := auth.VerifyToken(signedToken, sessionSecret)
-			if err != nil {
-				log.Debug().Err(err).Msg("Invalid session token")
-				c.AbortWithStatus(http.StatusUnauthorized)
-				return
-			}
-		}
-
-		// if oidc is configured, try to verify the token
-		if oidc != nil {
-			if err := oidc.VerifyToken(c.Request.Context(), signedToken); err == nil {
-				c.Next()
-				return
-			}
-		}
-
-		// fall back to regular auth check
-		var username string
-		err = db.QueryRow(c.Request.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
-		if err != nil {
-			log.Debug().Err(err).Msg("Failed to find user")
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		log.Debug().
-			Str("username", username).
-			Bool("memory_only", strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix)).
-			Msg("User authenticated successfully")
-
-		c.Set("username", username)
-		c.Next()
-	}
-}
-
-func (h *AuthHandler) storeSession(sessionToken string) error {
-	h.sessionMutex.Lock()
-	defer h.sessionMutex.Unlock()
-	h.sessionTokens[sessionToken] = true
-	return nil
 }

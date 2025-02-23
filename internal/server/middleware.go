@@ -1,85 +1,97 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"runtime/debug"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog"
 )
 
-func (s *Server) IsAuthenticated(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		//if token := r.Header.Get("X-API-Token"); token != "" {
-		//	// check header
-		//	if !s.apiService.ValidateAPIKey(r.Context(), token) {
-		//		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-		//		return
-		//	}
-		//
-		//} else if key := r.URL.Query().Get("apikey"); key != "" {
-		//	// check query param like ?apikey=TOKEN
-		//	if !s.apiService.ValidateAPIKey(r.Context(), key) {
-		//		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-		//		return
-		//	}
-		//} else {
-		//	// check session
-		//	session, err := s.cookieStore.Get(r, "user_session")
-		//	if err != nil {
-		//		s.log.Error().Err(err).Msgf("could not get session from cookieStore")
-		//		session.Values["authenticated"] = false
-		//
-		//		// MaxAge<0 means delete cookie immediately
-		//		session.Options.MaxAge = -1
-		//		session.Options.Path = s.config.Config.BaseURL
-		//
-		//		if err := session.Save(r, w); err != nil {
-		//			s.log.Error().Err(err).Msgf("could not store session: %s", r.RemoteAddr)
-		//			http.Error(w, err.Error(), http.StatusInternalServerError)
-		//			return
-		//		}
-		//		http.Error(w, err.Error(), http.StatusForbidden)
-		//		return
-		//	}
-		//
-		//	// Check if user is authenticated
-		//	if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
-		//		s.log.Warn().Msg("session not authenticated")
-		//
-		//		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		//		return
-		//	}
-		//
-		//	if created, ok := session.Values["created"].(int64); ok {
-		//		// created is a unix timestamp MaxAge is in seconds
-		//		maxAge := time.Duration(session.Options.MaxAge) * time.Second
-		//		expires := time.Unix(created, 0).Add(maxAge)
-		//
-		//		if time.Until(expires) <= 7*24*time.Hour { // 7 days
-		//			s.log.Info().Msgf("Cookie is expiring in less than 7 days on %s - extending session", expires.Format("2006-01-02 15:04:05"))
-		//
-		//			session.Values["created"] = time.Now().Unix()
-		//
-		//			// Call session.Save as needed - since it writes a header (the Set-Cookie
-		//			// header), making sure you call it before writing out a body is important.
-		//			// https://github.com/gorilla/sessions/issues/178#issuecomment-447674812
-		//			if err := session.Save(r, w); err != nil {
-		//				s.log.Error().Err(err).Msgf("could not store session: %s", r.RemoteAddr)
-		//				http.Error(w, err.Error(), http.StatusInternalServerError)
-		//				return
-		//			}
-		//		}
-		//	}
-		//
-		//	ctx := context.WithValue(r.Context(), "session", session)
-		//	r = r.WithContext(ctx)
-		//}
+func IsAuthenticated(baseUrl string, cookieStore *sessions.CookieStore) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			// check session
+			session, err := cookieStore.Get(r, "user_session")
+			if err != nil {
+				//s.log.Error().Err(err).Msgf("could not get session from cookieStore")
+				session.Values["authenticated"] = false
 
-		next.ServeHTTP(w, r)
-	})
+				// MaxAge<0 means delete cookie immediately
+				session.Options.MaxAge = -1
+				session.Options.Path = baseUrl
+
+				if err := session.Save(r, w); err != nil {
+					//s.log.Error().Err(err).Msgf("could not store session: %s", r.RemoteAddr)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				http.Error(w, err.Error(), http.StatusForbidden)
+				return
+			}
+
+			// Check if user is authenticated
+			if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
+				//s.log.Warn().Msg("session not authenticated")
+
+				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+				return
+			}
+
+			if created, ok := session.Values["created"].(int64); ok {
+				// created is a unix timestamp MaxAge is in seconds
+				maxAge := time.Duration(session.Options.MaxAge) * time.Second
+				expires := time.Unix(created, 0).Add(maxAge)
+
+				if time.Until(expires) <= 7*24*time.Hour { // 7 days
+					//s.log.Info().Msgf("Cookie is expiring in less than 7 days on %s - extending session", expires.Format("2006-01-02 15:04:05"))
+
+					session.Values["created"] = time.Now().Unix()
+
+					// Call session.Save as needed - since it writes a header (the Set-Cookie
+					// header), making sure you call it before writing out a body is important.
+					// https://github.com/gorilla/sessions/issues/178#issuecomment-447674812
+					if err := session.Save(r, w); err != nil {
+						//s.log.Error().Err(err).Msgf("could not store session: %s", r.RemoteAddr)
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
+				}
+			}
+
+			//// if oidc is configured, try to verify the token
+			//if oidc != nil {
+			//	if err := oidc.VerifyToken(c.Request.Context(), signedToken); err == nil {
+			//		c.Next()
+			//		return
+			//	}
+			//}
+			//
+			//// fall back to regular auth check
+			//var username string
+			//err = db.QueryRow(c.Request.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
+			//if err != nil {
+			//	log.Debug().Err(err).Msg("Failed to find user")
+			//	c.AbortWithStatus(http.StatusUnauthorized)
+			//	return
+			//}
+			//
+			//log.Debug().
+			//	Str("username", username).
+			//	Bool("memory_only", strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix)).
+			//	Msg("User authenticated successfully")
+
+			ctx := context.WithValue(r.Context(), "session", session)
+			r = r.WithContext(ctx)
+
+			next.ServeHTTP(w, r)
+		}
+		return http.HandlerFunc(fn)
+	}
 }
 
 func LoggerMiddleware(logger zerolog.Logger) func(next http.Handler) http.Handler {
@@ -104,14 +116,25 @@ func LoggerMiddleware(logger zerolog.Logger) func(next http.Handler) http.Handle
 					http.Error(ww, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				}
 
-				//		// skip certain endpoints to reduce noise
-				//		if path == "/health" || path == "/api/speedtest/status" && c.Writer.Status() == 200 {
-				//			return
-				//		}
+				// skip certain endpoints to reduce noise
+				//if path == "/health" || path == "/api/speedtest/status" && c.Writer.Status() == 200 {
+				//	return
+				//}
 				if !strings.Contains("/api/healthz/liveness|/api/healthz/readiness", r.URL.Path) {
 					//		if requestID := c.GetHeader("X-Request-ID"); requestID != "" {
 					//			event.Str("request_id", requestID)
 					//		}
+					//if ww.Status() >= 500 {
+					//	log.Error().
+					//		Str("type", "error").
+					//		Timestamp().
+					//		Str("url", r.URL.Path).
+					//		Str("proto", r.Proto).
+					//		Str("method", r.Method).
+					//		Str("user_agent", r.Header.Get("User-Agent")).
+					//		Int("status", ww.Status()).
+					//		Int("latency_ms", int(t2.Sub(t1).Nanoseconds())/1000000)
+					//}
 
 					// log end request
 					log.Trace().
@@ -122,7 +145,7 @@ func LoggerMiddleware(logger zerolog.Logger) func(next http.Handler) http.Handle
 							"url":        r.URL.Path,
 							"proto":      r.Proto,
 							"method":     r.Method,
-							"user_agent": r.Header.Get("User-Agent"),
+							"user_agent": r.UserAgent(),
 							"status":     ww.Status(),
 							"latency_ms": float64(t2.Sub(t1).Nanoseconds()) / 1000000.0,
 							"bytes_in":   r.Header.Get("Content-Length"),

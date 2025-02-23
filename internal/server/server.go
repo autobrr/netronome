@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/gorilla/sessions"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog/log"
 
@@ -24,29 +25,24 @@ import (
 )
 
 type Server struct {
-	config     *config.Config
-	db         database.Service
-	speedtest  speedtest.Service
-	httpServer http.Server
-	auth       *AuthHandler
-	mu         sync.RWMutex
-	lastUpdate *types.SpeedUpdate
+	config      *config.Config
+	db          database.Service
+	speedtest   speedtest.Service
+	httpServer  http.Server
+	mu          sync.RWMutex
+	lastUpdate  *types.SpeedUpdate
+	cookieStore *sessions.CookieStore
+	oidcConfig  *auth.OIDCConfig
 }
 
-func NewServer(cfg *config.Config, db database.Service, speedtest speedtest.Service) *Server {
-	// Initialize OIDC if configured
-	oidcConfig, err := auth.NewOIDC(context.Background(), cfg.OIDC)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to initialize OIDC")
-		// Continue without OIDC
-	}
-
+func NewServer(cfg *config.Config, db database.Service, speedtest speedtest.Service, oidcCfg *auth.OIDCConfig) *Server {
 	s := &Server{
-		speedtest:  speedtest,
-		db:         db,
-		auth:       NewAuthHandler(db, oidcConfig, cfg.Session.Secret, cfg.Server.BaseURL),
-		lastUpdate: &types.SpeedUpdate{},
-		config:     cfg,
+		speedtest:   speedtest,
+		db:          db,
+		lastUpdate:  &types.SpeedUpdate{},
+		config:      cfg,
+		cookieStore: sessions.NewCookieStore([]byte(cfg.Session.Secret)),
+		oidcConfig:  oidcCfg,
 	}
 
 	return s
@@ -82,7 +78,7 @@ func (s *Server) Handler() http.Handler {
 	c := cors.New(cors.Options{
 		AllowOriginFunc: func(origin string) bool { return true },
 		AllowedMethods:  []string{"HEAD", "OPTIONS", "GET", "POST", "PUT", "PATCH", "DELETE"},
-		//c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		//AllowedHeaders:  []string{"Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With"},
 		AllowCredentials:   true,
 		OptionsPassthrough: true,
 		Debug:              false,
@@ -94,32 +90,10 @@ func (s *Server) Handler() http.Handler {
 
 	apiRouter.Group(func(r chi.Router) {
 		r.Route("/healthz", newHealthHandler().Routes)
-
-		r.Route("/auth", func(r chi.Router) {
-			r.Post("/register", s.auth.Register)
-			r.Post("/login", s.auth.Login)
-
-			r.Group(func(r chi.Router) {
-				// TODO auth middleware
-
-				r.Get("/status", s.auth.CheckRegistrationStatus)
-
-				r.Post("/logout", s.auth.Logout)
-				r.Get("/verify", s.auth.Verify)
-				r.Get("/user", s.auth.GetUserInfo)
-			})
-
-			if s.auth.oidc != nil {
-				r.Route("/oidc", func(r chi.Router) {
-					r.Get("/login", s.auth.handleOIDCLogin)
-					r.Get("/callback", s.auth.handleOIDCCallback)
-				})
-			}
-		})
+		r.Route("/auth", NewAuthHandler(s.db, s.oidcConfig, s.config.Session.Secret, s.config.Server.BaseURL, s.cookieStore).Routes)
 
 		r.Group(func(r chi.Router) {
-			// TODO auth middleware
-			// protected.Use(RequireAuth(s.db, s.auth.oidc, s.config.Session.Secret, s.auth))
+			r.Use(IsAuthenticated(s.config.Server.BaseURL, s.cookieStore))
 
 			r.Route("/servers", func(r chi.Router) {
 				r.Get("/", s.getServers)
@@ -172,48 +146,3 @@ func (s *Server) BroadcastUpdate(update types.SpeedUpdate) {
 		Str("server", update.ServerName).
 		Msg("Broadcasting speed test update")
 }
-
-//func LoggerMiddleware() gin.HandlerFunc {
-//	return func(c *gin.Context) {
-//		start := time.Now()
-//		path := c.Request.URL.Path
-//		query := c.Request.URL.RawQuery
-//
-//		c.Next()
-//
-//		// skip certain endpoints to reduce noise
-//		if path == "/health" || path == "/api/speedtest/status" && c.Writer.Status() == 200 {
-//			return
-//		}
-//
-//		var event *zerolog.Event
-//		switch {
-//		case c.Writer.Status() >= 500:
-//			event = log.Error()
-//		case c.Writer.Status() >= 400:
-//			event = log.Warn()
-//		default:
-//			event = log.Info()
-//		}
-//
-//		event.
-//			Str("method", c.Request.Method).
-//			Str("path", path).
-//			Int("status", c.Writer.Status()).
-//			Dur("latency", time.Since(start))
-//
-//		if query != "" {
-//			event.Str("query", query)
-//		}
-//
-//		if len(c.Errors) > 0 {
-//			event.Str("error", c.Errors.String())
-//		}
-//
-//		if requestID := c.GetHeader("X-Request-ID"); requestID != "" {
-//			event.Str("request_id", requestID)
-//		}
-//
-//		event.Msg("HTTP Request")
-//	}
-//}

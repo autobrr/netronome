@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/logger"
@@ -176,8 +177,15 @@ func runServer(cmd *cobra.Command, args []string) error {
 	speedTestService := speedtest.New(speedServer, db, cfg.SpeedTest)
 	schedulerService := scheduler.New(db, speedTestService)
 
+	// Initialize OIDC if configured
+	oidcConfig, err := auth.NewOIDC(cmd.Context(), cfg.OIDC)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to initialize OIDC")
+		// Continue without OIDC
+	}
+
 	// create server handler with all services
-	srv := server.NewServer(cfg, db, speedTestService)
+	srv := server.NewServer(cfg, db, speedTestService, oidcConfig)
 
 	speedServer.BroadcastUpdate = srv.BroadcastUpdate
 

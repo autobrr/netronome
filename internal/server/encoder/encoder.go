@@ -28,3 +28,12 @@ func PlainText(w http.ResponseWriter, status int, data string) {
 	w.WriteHeader(status)
 	w.Write([]byte(data))
 }
+
+func NoContent(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func NotFound(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNotFound)
+	w.Write([]byte("Not Found"))
+}
