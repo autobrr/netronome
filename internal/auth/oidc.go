@@ -52,7 +52,7 @@ func NewOIDC(ctx context.Context, cfg config.OIDCConfig) (*OIDCConfig, error) {
 		return nil, fmt.Errorf("failed to initialize OIDC provider: %w", err)
 	}
 
-	config := oauth2.Config{
+	conf := oauth2.Config{
 		ClientID:     cfg.ClientID,
 		ClientSecret: cfg.ClientSecret,
 		RedirectURL:  cfg.RedirectURL,
@@ -61,17 +61,17 @@ func NewOIDC(ctx context.Context, cfg config.OIDCConfig) (*OIDCConfig, error) {
 	}
 
 	log.Trace().
-		Str("clientID", config.ClientID).
-		Str("redirectURL", config.RedirectURL).
+		Str("clientID", conf.ClientID).
+		Str("redirectURL", conf.RedirectURL).
 		Str("authURL", endpoints.AuthURL).
 		Str("tokenURL", endpoints.TokenURL).
-		Strs("scopes", config.Scopes).
+		Strs("scopes", conf.Scopes).
 		Msg("OIDC configuration created")
 
 	return &OIDCConfig{
 		provider:     provider,
-		OAuth2Config: config,
-		verifier:     provider.Verifier(&oidc.Config{ClientID: config.ClientID}),
+		OAuth2Config: conf,
+		verifier:     provider.Verifier(&oidc.Config{ClientID: conf.ClientID}),
 	}, nil
 }
 

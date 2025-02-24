@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/logger"
@@ -172,43 +174,55 @@ func runServer(cmd *cobra.Command, args []string) error {
 		},
 	}
 
-	// create server handler with all services
-	serverHandler := server.NewServer(speedtest.New(speedServer, db, cfg.SpeedTest), db, scheduler.New(db, speedtest.New(speedServer, db, cfg.SpeedTest)), cfg)
+	speedTestService := speedtest.New(speedServer, db, cfg.SpeedTest)
+	schedulerService := scheduler.New(db, speedTestService)
 
-	speedServer.BroadcastUpdate = serverHandler.BroadcastUpdate
-
-	serverHandler.StartScheduler(context.Background())
-
-	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	srv := &http.Server{
-		Addr:    addr,
-		Handler: serverHandler.Router,
+	// Initialize OIDC if configured
+	oidcConfig, err := auth.NewOIDC(cmd.Context(), cfg.OIDC)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to initialize OIDC")
+		// Continue without OIDC
 	}
 
+	// create server handler with all services
+	srv := server.NewServer(cfg, db, speedTestService, oidcConfig)
+
+	speedServer.BroadcastUpdate = srv.BroadcastUpdate
+
+	schedulerService.Start(cmd.Context())
+
+	errorChannel := make(chan error)
 	go func() {
-		log.Info().Str("addr", addr).Msg("Starting server")
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal().Err(err).Msg("Failed to start server")
+			errorChannel <- err
 		}
 	}()
 
-	// wait for interrupt signal to gracefully shutdown the server
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
 
-	log.Info().Msg("Shutting down server...")
+	select {
+	case sig := <-sigCh:
+		log.Info().Msgf("got signal %v, shutting down server", sig.String())
+	case err := <-errorChannel:
+		log.Error().Err(err).Msg("got unexpected error from server")
+	}
 
 	// the context is used to inform the server it has 5 seconds to finish
 	// the request it is currently handling
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
-		return fmt.Errorf("server forced to shutdown: %w", err)
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Error().Err(err).Msg("got error during graceful http shutdown")
+
+		//os.Exit(1)
+		return err
 	}
 
-	log.Info().Msg("Server exiting")
+	//os.Exit(0)
+
 	return nil
 }
 

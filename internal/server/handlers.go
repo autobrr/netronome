@@ -5,36 +5,42 @@ package server
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 
+	"github.com/autobrr/netronome/internal/server/encoder"
 	"github.com/autobrr/netronome/internal/types"
 )
 
-func (s *Server) handleSpeedTest(c *gin.Context) {
+func (s *Server) handleSpeedTest(w http.ResponseWriter, r *http.Request) {
 	var opts types.TestOptions
-	if err := c.ShouldBindJSON(&opts); err != nil {
-		_ = c.Error(fmt.Errorf("invalid request body: %w", err))
+	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
+		encoder.JSON(w, http.StatusBadRequest, encoder.H{
+			"error": "could not decode request body",
+		})
 		return
 	}
 
+	// TODO move last speedtest to db
 	// Reset lastUpdate before starting new test
 	s.mu.Lock()
 	s.lastUpdate = &types.SpeedUpdate{}
 	s.mu.Unlock()
 
 	// Use configured timeout
-	ctx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(s.config.SpeedTest.Timeout)*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(s.config.SpeedTest.Timeout)*time.Second)
 	defer cancel()
 
 	result, err := s.speedtest.RunTest(&opts)
 	if err != nil {
-		_ = c.Error(fmt.Errorf("failed to run speed test: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "failed to run speed test",
+		})
 		return
 	}
 
@@ -45,42 +51,60 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 
 	select {
 	case <-ctx.Done():
-		_ = c.Error(fmt.Errorf("speed test timeout: %w", ctx.Err()))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "speed test timed out " + ctx.Err().Error(),
+		})
 		return
 	default:
-		c.JSON(http.StatusOK, result)
+		encoder.JSON(w, http.StatusOK, result)
 	}
 }
 
-func (s *Server) handleSpeedTestHistory(c *gin.Context) {
-	timeRange := c.DefaultQuery("timeRange", s.config.Pagination.DefaultTimeRange)
-	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(s.config.Pagination.DefaultPage)))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(s.config.Pagination.DefaultLimit)))
+func (s *Server) handleSpeedTestHistory(w http.ResponseWriter, r *http.Request) {
+	timeRange := s.config.Pagination.DefaultTimeRange
+	if val := chi.URLParam(r, "timeRange"); val != "" {
+		timeRange = val
+	}
 
-	results, err := s.db.GetSpeedTests(c.Request.Context(), timeRange, page, limit)
+	page := s.config.Pagination.DefaultPage
+	if val := chi.URLParam(r, "page"); val != "" {
+		page, _ = strconv.Atoi(val)
+	}
+
+	limit := s.config.Pagination.DefaultLimit
+	if val := chi.URLParam(r, "limit"); val != "" {
+		limit, _ = strconv.Atoi(val)
+	}
+
+	results, err := s.db.GetSpeedTests(r.Context(), timeRange, page, limit)
 	if err != nil {
 		log.Error().Err(err).
 			Str("timeRange", timeRange).
 			Int("page", page).
 			Int("limit", limit).
 			Msg("Failed to retrieve speed test history")
-		_ = c.Error(fmt.Errorf("failed to retrieve speed test history: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "failed to retrieve speed test history",
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, results)
+	encoder.JSON(w, http.StatusOK, results)
 }
 
-func (s *Server) handleGetServers(c *gin.Context) {
-	servers, err := s.speedtest.GetServers()
+func (s *Server) getServers(w http.ResponseWriter, r *http.Request) {
+	servers, err := s.speedtest.GetServers(r.Context())
 	if err != nil {
-		_ = c.Error(fmt.Errorf("failed to get servers: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "Failed to get servers",
+		})
 		return
 	}
-	c.JSON(http.StatusOK, servers)
+
+	encoder.JSON(w, http.StatusOK, servers)
 }
 
-func (s *Server) handleSpeedTestStatus(c *gin.Context) {
+func (s *Server) handleSpeedTestStatus(w http.ResponseWriter, _ *http.Request) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -88,66 +112,82 @@ func (s *Server) handleSpeedTestStatus(c *gin.Context) {
 		Interface("lastUpdate", s.lastUpdate).
 		Msg("Sending status update")
 
-	c.JSON(http.StatusOK, s.lastUpdate)
+	// TODO get from db
+	encoder.JSON(w, http.StatusOK, s.lastUpdate)
 }
 
-func (s *Server) handleGetSchedules(c *gin.Context) {
-	schedules, err := s.db.GetSchedules(c.Request.Context())
+func (s *Server) handleGetSchedules(w http.ResponseWriter, r *http.Request) {
+	schedules, err := s.db.GetSchedules(r.Context())
 	if err != nil {
-		_ = c.Error(fmt.Errorf("failed to get schedules: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "Failed to get schedules",
+		})
 		return
 	}
-	c.JSON(http.StatusOK, schedules)
+	encoder.JSON(w, http.StatusOK, schedules)
 }
 
-func (s *Server) handleCreateSchedule(c *gin.Context) {
+func (s *Server) handleCreateSchedule(w http.ResponseWriter, r *http.Request) {
 	var schedule types.Schedule
-	if err := c.ShouldBindJSON(&schedule); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&schedule); err != nil {
 		log.Debug().Err(err).Msg("Failed to bind JSON for schedule creation")
-		_ = c.Error(fmt.Errorf("invalid schedule data: %w", err))
+		encoder.JSON(w, http.StatusBadRequest, encoder.H{
+			"error": "invalid schedule data",
+		})
 		return
 	}
 
-	createdSchedule, err := s.db.CreateSchedule(c.Request.Context(), schedule)
+	createdSchedule, err := s.db.CreateSchedule(r.Context(), schedule)
 	if err != nil {
 		log.Error().Err(err).
 			Interface("schedule", schedule).
 			Msg("Failed to create schedule")
-		_ = c.Error(fmt.Errorf("failed to create schedule: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "Failed to create schedule",
+		})
 		return
 	}
 
-	c.JSON(http.StatusCreated, createdSchedule)
+	encoder.JSON(w, http.StatusCreated, createdSchedule)
 }
 
-func (s *Server) handleUpdateSchedule(c *gin.Context) {
+func (s *Server) handleUpdateSchedule(w http.ResponseWriter, r *http.Request) {
 	var schedule types.Schedule
-	if err := c.ShouldBindJSON(&schedule); err != nil {
-		_ = c.Error(fmt.Errorf("invalid schedule data: %w", err))
+	if err := json.NewDecoder(r.Body).Decode(&schedule); err != nil {
+		log.Debug().Err(err).Msg("Failed to bind JSON for schedule creation")
+		encoder.JSON(w, http.StatusBadRequest, encoder.H{
+			"error": "invalid schedule data",
+		})
 		return
 	}
 
-	err := s.db.UpdateSchedule(c.Request.Context(), schedule)
+	err := s.db.UpdateSchedule(r.Context(), schedule)
 	if err != nil {
-		_ = c.Error(fmt.Errorf("failed to update schedule: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "failed to update schedule",
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Schedule updated successfully"})
+	encoder.JSON(w, http.StatusOK, encoder.H{"message": "Schedule updated successfully"})
 }
 
-func (s *Server) handleDeleteSchedule(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+func (s *Server) handleDeleteSchedule(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(chi.URLParam(r, "scheduleID"))
 	if err != nil {
-		_ = c.Error(fmt.Errorf("invalid schedule ID: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "invalid schedule ID",
+		})
 		return
 	}
 
-	err = s.db.DeleteSchedule(c.Request.Context(), int64(id))
+	err = s.db.DeleteSchedule(r.Context(), int64(id))
 	if err != nil {
-		_ = c.Error(fmt.Errorf("failed to delete schedule: %w", err))
+		encoder.JSON(w, http.StatusInternalServerError, encoder.H{
+			"error": "failed to delete schedule",
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Schedule deleted successfully"})
+	encoder.JSON(w, http.StatusOK, encoder.H{"message": "Schedule deleted successfully"})
 }
