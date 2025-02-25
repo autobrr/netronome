@@ -28,10 +28,15 @@ func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
 }
 
 func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
+	baseURL := c.GetString("base_url")
+	if baseURL == "" {
+		baseURL = "/"
+	}
+
 	code := c.Query("code")
 	if code == "" {
 		log.Error().Msg("no code received in callback")
-		c.Redirect(http.StatusTemporaryRedirect, "/login?error=invalid_code")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=invalid_code")
 		return
 	}
 
@@ -39,7 +44,7 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 	token, err := h.oidc.OAuth2Config.Exchange(c.Request.Context(), code)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to exchange code for token")
-		c.Redirect(http.StatusTemporaryRedirect, "/login?error=token_exchange")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=token_exchange")
 		return
 	}
 
@@ -47,27 +52,27 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
 		log.Error().Msg("no id_token in oauth2 token")
-		c.Redirect(http.StatusTemporaryRedirect, "/login?error=missing_id_token")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=missing_id_token")
 		return
 	}
 
 	// Verify the token
 	if err := h.oidc.VerifyToken(c.Request.Context(), rawIDToken); err != nil {
 		log.Error().Err(err).Msg("invalid ID token")
-		c.Redirect(http.StatusTemporaryRedirect, "/login?error=invalid_token")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=invalid_token")
 		return
 	}
 
 	sessionToken, err := generateSecureToken(32)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to generate session token")
-		c.Redirect(http.StatusTemporaryRedirect, "/login?error=server_error")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=server_error")
 		return
 	}
 
-	if err := h.storeSession(sessionToken, rawIDToken); err != nil {
+	if err := h.storeSession(sessionToken); err != nil {
 		log.Error().Err(err).Msg("failed to store session")
-		c.Redirect(http.StatusTemporaryRedirect, "/login?error=server_error")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=server_error")
 		return
 	}
 
@@ -76,13 +81,13 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 		"session",
 		sessionToken,
 		int((30 * 24 * time.Hour).Seconds()), // 30 days
-		"/",
+		baseURL,                              // Use baseURL for cookie path
 		"",
 		c.Request.URL.Scheme == "https",
 		true,
 	)
 
-	c.Redirect(http.StatusTemporaryRedirect, "/")
+	c.Redirect(http.StatusTemporaryRedirect, baseURL)
 }
 
 func generateSecureToken(length int) (string, error) {
