@@ -212,7 +212,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		Str("session_token", sessionToken).
 		Msg("User logged in successfully")
 
-
 	c.JSON(http.StatusOK, gin.H{
 		"access_token": sessionToken,
 		"token_type":   "Bearer",
@@ -415,11 +414,4 @@ func RequireAuth(db database.Service, oidc *auth.OIDCConfig, sessionSecret strin
 		c.Set("username", username)
 		c.Next()
 	}
-}
-
-func (h *AuthHandler) storeSession(sessionToken string) error {
-	h.sessionMutex.Lock()
-	defer h.sessionMutex.Unlock()
-	h.sessionTokens[sessionToken] = true
-	return nil
 }
