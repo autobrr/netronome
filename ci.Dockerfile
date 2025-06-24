@@ -40,22 +40,7 @@ LABEL org.opencontainers.image.source="https://github.com/autobrr/netronome"
 LABEL org.opencontainers.image.licenses="GPL-2.0-or-later"
 LABEL org.opencontainers.image.base.name="alpine:latest"
 
-RUN apk add --no-cache sqlite iperf3 curl && \
-    LIBRESPEED_VERSION=1.0.12 && \
-    ARCH=$(apk --print-arch) && \
-    case ${ARCH} in \
-        "x86_64") LIBRESPEED_ARCH="amd64" ;; \
-        "aarch64") LIBRESPEED_ARCH="arm64" ;; \
-        "riscv64") LIBRESPEED_ARCH="riscv64" ;; \
-        *) \
-            echo "Unsupported architecture for librespeed-cli: ${ARCH}" && \
-            exit 1 ;; \
-    esac && \
-    curl -L -o /tmp/librespeed-cli.tar.gz https://github.com/librespeed/speedtest-cli/releases/download/v${LIBRESPEED_VERSION}/librespeed-cli_${LIBRESPEED_VERSION}_linux_${LIBRESPEED_ARCH}.tar.gz && \
-    tar -C /usr/local/bin -xzf /tmp/librespeed-cli.tar.gz librespeed-cli && \
-    rm /tmp/librespeed-cli.tar.gz && \
-    chmod +x /usr/local/bin/librespeed-cli && \
-    apk del curl
+RUN apk add --no-cache sqlite iperf3
 
 ENV HOME="/data" \
     XDG_CONFIG_HOME="/data" \
