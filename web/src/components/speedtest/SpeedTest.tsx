@@ -158,8 +158,6 @@ export default function SpeedTest() {
     setIsLoading(true);
 
     try {
-      const isIperfServer = selectedServers[0].isIperf;
-
       await speedTestMutation.mutateAsync({
         ...options,
         useIperf: testType === "iperf",
