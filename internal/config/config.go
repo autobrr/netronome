@@ -75,7 +75,7 @@ type OIDCConfig struct {
 
 type SpeedTestConfig struct {
 	IPerf      IperfConfig      `toml:"iperf"`
-	Librespeed LibrespeedConfig `toml:"-"`
+	Librespeed LibrespeedConfig `toml:"librespeed"`
 	Timeout    int              `toml:"timeout" env:"SPEEDTEST_TIMEOUT"` // Timeout in seconds
 }
 
@@ -85,7 +85,8 @@ type IperfConfig struct {
 }
 
 type LibrespeedConfig struct {
-	ServersPath string
+	ServersPath string `toml:"-"`
+	Timeout     int    `toml:"timeout" env:"LIBRESPEED_TIMEOUT"`
 }
 
 type PaginationConfig struct {
@@ -156,6 +157,7 @@ func New() *Config {
 			},
 			Librespeed: LibrespeedConfig{
 				ServersPath: "librespeed-servers.json",
+				Timeout:     60,
 			},
 			Timeout: 30, // 30 seconds default timeout
 		},
@@ -181,6 +183,9 @@ func Load(configPath string) (*Config, error) {
 		if _, err := toml.DecodeFile(configPath, cfg); err != nil {
 			return nil, fmt.Errorf("failed to decode config file %s: %w", configPath, err)
 		}
+		if cfg.SpeedTest.Librespeed.Timeout == 0 {
+			cfg.SpeedTest.Librespeed.Timeout = 60
+		}
 		log.Info().
 			Str("path", configPath).
 			Msg("Loaded configuration file")
@@ -205,6 +210,9 @@ func Load(configPath string) (*Config, error) {
 					Msg("Found config file")
 
 				if _, err := toml.DecodeFile(path, cfg); err == nil {
+					if cfg.SpeedTest.Librespeed.Timeout == 0 {
+						cfg.SpeedTest.Librespeed.Timeout = 60
+					}
 					log.Info().
 						Str("path", path).
 						Msg("Loaded configuration file")
@@ -313,19 +321,24 @@ func (c *Config) loadOIDCFromEnv() {
 }
 
 func (c *Config) loadSpeedTestFromEnv() {
+	if v := getEnv("SPEEDTEST_TIMEOUT"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.Timeout = val
+		}
+	}
 	if v := getEnv("IPERF_TEST_DURATION"); v != "" {
-		if duration, err := strconv.Atoi(v); err == nil {
-			c.SpeedTest.IPerf.TestDuration = duration
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.IPerf.TestDuration = val
 		}
 	}
 	if v := getEnv("IPERF_PARALLEL_CONNS"); v != "" {
-		if conns, err := strconv.Atoi(v); err == nil {
-			c.SpeedTest.IPerf.ParallelConns = conns
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.IPerf.ParallelConns = val
 		}
 	}
-	if v := getEnv("SPEEDTEST_TIMEOUT"); v != "" {
-		if timeout, err := strconv.Atoi(v); err == nil {
-			c.SpeedTest.Timeout = timeout
+	if v := getEnv("LIBRESPEED_TIMEOUT"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.Librespeed.Timeout = val
 		}
 	}
 }
@@ -486,6 +499,17 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "parallel_conns = %d\n", cfg.SpeedTest.IPerf.ParallelConns); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+
+	// SpeedTest Librespeed section
+	if _, err := fmt.Fprintln(w, "[speedtest.librespeed]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "timeout = %d\n", cfg.SpeedTest.Librespeed.Timeout); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {

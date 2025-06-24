@@ -28,8 +28,13 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 	s.lastUpdate = &types.SpeedUpdate{}
 	s.mu.Unlock()
 
+	timeout := time.Duration(s.config.SpeedTest.Timeout) * time.Second
+	if opts.UseLibrespeed {
+		timeout = time.Duration(s.config.SpeedTest.Librespeed.Timeout) * time.Second
+	}
+
 	// Use configured timeout
-	ctx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(s.config.SpeedTest.Timeout)*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
 	defer cancel()
 
 	result, err := s.speedtest.RunTest(ctx, &opts)
