@@ -38,10 +38,10 @@ export default function Register() {
     setError("");
 
     try {
-      if (password.length < 8) {
-        setError("Password must be at least 8 characters");
-        return;
-      }
+      //if (password.length < 8) {
+      //  setError("Password must be at least 8 characters");
+      //  return;
+      //}
 
       await register(username, password);
       router.navigate({ to: "/login" });
