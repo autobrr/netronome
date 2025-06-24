@@ -22,17 +22,17 @@ COPY . ./
 
 # Build with platform-specific settings
 RUN --network=none --mount=target=. \
-    export GOOS=$TARGETOS
-export GOARCH=$TARGETARCH
-[[ "$GOARCH" == "amd64" ]] && export GOAMD64=$TARGETVARIANT
+    export GOOS=$TARGETOS &&
+    export GOARCH=$TARGETARCH &&
+    [[ "$GOARCH" == "amd64" ]] && export GOAMD64=$TARGETVARIANT
 [[ "$GOARCH" == "arm" ]] && [[ "$TARGETVARIANT" == "v6" ]] && export GOARM=6
 [[ "$GOARCH" == "arm" ]] && [[ "$TARGETVARIANT" == "v7" ]] && export GOARM=7
-echo "Building for: $GOARCH $GOOS $GOARM$GOAMD64"
-go build -ldflags "-s -w \
-    -X netronome/internal/buildinfo.Version=${VERSION} \
-    -X netronome/internal/buildinfo.Commit=${REVISION} \
-    -X netronome/internal/buildinfo.Date=${BUILDTIME}" \
-    -o /app/netronome cmd/netronome/main.go
+echo "Building for: $GOARCH $GOOS $GOARM$GOAMD64" &&
+    go build -ldflags "-s -w \
+        -X netronome/internal/buildinfo.Version=${VERSION} \
+        -X netronome/internal/buildinfo.Commit=${REVISION} \
+        -X netronome/internal/buildinfo.Date=${BUILDTIME}" \
+        -o /app/netronome cmd/netronome/main.go
 
 FROM alpine:latest
 
