@@ -406,7 +406,7 @@ func RequireAuth(db database.Service, oidc *auth.OIDCConfig, sessionSecret strin
 			return
 		}
 
-		log.Debug().
+		log.Trace().
 			Str("username", username).
 			Bool("memory_only", strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix)).
 			Msg("User authenticated successfully")

@@ -12,8 +12,9 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/autobrr/netronome/internal/utils"
 	"github.com/rs/zerolog/log"
+
+	"github.com/autobrr/netronome/internal/utils"
 )
 
 const (
@@ -73,13 +74,18 @@ type OIDCConfig struct {
 }
 
 type SpeedTestConfig struct {
-	IPerf   IperfConfig `toml:"iperf"`
-	Timeout int         `toml:"timeout" env:"SPEEDTEST_TIMEOUT"` // Timeout in seconds
+	IPerf      IperfConfig      `toml:"iperf"`
+	Librespeed LibrespeedConfig `toml:"-"`
+	Timeout    int              `toml:"timeout" env:"SPEEDTEST_TIMEOUT"` // Timeout in seconds
 }
 
 type IperfConfig struct {
 	TestDuration  int `toml:"test_duration" env:"IPERF_TEST_DURATION"`
 	ParallelConns int `toml:"parallel_conns" env:"IPERF_PARALLEL_CONNS"`
+}
+
+type LibrespeedConfig struct {
+	ServersPath string
 }
 
 type PaginationConfig struct {
@@ -148,6 +154,9 @@ func New() *Config {
 				TestDuration:  10,
 				ParallelConns: 4,
 			},
+			Librespeed: LibrespeedConfig{
+				ServersPath: "librespeed-servers.json",
+			},
 			Timeout: 30, // 30 seconds default timeout
 		},
 		Pagination: PaginationConfig{
@@ -180,6 +189,7 @@ func Load(configPath string) (*Config, error) {
 		if !filepath.IsAbs(cfg.Database.Path) {
 			cfg.Database.Path = filepath.Join(filepath.Dir(configPath), cfg.Database.Path)
 		}
+		cfg.SpeedTest.Librespeed.ServersPath = filepath.Join(filepath.Dir(configPath), "librespeed-servers.json")
 	} else {
 		// Try each default path in order
 		found := false
@@ -204,6 +214,7 @@ func Load(configPath string) (*Config, error) {
 					if !filepath.IsAbs(cfg.Database.Path) {
 						cfg.Database.Path = filepath.Join(filepath.Dir(path), cfg.Database.Path)
 					}
+					cfg.SpeedTest.Librespeed.ServersPath = filepath.Join(filepath.Dir(path), "librespeed-servers.json")
 					break
 				}
 			}

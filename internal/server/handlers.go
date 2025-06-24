@@ -32,7 +32,7 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(s.config.SpeedTest.Timeout)*time.Second)
 	defer cancel()
 
-	result, err := s.speedtest.RunTest(&opts)
+	result, err := s.speedtest.RunTest(ctx, &opts)
 	if err != nil {
 		_ = c.Error(fmt.Errorf("failed to run speed test: %w", err))
 		return
@@ -72,7 +72,9 @@ func (s *Server) handleSpeedTestHistory(c *gin.Context) {
 }
 
 func (s *Server) handleGetServers(c *gin.Context) {
-	servers, err := s.speedtest.GetServers()
+	testType := c.DefaultQuery("testType", "speedtest")
+
+	servers, err := s.speedtest.GetServers(testType)
 	if err != nil {
 		_ = c.Error(fmt.Errorf("failed to get servers: %w", err))
 		return

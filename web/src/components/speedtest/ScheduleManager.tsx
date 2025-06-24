@@ -125,6 +125,7 @@ export default function ScheduleManager({
     setError(null);
 
     const isIperfServer = selectedServers[0].isIperf;
+    const isLibrespeedServer = selectedServers[0].isLibrespeed;
 
     const newSchedule: Schedule = {
       serverIds: selectedServers.map((s) => s.id),
@@ -137,6 +138,7 @@ export default function ScheduleManager({
         enablePacketLoss: true,
         serverIds: selectedServers.map((s) => s.id),
         useIperf: isIperfServer,
+        useLibrespeed: isLibrespeedServer,
         serverHost: isIperfServer ? selectedServers[0].host : undefined,
       },
     };
@@ -255,14 +257,27 @@ export default function ScheduleManager({
         }
 
         const server = servers.find((s: Server) => s.id === id);
-        return server ? (
-          <span key={id}>
-            {server.sponsor} - {server.name} -{" "}
-            <span className="text-emerald-400 drop-shadow-[0_0_1px_rgba(251,191,36,0.8)]">
-              speedtest.net
+        if (server) {
+          if (server.isLibrespeed) {
+            return (
+              <span key={id}>
+                {server.sponsor} - {server.name} -{" "}
+                <span className="text-blue-400 drop-shadow-[0_0_1px_rgba(96,165,250,0.8)]">
+                  librespeed
+                </span>
+              </span>
+            );
+          }
+          return (
+            <span key={id}>
+              {server.sponsor} - {server.name} -{" "}
+              <span className="text-emerald-400 drop-shadow-[0_0_1px_rgba(251,191,36,0.8)]">
+                speedtest.net
+              </span>
             </span>
-          </span>
-        ) : null;
+          );
+        }
+        return null;
       })
       .filter(Boolean);
 

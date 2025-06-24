@@ -26,7 +26,7 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
 
 - **Speed Testing**
 
-  - Support for both Speedtest.net and iperf3 servers
+  - Support for Speedtest.net, iperf3 servers, and LibreSpeed
   - Real-time test progress visualization
   - Detailed latency measurements
 
@@ -156,6 +156,37 @@ timeout = 30
 test_duration = 10
 parallel_conns = 4
 ```
+
+#### LibreSpeed Configuration
+
+Netronome supports LibreSpeed servers for speed testing. A `librespeed-servers.json` file should be placed in the same directory as your configuration file. This file contains the LibreSpeed server definitions.
+
+Example `librespeed-servers.json`:
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Clouvider - London, UK",
+    "server": "http://lon.speedtest.clouvider.net/backend",
+    "dlURL": "garbage.php",
+    "ulURL": "empty.php",
+    "pingURL": "empty.php",
+    "getIpURL": "getIP.php"
+  },
+  {
+    "id": 2,
+    "name": "Your Custom Server",
+    "server": "http://your-server.example.com/backend",
+    "dlURL": "garbage.php",
+    "ulURL": "empty.php",
+    "pingURL": "empty.php",
+    "getIpURL": "getIP.php"
+  }
+]
+```
+
+**Note:** When using Docker, the LibreSpeed CLI tool (`librespeed-cli`) is automatically included in the container.
 
 ### Environment Variables
 
