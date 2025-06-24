@@ -6,6 +6,7 @@ ARG BUILDTIME
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
+ARG GITHUB_TOKEN
 
 RUN apk add --no-cache git tzdata curl ca-certificates
 
@@ -48,9 +49,16 @@ RUN case "${TARGETOS}-${TARGETARCH}" in \
         esac ;; \
     *) echo "Unsupported platform: ${TARGETOS}-${TARGETARCH}" && exit 1 ;; \
     esac && \
-    curl -fsSL --retry 3 --retry-delay 2 \
-        -o /tmp/librespeed-cli.tar.gz \
-        "https://github.com/librespeed/speedtest-cli/releases/download/v1.0.12/librespeed-cli_1.0.12_linux_${SPEEDTEST_ARCH}.tar.gz" && \
+    if [ -n "${GITHUB_TOKEN}" ]; then \
+        curl -fsSL --retry 3 --retry-delay 2 \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -o /tmp/librespeed-cli.tar.gz \
+            "https://github.com/librespeed/speedtest-cli/releases/download/v1.0.12/librespeed-cli_1.0.12_linux_${SPEEDTEST_ARCH}.tar.gz"; \
+    else \
+        curl -fsSL --retry 3 --retry-delay 2 \
+            -o /tmp/librespeed-cli.tar.gz \
+            "https://github.com/librespeed/speedtest-cli/releases/download/v1.0.12/librespeed-cli_1.0.12_linux_${SPEEDTEST_ARCH}.tar.gz"; \
+    fi && \
     echo "${SPEEDTEST_CHECKSUM}  /tmp/librespeed-cli.tar.gz" | sha256sum -c - && \
     tar -xzf /tmp/librespeed-cli.tar.gz -C /usr/local/bin/ && \
     chmod +x /usr/local/bin/librespeed-cli && \
