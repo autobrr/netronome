@@ -4,10 +4,7 @@
 package server
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -63,37 +60,7 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 		return
 	}
 
-	sessionToken, err := generateSecureToken(32)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to generate session token")
-		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=server_error")
-		return
-	}
-
-	if err := h.storeSession(sessionToken); err != nil {
-		log.Error().Err(err).Msg("failed to store session")
-		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=server_error")
-		return
-	}
-
-	// Set session cookie with the random token instead
-	c.SetCookie(
-		"session",
-		sessionToken,
-		int((30 * 24 * time.Hour).Seconds()), // 30 days
-		baseURL,                              // Use baseURL for cookie path
-		"",
-		c.Request.URL.Scheme == "https",
-		true,
-	)
+	h.refreshSession(c, rawIDToken)
 
 	c.Redirect(http.StatusTemporaryRedirect, baseURL)
-}
-
-func generateSecureToken(length int) (string, error) {
-	b := make([]byte, length)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
 }
