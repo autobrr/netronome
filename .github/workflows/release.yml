@@ -81,6 +81,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Download web production build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:

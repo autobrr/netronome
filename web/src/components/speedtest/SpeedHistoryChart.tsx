@@ -125,7 +125,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
     return allData
       .sort(
         (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       )
       .map((item) => ({
         timestamp: new Date(item.createdAt).toLocaleString(undefined, {
