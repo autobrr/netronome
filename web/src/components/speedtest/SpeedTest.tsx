@@ -5,13 +5,19 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Container } from "@mui/material";
-import { FaWaveSquare } from "react-icons/fa";
+import {
+  FaWaveSquare,
+  FaShare,
+  FaGithub,
+  FaArrowDown,
+  FaArrowUp,
+} from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
-import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { ServerList } from "./ServerList";
 import { TestProgress } from "./TestProgress";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import ScheduleManager from "./ScheduleManager";
+import { ShareModal } from "./ShareModal";
 import {
   Server,
   SpeedTestResult,
@@ -34,10 +40,15 @@ import {
   getSchedules,
   runSpeedTest,
   getSpeedTestStatus,
+  getPublicHistory,
 } from "@/api/speedtest";
 import { motion } from "motion/react";
 
-export default function SpeedTest() {
+interface SpeedTestProps {
+  isPublic?: boolean;
+}
+
+export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [options, setOptions] = useState<TestOptions>({
@@ -64,6 +75,7 @@ export default function SpeedTest() {
   });
   const [scheduledTestRunning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   // Queries
   const { data: speedtestServers = [] } = useQuery({
@@ -88,9 +100,10 @@ export default function SpeedTest() {
   }, [testType, speedtestServers, librespeedServers]);
 
   const { data: historyData, isLoading: isHistoryLoading } = useInfiniteQuery({
-    queryKey: ["history", timeRange],
+    queryKey: ["history", timeRange, isPublic],
     queryFn: async ({ pageParam = 1 }) => {
-      const response = await getHistory(timeRange, pageParam, 20);
+      const historyFn = isPublic ? getPublicHistory : getHistory;
+      const response = await historyFn(timeRange, pageParam, 20);
       return response as PaginatedResponse<SpeedTestResult>;
     },
     getNextPageParam: (
@@ -260,6 +273,7 @@ export default function SpeedTest() {
               </h2>
             </div>
           </div>
+
           {(testStatus === "running" || scheduledTestRunning) && (
             <div
               className="mt-8 md:mt-0 flex items-center justify-center"
@@ -269,6 +283,13 @@ export default function SpeedTest() {
             </div>
           )}
         </div>
+
+        {/* Share Modal */}
+        <ShareModal
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+        />
+
         {/* Error Messages */}
         {error && (
           <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-xl mb-4">
@@ -340,16 +361,18 @@ export default function SpeedTest() {
                     })
                   : "N/A"}
               </div>
-              {schedules && schedules.length > 0 && (
-                <div>
-                  Next scheduled run:{" "}
-                  <span className="text-blue-400 mr-1">
-                    {formatNextRun(schedules[0].nextRun)}
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center gap-4">
+                {schedules && schedules.length > 0 && (
+                  <div>
+                    Next scheduled run:{" "}
+                    <span className="text-blue-400 mr-1">
+                      {formatNextRun(schedules[0].nextRun)}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 cursor-default">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 cursor-default relative">
               <MetricCard
                 icon={<IoIosPulse className="w-5 h-5 text-amber-500" />}
                 title="Latency"
@@ -378,6 +401,17 @@ export default function SpeedTest() {
                 unit="ms"
                 average={calculateAverage(history, "jitter", timeRange)}
               />
+
+              {/* Floating Share Button over Jitter Card */}
+              {!isPublic && (
+                <motion.button
+                  onClick={() => setShareModalOpen(true)}
+                  className="absolute top-3 right-3 p-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 rounded-lg transition-all duration-200 backdrop-blur-sm z-10 opacity-80 hover:opacity-100"
+                  aria-label="Share public speed test page"
+                >
+                  <FaShare className="w-2.5 h-2.5" />
+                </motion.button>
+              )}
             </div>
           </motion.div>
         )}
@@ -393,47 +427,83 @@ export default function SpeedTest() {
             <SpeedHistoryChart
               timeRange={timeRange}
               onTimeRangeChange={setTimeRange}
+              isPublic={isPublic}
             />
           </motion.div>
         )}
 
         {/* Server Selection and Schedule Manager Container */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.5 }}
-          >
-            <ServerList
-              servers={servers}
-              selectedServers={selectedServers}
-              onSelect={handleServerSelect}
-              multiSelect={options.multiServer}
-              onMultiSelectChange={(value: boolean) =>
-                setOptions((prev) => ({ ...prev, multiServer: value }))
-              }
-              onRunTest={runTest}
-              isLoading={isLoading}
-              testType={testType}
-              onTestTypeChange={setTestType}
-            />
-          </motion.div>
+        {!isPublic && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.5 }}
+            >
+              <ServerList
+                servers={servers}
+                selectedServers={selectedServers}
+                onSelect={handleServerSelect}
+                multiSelect={options.multiServer}
+                onMultiSelectChange={(value: boolean) =>
+                  setOptions((prev) => ({ ...prev, multiServer: value }))
+                }
+                onRunTest={runTest}
+                isLoading={isLoading}
+                testType={testType}
+                onTestTypeChange={setTestType}
+              />
+            </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.5 }}
-          >
-            <ScheduleManager
-              servers={allServers}
-              selectedServers={selectedServers}
-              onServerSelect={handleServerSelect}
-            />
-          </motion.div>
-        </div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.5 }}
+            >
+              <ScheduleManager
+                servers={allServers}
+                selectedServers={selectedServers}
+                onServerSelect={handleServerSelect}
+              />
+            </motion.div>
+          </div>
+        )}
       </Container>
+
+      {/* Public Footer */}
+      {isPublic && (
+        <div className="border-t border-gray-800/50 py-4 mt-8">
+          <Container maxWidth="xl">
+            <div className="flex justify-center">
+              <div className="text-gray-500 text-sm">
+                Powered by{" "}
+                <a
+                  href="https://netrono.me"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-300 hover:text-white transition-colors duration-200 underline decoration-gray-600 hover:decoration-gray-400"
+                >
+                  Netronome
+                </a>
+                {" • "}
+                <a
+                  href="https://github.com/autobrr/netronome"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-gray-300 transition-colors duration-200 inline-flex items-center gap-1"
+                >
+                  <span className="underline decoration-gray-600 hover:decoration-gray-400">
+                    Source
+                  </span>
+                  <FaGithub className="ml-1 w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+          </Container>
+        </div>
+      )}
     </div>
   );
 }

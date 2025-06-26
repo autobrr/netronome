@@ -142,9 +142,16 @@ const indexRoute = createRoute({
   component: SpeedTest,
 });
 
+const publicRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/public",
+  component: () => <SpeedTest isPublic={true} />,
+});
+
 const routeTree = rootRoute.addChildren([
   protectedRoute.addChildren([indexRoute]),
   authRoute.addChildren([loginRoute, registerRoute]),
+  publicRoute,
 ]);
 
 export const router = createRouter({

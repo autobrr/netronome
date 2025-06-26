@@ -147,6 +147,9 @@ func (s *Server) RegisterRoutes() {
 			}
 		}
 
+		// public speedtest history
+		api.GET("/speedtest/public/history", s.handlePublicSpeedTestHistory)
+
 		// protected routes
 		protected := api.Group("")
 		protected.Use(RequireAuth(s.db, s.auth.oidc, s.config.Session.Secret, s.auth, s.config.Auth.Whitelist))
