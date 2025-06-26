@@ -18,7 +18,8 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
   - [Environment Variables](#environment-variables)
   - [Database](#database)
   - [Authentication](#authentication)
-  - [CLI Commands](#cli-commands)
+- [CLI Commands](#cli-commands)
+- [Notifications](#notifications)
 - [Contributing](#-contributing)
 - [License](#-license)
 
@@ -155,6 +156,13 @@ timeout = 30
 [speedtest.iperf]
 test_duration = 10
 parallel_conns = 4
+
+[notifications]
+enabled = false
+webhook_url = ""
+ping_threshold = 30
+upload_threshold = 200
+download_threshold = 200
 ```
 
 ### Environment Variables
@@ -186,6 +194,12 @@ parallel_conns = 4
 | `NETRONOME__DEFAULT_TIME_RANGE`   | Default time range for data queries                               | `1w`                                         | No                  |
 | `NETRONOME__DEFAULT_LIMIT`        | Default limit for data queries                                    | `20`                                         | No                  |
 | `NETRONOME__SESSION_SECRET`       | Session secret for authentication                                 | -                                            | No                  |
+| `NETRONOME__NOTIFICATIONS_ENABLED` | Enable or disable notifications | `false` | No |
+| `NETRONOME__NOTIFICATIONS_WEBHOOK_URL` | Webhook URL for notifications | - | Only for Notifications |
+| `NETRONOME__NOTIFICATIONS_PING_THRESHOLD` | Ping threshold in ms for notifications | `30` | No |
+| `NETRONOME__NOTIFICATIONS_UPLOAD_THRESHOLD` | Upload threshold in Mbps for notifications | `200` | No |
+| `NETRONOME__NOTIFICATIONS_DOWNLOAD_THRESHOLD` | Download threshold in Mbps for notifications | `200` | No |
+| `NETRONOME__NOTIFICATIONS_DISCORD_MENTION_ID` | Discord user/role ID to mention on alerts | - | No |
 
 ### Database
 
@@ -252,6 +266,29 @@ netronome --config /home/username/.config/netronome/config.toml change-password 
 # Change user password (non-interactive)
 echo "newpassword123" | netronome --config /home/username/.config/netronome/config.toml change-password username
 ```
+
+### Notifications
+
+Netronome can send notifications to a webhook URL after each speed test. This is useful for integrating with services like Discord, Slack, or any other service that accepts webhooks.
+
+To enable notifications, you need to set the following in your `config.toml` or as environment variables:
+
+```toml
+[notifications]
+enabled = true
+webhook_url = "your-webhook-url"
+ping_threshold = 30
+upload_threshold = 200
+download_threshold = 200
+discord_mention_id = ""
+```
+
+- `enabled` - Enable or disable notifications
+- `webhook_url` - The webhook URL to send notifications to
+- `ping_threshold` - The ping threshold in ms. If the ping is higher than this value, a notification will be sent.
+- `upload_threshold` - The upload threshold in Mbps. If the upload speed is lower than this value, a notification will be sent.
+- `download_threshold` - The download threshold in Mbps. If the download speed is lower than this value, a notification will be sent.
+- `discord_mention_id` - Optional. A Discord user ID or role ID to mention when an alert is triggered. For example, `123456789012345678` for a user or `&123456789012345678` for a role.
 
 ## 🤝 Contributing
 
