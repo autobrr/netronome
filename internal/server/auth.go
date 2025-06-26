@@ -5,6 +5,7 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -24,14 +25,16 @@ type AuthHandler struct {
 	sessionTokens map[string]bool // Track valid memory sessions
 	sessionMutex  sync.RWMutex
 	sessionSecret string
+	whitelist     []string
 }
 
-func NewAuthHandler(db database.Service, oidc *auth.OIDCConfig, sessionSecret string) *AuthHandler {
+func NewAuthHandler(db database.Service, oidc *auth.OIDCConfig, sessionSecret string, whitelist []string) *AuthHandler {
 	return &AuthHandler{
 		db:            db,
 		oidc:          oidc,
 		sessionTokens: make(map[string]bool),
 		sessionSecret: sessionSecret,
+		whitelist:     whitelist,
 	}
 }
 
@@ -224,6 +227,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 func (h *AuthHandler) Verify(c *gin.Context) {
+	if isWhitelisted(c, h.whitelist) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "IP is whitelisted",
+			"type":    "whitelist",
+		})
+		return
+	}
+
 	signedToken, err := c.Cookie("session")
 	if err != nil {
 		log.Debug().Err(err).Msg("No session cookie found")
@@ -303,6 +314,16 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 }
 
 func (h *AuthHandler) GetUserInfo(c *gin.Context) {
+	if isWhitelisted(c, h.whitelist) {
+		c.JSON(http.StatusOK, gin.H{
+			"user": gin.H{
+				"id":       0,
+				"username": "whitelisted",
+			},
+		})
+		return
+	}
+
 	signedToken, err := c.Cookie("session")
 	if err != nil {
 		_ = c.Error(fmt.Errorf("no session found"))
@@ -364,8 +385,36 @@ func isTableNotExistsError(err error) bool {
 	return err != nil && err.Error() == "SQL logic error: no such table: users (1)"
 }
 
-func RequireAuth(db database.Service, oidc *auth.OIDCConfig, sessionSecret string, handler *AuthHandler) gin.HandlerFunc {
+func isWhitelisted(c *gin.Context, whitelist []string) bool {
+	clientIP := c.ClientIP()
+	ip := net.ParseIP(clientIP)
+	if ip == nil {
+		log.Warn().Str("ip", clientIP).Msg("Failed to parse client IP")
+		return false
+	}
+
+	for _, network := range whitelist {
+		_, ipNet, err := net.ParseCIDR(network)
+		if err != nil {
+			log.Warn().Str("network", network).Err(err).Msg("Failed to parse whitelist network")
+			continue
+		}
+		if ipNet.Contains(ip) {
+			log.Debug().Str("ip", clientIP).Str("network", network).Msg("Client IP is in whitelisted network")
+			return true
+		}
+	}
+
+	return false
+}
+
+func RequireAuth(db database.Service, oidc *auth.OIDCConfig, sessionSecret string, handler *AuthHandler, whitelist []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if isWhitelisted(c, whitelist) {
+			c.Next()
+			return
+		}
+
 		signedToken, err := c.Cookie("session")
 		if err != nil {
 			log.Debug().Err(err).Msg("No session cookie found")

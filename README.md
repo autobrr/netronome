@@ -231,6 +231,7 @@ Example `librespeed-servers.json`:
 | `NETRONOME__NOTIFICATIONS_UPLOAD_THRESHOLD`   | Upload threshold in Mbps for notifications                        | `200`                                        | No                     |
 | `NETRONOME__NOTIFICATIONS_DOWNLOAD_THRESHOLD` | Download threshold in Mbps for notifications                      | `200`                                        | No                     |
 | `NETRONOME__NOTIFICATIONS_DISCORD_MENTION_ID` | Discord user/role ID to mention on alerts                         | -                                            | No                     |
+| `NETRONOME__AUTH_WHITELIST`                   | Whitelist for authentication                                      | -                                            | No                     |
 
 ### Database
 
@@ -262,6 +263,7 @@ Netronome supports two authentication methods:
    - Default option if no OIDC is configured
 
 2. **OpenID Connect (OIDC)**
+
    - Integration with identity providers (Google, Okta, Auth0, Keycloak, Pocket-ID etc.)
    - Configure via environment variables:
      ```bash
@@ -269,6 +271,15 @@ Netronome supports two authentication methods:
      OIDC_CLIENT_ID=your-client-id
      OIDC_CLIENT_SECRET=your-client-secret
      OIDC_REDIRECT_URL=https://netronome.domain.net/api/auth/oidc/callback
+     ```
+
+3. **IP Whitelisting**
+
+   - Bypass authentication for specific network ranges or IP addresses.
+   - Configure in `config.toml` using CIDR notation:
+     ```toml
+     [auth]
+     whitelist = ["127.0.0.1/32"]
      ```
 
 ### Notifications
