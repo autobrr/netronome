@@ -17,17 +17,14 @@ import (
 	"github.com/autobrr/netronome/internal/types"
 )
 
-// Notifier handles sending notifications.
 type Notifier struct {
 	Cfg *config.NotificationConfig
 }
 
-// NewNotifier creates a new Notifier.
 func NewNotifier(cfg *config.NotificationConfig) *Notifier {
 	return &Notifier{Cfg: cfg}
 }
 
-// SendNotification sends a notification with the given speed test result.
 func (n *Notifier) SendNotification(result *types.SpeedTestResult) {
 	if !n.Cfg.Enabled || n.Cfg.WebhookURL == "" {
 		return
@@ -98,7 +95,7 @@ func (n *Notifier) buildPayload(result *types.SpeedTestResult, alerts []string) 
 
 	return map[string]interface{}{
 		"content": content,
-		"embeds": []map[string]interface{}{embed},
+		"embeds":  []map[string]interface{}{embed},
 	}
 }
 
