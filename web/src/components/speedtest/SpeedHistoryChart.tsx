@@ -103,13 +103,31 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useInfiniteQuery({
-      queryKey: ["history", timeRange],
+      queryKey: ["history-chart", timeRange, 500],
       queryFn: async ({ pageParam = 1 }) => {
         const response = await getHistory(timeRange, pageParam, 500);
         return response;
       },
-      getNextPageParam: (lastPage: PaginatedResponse<SpeedTestResult>) => {
-        if (lastPage.data.length < lastPage.limit) return undefined;
+      getNextPageParam: (
+        lastPage: PaginatedResponse<SpeedTestResult>,
+        allPages
+      ) => {
+        // If the last page has no data, there are no more pages.
+        if (!lastPage.data || lastPage.data.length === 0) {
+          return undefined;
+        }
+
+        const totalFetched = allPages.reduce(
+          (acc, page) => acc + (page.data?.length || 0),
+          0
+        );
+
+        // If the total fetched is greater than or equal to the total available, no more pages.
+        if (totalFetched >= (lastPage.total ?? 0)) {
+          return undefined;
+        }
+
+        // Otherwise, return the next page number.
         return lastPage.page + 1;
       },
       initialPageParam: 1,
@@ -119,10 +137,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
     if (!data) return [];
 
     const allData = data.pages.flatMap(
-      (page: PaginatedResponse<SpeedTestResult>) => page.data
+      (page: PaginatedResponse<SpeedTestResult>) => page.data || []
     );
 
     return allData
+      .filter((item): item is SpeedTestResult => item != null)
       .sort(
         (a, b) =>
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -556,18 +575,20 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     </AnimatePresence>
                   </div>
 
-                  {hasNextPage && (
-                    <motion.button
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => fetchNextPage()}
-                      disabled={isFetchingNextPage}
-                      className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
-                    >
-                      {isFetchingNextPage ? "Loading more..." : "Load more"}
-                    </motion.button>
+                  {hasNextPage && !isLoading && filteredData.length > 0 && (
+                    <div className="flex justify-end">
+                      <motion.button
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => fetchNextPage()}
+                        disabled={isFetchingNextPage}
+                        className="mb-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
+                      >
+                        {isFetchingNextPage ? "Loading more..." : "Load more"}
+                      </motion.button>
+                    </div>
                   )}
                 </motion.div>
               </div>
