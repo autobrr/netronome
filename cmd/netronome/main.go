@@ -23,6 +23,7 @@ import (
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/logger"
+	"github.com/autobrr/netronome/internal/notifications"
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/server"
 	"github.com/autobrr/netronome/internal/speedtest"
@@ -164,17 +165,15 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize database tables: %w", err)
 	}
 
-	// create speedtest service
-	speedTestService := speedtest.New(db, cfg.SpeedTest, nil)
-
-	// create scheduler service
-	schedulerService := scheduler.New(db, speedTestService)
+	// create notifier
+	notifier := notifications.NewNotifier(&cfg.Notifications)
 
 	// create server handler with all services
-	serverHandler := server.NewServer(speedTestService, db, schedulerService, cfg)
+	speedtestSvc := speedtest.New(db, cfg.SpeedTest, notifier)
+	schedulerSvc := scheduler.New(db, speedtestSvc, notifier)
+	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg)
 
-	// set broadcast function
-	speedTestService.SetBroadcastUpdate(serverHandler.BroadcastUpdate)
+	speedtestSvc.SetBroadcastUpdate(serverHandler.BroadcastUpdate)
 
 	serverHandler.StartScheduler(context.Background())
 

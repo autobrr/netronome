@@ -15,8 +15,10 @@ import (
 	"github.com/rs/zerolog/log"
 	st "github.com/showwin/speedtest-go/speedtest"
 
+	"github.com/autobrr/netronome/internal/broadcaster"
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/notifications"
 	"github.com/autobrr/netronome/internal/types"
 )
 
@@ -32,20 +34,22 @@ type service struct {
 	client          *st.Speedtest
 	db              database.Service
 	config          config.SpeedTestConfig
+	notifier        *notifications.Notifier
+	broadcaster     broadcaster.Broadcaster
+	broadcastUpdate func(types.SpeedUpdate)
 	serverCache     []ServerResponse
 	cacheExpiry     time.Time
 	cacheDuration   time.Duration
-	BroadcastUpdate func(types.SpeedUpdate)
 }
 
-func New(db database.Service, cfg config.SpeedTestConfig, broadcastUpdate func(types.SpeedUpdate)) Service {
+func New(db database.Service, cfg config.SpeedTestConfig, notifier *notifications.Notifier) Service {
 	svc := &service{
-		client:          st.New(),
-		db:              db,
-		config:          cfg,
-		cacheDuration:   30 * time.Minute,
-		cacheExpiry:     time.Now(),
-		BroadcastUpdate: broadcastUpdate,
+		client:        st.New(),
+		db:            db,
+		config:        cfg,
+		notifier:      notifier,
+		cacheDuration: 30 * time.Minute,
+		cacheExpiry:   time.Now(),
 	}
 
 	// log.Debug().Msg("Initialized speedtest service")
@@ -53,7 +57,7 @@ func New(db database.Service, cfg config.SpeedTestConfig, broadcastUpdate func(t
 }
 
 func (s *service) SetBroadcastUpdate(broadcastUpdate func(types.SpeedUpdate)) {
-	s.BroadcastUpdate = broadcastUpdate
+	s.broadcastUpdate = broadcastUpdate
 }
 
 func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
@@ -137,6 +141,7 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 
 		if dbResult != nil {
 			result.ID = dbResult.ID
+			s.notifier.SendNotification(dbResult)
 		}
 
 		return result, nil
@@ -186,8 +191,8 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 	}
 
 	if err := selectedServer.PingTest(func(latency time.Duration) {
-		if s.BroadcastUpdate != nil {
-			s.BroadcastUpdate(types.SpeedUpdate{
+		if s.broadcastUpdate != nil {
+			s.broadcastUpdate(types.SpeedUpdate{
 				Type:        "ping",
 				ServerName:  selectedServer.Name,
 				Latency:     latency.String(),
@@ -202,8 +207,8 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 	}
 	result.Latency = selectedServer.Latency.String()
 
-	if s.BroadcastUpdate != nil {
-		s.BroadcastUpdate(types.SpeedUpdate{
+	if s.broadcastUpdate != nil {
+		s.broadcastUpdate(types.SpeedUpdate{
 			Type:        "ping",
 			ServerName:  selectedServer.Name,
 			Latency:     selectedServer.Latency.String(),
@@ -230,8 +235,8 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 				elapsed := time.Since(downloadStartTime).Seconds()
 				progress = math.Min(100, (elapsed/10.0)*100)
 
-				if progress > 0 && s.BroadcastUpdate != nil {
-					s.BroadcastUpdate(types.SpeedUpdate{
+				if progress > 0 && s.broadcastUpdate != nil {
+					s.broadcastUpdate(types.SpeedUpdate{
 						Type:        "download",
 						ServerName:  selectedServer.Name,
 						Speed:       speed.Mbps(),
@@ -254,8 +259,8 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 		result.DownloadSpeed = selectedServer.DLSpeed.Mbps()
 
 		// Broadcast download completion
-		if s.BroadcastUpdate != nil {
-			s.BroadcastUpdate(types.SpeedUpdate{
+		if s.broadcastUpdate != nil {
+			s.broadcastUpdate(types.SpeedUpdate{
 				Type:        "download",
 				ServerName:  selectedServer.Name,
 				Speed:       result.DownloadSpeed,
@@ -284,8 +289,8 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 				elapsed := time.Since(uploadStartTime).Seconds()
 				progress = math.Min(100, (elapsed/10.0)*100)
 
-				if progress > 0 && s.BroadcastUpdate != nil {
-					s.BroadcastUpdate(types.SpeedUpdate{
+				if progress > 0 && s.broadcastUpdate != nil {
+					s.broadcastUpdate(types.SpeedUpdate{
 						Type:        "upload",
 						ServerName:  selectedServer.Name,
 						Speed:       speed.Mbps(),
@@ -306,8 +311,8 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 		result.UploadSpeed = selectedServer.ULSpeed.Mbps()
 
 		// Broadcast upload completion only after the upload test is done
-		if s.BroadcastUpdate != nil {
-			s.BroadcastUpdate(types.SpeedUpdate{
+		if s.broadcastUpdate != nil {
+			s.broadcastUpdate(types.SpeedUpdate{
 				Type:        "upload",
 				ServerName:  selectedServer.Name,
 				Speed:       result.UploadSpeed,
@@ -318,8 +323,8 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 		}
 
 		// Send final completion update with both speeds
-		if s.BroadcastUpdate != nil {
-			s.BroadcastUpdate(types.SpeedUpdate{
+		if s.broadcastUpdate != nil {
+			s.broadcastUpdate(types.SpeedUpdate{
 				Type:        "complete",
 				ServerName:  selectedServer.Name,
 				Speed:       result.UploadSpeed,
@@ -363,6 +368,7 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 
 	if dbResult != nil {
 		result.ID = dbResult.ID
+		s.notifier.SendNotification(dbResult)
 	}
 
 	return result, nil

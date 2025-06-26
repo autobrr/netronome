@@ -41,7 +41,8 @@ type Config struct {
 	OIDC       OIDCConfig       `toml:"oidc"`
 	SpeedTest  SpeedTestConfig  `toml:"speedtest"`
 	Pagination PaginationConfig `toml:"pagination"`
-	Session    SessionConfig    `toml:"session"`
+	Session       SessionConfig       `toml:"session"`
+	Notifications NotificationConfig `toml:"notifications"`
 }
 
 type DatabaseConfig struct {
@@ -99,6 +100,15 @@ type PaginationConfig struct {
 
 type SessionConfig struct {
 	Secret string `toml:"session_secret" env:"SESSION_SECRET"`
+}
+
+type NotificationConfig struct {
+	Enabled         bool    `toml:"enabled" env:"NOTIFICATIONS_ENABLED"`
+	WebhookURL      string  `toml:"webhook_url" env:"NOTIFICATIONS_WEBHOOK_URL"`
+	PingThreshold   float64 `toml:"ping_threshold" env:"NOTIFICATIONS_PING_THRESHOLD"`
+	UploadThreshold float64 `toml:"upload_threshold" env:"NOTIFICATIONS_UPLOAD_THRESHOLD"`
+	DownloadThreshold float64 `toml:"download_threshold" env:"NOTIFICATIONS_DOWNLOAD_THRESHOLD"`
+	DiscordMentionID  string  `toml:"discord_mention_id" env:"NOTIFICATIONS_DISCORD_MENTION_ID"`
 }
 
 func isRunningInContainer() bool {
@@ -170,6 +180,14 @@ func New() *Config {
 		},
 		Session: SessionConfig{
 			Secret: "",
+		},
+		Notifications: NotificationConfig{
+			Enabled:         false,
+			WebhookURL:      "",
+			PingThreshold:   30,
+			UploadThreshold: 200,
+			DownloadThreshold: 200,
+			DiscordMentionID:  "",
 		},
 	}
 }
@@ -250,6 +268,7 @@ func (c *Config) loadFromEnv() error {
 	c.loadSpeedTestFromEnv()
 	c.loadPaginationFromEnv()
 	c.loadSessionFromEnv()
+	c.loadNotificationsFromEnv()
 	return nil
 }
 
@@ -372,6 +391,35 @@ func (c *Config) loadPaginationFromEnv() {
 func (c *Config) loadSessionFromEnv() {
 	if v := getEnv("SESSION_SECRET"); v != "" {
 		c.Session.Secret = v
+	}
+}
+
+func (c *Config) loadNotificationsFromEnv() {
+	if v := getEnv("NOTIFICATIONS_ENABLED"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			c.Notifications.Enabled = enabled
+		}
+	}
+	if v := getEnv("NOTIFICATIONS_WEBHOOK_URL"); v != "" {
+		c.Notifications.WebhookURL = v
+	}
+	if v := getEnv("NOTIFICATIONS_PING_THRESHOLD"); v != "" {
+		if threshold, err := strconv.ParseFloat(v, 64); err == nil {
+			c.Notifications.PingThreshold = threshold
+		}
+	}
+	if v := getEnv("NOTIFICATIONS_UPLOAD_THRESHOLD"); v != "" {
+		if threshold, err := strconv.ParseFloat(v, 64); err == nil {
+			c.Notifications.UploadThreshold = threshold
+		}
+	}
+	if v := getEnv("NOTIFICATIONS_DOWNLOAD_THRESHOLD"); v != "" {
+		if threshold, err := strconv.ParseFloat(v, 64); err == nil {
+			c.Notifications.DownloadThreshold = threshold
+		}
+	}
+	if v := getEnv("NOTIFICATIONS_DISCORD_MENTION_ID"); v != "" {
+		c.Notifications.DiscordMentionID = v
 	}
 }
 
@@ -550,6 +598,32 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "session_secret = \"%s\"\n", cfg.Session.Secret); err != nil {
+		return err
+	}
+
+	// Notifications section
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "[notifications]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.Notifications.Enabled); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "webhook_url = \"%s\"\n", cfg.Notifications.WebhookURL); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "ping_threshold = %v\n", cfg.Notifications.PingThreshold); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "upload_threshold = %v\n", cfg.Notifications.UploadThreshold); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "download_threshold = %v\n", cfg.Notifications.DownloadThreshold); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "discord_mention_id = \"%s\"\n", cfg.Notifications.DiscordMentionID); err != nil {
 		return err
 	}
 

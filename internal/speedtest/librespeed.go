@@ -152,8 +152,8 @@ func (s *service) RunLibrespeedTest(ctx context.Context, opts *types.TestOptions
 	}
 
 	// Final completion update
-	if s.BroadcastUpdate != nil {
-		s.BroadcastUpdate(types.SpeedUpdate{
+	if s.broadcastUpdate != nil {
+		s.broadcastUpdate(types.SpeedUpdate{
 			Type:        "complete",
 			ServerName:  result.Server,
 			Speed:       result.DownloadSpeed, // Or another relevant metric
