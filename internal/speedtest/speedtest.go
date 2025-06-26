@@ -17,6 +17,7 @@ import (
 
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/notifications"
 	"github.com/autobrr/netronome/internal/types"
 )
 
@@ -30,17 +31,19 @@ type service struct {
 	server        *Server
 	db            database.Service
 	config        config.SpeedTestConfig
+	notifier      *notifications.Notifier
 	serverCache   []ServerResponse
 	cacheExpiry   time.Time
 	cacheDuration time.Duration
 }
 
-func New(server *Server, db database.Service, cfg config.SpeedTestConfig) Service {
+func New(server *Server, db database.Service, cfg config.SpeedTestConfig, notifier *notifications.Notifier) Service {
 	svc := &service{
 		client:        st.New(),
 		server:        server,
 		db:            db,
 		config:        cfg,
+		notifier:      notifier,
 		cacheDuration: 30 * time.Minute,
 		cacheExpiry:   time.Now(),
 	}
@@ -125,6 +128,7 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 
 		if dbResult != nil {
 			result.ID = dbResult.ID
+			s.notifier.SendNotification(dbResult)
 		}
 
 		return result, nil
@@ -351,6 +355,7 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 
 	if dbResult != nil {
 		result.ID = dbResult.ID
+		s.notifier.SendNotification(dbResult)
 	}
 
 	return result, nil

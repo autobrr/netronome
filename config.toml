@@ -41,3 +41,11 @@ parallel_conns = 4
 #max_page_size = 100
 #default_time_range = "1w"
 #default_limit = 20
+
+[notifications]
+enabled = true
+webhook_url = ""
+ping_threshold = 2
+upload_threshold = 2000
+download_threshold = 2000
+discord_mention_id = ""

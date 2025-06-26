@@ -26,6 +26,7 @@ import (
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/server"
 	"github.com/autobrr/netronome/internal/speedtest"
+	"github.com/autobrr/netronome/internal/notifications"
 	"github.com/autobrr/netronome/internal/types"
 )
 
@@ -172,8 +173,13 @@ func runServer(cmd *cobra.Command, args []string) error {
 		},
 	}
 
+	// create notifier
+	notifier := notifications.NewNotifier(&cfg.Notifications)
+
 	// create server handler with all services
-	serverHandler := server.NewServer(speedtest.New(speedServer, db, cfg.SpeedTest), db, scheduler.New(db, speedtest.New(speedServer, db, cfg.SpeedTest)), cfg)
+	speedtestSvc := speedtest.New(speedServer, db, cfg.SpeedTest, notifier)
+	schedulerSvc := scheduler.New(db, speedtestSvc, notifier)
+	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg)
 
 	speedServer.BroadcastUpdate = serverHandler.BroadcastUpdate
 
