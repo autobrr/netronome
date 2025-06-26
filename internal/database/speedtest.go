@@ -64,7 +64,7 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, limit int) (*types.PaginatedSpeedTests, error) {
 	baseQuery := s.sqlBuilder.Select().From("speed_tests")
 
-	if timeRange != "" {
+	if timeRange != "all" {
 		var timeExpr string
 		switch s.config.Type {
 		case config.Postgres:
@@ -126,7 +126,7 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 	}
 	defer rows.Close()
 
-	var results []types.SpeedTestResult
+	results := make([]types.SpeedTestResult, 0)
 	for rows.Next() {
 		var result types.SpeedTestResult
 		err := rows.Scan(
