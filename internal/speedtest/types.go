@@ -5,8 +5,6 @@ package speedtest
 
 import (
 	"time"
-
-	"github.com/autobrr/netronome/internal/types"
 )
 
 type Result struct {
@@ -24,24 +22,17 @@ type Result struct {
 }
 
 type ServerResponse struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Host     string  `json:"host"`
-	Distance float64 `json:"distance"`
-	Country  string  `json:"country"`
-	Sponsor  string  `json:"sponsor"`
-	URL      string  `json:"url"`
-	Lat      float64 `json:"lat,string"`
-	Lon      float64 `json:"lon,string"`
-}
-
-type Server struct {
-	ID              string  `json:"id"`
-	Name            string  `json:"name"`
-	Host            string  `json:"host"`
-	Distance        float64 `json:"distance"`
-	Country         string  `json:"country"`
-	BroadcastUpdate func(types.SpeedUpdate)
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	Host         string  `json:"host"`
+	Distance     float64 `json:"distance"`
+	Country      string  `json:"country"`
+	Sponsor      string  `json:"sponsor"`
+	URL          string  `json:"url"`
+	Lat          float64 `json:"lat,string"`
+	Lon          float64 `json:"lon,string"`
+	IsIperf      bool    `json:"isIperf"`
+	IsLibrespeed bool    `json:"isLibrespeed"`
 }
 
 type ProgressUpdate struct {

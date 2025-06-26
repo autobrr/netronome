@@ -15,32 +15,39 @@ import (
 	"github.com/rs/zerolog/log"
 	st "github.com/showwin/speedtest-go/speedtest"
 
+	"github.com/autobrr/netronome/internal/broadcaster"
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/notifications"
 	"github.com/autobrr/netronome/internal/types"
 )
 
 type Service interface {
-	RunTest(opts *types.TestOptions) (*Result, error)
-	GetServers() ([]ServerResponse, error)
+	RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error)
+	GetServers(testType string) ([]ServerResponse, error)
+	GetLibrespeedServers() ([]ServerResponse, error)
+	RunLibrespeedTest(ctx context.Context, opts *types.TestOptions) (*Result, error)
+	SetBroadcastUpdate(broadcastUpdate func(types.SpeedUpdate))
 }
 
 type service struct {
-	client        *st.Speedtest
-	server        *Server
-	db            database.Service
-	config        config.SpeedTestConfig
-	serverCache   []ServerResponse
-	cacheExpiry   time.Time
-	cacheDuration time.Duration
+	client          *st.Speedtest
+	db              database.Service
+	config          config.SpeedTestConfig
+	notifier        *notifications.Notifier
+	broadcaster     broadcaster.Broadcaster
+	broadcastUpdate func(types.SpeedUpdate)
+	serverCache     []ServerResponse
+	cacheExpiry     time.Time
+	cacheDuration   time.Duration
 }
 
-func New(server *Server, db database.Service, cfg config.SpeedTestConfig) Service {
+func New(db database.Service, cfg config.SpeedTestConfig, notifier *notifications.Notifier) Service {
 	svc := &service{
 		client:        st.New(),
-		server:        server,
 		db:            db,
 		config:        cfg,
+		notifier:      notifier,
 		cacheDuration: 30 * time.Minute,
 		cacheExpiry:   time.Now(),
 	}
@@ -49,13 +56,22 @@ func New(server *Server, db database.Service, cfg config.SpeedTestConfig) Servic
 	return svc
 }
 
-func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
+func (s *service) SetBroadcastUpdate(broadcastUpdate func(types.SpeedUpdate)) {
+	s.broadcastUpdate = broadcastUpdate
+}
+
+func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
 	log.Debug().
 		Bool("isScheduled", opts.IsScheduled).
 		Bool("useIperf", opts.UseIperf).
 		Str("server_ids", fmt.Sprintf("%v", opts.ServerIDs)).
 		Str("server_host", opts.ServerHost).
 		Msg("Starting speed test")
+
+	if opts.UseLibrespeed {
+		log.Info().Msg("Starting librespeed test")
+		return s.RunLibrespeedTest(ctx, opts)
+	}
 
 	if opts.UseIperf && opts.ServerHost != "" {
 		log.Info().
@@ -125,6 +141,7 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 
 		if dbResult != nil {
 			result.ID = dbResult.ID
+			s.notifier.SendNotification(dbResult)
 		}
 
 		return result, nil
@@ -174,8 +191,8 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 	}
 
 	if err := selectedServer.PingTest(func(latency time.Duration) {
-		if s.server.BroadcastUpdate != nil {
-			s.server.BroadcastUpdate(types.SpeedUpdate{
+		if s.broadcastUpdate != nil {
+			s.broadcastUpdate(types.SpeedUpdate{
 				Type:        "ping",
 				ServerName:  selectedServer.Name,
 				Latency:     latency.String(),
@@ -190,8 +207,8 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 	}
 	result.Latency = selectedServer.Latency.String()
 
-	if s.server.BroadcastUpdate != nil {
-		s.server.BroadcastUpdate(types.SpeedUpdate{
+	if s.broadcastUpdate != nil {
+		s.broadcastUpdate(types.SpeedUpdate{
 			Type:        "ping",
 			ServerName:  selectedServer.Name,
 			Latency:     selectedServer.Latency.String(),
@@ -218,8 +235,8 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 				elapsed := time.Since(downloadStartTime).Seconds()
 				progress = math.Min(100, (elapsed/10.0)*100)
 
-				if progress > 0 && s.server.BroadcastUpdate != nil {
-					s.server.BroadcastUpdate(types.SpeedUpdate{
+				if progress > 0 && s.broadcastUpdate != nil {
+					s.broadcastUpdate(types.SpeedUpdate{
 						Type:        "download",
 						ServerName:  selectedServer.Name,
 						Speed:       speed.Mbps(),
@@ -242,8 +259,8 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 		result.DownloadSpeed = selectedServer.DLSpeed.Mbps()
 
 		// Broadcast download completion
-		if s.server.BroadcastUpdate != nil {
-			s.server.BroadcastUpdate(types.SpeedUpdate{
+		if s.broadcastUpdate != nil {
+			s.broadcastUpdate(types.SpeedUpdate{
 				Type:        "download",
 				ServerName:  selectedServer.Name,
 				Speed:       result.DownloadSpeed,
@@ -272,8 +289,8 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 				elapsed := time.Since(uploadStartTime).Seconds()
 				progress = math.Min(100, (elapsed/10.0)*100)
 
-				if progress > 0 && s.server.BroadcastUpdate != nil {
-					s.server.BroadcastUpdate(types.SpeedUpdate{
+				if progress > 0 && s.broadcastUpdate != nil {
+					s.broadcastUpdate(types.SpeedUpdate{
 						Type:        "upload",
 						ServerName:  selectedServer.Name,
 						Speed:       speed.Mbps(),
@@ -294,8 +311,8 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 		result.UploadSpeed = selectedServer.ULSpeed.Mbps()
 
 		// Broadcast upload completion only after the upload test is done
-		if s.server.BroadcastUpdate != nil {
-			s.server.BroadcastUpdate(types.SpeedUpdate{
+		if s.broadcastUpdate != nil {
+			s.broadcastUpdate(types.SpeedUpdate{
 				Type:        "upload",
 				ServerName:  selectedServer.Name,
 				Speed:       result.UploadSpeed,
@@ -306,8 +323,8 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 		}
 
 		// Send final completion update with both speeds
-		if s.server.BroadcastUpdate != nil {
-			s.server.BroadcastUpdate(types.SpeedUpdate{
+		if s.broadcastUpdate != nil {
+			s.broadcastUpdate(types.SpeedUpdate{
 				Type:        "complete",
 				ServerName:  selectedServer.Name,
 				Speed:       result.UploadSpeed,
@@ -351,112 +368,17 @@ func (s *service) RunTest(opts *types.TestOptions) (*Result, error) {
 
 	if dbResult != nil {
 		result.ID = dbResult.ID
+		s.notifier.SendNotification(dbResult)
 	}
 
 	return result, nil
 }
 
-func (s *service) runIperfTest(opts *types.TestOptions) (*Result, error) {
-	if opts.ServerHost == "" {
-		return nil, fmt.Errorf("server host is required for iperf3 test")
+func (s *service) GetServers(testType string) ([]ServerResponse, error) {
+	if testType == "librespeed" {
+		return s.GetLibrespeedServers()
 	}
 
-	result := &Result{
-		Timestamp: time.Now(),
-		Server:    opts.ServerHost,
-	}
-
-	// Run download test first
-	downloadOpts := *opts
-	downloadOpts.EnableDownload = true
-	downloadOpts.EnableUpload = false
-
-	log.Debug().
-		Str("host", opts.ServerHost).
-		Msg("Starting iperf3 download test")
-
-	// Initial download status
-	if s.server.BroadcastUpdate != nil {
-		s.server.BroadcastUpdate(types.SpeedUpdate{
-			Type:        "download",
-			ServerName:  opts.ServerHost,
-			Progress:    0.0,
-			Speed:       0,
-			IsComplete:  false,
-			IsScheduled: opts.IsScheduled,
-		})
-	}
-
-	downloadResult, err := s.RunIperfTest(context.Background(), &downloadOpts)
-	if err != nil {
-		log.Error().Err(err).Msg("Download test failed")
-		return nil, fmt.Errorf("download test failed: %w", err)
-	}
-	result.DownloadSpeed = downloadResult.DownloadSpeed
-
-	// Short pause between tests
-	time.Sleep(2 * time.Second)
-
-	// Run upload test
-	uploadOpts := *opts
-	uploadOpts.EnableDownload = false
-	uploadOpts.EnableUpload = true
-
-	log.Debug().
-		Str("host", opts.ServerHost).
-		Msg("Starting iperf3 upload test")
-
-	// Initial upload status
-	if s.server.BroadcastUpdate != nil {
-		s.server.BroadcastUpdate(types.SpeedUpdate{
-			Type:        "upload",
-			ServerName:  opts.ServerHost,
-			Progress:    0.0,
-			Speed:       0,
-			IsComplete:  false,
-			IsScheduled: opts.IsScheduled,
-		})
-	}
-
-	uploadResult, err := s.RunIperfTest(context.Background(), &uploadOpts)
-	if err != nil {
-		log.Error().Err(err).Msg("Upload test failed")
-		return nil, fmt.Errorf("upload test failed: %w", err)
-	}
-	result.UploadSpeed = uploadResult.UploadSpeed
-
-	// Save to database
-	dbResult, err := s.db.SaveSpeedTest(context.Background(), types.SpeedTestResult{
-		ServerName:    opts.ServerHost,
-		ServerID:      "iperf3",
-		TestType:      "iperf3",
-		DownloadSpeed: result.DownloadSpeed,
-		UploadSpeed:   result.UploadSpeed,
-	})
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to save iperf3 result to database")
-	}
-
-	if dbResult != nil {
-		result.ID = dbResult.ID
-	}
-
-	// Final completion status
-	if s.server.BroadcastUpdate != nil {
-		s.server.BroadcastUpdate(types.SpeedUpdate{
-			Type:        "complete",
-			ServerName:  opts.ServerHost,
-			Speed:       result.DownloadSpeed,
-			Progress:    100.0,
-			IsComplete:  true,
-			IsScheduled: opts.IsScheduled,
-		})
-	}
-
-	return result, nil
-}
-
-func (s *service) GetServers() ([]ServerResponse, error) {
 	log.Trace().
 		Int("cache_size", len(s.serverCache)).
 		Time("cache_expiry", s.cacheExpiry).
@@ -500,15 +422,17 @@ func (s *service) GetServers() ([]ServerResponse, error) {
 		lon, _ := strconv.ParseFloat(server.Lon, 64)
 
 		response[i] = ServerResponse{
-			ID:       server.ID,
-			Name:     server.Name,
-			Host:     server.Host,
-			Distance: server.Distance,
-			Country:  server.Country,
-			Sponsor:  server.Sponsor,
-			URL:      server.URL,
-			Lat:      lat,
-			Lon:      lon,
+			ID:           server.ID,
+			Name:         server.Name,
+			Host:         server.Host,
+			Distance:     server.Distance,
+			Country:      server.Country,
+			Sponsor:      server.Sponsor,
+			URL:          server.URL,
+			Lat:          lat,
+			Lon:          lon,
+			IsIperf:      false,
+			IsLibrespeed: false,
 		}
 	}
 

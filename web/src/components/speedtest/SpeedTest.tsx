@@ -53,7 +53,12 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     enableJitter: true,
     multiServer: false,
     useIperf: false,
+    useLibrespeed: false,
+    serverIds: [],
   });
+  const [testType, setTestType] = useState<
+    "speedtest" | "iperf" | "librespeed"
+  >("speedtest");
   const [selectedServers, setSelectedServers] = useState<Server[]>([]);
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
@@ -68,10 +73,26 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   // Queries
-  const { data: servers = [] } = useQuery({
-    queryKey: ["servers"],
-    queryFn: getServers,
+  const { data: speedtestServers = [] } = useQuery({
+    queryKey: ["servers", "speedtest"],
+    queryFn: () => getServers("speedtest"),
   }) as { data: Server[] };
+
+  const { data: librespeedServers = [] } = useQuery({
+    queryKey: ["servers", "librespeed"],
+    queryFn: () => getServers("librespeed"),
+  }) as { data: Server[] };
+
+  const allServers = useMemo(
+    () => [...speedtestServers, ...librespeedServers],
+    [speedtestServers, librespeedServers]
+  );
+
+  const servers = useMemo(() => {
+    if (testType === "librespeed") return librespeedServers;
+    if (testType === "iperf") return []; // or fetch iperf servers if they are separate
+    return speedtestServers;
+  }, [testType, speedtestServers, librespeedServers]);
 
   const { data: historyData, isLoading: isHistoryLoading } = useInfiniteQuery({
     queryKey: ["history", timeRange, isPublic],
@@ -146,13 +167,15 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     setIsLoading(true);
 
     try {
-      const isIperfServer = selectedServers[0].isIperf;
-
       await speedTestMutation.mutateAsync({
         ...options,
-        useIperf: isIperfServer,
-        serverIds: isIperfServer ? [] : selectedServers.map((s) => s.id),
-        serverHost: isIperfServer ? selectedServers[0].host : undefined,
+        useIperf: testType === "iperf",
+        useLibrespeed: testType === "librespeed",
+        serverIds:
+          testType === "speedtest" || testType === "librespeed"
+            ? selectedServers.map((s) => s.id)
+            : [],
+        serverHost: testType === "iperf" ? selectedServers[0].host : undefined,
       });
     } catch (error) {
       console.error("Error running test:", error);
@@ -186,7 +209,8 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                     : update.latency || 0,
                 isScheduled: update.isScheduled,
                 progress: update.progress || 0,
-                isIperf: options.useIperf,
+                isIperf: testType === "iperf",
+                isLibrespeed: testType === "librespeed",
               };
 
               if (!prev) {
@@ -221,7 +245,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
       return () => clearInterval(pollInterval);
     }
-  }, [testStatus, queryClient, options.useIperf]);
+  }, [testStatus, queryClient, testType]);
 
   return (
     <div className="min-h-screen">
@@ -417,18 +441,13 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                 selectedServers={selectedServers}
                 onSelect={handleServerSelect}
                 multiSelect={options.multiServer}
-                onMultiSelectChange={(enabled) =>
-                  setOptions((prev) => ({
-                    ...prev,
-                    multiServer: enabled,
-                  }))
+                onMultiSelectChange={(value: boolean) =>
+                  setOptions((prev) => ({ ...prev, multiServer: value }))
                 }
                 onRunTest={runTest}
                 isLoading={isLoading}
-                useIperf={options.useIperf}
-                onIperfChange={(enabled) =>
-                  setOptions((prev) => ({ ...prev, useIperf: enabled }))
-                }
+                testType={testType}
+                onTestTypeChange={setTestType}
               />
             </motion.div>
 
@@ -439,7 +458,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               transition={{ duration: 0.5 }}
             >
               <ScheduleManager
-                servers={servers}
+                servers={allServers}
                 selectedServers={selectedServers}
                 onServerSelect={handleServerSelect}
               />

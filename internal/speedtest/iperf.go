@@ -80,8 +80,8 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 	}
 
 	// Send initial status
-	if s.server.BroadcastUpdate != nil {
-		s.server.BroadcastUpdate(types.SpeedUpdate{
+	if s.broadcastUpdate != nil {
+		s.broadcastUpdate(types.SpeedUpdate{
 			Type:       testType,
 			ServerName: fmt.Sprintf("%s:%s", host, port),
 			Speed:      0,
@@ -143,8 +143,8 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 				Str("type", testType).
 				Msg("iperf3 progress update")
 
-			if s.server.BroadcastUpdate != nil {
-				s.server.BroadcastUpdate(types.SpeedUpdate{
+			if s.broadcastUpdate != nil {
+				s.broadcastUpdate(types.SpeedUpdate{
 					Type:       testType,
 					ServerName: fmt.Sprintf("%s:%s", host, port),
 					Speed:      currentSpeed,
@@ -183,8 +183,8 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 	}
 
 	// Send final update
-	if s.server.BroadcastUpdate != nil {
-		s.server.BroadcastUpdate(types.SpeedUpdate{
+	if s.broadcastUpdate != nil {
+		s.broadcastUpdate(types.SpeedUpdate{
 			Type:       testType,
 			ServerName: fmt.Sprintf("%s:%s", host, port),
 			Speed:      speedMbps,

@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/notifications"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
 )
@@ -24,16 +25,18 @@ type Service interface {
 type service struct {
 	db        database.Service
 	speedtest speedtest.Service
+	notifier  *notifications.Notifier
 	ticker    *time.Ticker
 	done      chan bool
 	mu        sync.Mutex
 	running   bool
 }
 
-func New(db database.Service, speedtest speedtest.Service) Service {
+func New(db database.Service, speedtest speedtest.Service, notifier *notifications.Notifier) Service {
 	return &service{
 		db:        db,
 		speedtest: speedtest,
+		notifier:  notifier,
 		done:      make(chan bool),
 	}
 }
@@ -155,7 +158,7 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 		go func(schedule types.Schedule, ctx context.Context, cancel context.CancelFunc) {
 			defer cancel()
 			schedule.Options.IsScheduled = true
-			result, err := s.speedtest.RunTest(&schedule.Options)
+			result, err := s.speedtest.RunTest(ctx, &schedule.Options)
 			if err != nil {
 				log.Error().
 					Err(err).
