@@ -12,8 +12,9 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/autobrr/netronome/internal/utils"
 	"github.com/rs/zerolog/log"
+
+	"github.com/autobrr/netronome/internal/utils"
 )
 
 const (
@@ -34,13 +35,15 @@ const (
 
 // Config represents the application configuration
 type Config struct {
-	Database   DatabaseConfig   `toml:"database"`
-	Server     ServerConfig     `toml:"server"`
-	Logging    LoggingConfig    `toml:"logging"`
-	OIDC       OIDCConfig       `toml:"oidc"`
-	SpeedTest  SpeedTestConfig  `toml:"speedtest"`
-	Pagination PaginationConfig `toml:"pagination"`
-	Session    SessionConfig    `toml:"session"`
+	Database      DatabaseConfig     `toml:"database"`
+	Server        ServerConfig       `toml:"server"`
+	Logging       LoggingConfig      `toml:"logging"`
+	Auth          AuthConfig         `toml:"auth"`
+	OIDC          OIDCConfig         `toml:"oidc"`
+	SpeedTest     SpeedTestConfig    `toml:"speedtest"`
+	Pagination    PaginationConfig   `toml:"pagination"`
+	Session       SessionConfig      `toml:"session"`
+	Notifications NotificationConfig `toml:"notifications"`
 }
 
 type DatabaseConfig struct {
@@ -65,6 +68,10 @@ type LoggingConfig struct {
 	Level string `toml:"level" env:"LOG_LEVEL"`
 }
 
+type AuthConfig struct {
+	Whitelist []string `toml:"whitelist" env:"AUTH_WHITELIST"`
+}
+
 type OIDCConfig struct {
 	Issuer       string `toml:"issuer" env:"OIDC_ISSUER"`
 	ClientID     string `toml:"client_id" env:"OIDC_CLIENT_ID"`
@@ -73,13 +80,19 @@ type OIDCConfig struct {
 }
 
 type SpeedTestConfig struct {
-	IPerf   IperfConfig `toml:"iperf"`
-	Timeout int         `toml:"timeout" env:"SPEEDTEST_TIMEOUT"` // Timeout in seconds
+	IPerf      IperfConfig      `toml:"iperf"`
+	Librespeed LibrespeedConfig `toml:"librespeed"`
+	Timeout    int              `toml:"timeout" env:"SPEEDTEST_TIMEOUT"` // Timeout in seconds
 }
 
 type IperfConfig struct {
 	TestDuration  int `toml:"test_duration" env:"IPERF_TEST_DURATION"`
 	ParallelConns int `toml:"parallel_conns" env:"IPERF_PARALLEL_CONNS"`
+}
+
+type LibrespeedConfig struct {
+	ServersPath string `toml:"-"`
+	Timeout     int    `toml:"timeout" env:"LIBRESPEED_TIMEOUT"`
 }
 
 type PaginationConfig struct {
@@ -92,6 +105,15 @@ type PaginationConfig struct {
 
 type SessionConfig struct {
 	Secret string `toml:"session_secret" env:"SESSION_SECRET"`
+}
+
+type NotificationConfig struct {
+	Enabled           bool    `toml:"enabled" env:"NOTIFICATIONS_ENABLED"`
+	WebhookURL        string  `toml:"webhook_url" env:"NOTIFICATIONS_WEBHOOK_URL"`
+	PingThreshold     float64 `toml:"ping_threshold" env:"NOTIFICATIONS_PING_THRESHOLD"`
+	UploadThreshold   float64 `toml:"upload_threshold" env:"NOTIFICATIONS_UPLOAD_THRESHOLD"`
+	DownloadThreshold float64 `toml:"download_threshold" env:"NOTIFICATIONS_DOWNLOAD_THRESHOLD"`
+	DiscordMentionID  string  `toml:"discord_mention_id" env:"NOTIFICATIONS_DISCORD_MENTION_ID"`
 }
 
 func isRunningInContainer() bool {
@@ -148,6 +170,10 @@ func New() *Config {
 				TestDuration:  10,
 				ParallelConns: 4,
 			},
+			Librespeed: LibrespeedConfig{
+				ServersPath: "librespeed-servers.json",
+				Timeout:     60,
+			},
 			Timeout: 30, // 30 seconds default timeout
 		},
 		Pagination: PaginationConfig{
@@ -159,6 +185,14 @@ func New() *Config {
 		},
 		Session: SessionConfig{
 			Secret: "",
+		},
+		Notifications: NotificationConfig{
+			Enabled:           false,
+			WebhookURL:        "",
+			PingThreshold:     30,
+			UploadThreshold:   200,
+			DownloadThreshold: 200,
+			DiscordMentionID:  "",
 		},
 	}
 }
@@ -172,6 +206,9 @@ func Load(configPath string) (*Config, error) {
 		if _, err := toml.DecodeFile(configPath, cfg); err != nil {
 			return nil, fmt.Errorf("failed to decode config file %s: %w", configPath, err)
 		}
+		if cfg.SpeedTest.Librespeed.Timeout == 0 {
+			cfg.SpeedTest.Librespeed.Timeout = 60
+		}
 		log.Info().
 			Str("path", configPath).
 			Msg("Loaded configuration file")
@@ -180,6 +217,7 @@ func Load(configPath string) (*Config, error) {
 		if !filepath.IsAbs(cfg.Database.Path) {
 			cfg.Database.Path = filepath.Join(filepath.Dir(configPath), cfg.Database.Path)
 		}
+		cfg.SpeedTest.Librespeed.ServersPath = filepath.Join(filepath.Dir(configPath), "librespeed-servers.json")
 	} else {
 		// Try each default path in order
 		found := false
@@ -195,6 +233,9 @@ func Load(configPath string) (*Config, error) {
 					Msg("Found config file")
 
 				if _, err := toml.DecodeFile(path, cfg); err == nil {
+					if cfg.SpeedTest.Librespeed.Timeout == 0 {
+						cfg.SpeedTest.Librespeed.Timeout = 60
+					}
 					log.Info().
 						Str("path", path).
 						Msg("Loaded configuration file")
@@ -204,6 +245,7 @@ func Load(configPath string) (*Config, error) {
 					if !filepath.IsAbs(cfg.Database.Path) {
 						cfg.Database.Path = filepath.Join(filepath.Dir(path), cfg.Database.Path)
 					}
+					cfg.SpeedTest.Librespeed.ServersPath = filepath.Join(filepath.Dir(path), "librespeed-servers.json")
 					break
 				}
 			}
@@ -227,10 +269,12 @@ func (c *Config) loadFromEnv() error {
 	c.loadDatabaseFromEnv()
 	c.loadServerFromEnv()
 	c.loadLoggingFromEnv()
+	c.loadAuthFromEnv()
 	c.loadOIDCFromEnv()
 	c.loadSpeedTestFromEnv()
 	c.loadPaginationFromEnv()
 	c.loadSessionFromEnv()
+	c.loadNotificationsFromEnv()
 	return nil
 }
 
@@ -286,6 +330,12 @@ func (c *Config) loadLoggingFromEnv() {
 	}
 }
 
+func (c *Config) loadAuthFromEnv() {
+	if v := getEnv("AUTH_WHITELIST"); v != "" {
+		c.Auth.Whitelist = strings.Split(v, ",")
+	}
+}
+
 func (c *Config) loadOIDCFromEnv() {
 	if v := getEnv("OIDC_ISSUER"); v != "" {
 		c.OIDC.Issuer = v
@@ -302,19 +352,24 @@ func (c *Config) loadOIDCFromEnv() {
 }
 
 func (c *Config) loadSpeedTestFromEnv() {
+	if v := getEnv("SPEEDTEST_TIMEOUT"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.Timeout = val
+		}
+	}
 	if v := getEnv("IPERF_TEST_DURATION"); v != "" {
-		if duration, err := strconv.Atoi(v); err == nil {
-			c.SpeedTest.IPerf.TestDuration = duration
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.IPerf.TestDuration = val
 		}
 	}
 	if v := getEnv("IPERF_PARALLEL_CONNS"); v != "" {
-		if conns, err := strconv.Atoi(v); err == nil {
-			c.SpeedTest.IPerf.ParallelConns = conns
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.IPerf.ParallelConns = val
 		}
 	}
-	if v := getEnv("SPEEDTEST_TIMEOUT"); v != "" {
-		if timeout, err := strconv.Atoi(v); err == nil {
-			c.SpeedTest.Timeout = timeout
+	if v := getEnv("LIBRESPEED_TIMEOUT"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.Librespeed.Timeout = val
 		}
 	}
 }
@@ -348,6 +403,35 @@ func (c *Config) loadPaginationFromEnv() {
 func (c *Config) loadSessionFromEnv() {
 	if v := getEnv("SESSION_SECRET"); v != "" {
 		c.Session.Secret = v
+	}
+}
+
+func (c *Config) loadNotificationsFromEnv() {
+	if v := getEnv("NOTIFICATIONS_ENABLED"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			c.Notifications.Enabled = enabled
+		}
+	}
+	if v := getEnv("NOTIFICATIONS_WEBHOOK_URL"); v != "" {
+		c.Notifications.WebhookURL = v
+	}
+	if v := getEnv("NOTIFICATIONS_PING_THRESHOLD"); v != "" {
+		if threshold, err := strconv.ParseFloat(v, 64); err == nil {
+			c.Notifications.PingThreshold = threshold
+		}
+	}
+	if v := getEnv("NOTIFICATIONS_UPLOAD_THRESHOLD"); v != "" {
+		if threshold, err := strconv.ParseFloat(v, 64); err == nil {
+			c.Notifications.UploadThreshold = threshold
+		}
+	}
+	if v := getEnv("NOTIFICATIONS_DOWNLOAD_THRESHOLD"); v != "" {
+		if threshold, err := strconv.ParseFloat(v, 64); err == nil {
+			c.Notifications.DownloadThreshold = threshold
+		}
+	}
+	if v := getEnv("NOTIFICATIONS_DISCORD_MENTION_ID"); v != "" {
+		c.Notifications.DiscordMentionID = v
 	}
 }
 
@@ -436,6 +520,23 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 
+	// Auth section
+	if _, err := fmt.Fprintln(w, "[auth]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Whitelist specific networks to bypass authentication, using CIDR notation."); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Example: whitelist = [\"127.0.0.1/32\"]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "whitelist = []"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+
 	// OIDC section
 	if _, err := fmt.Fprintln(w, "#[oidc]"); err != nil {
 		return err
@@ -481,6 +582,17 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 
+	// SpeedTest Librespeed section
+	if _, err := fmt.Fprintln(w, "[speedtest.librespeed]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "timeout = %d\n", cfg.SpeedTest.Librespeed.Timeout); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+
 	// Pagination section (commented out)
 	if _, err := fmt.Fprintln(w, "# Pagination options (defaults work well for most cases)"); err != nil {
 		return err
@@ -515,6 +627,32 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "session_secret = \"%s\"\n", cfg.Session.Secret); err != nil {
+		return err
+	}
+
+	// Notifications section
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "[notifications]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.Notifications.Enabled); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "webhook_url = \"%s\"\n", cfg.Notifications.WebhookURL); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "ping_threshold = %v\n", cfg.Notifications.PingThreshold); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "upload_threshold = %v\n", cfg.Notifications.UploadThreshold); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "download_threshold = %v\n", cfg.Notifications.DownloadThreshold); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "discord_mention_id = \"%s\"\n", cfg.Notifications.DiscordMentionID); err != nil {
 		return err
 	}
 

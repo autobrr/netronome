@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "name": "Clouvider - London, UK",
+    "server": "http://lon.speedtest.clouvider.net/backend",
+    "dlURL": "garbage.php",
+    "ulURL": "empty.php",
+    "pingURL": "empty.php",
+    "getIpURL": "getIP.php"
+  },
+  {
+    "id": 2,
+    "name": "Clouvider - Amsterdam, NL",
+    "server": "http://ams.speedtest.clouvider.net/backend",
+    "dlURL": "garbage.php",
+    "ulURL": "empty.php",
+    "pingURL": "empty.php",
+    "getIpURL": "getIP.php"
+  },
+  {
+    "id": 3,
+    "name": "Clouvider - New York, US",
+    "server": "http://nyc.speedtest.clouvider.net/backend",
+    "dlURL": "garbage.php",
+    "ulURL": "empty.php",
+    "pingURL": "empty.php",
+    "getIpURL": "getIP.php"
+  }
+]

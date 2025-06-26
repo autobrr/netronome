@@ -28,11 +28,16 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 	s.lastUpdate = &types.SpeedUpdate{}
 	s.mu.Unlock()
 
+	timeout := time.Duration(s.config.SpeedTest.Timeout) * time.Second
+	if opts.UseLibrespeed {
+		timeout = time.Duration(s.config.SpeedTest.Librespeed.Timeout) * time.Second
+	}
+
 	// Use configured timeout
-	ctx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(s.config.SpeedTest.Timeout)*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
 	defer cancel()
 
-	result, err := s.speedtest.RunTest(&opts)
+	result, err := s.speedtest.RunTest(ctx, &opts)
 	if err != nil {
 		_ = c.Error(fmt.Errorf("failed to run speed test: %w", err))
 		return
@@ -71,8 +76,29 @@ func (s *Server) handleSpeedTestHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, results)
 }
 
+func (s *Server) handlePublicSpeedTestHistory(c *gin.Context) {
+	timeRange := c.DefaultQuery("timeRange", s.config.Pagination.DefaultTimeRange)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(s.config.Pagination.DefaultPage)))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(s.config.Pagination.DefaultLimit)))
+
+	results, err := s.db.GetSpeedTests(c.Request.Context(), timeRange, page, limit)
+	if err != nil {
+		log.Error().Err(err).
+			Str("timeRange", timeRange).
+			Int("page", page).
+			Int("limit", limit).
+			Msg("Failed to retrieve speed test history")
+		_ = c.Error(fmt.Errorf("failed to retrieve speed test history: %w", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, results)
+}
+
 func (s *Server) handleGetServers(c *gin.Context) {
-	servers, err := s.speedtest.GetServers()
+	testType := c.DefaultQuery("testType", "speedtest")
+
+	servers, err := s.speedtest.GetServers(testType)
 	if err != nil {
 		_ = c.Error(fmt.Errorf("failed to get servers: %w", err))
 		return

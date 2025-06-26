@@ -12,6 +12,7 @@ type TestOptions struct {
 	ServerIDs        []string `json:"serverIds"`
 	IsScheduled      bool     `json:"isScheduled"`
 	UseIperf         bool     `json:"useIperf"`
+	UseLibrespeed    bool     `json:"useLibrespeed"`
 	ServerHost       string   `json:"serverHost"`
 }
 
