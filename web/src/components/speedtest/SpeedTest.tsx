@@ -104,6 +104,7 @@ export default function SpeedTest() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["history"] });
+      queryClient.invalidateQueries({ queryKey: ["history-chart"] });
       setProgress(null);
       setTestStatus("complete");
     },
@@ -200,6 +201,7 @@ export default function SpeedTest() {
               setProgress(null);
               await Promise.all([
                 queryClient.invalidateQueries({ queryKey: ["history"] }),
+                queryClient.invalidateQueries({ queryKey: ["history-chart"] }),
                 queryClient.invalidateQueries({ queryKey: ["schedules"] }),
               ]);
             }
