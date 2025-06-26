@@ -20,8 +20,8 @@ port = 7575
 [logging]
 level = "trace" # trace, debug, info, warn, error, fatal, panic
 
-[auth]
-whitelist = ["127.0.0.1/32"]
+#[auth]
+#whitelist = ["127.0.0.1/32"]
 
 [oidc]
 issuer = ""

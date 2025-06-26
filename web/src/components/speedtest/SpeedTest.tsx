@@ -5,9 +5,14 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Container } from "@mui/material";
-import { FaWaveSquare, FaShare } from "react-icons/fa";
+import {
+  FaWaveSquare,
+  FaShare,
+  FaGithub,
+  FaArrowDown,
+  FaArrowUp,
+} from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
-import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { ServerList } from "./ServerList";
 import { TestProgress } from "./TestProgress";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
@@ -466,6 +471,39 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
           </div>
         )}
       </Container>
+
+      {/* Public Footer */}
+      {isPublic && (
+        <div className="border-t border-gray-800/50 py-4 mt-8">
+          <Container maxWidth="xl">
+            <div className="flex justify-center">
+              <div className="text-gray-500 text-sm">
+                Powered by{" "}
+                <a
+                  href="https://netrono.me"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-300 hover:text-white transition-colors duration-200 underline decoration-gray-600 hover:decoration-gray-400"
+                >
+                  Netronome
+                </a>
+                {" • "}
+                <a
+                  href="https://github.com/autobrr/netronome"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-gray-300 transition-colors duration-200 inline-flex items-center gap-1"
+                >
+                  <span className="underline decoration-gray-600 hover:decoration-gray-400">
+                    Source
+                  </span>
+                  <FaGithub className="ml-1 w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+          </Container>
+        </div>
+      )}
     </div>
   );
 }
