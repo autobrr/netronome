@@ -1,0 +1,1 @@
+ALTER TABLE speed_tests ADD COLUMN server_host TEXT; 

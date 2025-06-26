@@ -41,6 +41,7 @@ type SpeedTestResult struct {
 	ID            int64     `json:"id"`
 	ServerName    string    `json:"serverName"`
 	ServerID      string    `json:"serverId"`
+	ServerHost    *string   `json:"serverHost,omitempty"`
 	TestType      string    `json:"testType"`
 	DownloadSpeed float64   `json:"downloadSpeed"`
 	UploadSpeed   float64   `json:"uploadSpeed"`

@@ -136,6 +136,7 @@ func (s *service) RunLibrespeedTest(ctx context.Context, opts *types.TestOptions
 	dbResult, err := s.db.SaveSpeedTest(ctx, types.SpeedTestResult{
 		ServerName:    result.Server,
 		ServerID:      fmt.Sprintf("librespeed-%s", librespeedResult.Server.URL),
+		ServerHost:    &librespeedResult.Server.URL,
 		TestType:      "librespeed",
 		DownloadSpeed: result.DownloadSpeed,
 		UploadSpeed:   result.UploadSpeed,
