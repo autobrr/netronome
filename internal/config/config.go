@@ -12,8 +12,9 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/autobrr/netronome/internal/utils"
 	"github.com/rs/zerolog/log"
+
+	"github.com/autobrr/netronome/internal/utils"
 )
 
 const (
@@ -37,6 +38,7 @@ type Config struct {
 	Database   DatabaseConfig   `toml:"database"`
 	Server     ServerConfig     `toml:"server"`
 	Logging    LoggingConfig    `toml:"logging"`
+	Auth       AuthConfig       `toml:"auth"`
 	OIDC       OIDCConfig       `toml:"oidc"`
 	SpeedTest  SpeedTestConfig  `toml:"speedtest"`
 	Pagination PaginationConfig `toml:"pagination"`
@@ -63,6 +65,10 @@ type ServerConfig struct {
 
 type LoggingConfig struct {
 	Level string `toml:"level" env:"LOG_LEVEL"`
+}
+
+type AuthConfig struct {
+	Whitelist []string `toml:"whitelist" env:"AUTH_WHITELIST"`
 }
 
 type OIDCConfig struct {
@@ -227,6 +233,7 @@ func (c *Config) loadFromEnv() error {
 	c.loadDatabaseFromEnv()
 	c.loadServerFromEnv()
 	c.loadLoggingFromEnv()
+	c.loadAuthFromEnv()
 	c.loadOIDCFromEnv()
 	c.loadSpeedTestFromEnv()
 	c.loadPaginationFromEnv()
@@ -283,6 +290,12 @@ func (c *Config) loadServerFromEnv() {
 func (c *Config) loadLoggingFromEnv() {
 	if v := getEnv("LOG_LEVEL"); v != "" {
 		c.Logging.Level = strings.ToLower(v)
+	}
+}
+
+func (c *Config) loadAuthFromEnv() {
+	if v := getEnv("AUTH_WHITELIST"); v != "" {
+		c.Auth.Whitelist = strings.Split(v, ",")
 	}
 }
 
@@ -430,6 +443,23 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "level = \"%s\"  # trace, debug, info, warn, error, fatal, panic\n", cfg.Logging.Level); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+
+	// Auth section
+	if _, err := fmt.Fprintln(w, "[auth]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Whitelist specific networks to bypass authentication, using CIDR notation."); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Example: whitelist = [\"192.168.1.0/24\", \"10.0.0.0/8\"]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "whitelist = []"); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {

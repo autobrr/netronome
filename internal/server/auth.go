@@ -5,6 +5,7 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -364,8 +365,36 @@ func isTableNotExistsError(err error) bool {
 	return err != nil && err.Error() == "SQL logic error: no such table: users (1)"
 }
 
-func RequireAuth(db database.Service, oidc *auth.OIDCConfig, sessionSecret string, handler *AuthHandler) gin.HandlerFunc {
+func isWhitelisted(c *gin.Context, whitelist []string) bool {
+	clientIP := c.ClientIP()
+	ip := net.ParseIP(clientIP)
+	if ip == nil {
+		log.Warn().Str("ip", clientIP).Msg("Failed to parse client IP")
+		return false
+	}
+
+	for _, network := range whitelist {
+		_, ipNet, err := net.ParseCIDR(network)
+		if err != nil {
+			log.Warn().Str("network", network).Err(err).Msg("Failed to parse whitelist network")
+			continue
+		}
+		if ipNet.Contains(ip) {
+			log.Debug().Str("ip", clientIP).Str("network", network).Msg("Client IP is in whitelisted network")
+			return true
+		}
+	}
+
+	return false
+}
+
+func RequireAuth(db database.Service, oidc *auth.OIDCConfig, sessionSecret string, handler *AuthHandler, whitelist []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if isWhitelisted(c, whitelist) {
+			c.Next()
+			return
+		}
+
 		signedToken, err := c.Cookie("session")
 		if err != nil {
 			log.Debug().Err(err).Msg("No session cookie found")

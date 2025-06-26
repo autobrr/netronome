@@ -146,7 +146,7 @@ func (s *Server) RegisterRoutes() {
 
 		// protected routes
 		protected := api.Group("")
-		protected.Use(RequireAuth(s.db, s.auth.oidc, s.config.Session.Secret, s.auth))
+		protected.Use(RequireAuth(s.db, s.auth.oidc, s.config.Session.Secret, s.auth, s.config.Auth.Whitelist))
 		{
 			protected.POST("/auth/logout", s.auth.Logout)
 			protected.GET("/auth/verify", s.auth.Verify)

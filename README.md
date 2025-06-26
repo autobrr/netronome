@@ -186,6 +186,7 @@ parallel_conns = 4
 | `NETRONOME__DEFAULT_TIME_RANGE`   | Default time range for data queries                               | `1w`                                         | No                  |
 | `NETRONOME__DEFAULT_LIMIT`        | Default limit for data queries                                    | `20`                                         | No                  |
 | `NETRONOME__SESSION_SECRET`       | Session secret for authentication                                 | -                                            | No                  |
+| `NETRONOME__AUTH_WHITELIST`       | Whitelist for authentication                                     | -                                            | No                  |
 
 ### Database
 
@@ -224,6 +225,15 @@ Netronome supports two authentication methods:
      OIDC_CLIENT_ID=your-client-id
      OIDC_CLIENT_SECRET=your-client-secret
      OIDC_REDIRECT_URL=https://netronome.domain.net/api/auth/oidc/callback
+     ```
+
+3. **IP Whitelisting**
+
+   - Bypass authentication for specific IP addresses or network ranges.
+   - Configure in `config.toml` using CIDR notation:
+     ```toml
+     [auth]
+     whitelist = ["192.168.1.0/24", "10.0.0.0/8"]
      ```
 
 ### CLI Commands
