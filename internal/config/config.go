@@ -35,14 +35,14 @@ const (
 
 // Config represents the application configuration
 type Config struct {
-	Database   DatabaseConfig   `toml:"database"`
-	Server     ServerConfig     `toml:"server"`
-	Logging    LoggingConfig    `toml:"logging"`
-	Auth       AuthConfig       `toml:"auth"`
-	OIDC       OIDCConfig       `toml:"oidc"`
-	SpeedTest  SpeedTestConfig  `toml:"speedtest"`
-	Pagination PaginationConfig `toml:"pagination"`
-	Session       SessionConfig       `toml:"session"`
+	Database      DatabaseConfig     `toml:"database"`
+	Server        ServerConfig       `toml:"server"`
+	Logging       LoggingConfig      `toml:"logging"`
+	Auth          AuthConfig         `toml:"auth"`
+	OIDC          OIDCConfig         `toml:"oidc"`
+	SpeedTest     SpeedTestConfig    `toml:"speedtest"`
+	Pagination    PaginationConfig   `toml:"pagination"`
+	Session       SessionConfig      `toml:"session"`
 	Notifications NotificationConfig `toml:"notifications"`
 }
 
@@ -108,10 +108,10 @@ type SessionConfig struct {
 }
 
 type NotificationConfig struct {
-	Enabled         bool    `toml:"enabled" env:"NOTIFICATIONS_ENABLED"`
-	WebhookURL      string  `toml:"webhook_url" env:"NOTIFICATIONS_WEBHOOK_URL"`
-	PingThreshold   float64 `toml:"ping_threshold" env:"NOTIFICATIONS_PING_THRESHOLD"`
-	UploadThreshold float64 `toml:"upload_threshold" env:"NOTIFICATIONS_UPLOAD_THRESHOLD"`
+	Enabled           bool    `toml:"enabled" env:"NOTIFICATIONS_ENABLED"`
+	WebhookURL        string  `toml:"webhook_url" env:"NOTIFICATIONS_WEBHOOK_URL"`
+	PingThreshold     float64 `toml:"ping_threshold" env:"NOTIFICATIONS_PING_THRESHOLD"`
+	UploadThreshold   float64 `toml:"upload_threshold" env:"NOTIFICATIONS_UPLOAD_THRESHOLD"`
 	DownloadThreshold float64 `toml:"download_threshold" env:"NOTIFICATIONS_DOWNLOAD_THRESHOLD"`
 	DiscordMentionID  string  `toml:"discord_mention_id" env:"NOTIFICATIONS_DISCORD_MENTION_ID"`
 }
@@ -187,10 +187,10 @@ func New() *Config {
 			Secret: "",
 		},
 		Notifications: NotificationConfig{
-			Enabled:         false,
-			WebhookURL:      "",
-			PingThreshold:   30,
-			UploadThreshold: 200,
+			Enabled:           false,
+			WebhookURL:        "",
+			PingThreshold:     30,
+			UploadThreshold:   200,
 			DownloadThreshold: 200,
 			DiscordMentionID:  "",
 		},
@@ -527,7 +527,7 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintln(w, "# Whitelist specific networks to bypass authentication, using CIDR notation."); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintln(w, "# Example: whitelist = [\"192.168.1.0/24\", \"10.0.0.0/8\"]"); err != nil {
+	if _, err := fmt.Fprintln(w, "# Example: whitelist = [\"127.0.0.1/32\"]"); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, "whitelist = []"); err != nil {

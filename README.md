@@ -275,11 +275,11 @@ Netronome supports two authentication methods:
 
 3. **IP Whitelisting**
 
-   - Bypass authentication for specific network ranges.
+   - Bypass authentication for specific network ranges or IP addresses.
    - Configure in `config.toml` using CIDR notation:
      ```toml
      [auth]
-     whitelist = ["192.168.1.0/24", "10.0.0.0/8"]
+     whitelist = ["127.0.0.1/32"]
      ```
 
 ### Notifications

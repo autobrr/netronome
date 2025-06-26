@@ -25,14 +25,16 @@ type AuthHandler struct {
 	sessionTokens map[string]bool // Track valid memory sessions
 	sessionMutex  sync.RWMutex
 	sessionSecret string
+	whitelist     []string
 }
 
-func NewAuthHandler(db database.Service, oidc *auth.OIDCConfig, sessionSecret string) *AuthHandler {
+func NewAuthHandler(db database.Service, oidc *auth.OIDCConfig, sessionSecret string, whitelist []string) *AuthHandler {
 	return &AuthHandler{
 		db:            db,
 		oidc:          oidc,
 		sessionTokens: make(map[string]bool),
 		sessionSecret: sessionSecret,
+		whitelist:     whitelist,
 	}
 }
 
@@ -225,6 +227,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 func (h *AuthHandler) Verify(c *gin.Context) {
+	if isWhitelisted(c, h.whitelist) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "IP is whitelisted",
+			"type":    "whitelist",
+		})
+		return
+	}
+
 	signedToken, err := c.Cookie("session")
 	if err != nil {
 		log.Debug().Err(err).Msg("No session cookie found")
@@ -304,6 +314,16 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 }
 
 func (h *AuthHandler) GetUserInfo(c *gin.Context) {
+	if isWhitelisted(c, h.whitelist) {
+		c.JSON(http.StatusOK, gin.H{
+			"user": gin.H{
+				"id":       0,
+				"username": "whitelisted",
+			},
+		})
+		return
+	}
+
 	signedToken, err := c.Cookie("session")
 	if err != nil {
 		_ = c.Error(fmt.Errorf("no session found"))
