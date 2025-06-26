@@ -6,8 +6,8 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { motion } from "motion/react";
 import {
-  Switch,
-  Field,
+  Radio,
+  RadioGroup,
   Label,
   Disclosure,
   DisclosureButton,
@@ -30,8 +30,8 @@ interface ServerListProps {
   onMultiSelectChange: (enabled: boolean) => void;
   onRunTest: () => Promise<void>;
   isLoading: boolean;
-  useIperf: boolean;
-  onIperfChange: (enabled: boolean) => void;
+  testType: "speedtest" | "iperf" | "librespeed";
+  onTestTypeChange: (testType: "speedtest" | "iperf" | "librespeed") => void;
 }
 
 export const ServerList: React.FC<ServerListProps> = ({
@@ -42,8 +42,8 @@ export const ServerList: React.FC<ServerListProps> = ({
   // onMultiSelectChange,
   onRunTest,
   isLoading,
-  useIperf,
-  onIperfChange,
+  testType,
+  onTestTypeChange,
 }) => {
   const [displayCount, setDisplayCount] = useState(3);
   const [searchTerm, setSearchTerm] = useState("");
@@ -92,21 +92,27 @@ export const ServerList: React.FC<ServerListProps> = ({
     onSelect(server);
   };
 
-  // Load the saved iperf state when component mounts
+  // Load the saved test type when component mounts
   useEffect(() => {
-    const savedIperfState = localStorage.getItem("useIperf");
-    if (savedIperfState !== null && useIperf !== (savedIperfState === "true")) {
-      onIperfChange(savedIperfState === "true");
+    const savedTestType = localStorage.getItem("testType") as
+      | "speedtest"
+      | "iperf"
+      | "librespeed"
+      | null;
+    if (savedTestType && testType !== savedTestType) {
+      onTestTypeChange(savedTestType);
     }
-  }, [onIperfChange, useIperf]);
+  }, [onTestTypeChange, testType]);
 
-  // Handle iperf toggle change
-  const handleIperfChange = (enabled: boolean) => {
-    // Clear selected servers when toggling iperf (both enabling and disabling)
+  // Handle test type change
+  const handleTestTypeChange = (
+    newTestType: "speedtest" | "iperf" | "librespeed"
+  ) => {
+    // Clear selected servers when toggling
     selectedServers.forEach((server) => onSelect(server));
     // Save the new state to localStorage
-    localStorage.setItem("useIperf", enabled.toString());
-    onIperfChange(enabled);
+    localStorage.setItem("testType", newTestType);
+    onTestTypeChange(newTestType);
   };
 
   const fetchSavedIperfServers = async () => {
@@ -155,12 +161,12 @@ export const ServerList: React.FC<ServerListProps> = ({
 
   // Fetch saved iperf servers when component mounts or iperf mode changes
   useEffect(() => {
-    if (useIperf) {
+    if (testType === "iperf") {
       fetchSavedIperfServers().catch((error) => {
         console.error("Failed to fetch iperf servers:", error);
       });
     }
-  }, [useIperf]); // Re-run when useIperf changes
+  }, [testType]); // Re-run when useIperf changes
 
   return (
     <Disclosure defaultOpen={isOpen}>
@@ -255,37 +261,22 @@ export const ServerList: React.FC<ServerListProps> = ({
                       </Field>
                       */}
 
-                      {/* iperf3 Toggle */}
-                      <Field className="flex items-center gap-2 sm:gap-3">
-                        <Label className="text-xs sm:text-sm text-gray-400">
-                          Use iperf3
-                        </Label>
-                        <Switch
-                          checked={useIperf}
-                          onChange={handleIperfChange}
-                          className={`${
-                            useIperf ? "bg-blue-500" : "bg-gray-700"
-                          } relative inline-flex h-5 sm:h-6 w-9 sm:w-11 items-center rounded-full`}
-                        >
-                          <span
-                            className={`${
-                              useIperf
-                                ? "translate-x-5 sm:translate-x-6"
-                                : "translate-x-1"
-                            } inline-block h-3 sm:h-4 w-3 sm:w-4 transform rounded-full bg-white transition-transform`}
-                          />
-                        </Switch>
-                      </Field>
+                      {/* Test Type Radio Group */}
+                      <RadioGroup
+                        value={testType}
+                        onChange={handleTestTypeChange}
+                        className="flex items-center gap-4"
+                      >
+                        <RadioOption value="speedtest">Speedtest</RadioOption>
+                        <RadioOption value="iperf">iperf3</RadioOption>
+                        <RadioOption value="librespeed">Librespeed</RadioOption>
+                      </RadioGroup>
                     </div>
 
                     {/* Run Test Button */}
                     <button
                       onClick={onRunTest}
-                      disabled={
-                        isLoading ||
-                        (!useIperf && selectedServers.length === 0) ||
-                        (useIperf && selectedServers.length === 0)
-                      }
+                      disabled={isLoading || selectedServers.length === 0}
                       className={`
                         px-4 py-2 
                         rounded-lg 
@@ -293,9 +284,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                         transition-colors
                         border
                         ${
-                          isLoading ||
-                          (!useIperf && selectedServers.length === 0) ||
-                          (useIperf && selectedServers.length === 0)
+                          isLoading || selectedServers.length === 0
                             ? "bg-gray-700 text-gray-400 cursor-not-allowed border-gray-900"
                             : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
                         }
@@ -305,7 +294,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                     </button>
                   </div>
 
-                  {useIperf && (
+                  {testType === "iperf" && (
                     <div className="flex flex-col gap-4 mb-4">
                       {/* Section for saved servers */}
                       {savedIperfServers.length > 0 && (
@@ -476,7 +465,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                   )}
 
                   {/* Server Search and Filter Controls */}
-                  {!useIperf && (
+                  {(testType === "speedtest" || testType === "librespeed") && (
                     <div className="flex flex-col md:flex-row gap-4 mb-4">
                       {/* Search Input */}
                       <div className="flex-1">
@@ -550,60 +539,103 @@ export const ServerList: React.FC<ServerListProps> = ({
                   )}
 
                   {/* Server Grid */}
-                  {!useIperf && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {filteredServers.slice(0, displayCount).map((server) => {
-                        const distance = server.distance;
-                        return (
-                          <motion.div
-                            key={server.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.3 }}
-                          >
-                            <button
-                              onClick={() => handleServerSelect(server)}
-                              className={`w-full p-4 rounded-lg text-left transition-colors ${
-                                selectedServers.some((s) => s.id === server.id)
-                                  ? "bg-blue-500/10 border-blue-400/50 shadow-lg"
-                                  : "bg-gray-800/50 border-gray-900 hover:bg-gray-800 shadow-lg"
-                              } border`}
-                            >
-                              <div className="flex flex-col gap-1">
-                                <span className="text-blue-300 font-medium truncate">
-                                  {server.sponsor}
-                                </span>
-                                <span className="text-gray-400 text-sm">
-                                  {server.name}
-                                  <span
-                                    className="block truncate text-xs"
-                                    title={server.host}
+                  {(testType === "speedtest" || testType === "librespeed") && (
+                    <>
+                      {filteredServers.length === 0 &&
+                      testType === "librespeed" ? (
+                        <div className="flex flex-col items-center justify-center py-12 px-4">
+                          <div className="text-center max-w-md">
+                            <div className="text-gray-400 text-lg mb-2">📡</div>
+                            <h3 className="text-lg font-medium text-gray-300 mb-2">
+                              No Librespeed servers found
+                            </h3>
+                            <p className="text-gray-400 text-sm mb-4">
+                              The librespeed-servers.json file was not found.
+                              Please create this file in the same directory as
+                              your config.toml to run librespeed tests.
+                            </p>
+                            <div className="text-xs text-gray-500 bg-gray-800/30 rounded-lg p-3 border border-gray-900">
+                              <p className="mb-2">
+                                Example librespeed-servers.json:
+                              </p>
+                              <pre className="text-left">
+                                {`[
+  {
+    "id": 1,
+    "name": "Example Server",
+    "server": "https://example.com/backend",
+    "dlURL": "garbage.php",
+    "ulURL": "empty.php",
+    "pingURL": "empty.php",
+    "getIpURL": "getIP.php"
+  }
+]`}
+                              </pre>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {filteredServers
+                            .slice(0, displayCount)
+                            .map((server) => {
+                              const distance = server.distance;
+                              return (
+                                <motion.div
+                                  key={server.id}
+                                  initial={{ opacity: 0, y: 20 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.3 }}
+                                >
+                                  <button
+                                    onClick={() => handleServerSelect(server)}
+                                    className={`w-full p-4 rounded-lg text-left transition-colors ${
+                                      selectedServers.some(
+                                        (s) => s.id === server.id
+                                      )
+                                        ? "bg-blue-500/10 border-blue-400/50 shadow-lg"
+                                        : "bg-gray-800/50 border-gray-900 hover:bg-gray-800 shadow-lg"
+                                    } border`}
                                   >
-                                    {server.host}
-                                  </span>
-                                </span>
-                                <span className="text-gray-400 text-sm mt-1">
-                                  {server.country} - {Math.floor(distance)} km
-                                </span>
-                              </div>
-                            </button>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
+                                    <div className="flex flex-col gap-1">
+                                      <span className="text-blue-300 font-medium truncate">
+                                        {server.sponsor}
+                                      </span>
+                                      <span className="text-gray-400 text-sm">
+                                        {server.name}
+                                        <span
+                                          className="block truncate text-xs"
+                                          title={server.host}
+                                        >
+                                          {server.host}
+                                        </span>
+                                      </span>
+                                      <span className="text-gray-400 text-sm mt-1">
+                                        {server.country} -{" "}
+                                        {Math.floor(distance)} km
+                                      </span>
+                                    </div>
+                                  </button>
+                                </motion.div>
+                              );
+                            })}
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {/* Load More Button */}
-                  {!useIperf && filteredServers.length > displayCount && (
-                    <div className="flex justify-center mt-6">
-                      <button
-                        onClick={() => setDisplayCount((prev) => prev + 6)}
-                        className="px-4 py-2 bg-gray-800/50 border border-gray-900/80 text-gray-300/50 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors"
-                      >
-                        Load More
-                      </button>
-                    </div>
-                  )}
+                  {(testType === "speedtest" || testType === "librespeed") &&
+                    filteredServers.length > displayCount && (
+                      <div className="flex justify-center mt-6">
+                        <button
+                          onClick={() => setDisplayCount((prev) => prev + 6)}
+                          className="px-4 py-2 bg-gray-800/50 border border-gray-900/80 text-gray-300/50 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors"
+                        >
+                          Load More
+                        </button>
+                      </div>
+                    )}
                 </motion.div>
               </div>
             )}
@@ -651,3 +683,27 @@ export const ServerList: React.FC<ServerListProps> = ({
     </Disclosure>
   );
 };
+
+const RadioOption: React.FC<{
+  value: "speedtest" | "iperf" | "librespeed";
+  children: React.ReactNode;
+}> = ({ value, children }) => (
+  <Radio value={value} as="div" className="flex items-center gap-2">
+    {({ checked }) => (
+      <div
+        className={`cursor-pointer flex items-center gap-2 px-3 py-1 rounded-lg transition-colors ${
+          checked
+            ? "bg-blue-500/10 text-blue-200 border-blue-500/50"
+            : "text-gray-400 hover:bg-gray-800 border-transparent"
+        } border`}
+      >
+        <div
+          className={`w-4 h-4 rounded-full border-2 ${
+            checked ? "border-blue-400 bg-blue-500" : "border-gray-600"
+          } transition-colors`}
+        />
+        <Label className="text-xs sm:text-sm cursor-pointer">{children}</Label>
+      </div>
+    )}
+  </Radio>
+);

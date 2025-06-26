@@ -13,11 +13,11 @@ interface TestProgressProps {
 }
 
 export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
-  if (progress.isIperf) {
+  if (progress.isIperf || progress.isLibrespeed) {
     return (
       <div className="flex items-center justify-center">
         <span className="text-white font-bold text-sm">
-          Running iperf3 test...
+          Running {progress.isIperf ? "iperf3" : "Librespeed"} test...
         </span>
       </div>
     );

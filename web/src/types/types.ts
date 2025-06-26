@@ -14,6 +14,7 @@ export interface Server {
   latitude: number;
   longitude: number;
   isIperf: boolean;
+  isLibrespeed?: boolean;
 }
 
 export interface SpeedTestResult {
@@ -21,7 +22,7 @@ export interface SpeedTestResult {
   serverId: string;
   serverName: string;
   serverHost: string;
-  testType: 'speedtest' | 'iperf3';
+  testType: "speedtest" | "iperf3" | "librespeed";
   downloadSpeed: number;
   uploadSpeed: number;
   latency: string;
@@ -41,6 +42,7 @@ export interface TestProgress {
   isScheduled: boolean;
   progress: number;
   isIperf: boolean;
+  isLibrespeed: boolean;
 }
 
 export interface Schedule {
@@ -55,6 +57,7 @@ export interface Schedule {
     enablePacketLoss: boolean;
     serverIds: string[];
     useIperf: boolean;
+    useLibrespeed?: boolean;
     serverHost: string | undefined;
   };
 }
@@ -66,6 +69,7 @@ export interface TestOptions {
   enableJitter: boolean;
   multiServer: boolean;
   useIperf: boolean;
+  useLibrespeed?: boolean;
   serverIds?: string[];
   serverHost?: string;
 }

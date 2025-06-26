@@ -9,6 +9,7 @@ export interface SpeedTestOptions {
   enableUpload?: boolean;
   enablePacketLoss?: boolean;
   useIperf?: boolean;
+  useLibrespeed?: boolean;
   serverHost?: string;
 }
 
@@ -26,4 +27,4 @@ export interface SpeedTestHistory {
   total: number;
   page: number;
   limit: number;
-} 
+}

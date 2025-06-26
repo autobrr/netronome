@@ -158,7 +158,7 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 		go func(schedule types.Schedule, ctx context.Context, cancel context.CancelFunc) {
 			defer cancel()
 			schedule.Options.IsScheduled = true
-			result, err := s.speedtest.RunTest(&schedule.Options)
+			result, err := s.speedtest.RunTest(ctx, &schedule.Options)
 			if err != nil {
 				log.Error().
 					Err(err).

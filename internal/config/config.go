@@ -12,8 +12,9 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/autobrr/netronome/internal/utils"
 	"github.com/rs/zerolog/log"
+
+	"github.com/autobrr/netronome/internal/utils"
 )
 
 const (
@@ -74,13 +75,19 @@ type OIDCConfig struct {
 }
 
 type SpeedTestConfig struct {
-	IPerf   IperfConfig `toml:"iperf"`
-	Timeout int         `toml:"timeout" env:"SPEEDTEST_TIMEOUT"` // Timeout in seconds
+	IPerf      IperfConfig      `toml:"iperf"`
+	Librespeed LibrespeedConfig `toml:"librespeed"`
+	Timeout    int              `toml:"timeout" env:"SPEEDTEST_TIMEOUT"` // Timeout in seconds
 }
 
 type IperfConfig struct {
 	TestDuration  int `toml:"test_duration" env:"IPERF_TEST_DURATION"`
 	ParallelConns int `toml:"parallel_conns" env:"IPERF_PARALLEL_CONNS"`
+}
+
+type LibrespeedConfig struct {
+	ServersPath string `toml:"-"`
+	Timeout     int    `toml:"timeout" env:"LIBRESPEED_TIMEOUT"`
 }
 
 type PaginationConfig struct {
@@ -158,6 +165,10 @@ func New() *Config {
 				TestDuration:  10,
 				ParallelConns: 4,
 			},
+			Librespeed: LibrespeedConfig{
+				ServersPath: "librespeed-servers.json",
+				Timeout:     60,
+			},
 			Timeout: 30, // 30 seconds default timeout
 		},
 		Pagination: PaginationConfig{
@@ -190,6 +201,9 @@ func Load(configPath string) (*Config, error) {
 		if _, err := toml.DecodeFile(configPath, cfg); err != nil {
 			return nil, fmt.Errorf("failed to decode config file %s: %w", configPath, err)
 		}
+		if cfg.SpeedTest.Librespeed.Timeout == 0 {
+			cfg.SpeedTest.Librespeed.Timeout = 60
+		}
 		log.Info().
 			Str("path", configPath).
 			Msg("Loaded configuration file")
@@ -198,6 +212,7 @@ func Load(configPath string) (*Config, error) {
 		if !filepath.IsAbs(cfg.Database.Path) {
 			cfg.Database.Path = filepath.Join(filepath.Dir(configPath), cfg.Database.Path)
 		}
+		cfg.SpeedTest.Librespeed.ServersPath = filepath.Join(filepath.Dir(configPath), "librespeed-servers.json")
 	} else {
 		// Try each default path in order
 		found := false
@@ -213,6 +228,9 @@ func Load(configPath string) (*Config, error) {
 					Msg("Found config file")
 
 				if _, err := toml.DecodeFile(path, cfg); err == nil {
+					if cfg.SpeedTest.Librespeed.Timeout == 0 {
+						cfg.SpeedTest.Librespeed.Timeout = 60
+					}
 					log.Info().
 						Str("path", path).
 						Msg("Loaded configuration file")
@@ -222,6 +240,7 @@ func Load(configPath string) (*Config, error) {
 					if !filepath.IsAbs(cfg.Database.Path) {
 						cfg.Database.Path = filepath.Join(filepath.Dir(path), cfg.Database.Path)
 					}
+					cfg.SpeedTest.Librespeed.ServersPath = filepath.Join(filepath.Dir(path), "librespeed-servers.json")
 					break
 				}
 			}
@@ -321,19 +340,24 @@ func (c *Config) loadOIDCFromEnv() {
 }
 
 func (c *Config) loadSpeedTestFromEnv() {
+	if v := getEnv("SPEEDTEST_TIMEOUT"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.Timeout = val
+		}
+	}
 	if v := getEnv("IPERF_TEST_DURATION"); v != "" {
-		if duration, err := strconv.Atoi(v); err == nil {
-			c.SpeedTest.IPerf.TestDuration = duration
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.IPerf.TestDuration = val
 		}
 	}
 	if v := getEnv("IPERF_PARALLEL_CONNS"); v != "" {
-		if conns, err := strconv.Atoi(v); err == nil {
-			c.SpeedTest.IPerf.ParallelConns = conns
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.IPerf.ParallelConns = val
 		}
 	}
-	if v := getEnv("SPEEDTEST_TIMEOUT"); v != "" {
-		if timeout, err := strconv.Atoi(v); err == nil {
-			c.SpeedTest.Timeout = timeout
+	if v := getEnv("LIBRESPEED_TIMEOUT"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.Librespeed.Timeout = val
 		}
 	}
 }
@@ -523,6 +547,17 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "parallel_conns = %d\n", cfg.SpeedTest.IPerf.ParallelConns); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+
+	// SpeedTest Librespeed section
+	if _, err := fmt.Fprintln(w, "[speedtest.librespeed]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "timeout = %d\n", cfg.SpeedTest.Librespeed.Timeout); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
