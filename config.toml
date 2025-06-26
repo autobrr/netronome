@@ -13,7 +13,7 @@ path = "netronome.db"
 #sslmode = "disable"
 
 [server]
-host = "127.0.0.1"
+host = "0.0.0.0"
 port = 7575
 #base_url = "/netronome"
 
@@ -33,6 +33,9 @@ timeout = 30
 test_duration = 10
 parallel_conns = 4
 
+[speedtest.librespeed]
+timeout = 60
+
 # Pagination options (defaults work well for most cases)
 # Only uncomment and modify if you need to adjust the API response pagination
 #[pagination]
@@ -41,3 +44,11 @@ parallel_conns = 4
 #max_page_size = 100
 #default_time_range = "1w"
 #default_limit = 20
+
+[notifications]
+enabled = true
+webhook_url = ""
+ping_threshold = 2
+upload_threshold = 2000
+download_threshold = 2000
+discord_mention_id = ""

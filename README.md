@@ -18,6 +18,7 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
   - [Environment Variables](#environment-variables)
   - [Database](#database)
   - [Authentication](#authentication)
+  - [Notifications](#notifications)
   - [CLI Commands](#cli-commands)
 - [Contributing](#-contributing)
 - [License](#-license)
@@ -26,7 +27,7 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
 
 - **Speed Testing**
 
-  - Support for both Speedtest.net and iperf3 servers
+  - Support for Speedtest.net, iperf3 servers, and LibreSpeed
   - Real-time test progress visualization
   - Detailed latency measurements
 
@@ -155,38 +156,82 @@ timeout = 30
 [speedtest.iperf]
 test_duration = 10
 parallel_conns = 4
+
+[notifications]
+enabled = false
+webhook_url = ""
+ping_threshold = 30
+upload_threshold = 200
+download_threshold = 200
 ```
+
+#### LibreSpeed Configuration
+
+Netronome supports LibreSpeed servers for speed testing. A `librespeed-servers.json` file should be placed in the same directory as your configuration file. This file contains the LibreSpeed server definitions.
+
+Example `librespeed-servers.json`:
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Clouvider - London, UK",
+    "server": "http://lon.speedtest.clouvider.net/backend",
+    "dlURL": "garbage.php",
+    "ulURL": "empty.php",
+    "pingURL": "empty.php",
+    "getIpURL": "getIP.php"
+  },
+  {
+    "id": 2,
+    "name": "Your Custom Server",
+    "server": "http://your-server.example.com/backend",
+    "dlURL": "garbage.php",
+    "ulURL": "empty.php",
+    "pingURL": "empty.php",
+    "getIpURL": "getIP.php"
+  }
+]
+```
+
+**Note:** When using Docker, the LibreSpeed CLI tool (`librespeed-cli`) is automatically included in the container.
 
 ### Environment Variables
 
-| Variable                          | Description                                                       | Default                                      | Required            |
-| --------------------------------- | ----------------------------------------------------------------- | -------------------------------------------- | ------------------- |
-| `NETRONOME__HOST`                 | Server host                                                       | `127.0.0.1`                                  | No                  |
-| `NETRONOME__PORT`                 | Server port                                                       | `7575`                                       | No                  |
-| `NETRONOME__GIN_MODE`             | Gin framework mode (`debug`/`release`)                            | `release`                                    | No                  |
-| `NETRONOME__DB_TYPE`              | Database type (`sqlite`/`postgres`)                               | `sqlite`                                     | No                  |
-| `NETRONOME__DB_PATH`              | SQLite database file path                                         | `./netronome.db`                             | Only for SQLite     |
-| `NETRONOME__DB_HOST`              | PostgreSQL host                                                   | `localhost`                                  | Only for PostgreSQL |
-| `NETRONOME__DB_PORT`              | PostgreSQL port                                                   | `5432`                                       | Only for PostgreSQL |
-| `NETRONOME__DB_USER`              | PostgreSQL user                                                   | `postgres`                                   | Only for PostgreSQL |
-| `NETRONOME__DB_PASSWORD`          | PostgreSQL password                                               | -                                            | Only for PostgreSQL |
-| `NETRONOME__DB_NAME`              | PostgreSQL database name                                          | `netronome`                                  | Only for PostgreSQL |
-| `NETRONOME__DB_SSLMODE`           | PostgreSQL SSL mode                                               | `disable`                                    | Only for PostgreSQL |
-| `NETRONOME__IPERF_TEST_DURATION`  | Duration of iPerf tests in seconds                                | `10`                                         | No                  |
-| `NETRONOME__IPERF_PARALLEL_CONNS` | Number of parallel iPerf connections                              | `4`                                          | No                  |
-| `NETRONOME__SPEEDTEST_TIMEOUT`    | Speedtest timeout in seconds                                      | `30`                                         | No                  |
-| `NETRONOME__LOG_LEVEL`            | Log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`/`panic`) | `info`                                       | No                  |
-| `NETRONOME__OIDC_ISSUER`          | OpenID Connect issuer URL                                         | -                                            | Only for OIDC       |
-| `NETRONOME__OIDC_CLIENT_ID`       | OpenID Connect client ID                                          | -                                            | Only for OIDC       |
-| `NETRONOME__OIDC_CLIENT_SECRET`   | OpenID Connect client secret                                      | -                                            | Only for OIDC       |
-| `NETRONOME__OIDC_REDIRECT_URL`    | OpenID Connect redirect URL                                       | http://localhost:7575/api/auth/oidc/callback | Only for OIDC       |
-| `NETRONOME__DEFAULT_PAGE`         | Default page number for pagination                                | `1`                                          | No                  |
-| `NETRONOME__DEFAULT_PAGE_SIZE`    | Default page size for pagination                                  | `20`                                         | No                  |
-| `NETRONOME__MAX_PAGE_SIZE`        | Maximum page size for pagination                                  | `100`                                        | No                  |
-| `NETRONOME__DEFAULT_TIME_RANGE`   | Default time range for data queries                               | `1w`                                         | No                  |
-| `NETRONOME__DEFAULT_LIMIT`        | Default limit for data queries                                    | `20`                                         | No                  |
-| `NETRONOME__SESSION_SECRET`       | Session secret for authentication                                 | -                                            | No                  |
-| `NETRONOME__AUTH_WHITELIST`       | Whitelist for authentication                                     | -                                            | No                  |
+| Variable                                      | Description                                                       | Default                                      | Required               |
+| --------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------- | ---------------------- |
+| `NETRONOME__HOST`                             | Server host                                                       | `127.0.0.1`                                  | No                     |
+| `NETRONOME__PORT`                             | Server port                                                       | `7575`                                       | No                     |
+| `NETRONOME__GIN_MODE`                         | Gin framework mode (`debug`/`release`)                            | `release`                                    | No                     |
+| `NETRONOME__DB_TYPE`                          | Database type (`sqlite`/`postgres`)                               | `sqlite`                                     | No                     |
+| `NETRONOME__DB_PATH`                          | SQLite database file path                                         | `./netronome.db`                             | Only for SQLite        |
+| `NETRONOME__DB_HOST`                          | PostgreSQL host                                                   | `localhost`                                  | Only for PostgreSQL    |
+| `NETRONOME__DB_PORT`                          | PostgreSQL port                                                   | `5432`                                       | Only for PostgreSQL    |
+| `NETRONOME__DB_USER`                          | PostgreSQL user                                                   | `postgres`                                   | Only for PostgreSQL    |
+| `NETRONOME__DB_PASSWORD`                      | PostgreSQL password                                               | -                                            | Only for PostgreSQL    |
+| `NETRONOME__DB_NAME`                          | PostgreSQL database name                                          | `netronome`                                  | Only for PostgreSQL    |
+| `NETRONOME__DB_SSLMODE`                       | PostgreSQL SSL mode                                               | `disable`                                    | Only for PostgreSQL    |
+| `NETRONOME__IPERF_TEST_DURATION`              | Duration of iPerf tests in seconds                                | `10`                                         | No                     |
+| `NETRONOME__IPERF_PARALLEL_CONNS`             | Number of parallel iPerf connections                              | `4`                                          | No                     |
+| `NETRONOME__SPEEDTEST_TIMEOUT`                | Speedtest timeout in seconds                                      | `30`                                         | No                     |
+| `NETRONOME__LOG_LEVEL`                        | Log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`/`panic`) | `info`                                       | No                     |
+| `NETRONOME__OIDC_ISSUER`                      | OpenID Connect issuer URL                                         | -                                            | Only for OIDC          |
+| `NETRONOME__OIDC_CLIENT_ID`                   | OpenID Connect client ID                                          | -                                            | Only for OIDC          |
+| `NETRONOME__OIDC_CLIENT_SECRET`               | OpenID Connect client secret                                      | -                                            | Only for OIDC          |
+| `NETRONOME__OIDC_REDIRECT_URL`                | OpenID Connect redirect URL                                       | http://localhost:7575/api/auth/oidc/callback | Only for OIDC          |
+| `NETRONOME__DEFAULT_PAGE`                     | Default page number for pagination                                | `1`                                          | No                     |
+| `NETRONOME__DEFAULT_PAGE_SIZE`                | Default page size for pagination                                  | `20`                                         | No                     |
+| `NETRONOME__MAX_PAGE_SIZE`                    | Maximum page size for pagination                                  | `100`                                        | No                     |
+| `NETRONOME__DEFAULT_TIME_RANGE`               | Default time range for data queries                               | `1w`                                         | No                     |
+| `NETRONOME__DEFAULT_LIMIT`                    | Default limit for data queries                                    | `20`                                         | No                     |
+| `NETRONOME__SESSION_SECRET`                   | Session secret for authentication                                 | -                                            | No                     |
+| `NETRONOME__NOTIFICATIONS_ENABLED`            | Enable or disable notifications                                   | `false`                                      | No                     |
+| `NETRONOME__NOTIFICATIONS_WEBHOOK_URL`        | Webhook URL for notifications                                     | -                                            | Only for Notifications |
+| `NETRONOME__NOTIFICATIONS_PING_THRESHOLD`     | Ping threshold in ms for notifications                            | `30`                                         | No                     |
+| `NETRONOME__NOTIFICATIONS_UPLOAD_THRESHOLD`   | Upload threshold in Mbps for notifications                        | `200`                                        | No                     |
+| `NETRONOME__NOTIFICATIONS_DOWNLOAD_THRESHOLD` | Download threshold in Mbps for notifications                      | `200`                                        | No                     |
+| `NETRONOME__NOTIFICATIONS_DISCORD_MENTION_ID` | Discord user/role ID to mention on alerts                         | -                                            | No                     |
+| `NETRONOME__AUTH_WHITELIST`                   | Whitelist for authentication                                      | -                                            | No                     |
 
 ### Database
 
@@ -218,6 +263,7 @@ Netronome supports two authentication methods:
    - Default option if no OIDC is configured
 
 2. **OpenID Connect (OIDC)**
+
    - Integration with identity providers (Google, Okta, Auth0, Keycloak, Pocket-ID etc.)
    - Configure via environment variables:
      ```bash
@@ -229,12 +275,35 @@ Netronome supports two authentication methods:
 
 3. **IP Whitelisting**
 
-   - Bypass authentication for specific IP addresses or network ranges.
+   - Bypass authentication for specific network ranges.
    - Configure in `config.toml` using CIDR notation:
      ```toml
      [auth]
      whitelist = ["192.168.1.0/24", "10.0.0.0/8"]
      ```
+
+### Notifications
+
+Netronome can send notifications to a webhook URL after each speed test. This is useful for integrating with services like Discord, Slack, or any other service that accepts webhooks.
+
+To enable notifications, you need to set the following in your `config.toml` or as environment variables:
+
+```toml
+[notifications]
+enabled = true
+webhook_url = "your-webhook-url"
+ping_threshold = 30
+upload_threshold = 200
+download_threshold = 200
+discord_mention_id = ""
+```
+
+- `enabled` - Enable or disable notifications
+- `webhook_url` - The webhook URL to send notifications to
+- `ping_threshold` - The ping threshold in ms. If the ping is higher than this value, a notification will be sent.
+- `upload_threshold` - The upload threshold in Mbps. If the upload speed is lower than this value, a notification will be sent.
+- `download_threshold` - The download threshold in Mbps. If the download speed is lower than this value, a notification will be sent.
+- `discord_mention_id` - Optional. A Discord user ID or role ID to mention when an alert is triggered. For example, `123456789012345678` for a user or `&123456789012345678` for a role.
 
 ### CLI Commands
 
