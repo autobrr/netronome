@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import { SpeedTestResult, TimeRange, PaginatedResponse } from "@/types/types";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { getHistory } from "@/api/speedtest";
+import { getHistory, getPublicHistory } from "@/api/speedtest";
 import { motion, AnimatePresence } from "motion/react";
 import { Disclosure, DisclosureButton } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
@@ -24,6 +24,7 @@ import { FaDownload, FaUpload, FaClock, FaWaveSquare } from "react-icons/fa";
 interface SpeedHistoryChartProps {
   timeRange: TimeRange;
   onTimeRangeChange: (range: TimeRange) => void;
+  isPublic?: boolean;
 }
 
 interface VisibleMetrics {
@@ -72,6 +73,7 @@ const useIsMobile = () => {
 export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   timeRange = "1w",
   onTimeRangeChange,
+  isPublic = false,
 }) => {
   const isMobile = useIsMobile();
 
@@ -103,9 +105,10 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useInfiniteQuery({
-      queryKey: ["history-chart", timeRange, 500],
+      queryKey: ["history-chart", timeRange, 500, isPublic],
       queryFn: async ({ pageParam = 1 }) => {
-        const response = await getHistory(timeRange, pageParam, 500);
+        const historyFn = isPublic ? getPublicHistory : getHistory;
+        const response = await historyFn(timeRange, pageParam, 500);
         return response;
       },
       getNextPageParam: (

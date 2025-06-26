@@ -34,10 +34,15 @@ import {
   getSchedules,
   runSpeedTest,
   getSpeedTestStatus,
+  getPublicHistory,
 } from "@/api/speedtest";
 import { motion } from "motion/react";
 
-export default function SpeedTest() {
+interface SpeedTestProps {
+  isPublic?: boolean;
+}
+
+export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [options, setOptions] = useState<TestOptions>({
@@ -67,9 +72,10 @@ export default function SpeedTest() {
   }) as { data: Server[] };
 
   const { data: historyData, isLoading: isHistoryLoading } = useInfiniteQuery({
-    queryKey: ["history", timeRange],
+    queryKey: ["history", timeRange, isPublic],
     queryFn: async ({ pageParam = 1 }) => {
-      const response = await getHistory(timeRange, pageParam, 20);
+      const historyFn = isPublic ? getPublicHistory : getHistory;
+      const response = await historyFn(timeRange, pageParam, 20);
       return response as PaginatedResponse<SpeedTestResult>;
     },
     getNextPageParam: (
@@ -369,51 +375,54 @@ export default function SpeedTest() {
             <SpeedHistoryChart
               timeRange={timeRange}
               onTimeRangeChange={setTimeRange}
+              isPublic={isPublic}
             />
           </motion.div>
         )}
 
         {/* Server Selection and Schedule Manager Container */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.5 }}
-          >
-            <ServerList
-              servers={servers}
-              selectedServers={selectedServers}
-              onSelect={handleServerSelect}
-              multiSelect={options.multiServer}
-              onMultiSelectChange={(enabled) =>
-                setOptions((prev) => ({
-                  ...prev,
-                  multiServer: enabled,
-                }))
-              }
-              onRunTest={runTest}
-              isLoading={isLoading}
-              useIperf={options.useIperf}
-              onIperfChange={(enabled) =>
-                setOptions((prev) => ({ ...prev, useIperf: enabled }))
-              }
-            />
-          </motion.div>
+        {!isPublic && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.5 }}
+            >
+              <ServerList
+                servers={servers}
+                selectedServers={selectedServers}
+                onSelect={handleServerSelect}
+                multiSelect={options.multiServer}
+                onMultiSelectChange={(enabled) =>
+                  setOptions((prev) => ({
+                    ...prev,
+                    multiServer: enabled,
+                  }))
+                }
+                onRunTest={runTest}
+                isLoading={isLoading}
+                useIperf={options.useIperf}
+                onIperfChange={(enabled) =>
+                  setOptions((prev) => ({ ...prev, useIperf: enabled }))
+                }
+              />
+            </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.5 }}
-          >
-            <ScheduleManager
-              servers={servers}
-              selectedServers={selectedServers}
-              onServerSelect={handleServerSelect}
-            />
-          </motion.div>
-        </div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.5 }}
+            >
+              <ScheduleManager
+                servers={servers}
+                selectedServers={selectedServers}
+                onServerSelect={handleServerSelect}
+              />
+            </motion.div>
+          </div>
+        )}
       </Container>
     </div>
   );

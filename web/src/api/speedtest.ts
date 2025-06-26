@@ -66,6 +66,21 @@ export async function runSpeedTest(options: SpeedTestOptions) {
   }
 }
 
+export async function getPublicHistory(timeRange: string, page: number, limit: number) {
+  try {
+    const response = await fetch(
+      getApiUrl(`/speedtest/public/history?timeRange=${timeRange}&page=${page}&limit=${limit}`)
+    );
+    if (!response.ok) {
+      throw new Error('Failed to fetch public history');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching public history:', error);
+    throw error;
+  }
+}
+
 export async function getSpeedTestStatus() {
   try {
     const response = await fetch(getApiUrl("/speedtest/status"), {
