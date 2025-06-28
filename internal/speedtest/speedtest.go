@@ -127,6 +127,7 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 		dbResult, err := s.db.SaveSpeedTest(context.Background(), types.SpeedTestResult{
 			ServerName:    opts.ServerHost,
 			ServerID:      fmt.Sprintf("iperf3-%s", opts.ServerHost),
+			ServerHost:    &opts.ServerHost,
 			TestType:      "iperf3",
 			DownloadSpeed: downloadSpeed,
 			UploadSpeed:   uploadSpeed,
@@ -354,6 +355,7 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 	dbResult, err := s.db.SaveSpeedTest(context.Background(), types.SpeedTestResult{
 		ServerName:    selectedServer.Name,
 		ServerID:      selectedServer.ID,
+		ServerHost:    &selectedServer.Host,
 		TestType:      "speedtest",
 		DownloadSpeed: result.DownloadSpeed,
 		UploadSpeed:   result.UploadSpeed,

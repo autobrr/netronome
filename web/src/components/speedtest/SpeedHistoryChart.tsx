@@ -160,6 +160,9 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         upload: Number(item.uploadSpeed) || 0,
         latency: Number(parseFloat(item.latency?.replace("ms", "")) || 0),
         jitter: Number(item.jitter) || 0,
+        serverName: item.serverName || "Unknown Server",
+        serverHost: item.serverHost || item.serverName || "Unknown Server",
+        testType: item.testType || "speedtest",
       }))
       .filter(
         (item) =>
@@ -312,6 +315,49 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                 return [`${value.toFixed(isMobile ? 1 : 2)} Mbps`, name];
               }
               return [`${value.toFixed(isMobile ? 1 : 2)} ms`, name];
+            }}
+            labelFormatter={(label, payload) => {
+              if (payload && payload.length > 0) {
+                const data = payload[0].payload;
+                const shouldRedact =
+                  isPublic &&
+                  (data.testType === "iperf3" ||
+                    data.testType === "librespeed");
+
+                return (
+                  <div>
+                    <div>{label}</div>
+                    <div
+                      style={{
+                        color: "#60A5FA",
+                        fontSize: isMobile ? "11px" : "12px",
+                        marginTop: "4px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      {shouldRedact
+                        ? "redacted host"
+                        : data.serverHost || data.serverName}
+                      {data.testType && (
+                        <span
+                          style={{
+                            color: "#9CA3AF",
+                            fontSize: isMobile ? "10px" : "11px",
+                            marginLeft: "8px",
+                          }}
+                        >
+                          (
+                          {data.testType === "speedtest"
+                            ? "speedtest.net"
+                            : data.testType}
+                          )
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+              return label;
             }}
           />
           {visibleMetrics.download && (

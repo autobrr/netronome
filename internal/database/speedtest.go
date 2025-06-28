@@ -17,6 +17,7 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 	data := map[string]interface{}{
 		"server_name":    result.ServerName,
 		"server_id":      result.ServerID,
+		"server_host":    result.ServerHost,
 		"test_type":      result.TestType,
 		"download_speed": result.DownloadSpeed,
 		"upload_speed":   result.UploadSpeed,
@@ -107,6 +108,7 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 		"id",
 		"server_name",
 		"server_id",
+		"server_host",
 		"test_type",
 		"download_speed",
 		"upload_speed",
@@ -133,6 +135,7 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 			&result.ID,
 			&result.ServerName,
 			&result.ServerID,
+			&result.ServerHost,
 			&result.TestType,
 			&result.DownloadSpeed,
 			&result.UploadSpeed,
