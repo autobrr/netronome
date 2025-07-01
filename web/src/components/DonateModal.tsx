@@ -13,6 +13,8 @@ import {
   XMarkIcon,
   HeartIcon,
 } from "@heroicons/react/24/solid";
+import s0upIcon from "@/assets/sponsors/s0up4200.png";
+import zze0sIcon from "@/assets/sponsors/zze0s.png";
 
 interface DonationLink {
   name: string;
@@ -32,13 +34,13 @@ const donationLinks: DonationLink[] = [
     name: "s0up",
     url: "https://github.com/sponsors/s0up4200/",
     description: "Support netronome development via GitHub Sponsors",
-    icon: "https://github.com/s0up4200.png",
+    icon: s0upIcon,
   },
   {
     name: "zze0s",
     url: "https://github.com/sponsors/zze0s",
     description: "Support netronome development via GitHub Sponsors",
-    icon: "https://github.com/zze0s.png",
+    icon: zze0sIcon,
   },
 ];
 
