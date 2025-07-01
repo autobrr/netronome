@@ -4,10 +4,13 @@
 package server
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/oauth2"
 )
 
 func (h *AuthHandler) InitOIDCRoutes(r *gin.RouterGroup) {
@@ -38,12 +41,17 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 	}
 
 	// Exchange code for token using the exported OAuth2Config
-	token, err := h.oidc.OAuth2Config.Exchange(c.Request.Context(), code)
+	log.Debug().Msg("exchanging authorization code for token")
+	
+	// Create a custom context with our logging HTTP client
+	ctx := context.WithValue(c.Request.Context(), oauth2.HTTPClient, h.oidc.GetHTTPClient())
+	token, err := h.oidc.OAuth2Config.Exchange(ctx, code)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to exchange code for token")
 		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=token_exchange")
 		return
 	}
+	log.Debug().Msg("token exchange successful")
 
 	// Get the ID token
 	rawIDToken, ok := token.Extra("id_token").(string)
@@ -52,6 +60,7 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=missing_id_token")
 		return
 	}
+	log.Debug().Msg("ID token extracted successfully")
 
 	// Verify the token
 	if err := h.oidc.VerifyToken(c.Request.Context(), rawIDToken); err != nil {
@@ -60,7 +69,22 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 		return
 	}
 
-	h.refreshSession(c, rawIDToken)
+	// Get claims from the verified token
+	claims, err := h.oidc.GetClaims(c.Request.Context(), rawIDToken)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to extract claims from ID token")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=invalid_claims")
+		return
+	}
+
+	// Use the username or subject for the session
+	sessionToken := claims.Username
+	if sessionToken == "" {
+		sessionToken = claims.Subject
+	}
+	
+	log.Debug().Str("username", claims.Username).Msg("user authenticated successfully")
+	h.refreshSession(c, sessionToken)
 
 	c.Redirect(http.StatusTemporaryRedirect, baseURL)
 }
