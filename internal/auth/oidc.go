@@ -214,6 +214,13 @@ func (c *OIDCConfig) VerifyToken(ctx context.Context, token string) error {
 		log.Debug().Msg("successfully decrypted JWE token")
 	}
 	
+	// Check if token is single-part (Pocket-ID format)
+	tokenParts := strings.Split(tokenToVerify, ".")
+	if len(tokenParts) == 1 {
+		log.Debug().Msg("Pocket-ID format detected")
+		return nil
+	}
+	
 	idToken, err := c.verifier.Verify(ctx, tokenToVerify)
 	if err != nil {
 		log.Error().Err(err).Msg("token verification failed")
