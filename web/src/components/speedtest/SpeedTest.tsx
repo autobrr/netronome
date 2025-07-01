@@ -125,6 +125,39 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     ) as SpeedTestResult[];
   }, [historyData]);
 
+  // Query to get all-time history for latest run display and existence check
+  const { data: allTimeHistoryData } = useInfiniteQuery({
+    queryKey: ["history", "all", isPublic],
+    queryFn: async ({ pageParam = 1 }) => {
+      const historyFn = isPublic ? getPublicHistory : getHistory;
+      const response = await historyFn("all", pageParam, 20); // Get more results for latest run display
+      return response as PaginatedResponse<SpeedTestResult>;
+    },
+    getNextPageParam: () => undefined, // Only fetch first page
+    initialPageParam: 1,
+    staleTime: 60000, // Cache for 1 minute
+  });
+
+  const allTimeHistory = useMemo(() => {
+    if (!allTimeHistoryData?.pages) return [];
+    return allTimeHistoryData.pages.flatMap(
+      (page) => page?.data ?? []
+    ) as SpeedTestResult[];
+  }, [allTimeHistoryData]);
+
+  const hasAnyTests = useMemo(() => {
+    return allTimeHistory.length > 0;
+  }, [allTimeHistory]);
+
+  // Use current time range history if available, otherwise fall back to all-time history for latest run
+  const latestTest = useMemo(() => {
+    return history && history.length > 0
+      ? history[0]
+      : allTimeHistory.length > 0
+      ? allTimeHistory[0]
+      : null;
+  }, [history, allTimeHistory]);
+
   const { data: schedules = [] } = useQuery({
     queryKey: ["schedules"],
     queryFn: getSchedules,
@@ -297,8 +330,8 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
           </div>
         )}
 
-        {/* No History Message - Only show when explicitly empty and not loading */}
-        {!isHistoryLoading && (!history || history.length === 0) && (
+        {/* No History Message - Only show when no tests exist at all */}
+        {!isHistoryLoading && !hasAnyTests && (
           <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900 mb-6">
             <div className="text-center space-y-4">
               <div>
@@ -340,7 +373,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
         )}
 
         {/* Latest Results */}
-        {history && history.length > 0 && history[0] && (
+        {hasAnyTests && latestTest && (
           <motion.div
             initial={{ opacity: 0, y: 20 }} // Initial state for animation
             animate={{ opacity: 1, y: 0 }} // Animate to this state
@@ -354,8 +387,8 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
             <div className="flex justify-between ml-1 items-center text-gray-400 text-sm mb-4">
               <div>
                 Last test run:{" "}
-                {history[0]?.createdAt
-                  ? new Date(history[0].createdAt).toLocaleString(undefined, {
+                {latestTest?.createdAt
+                  ? new Date(latestTest.createdAt).toLocaleString(undefined, {
                       dateStyle: "short",
                       timeStyle: "short",
                     })
@@ -376,30 +409,46 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               <MetricCard
                 icon={<IoIosPulse className="w-5 h-5 text-amber-500" />}
                 title="Latency"
-                value={parseFloat(history[0].latency).toFixed(2)}
+                value={parseFloat(latestTest.latency).toFixed(2)}
                 unit="ms"
-                average={calculateAverage(history, "latency", timeRange)}
+                average={calculateAverage(
+                  history.length > 0 ? history : allTimeHistory,
+                  "latency",
+                  timeRange
+                )}
               />
               <MetricCard
                 icon={<FaArrowDown className="w-5 h-5 text-blue-500" />}
                 title="Download"
-                value={history[0].downloadSpeed.toFixed(2)}
+                value={latestTest.downloadSpeed.toFixed(2)}
                 unit="Mbps"
-                average={calculateAverage(history, "downloadSpeed", timeRange)}
+                average={calculateAverage(
+                  history.length > 0 ? history : allTimeHistory,
+                  "downloadSpeed",
+                  timeRange
+                )}
               />
               <MetricCard
                 icon={<FaArrowUp className="w-5 h-5 text-emerald-500" />}
                 title="Upload"
-                value={history[0].uploadSpeed.toFixed(2)}
+                value={latestTest.uploadSpeed.toFixed(2)}
                 unit="Mbps"
-                average={calculateAverage(history, "uploadSpeed", timeRange)}
+                average={calculateAverage(
+                  history.length > 0 ? history : allTimeHistory,
+                  "uploadSpeed",
+                  timeRange
+                )}
               />
               <MetricCard
                 icon={<FaWaveSquare className="w-5 h-5 text-purple-400" />}
                 title="Jitter"
-                value={history[0].jitter?.toFixed(2) ?? "N/A"}
+                value={latestTest.jitter?.toFixed(2) ?? "N/A"}
                 unit="ms"
-                average={calculateAverage(history, "jitter", timeRange)}
+                average={calculateAverage(
+                  history.length > 0 ? history : allTimeHistory,
+                  "jitter",
+                  timeRange
+                )}
               />
 
               {/* Floating Share Button over Jitter Card */}
@@ -417,7 +466,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
         )}
 
         {/* Speed History Chart */}
-        {Boolean(historyData?.pages?.[0]?.data?.length) && (
+        {hasAnyTests && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -428,6 +477,8 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               timeRange={timeRange}
               onTimeRangeChange={setTimeRange}
               isPublic={isPublic}
+              hasAnyTests={hasAnyTests}
+              hasCurrentRangeTests={history.length > 0}
             />
           </motion.div>
         )}

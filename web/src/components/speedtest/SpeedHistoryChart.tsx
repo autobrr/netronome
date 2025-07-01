@@ -25,6 +25,8 @@ interface SpeedHistoryChartProps {
   timeRange: TimeRange;
   onTimeRangeChange: (range: TimeRange) => void;
   isPublic?: boolean;
+  hasAnyTests?: boolean;
+  hasCurrentRangeTests?: boolean;
 }
 
 interface VisibleMetrics {
@@ -74,6 +76,8 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   timeRange = "1w",
   onTimeRangeChange,
   isPublic = false,
+  hasAnyTests = false,
+  hasCurrentRangeTests = false,
 }) => {
   const isMobile = useIsMobile();
 
@@ -325,13 +329,13 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     data.testType === "librespeed");
 
                 return (
-                  <div>
-                    <div>{label}</div>
-                    <div
+                  <>
+                    <span>{label}</span>
+                    <br />
+                    <span
                       style={{
                         color: "#60A5FA",
                         fontSize: isMobile ? "11px" : "12px",
-                        marginTop: "4px",
                         fontWeight: "500",
                       }}
                     >
@@ -346,6 +350,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                             marginLeft: "8px",
                           }}
                         >
+                          {" "}
                           (
                           {data.testType === "speedtest"
                             ? "speedtest.net"
@@ -353,8 +358,8 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                           )
                         </span>
                       )}
-                    </div>
-                  </div>
+                    </span>
+                  </>
                 );
               }
               return label;
@@ -609,6 +614,36 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     <AnimatePresence mode="wait">
                       {isLoading ? (
                         <ChartSkeleton />
+                      ) : hasAnyTests &&
+                        !hasCurrentRangeTests &&
+                        filteredData.length === 0 ? (
+                        <motion.div
+                          key="no-data-message"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="h-full flex items-center justify-center"
+                        >
+                          <div className="text-center">
+                            <h3 className="text-white text-lg font-medium mb-2">
+                              No tests in the last{" "}
+                              {timeRange === "1d"
+                                ? "24 hours"
+                                : timeRange === "3d"
+                                ? "3 days"
+                                : timeRange === "1w"
+                                ? "week"
+                                : timeRange === "1m"
+                                ? "month"
+                                : "selected period"}
+                            </h3>
+                            <p className="text-gray-400">
+                              Try selecting a different time range to view your
+                              test history.
+                            </p>
+                          </div>
+                        </motion.div>
                       ) : (
                         <motion.div
                           key="chart"
