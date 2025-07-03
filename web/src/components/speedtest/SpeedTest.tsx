@@ -19,6 +19,7 @@ import { TestProgress } from "./TestProgress";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import ScheduleManager from "./ScheduleManager";
 import { ShareModal } from "./ShareModal";
+import { Traceroute } from "./Traceroute";
 import {
   Server,
   SpeedTestResult,
@@ -624,6 +625,21 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                 onServerSelect={handleServerSelect}
               />
             </motion.div>
+          </div>
+        )}
+
+        {/* Traceroute Section */}
+        {!isPublic && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.5 }}
+            >
+              <Traceroute />
+            </motion.div>
+            <div>{/* Reserved space for future network tools */}</div>
           </div>
         )}
       </Container>

@@ -163,6 +163,7 @@ func (s *Server) RegisterRoutes() {
 			protected.POST("/speedtest", s.handleSpeedTest)
 			protected.GET("/speedtest/status", s.handleSpeedTestStatus)
 			protected.GET("/speedtest/history", s.handleSpeedTestHistory)
+			protected.GET("/traceroute", s.handleTraceroute)
 			protected.GET("/schedules", s.handleGetSchedules)
 			protected.POST("/schedules", s.handleCreateSchedule)
 			protected.PUT("/schedules/:id", s.handleUpdateSchedule)

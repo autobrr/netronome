@@ -41,6 +41,7 @@ type Config struct {
 	Auth          AuthConfig         `toml:"auth"`
 	OIDC          OIDCConfig         `toml:"oidc"`
 	SpeedTest     SpeedTestConfig    `toml:"speedtest"`
+	GeoIP         GeoIPConfig        `toml:"geoip"`
 	Pagination    PaginationConfig   `toml:"pagination"`
 	Session       SessionConfig      `toml:"session"`
 	Notifications NotificationConfig `toml:"notifications"`
@@ -126,6 +127,11 @@ type NotificationConfig struct {
 	DiscordMentionID  string  `toml:"discord_mention_id" env:"NOTIFICATIONS_DISCORD_MENTION_ID"`
 }
 
+type GeoIPConfig struct {
+	CountryDatabasePath string `toml:"country_database_path" env:"GEOIP_COUNTRY_DATABASE_PATH"`
+	ASNDatabasePath     string `toml:"asn_database_path" env:"GEOIP_ASN_DATABASE_PATH"`
+}
+
 func isRunningInContainer() bool {
 	if _, err := os.Stat("/.dockerenv"); err == nil {
 		return true
@@ -203,6 +209,10 @@ func New() *Config {
 		},
 		Session: SessionConfig{
 			Secret: "",
+		},
+		GeoIP: GeoIPConfig{
+			CountryDatabasePath: "",
+			ASNDatabasePath:     "",
 		},
 		Notifications: NotificationConfig{
 			Enabled:           false,
@@ -292,6 +302,7 @@ func (c *Config) loadFromEnv() error {
 	c.loadSpeedTestFromEnv()
 	c.loadPaginationFromEnv()
 	c.loadSessionFromEnv()
+	c.loadGeoIPFromEnv()
 	c.loadNotificationsFromEnv()
 	return nil
 }
@@ -449,6 +460,15 @@ func (c *Config) loadPaginationFromEnv() {
 func (c *Config) loadSessionFromEnv() {
 	if v := getEnv("SESSION_SECRET"); v != "" {
 		c.Session.Secret = v
+	}
+}
+
+func (c *Config) loadGeoIPFromEnv() {
+	if v := getEnv("GEOIP_COUNTRY_DATABASE_PATH"); v != "" {
+		c.GeoIP.CountryDatabasePath = v
+	}
+	if v := getEnv("GEOIP_ASN_DATABASE_PATH"); v != "" {
+		c.GeoIP.ASNDatabasePath = v
 	}
 }
 
@@ -699,6 +719,26 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "session_secret = \"%s\"\n", cfg.Session.Secret); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+
+	// GeoIP section (commented out by default)
+	if _, err := fmt.Fprintln(w, "# GeoIP configuration for country flags and ASN info in traceroute"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Uncomment and configure database paths to enable. See README for setup instructions."); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "#[geoip]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "#country_database_path = \"/path/to/GeoLite2-Country.mmdb\"\n"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "#asn_database_path = \"/path/to/GeoLite2-ASN.mmdb\"\n"); err != nil {
 		return err
 	}
 

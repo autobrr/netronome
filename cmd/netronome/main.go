@@ -169,7 +169,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	notifier := notifications.NewNotifier(&cfg.Notifications)
 
 	// create server handler with all services
-	speedtestSvc := speedtest.New(db, cfg.SpeedTest, notifier)
+	speedtestSvc := speedtest.New(db, cfg.SpeedTest, notifier, cfg)
 	schedulerSvc := scheduler.New(db, speedtestSvc, notifier)
 	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg)
 
