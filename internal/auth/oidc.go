@@ -5,6 +5,9 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,6 +32,32 @@ type Claims struct {
 	Subject  string `json:"sub"`
 	Name     string `json:"name"`
 	Username string `json:"preferred_username"`
+}
+
+// PKCEParams holds PKCE parameters for OAuth2 flow
+type PKCEParams struct {
+	CodeVerifier  string
+	CodeChallenge string
+}
+
+// GeneratePKCEParams generates PKCE code verifier and challenge
+func GeneratePKCEParams() (*PKCEParams, error) {
+	// Generate 43-128 character random string for code verifier
+	verifierBytes := make([]byte, 96) // 96 bytes = 128 base64url characters
+	if _, err := rand.Read(verifierBytes); err != nil {
+		return nil, fmt.Errorf("failed to generate PKCE code verifier: %w", err)
+	}
+
+	codeVerifier := base64.RawURLEncoding.EncodeToString(verifierBytes)
+
+	// Generate code challenge using SHA256
+	challengeBytes := sha256.Sum256([]byte(codeVerifier))
+	codeChallenge := base64.RawURLEncoding.EncodeToString(challengeBytes[:])
+
+	return &PKCEParams{
+		CodeVerifier:  codeVerifier,
+		CodeChallenge: codeChallenge,
+	}, nil
 }
 
 func NewOIDC(ctx context.Context, cfg config.OIDCConfig) (*OIDCConfig, error) {
@@ -135,6 +164,19 @@ func getProviderEndpoints(ctx context.Context, client *http.Client, issuer strin
 
 func (c *OIDCConfig) AuthURL() string {
 	return c.OAuth2Config.AuthCodeURL("state")
+}
+
+// AuthURLWithPKCE generates an authorization URL with PKCE parameters
+func (c *OIDCConfig) AuthURLWithPKCE(state string, pkce *PKCEParams) string {
+	return c.OAuth2Config.AuthCodeURL(state,
+		oauth2.SetAuthURLParam("code_challenge", pkce.CodeChallenge),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"))
+}
+
+// ExchangeCodeWithPKCE exchanges authorization code for tokens using PKCE
+func (c *OIDCConfig) ExchangeCodeWithPKCE(ctx context.Context, code string, codeVerifier string) (*oauth2.Token, error) {
+	return c.OAuth2Config.Exchange(ctx, code,
+		oauth2.SetAuthURLParam("code_verifier", codeVerifier))
 }
 
 func (c *OIDCConfig) VerifyToken(ctx context.Context, token string) error {

@@ -22,8 +22,10 @@ import (
 type AuthHandler struct {
 	db            database.Service
 	oidc          *auth.OIDCConfig
-	sessionTokens map[string]bool // Track valid memory sessions
+	sessionTokens map[string]bool   // Track valid memory sessions
+	pkceVerifiers map[string]string // Track PKCE code verifiers by state
 	sessionMutex  sync.RWMutex
+	pkceMutex     sync.RWMutex
 	sessionSecret string
 	whitelist     []string
 }
@@ -33,6 +35,7 @@ func NewAuthHandler(db database.Service, oidc *auth.OIDCConfig, sessionSecret st
 		db:            db,
 		oidc:          oidc,
 		sessionTokens: make(map[string]bool),
+		pkceVerifiers: make(map[string]string),
 		sessionSecret: sessionSecret,
 		whitelist:     whitelist,
 	}
@@ -106,6 +109,25 @@ func (h *AuthHandler) isValidMemorySession(token string) bool {
 	valid := h.sessionTokens[token]
 	h.sessionMutex.RUnlock()
 	return valid
+}
+
+// storePKCEVerifier stores a PKCE code verifier for the given state
+func (h *AuthHandler) storePKCEVerifier(state, codeVerifier string) {
+	h.pkceMutex.Lock()
+	h.pkceVerifiers[state] = codeVerifier
+	h.pkceMutex.Unlock()
+}
+
+// getPKCEVerifier retrieves and removes the PKCE code verifier for the given state
+func (h *AuthHandler) getPKCEVerifier(state string) (string, bool) {
+	h.pkceMutex.Lock()
+	defer h.pkceMutex.Unlock()
+
+	verifier, exists := h.pkceVerifiers[state]
+	if exists {
+		delete(h.pkceVerifiers, state)
+	}
+	return verifier, exists
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
