@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/go-jose/go-jose/v4"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
 
@@ -58,6 +59,71 @@ func GeneratePKCEParams() (*PKCEParams, error) {
 		CodeVerifier:  codeVerifier,
 		CodeChallenge: codeChallenge,
 	}, nil
+}
+
+// isJWE checks if a token is in JWE format (5 parts separated by dots)
+func isJWE(token string) bool {
+	parts := strings.Split(token, ".")
+	return len(parts) == 5
+}
+
+// decryptJWE attempts to decrypt a JWE token using the client secret as the key
+func (c *OIDCConfig) decryptJWE(ctx context.Context, jweToken string) (string, error) {
+	// Parse the JWE token
+	jwe, err := jose.ParseEncrypted(jweToken, []jose.KeyAlgorithm{jose.DIRECT, jose.A128KW, jose.A192KW, jose.A256KW}, []jose.ContentEncryption{jose.A128GCM, jose.A192GCM, jose.A256GCM})
+	if err != nil {
+		return "", fmt.Errorf("failed to parse JWE token: %w", err)
+	}
+
+	// Try to decrypt with client secret as key
+	clientSecret := c.OAuth2Config.ClientSecret
+	if clientSecret == "" {
+		return "", fmt.Errorf("client secret required for JWE decryption")
+	}
+
+	// Convert client secret to appropriate key length for AES
+	key := []byte(clientSecret)
+	if len(key) < 16 {
+		// Pad with zeros if too short
+		padded := make([]byte, 16)
+		copy(padded, key)
+		key = padded
+	} else if len(key) > 32 {
+		// Truncate if too long
+		key = key[:32]
+	} else if len(key) > 16 && len(key) < 24 {
+		// Pad to 24 bytes
+		padded := make([]byte, 24)
+		copy(padded, key)
+		key = padded
+	} else if len(key) > 24 && len(key) < 32 {
+		// Pad to 32 bytes
+		padded := make([]byte, 32)
+		copy(padded, key)
+		key = padded
+	}
+
+	// Attempt decryption
+	decrypted, err := jwe.Decrypt(key)
+	if err != nil {
+		// Try SHA256 hash of client secret as key (common pattern)
+		hasher := sha256.New()
+		hasher.Write([]byte(clientSecret))
+		hashedKey := hasher.Sum(nil)
+
+		// Try with full hash (32 bytes)
+		decrypted, err = jwe.Decrypt(hashedKey)
+		if err != nil {
+			// Try with truncated hash (16 bytes)
+			decrypted, err = jwe.Decrypt(hashedKey[:16])
+			if err != nil {
+				return "", fmt.Errorf("failed to decrypt JWE token with client secret or hash: %w", err)
+			}
+		}
+	}
+
+	log.Debug().Msg("Successfully decrypted JWE token")
+	return string(decrypted), nil
 }
 
 func NewOIDC(ctx context.Context, cfg config.OIDCConfig) (*OIDCConfig, error) {
@@ -180,7 +246,20 @@ func (c *OIDCConfig) ExchangeCodeWithPKCE(ctx context.Context, code string, code
 }
 
 func (c *OIDCConfig) VerifyToken(ctx context.Context, token string) error {
-	idToken, err := c.verifier.Verify(ctx, token)
+	// Check if token is JWE and decrypt if necessary
+	var verifyToken string = token
+	if isJWE(token) {
+		log.Debug().Msg("Detected JWE token, attempting decryption")
+		decrypted, err := c.decryptJWE(ctx, token)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to decrypt JWE token")
+			return fmt.Errorf("failed to decrypt JWE token: %w", err)
+		}
+		verifyToken = decrypted
+		log.Debug().Msg("JWE token decrypted successfully")
+	}
+
+	idToken, err := c.verifier.Verify(ctx, verifyToken)
 	if err != nil {
 		return fmt.Errorf("invalid token: %w", err)
 	}
@@ -211,7 +290,20 @@ func (c *OIDCConfig) VerifyToken(ctx context.Context, token string) error {
 }
 
 func (c *OIDCConfig) GetClaims(ctx context.Context, token string) (*Claims, error) {
-	idToken, err := c.verifier.Verify(ctx, token)
+	// Check if token is JWE and decrypt if necessary
+	var verifyToken string = token
+	if isJWE(token) {
+		log.Debug().Msg("Detected JWE token in GetClaims, attempting decryption")
+		decrypted, err := c.decryptJWE(ctx, token)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to decrypt JWE token in GetClaims")
+			return nil, fmt.Errorf("failed to decrypt JWE token: %w", err)
+		}
+		verifyToken = decrypted
+		log.Debug().Msg("JWE token decrypted successfully in GetClaims")
+	}
+
+	idToken, err := c.verifier.Verify(ctx, verifyToken)
 	if err != nil {
 		return nil, fmt.Errorf("invalid token: %w", err)
 	}
