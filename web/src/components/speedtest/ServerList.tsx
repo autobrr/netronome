@@ -117,7 +117,10 @@ export const ServerList: React.FC<ServerListProps> = ({
 
   const fetchSavedIperfServers = async () => {
     const response = await fetch(getApiUrl("/iperf/servers"));
-    if (!response.ok) throw new Error("Failed to fetch saved iperf servers");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to fetch saved iperf servers");
+    }
     const data = await response.json();
     setSavedIperfServers(data);
   };
@@ -132,7 +135,10 @@ export const ServerList: React.FC<ServerListProps> = ({
         body: JSON.stringify({ name, host, port }),
       });
 
-      if (!response.ok) throw new Error("Failed to save iperf server");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to save iperf server");
+      }
 
       // Clear the input after successful save
       setIperfHost("");
@@ -150,7 +156,10 @@ export const ServerList: React.FC<ServerListProps> = ({
         method: "DELETE",
       });
 
-      if (!response.ok) throw new Error("Failed to delete iperf server");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to delete iperf server");
+      }
 
       // Refresh the list of saved servers
       await fetchSavedIperfServers();

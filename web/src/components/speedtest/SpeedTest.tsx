@@ -13,6 +13,7 @@ import {
   FaArrowUp,
 } from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
+import { XMarkIcon } from "@heroicons/react/20/solid";
 import { ServerList } from "./ServerList";
 import { TestProgress } from "./TestProgress";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
@@ -42,7 +43,7 @@ import {
   getSpeedTestStatus,
   getPublicHistory,
 } from "@/api/speedtest";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 
 interface SpeedTestProps {
   isPublic?: boolean;
@@ -324,11 +325,42 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
         />
 
         {/* Error Messages */}
-        {error && (
-          <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-xl mb-4">
-            {error}
-          </div>
-        )}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              key="error-message"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="relative bg-red-950/80 backdrop-blur-sm border border-red-800/50 rounded-xl mb-4 shadow-lg overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-red-900/20 to-red-800/20 pointer-events-none" />
+              <div className="relative flex items-start justify-between p-4">
+                <div className="flex items-start gap-3 flex-1">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-red-200 mb-1">Error</h3>
+                    <div className="text-sm text-red-300/90 whitespace-pre-wrap break-words">
+                      {error}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setError(null)}
+                  className="flex-shrink-0 ml-4 text-red-400 hover:text-red-300 transition-colors duration-200"
+                  aria-label="Dismiss error"
+                >
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* No History Message - Only show when no tests exist at all */}
         {!isHistoryLoading && !hasAnyTests && (

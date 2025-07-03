@@ -90,7 +90,17 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 		})
 	}
 
-	cmd := exec.CommandContext(ctx, "iperf3", args...)
+	// Check if iperf3 is installed
+	if _, err := exec.LookPath("iperf3"); err != nil {
+		return nil, fmt.Errorf("iperf3 not found: please install iperf3 to use this feature")
+	}
+
+	// Create a timeout context for the iperf3 command
+	timeout := time.Duration(s.config.IPerf.Timeout) * time.Second
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(timeoutCtx, "iperf3", args...)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -156,6 +166,10 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 	}
 
 	if err := cmd.Wait(); err != nil {
+		// Check if the error was due to context timeout
+		if timeoutCtx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("iperf3 test timed out after %d seconds", s.config.IPerf.Timeout)
+		}
 		return nil, fmt.Errorf("iperf3 failed: %s - %w", output.String(), err)
 	}
 

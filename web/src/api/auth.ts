@@ -42,8 +42,8 @@ export async function login(
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || errorData.error || "Login failed");
     }
 
     const data: LoginResponse = await response.json();
@@ -69,8 +69,8 @@ export async function register(
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || errorData.error || "Registration failed");
     }
 
     const data: LoginResponse = await response.json();
@@ -89,8 +89,8 @@ export async function logout(): Promise<void> {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || errorData.error || "Registration failed");
     }
   } catch (error) {
     console.error("Logout error:", error);

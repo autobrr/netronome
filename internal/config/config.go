@@ -88,6 +88,7 @@ type SpeedTestConfig struct {
 type IperfConfig struct {
 	TestDuration  int `toml:"test_duration" env:"IPERF_TEST_DURATION"`
 	ParallelConns int `toml:"parallel_conns" env:"IPERF_PARALLEL_CONNS"`
+	Timeout       int `toml:"timeout" env:"IPERF_TIMEOUT"` // Timeout in seconds
 }
 
 type LibrespeedConfig struct {
@@ -169,6 +170,7 @@ func New() *Config {
 			IPerf: IperfConfig{
 				TestDuration:  10,
 				ParallelConns: 4,
+				Timeout:       60, // 60 seconds default timeout for iperf3
 			},
 			Librespeed: LibrespeedConfig{
 				ServersPath: "librespeed-servers.json",
@@ -365,6 +367,11 @@ func (c *Config) loadSpeedTestFromEnv() {
 	if v := getEnv("IPERF_PARALLEL_CONNS"); v != "" {
 		if val, err := strconv.Atoi(v); err == nil {
 			c.SpeedTest.IPerf.ParallelConns = val
+		}
+	}
+	if v := getEnv("IPERF_TIMEOUT"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.IPerf.Timeout = val
 		}
 	}
 	if v := getEnv("LIBRESPEED_TIMEOUT"); v != "" {
@@ -576,6 +583,9 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "parallel_conns = %d\n", cfg.SpeedTest.IPerf.ParallelConns); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "timeout = %d\n", cfg.SpeedTest.IPerf.Timeout); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {

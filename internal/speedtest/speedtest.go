@@ -250,10 +250,14 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 			}
 		})
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		timeout := time.Duration(s.config.Timeout) * time.Second
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
 		if err := selectedServer.DownloadTestContext(ctx); err != nil {
+			if ctx.Err() == context.DeadlineExceeded {
+				return nil, fmt.Errorf("download test timed out after %d seconds", s.config.Timeout)
+			}
 			return nil, fmt.Errorf("download test failed: %w", err)
 		}
 
@@ -304,7 +308,14 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 			}
 		})
 
-		if err := selectedServer.UploadTest(); err != nil {
+		timeout := time.Duration(s.config.Timeout) * time.Second
+		uploadCtx, uploadCancel := context.WithTimeout(context.Background(), timeout)
+		defer uploadCancel()
+
+		if err := selectedServer.UploadTestContext(uploadCtx); err != nil {
+			if uploadCtx.Err() == context.DeadlineExceeded {
+				return nil, fmt.Errorf("upload test timed out after %d seconds", s.config.Timeout)
+			}
 			return nil, fmt.Errorf("upload test failed: %w", err)
 		}
 

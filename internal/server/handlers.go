@@ -19,6 +19,7 @@ import (
 func (s *Server) handleSpeedTest(c *gin.Context) {
 	var opts types.TestOptions
 	if err := c.ShouldBindJSON(&opts); err != nil {
+		c.Status(http.StatusBadRequest)
 		_ = c.Error(fmt.Errorf("invalid request body: %w", err))
 		return
 	}
@@ -39,6 +40,7 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 
 	result, err := s.speedtest.RunTest(ctx, &opts)
 	if err != nil {
+		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to run speed test: %w", err))
 		return
 	}
@@ -50,6 +52,7 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 
 	select {
 	case <-ctx.Done():
+		c.Status(http.StatusGatewayTimeout)
 		_ = c.Error(fmt.Errorf("speed test timeout: %w", ctx.Err()))
 		return
 	default:
@@ -69,6 +72,7 @@ func (s *Server) handleSpeedTestHistory(c *gin.Context) {
 			Int("page", page).
 			Int("limit", limit).
 			Msg("Failed to retrieve speed test history")
+		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to retrieve speed test history: %w", err))
 		return
 	}
@@ -88,6 +92,7 @@ func (s *Server) handlePublicSpeedTestHistory(c *gin.Context) {
 			Int("page", page).
 			Int("limit", limit).
 			Msg("Failed to retrieve speed test history")
+		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to retrieve speed test history: %w", err))
 		return
 	}
@@ -100,6 +105,7 @@ func (s *Server) handleGetServers(c *gin.Context) {
 
 	servers, err := s.speedtest.GetServers(testType)
 	if err != nil {
+		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to get servers: %w", err))
 		return
 	}
@@ -120,6 +126,7 @@ func (s *Server) handleSpeedTestStatus(c *gin.Context) {
 func (s *Server) handleGetSchedules(c *gin.Context) {
 	schedules, err := s.db.GetSchedules(c.Request.Context())
 	if err != nil {
+		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to get schedules: %w", err))
 		return
 	}
@@ -130,6 +137,7 @@ func (s *Server) handleCreateSchedule(c *gin.Context) {
 	var schedule types.Schedule
 	if err := c.ShouldBindJSON(&schedule); err != nil {
 		log.Debug().Err(err).Msg("Failed to bind JSON for schedule creation")
+		c.Status(http.StatusBadRequest)
 		_ = c.Error(fmt.Errorf("invalid schedule data: %w", err))
 		return
 	}
@@ -139,6 +147,7 @@ func (s *Server) handleCreateSchedule(c *gin.Context) {
 		log.Error().Err(err).
 			Interface("schedule", schedule).
 			Msg("Failed to create schedule")
+		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to create schedule: %w", err))
 		return
 	}
@@ -149,12 +158,14 @@ func (s *Server) handleCreateSchedule(c *gin.Context) {
 func (s *Server) handleUpdateSchedule(c *gin.Context) {
 	var schedule types.Schedule
 	if err := c.ShouldBindJSON(&schedule); err != nil {
+		c.Status(http.StatusBadRequest)
 		_ = c.Error(fmt.Errorf("invalid schedule data: %w", err))
 		return
 	}
 
 	err := s.db.UpdateSchedule(c.Request.Context(), schedule)
 	if err != nil {
+		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to update schedule: %w", err))
 		return
 	}
@@ -165,12 +176,14 @@ func (s *Server) handleUpdateSchedule(c *gin.Context) {
 func (s *Server) handleDeleteSchedule(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
+		c.Status(http.StatusBadRequest)
 		_ = c.Error(fmt.Errorf("invalid schedule ID: %w", err))
 		return
 	}
 
 	err = s.db.DeleteSchedule(c.Request.Context(), int64(id))
 	if err != nil {
+		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to delete schedule: %w", err))
 		return
 	}

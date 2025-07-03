@@ -100,6 +100,11 @@ func (s *service) RunLibrespeedTest(ctx context.Context, opts *types.TestOptions
 		args = append(args, "--server", opts.ServerIDs[0])
 	}
 
+	// Check if librespeed-cli is installed
+	if _, err := exec.LookPath("librespeed-cli"); err != nil {
+		return nil, fmt.Errorf("librespeed-cli not found: please install librespeed-cli to use this feature")
+	}
+
 	cmd := exec.CommandContext(ctx, "librespeed-cli", args...)
 
 	output, err := cmd.CombinedOutput()
