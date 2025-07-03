@@ -68,7 +68,7 @@ func isJWE(token string) bool {
 }
 
 // decryptJWE attempts to decrypt a JWE token using the client secret as the key
-func (c *OIDCConfig) decryptJWE(ctx context.Context, jweToken string) (string, error) {
+func (c *OIDCConfig) decryptJWE(jweToken string) (string, error) {
 	// Parse the JWE token
 	jwe, err := jose.ParseEncrypted(jweToken, []jose.KeyAlgorithm{jose.DIRECT, jose.A128KW, jose.A192KW, jose.A256KW}, []jose.ContentEncryption{jose.A128GCM, jose.A192GCM, jose.A256GCM})
 	if err != nil {
@@ -197,14 +197,11 @@ func getProviderEndpoints(ctx context.Context, client *http.Client, issuer strin
 	}
 
 	var discovery struct {
-		Issuer        string   `json:"issuer"`
-		AuthURL       string   `json:"authorization_endpoint"`
-		TokenURL      string   `json:"token_endpoint"`
-		UserinfoURL   string   `json:"userinfo_endpoint"`
-		JWKSURL       string   `json:"jwks_uri"`
-		ResponseTypes []string `json:"response_types_supported"`
-		SubjectTypes  []string `json:"subject_types_supported"`
-		SigningAlgs   []string `json:"id_token_signing_alg_values_supported"`
+		Issuer      string `json:"issuer"`
+		AuthURL     string `json:"authorization_endpoint"`
+		TokenURL    string `json:"token_endpoint"`
+		UserinfoURL string `json:"userinfo_endpoint"`
+		JWKSURL     string `json:"jwks_uri"`
 	}
 
 	if err := json.Unmarshal(body, &discovery); err != nil {
@@ -215,11 +212,6 @@ func getProviderEndpoints(ctx context.Context, client *http.Client, issuer strin
 		Str("issuer", discovery.Issuer).
 		Str("auth_url", discovery.AuthURL).
 		Str("token_url", discovery.TokenURL).
-		// Str("userinfo_url", discovery.UserinfoURL).
-		// Str("jwks_url", discovery.JWKSURL).
-		// Strs("response_types", discovery.ResponseTypes).
-		// Strs("subject_types", discovery.SubjectTypes).
-		// Strs("signing_algs", discovery.SigningAlgs).
 		Msg("OIDC discovery successful")
 
 	return oauth2.Endpoint{
@@ -250,7 +242,7 @@ func (c *OIDCConfig) VerifyToken(ctx context.Context, token string) error {
 	var verifyToken string = token
 	if isJWE(token) {
 		log.Debug().Msg("Detected JWE token, attempting decryption")
-		decrypted, err := c.decryptJWE(ctx, token)
+		decrypted, err := c.decryptJWE(token)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to decrypt JWE token")
 			return fmt.Errorf("failed to decrypt JWE token: %w", err)
@@ -294,7 +286,7 @@ func (c *OIDCConfig) GetClaims(ctx context.Context, token string) (*Claims, erro
 	var verifyToken string = token
 	if isJWE(token) {
 		log.Debug().Msg("Detected JWE token in GetClaims, attempting decryption")
-		decrypted, err := c.decryptJWE(ctx, token)
+		decrypted, err := c.decryptJWE(token)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to decrypt JWE token in GetClaims")
 			return nil, fmt.Errorf("failed to decrypt JWE token: %w", err)

@@ -23,19 +23,19 @@ func (h *AuthHandler) InitOIDCRoutes(r *gin.RouterGroup) {
 }
 
 func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
-	// Generate PKCE parameters
-	pkceParams, err := auth.GeneratePKCEParams()
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to generate PKCE parameters")
-		c.Redirect(http.StatusTemporaryRedirect, "/?error=pkce_generation_failed")
-		return
-	}
-
 	// Generate state parameter
 	state, err := utils.GenerateSecureToken(32)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to generate state parameter")
 		c.Redirect(http.StatusTemporaryRedirect, "/?error=state_generation_failed")
+		return
+	}
+
+	// Generate PKCE parameters
+	pkceParams, err := auth.GeneratePKCEParams()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to generate PKCE parameters")
+		c.Redirect(http.StatusTemporaryRedirect, "/?error=pkce_generation_failed")
 		return
 	}
 
@@ -47,9 +47,8 @@ func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
 
 	log.Debug().
 		Str("state", state).
-		Str("code_challenge", pkceParams.CodeChallenge).
 		Str("auth_url", authURL).
-		Msg("Redirecting to OIDC provider with PKCE")
+		Msg("Redirecting to OIDC provider")
 
 	c.Redirect(http.StatusTemporaryRedirect, authURL)
 }
@@ -74,6 +73,7 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 		return
 	}
 
+	// Always try PKCE first for enhanced security
 	// Retrieve PKCE code verifier
 	codeVerifier, exists := h.getPKCEVerifier(state)
 	if !exists {
@@ -90,6 +90,10 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 		return
 	}
 
+	log.Debug().
+		Str("state", state).
+		Msg("Token exchange successful")
+
 	// Get the ID token
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
@@ -104,11 +108,6 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=invalid_token")
 		return
 	}
-
-	log.Debug().
-		Str("state", state).
-		Str("code_verifier", codeVerifier[:20]+"...").
-		Msg("PKCE token exchange successful")
 
 	h.refreshSession(c, rawIDToken)
 

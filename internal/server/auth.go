@@ -81,7 +81,7 @@ func (h *AuthHandler) refreshSession(c *gin.Context, token string) {
 		h.sessionMutex.Unlock()
 	}
 
-	log.Debug().
+	log.Trace().
 		Str("token", token).
 		Str("signed_token", signedToken).
 		Bool("secure", isSecure).
@@ -477,10 +477,10 @@ func RequireAuth(db database.Service, oidc *auth.OIDCConfig, sessionSecret strin
 			return
 		}
 
-		log.Trace().
-			Str("username", username).
-			Bool("memory_only", strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix)).
-			Msg("User authenticated successfully")
+		//log.Debug().
+		//	Str("username", username).
+		//	Bool("memory_only", strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix)).
+		//	Msg("User authenticated successfully")
 
 		c.Set("username", username)
 		c.Next()
