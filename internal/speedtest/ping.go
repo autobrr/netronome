@@ -6,6 +6,7 @@ package speedtest
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
@@ -39,10 +40,15 @@ func (s *service) RunPingTest(ctx context.Context, host string) (*PingResult, er
 		host = strings.Split(host, ":")[0]
 	}
 
-	log.Debug().
+	// Check for Docker environment indicators
+	inDocker := s.isRunningInDocker()
+
+	log.Info().
 		Str("host", host).
 		Int("count", s.config.IPerf.Ping.Count).
 		Int("interval", s.config.IPerf.Ping.Interval).
+		Bool("in_docker", inDocker).
+		Str("os", runtime.GOOS).
 		Msg("Starting ping test")
 
 	// Check if ping is available
@@ -52,6 +58,13 @@ func (s *service) RunPingTest(ctx context.Context, host string) (*PingResult, er
 
 	// Build ping command based on OS
 	args := s.buildPingArgs(host)
+
+	log.Info().
+		Str("host", host).
+		Strs("args", args).
+		Str("os", runtime.GOOS).
+		Int("timeout_seconds", s.config.IPerf.Ping.Timeout).
+		Msg("Executing ping command")
 
 	// Create a timeout context for the ping command
 	timeout := time.Duration(s.config.IPerf.Ping.Timeout) * time.Second
@@ -64,22 +77,55 @@ func (s *service) RunPingTest(ctx context.Context, host string) (*PingResult, er
 	if err != nil {
 		// Check if the error was due to context timeout
 		if timeoutCtx.Err() == context.DeadlineExceeded {
+			log.Error().
+				Str("host", host).
+				Int("timeout_seconds", s.config.IPerf.Ping.Timeout).
+				Msg("Ping test timed out")
 			return nil, fmt.Errorf("ping test timed out after %d seconds", s.config.IPerf.Ping.Timeout)
 		}
+		log.Error().Err(err).
+			Str("host", host).
+			Strs("args", args).
+			Msg("Ping command execution failed")
 		return nil, fmt.Errorf("ping failed: %w", err)
 	}
 
+	log.Info().
+		Str("host", host).
+		Int("output_length", len(output)).
+		Msg("Ping command completed, parsing output")
+
+	// Log the raw output for debugging (truncated if too long)
+	outputStr := string(output)
+	if len(outputStr) > 1000 {
+		log.Debug().
+			Str("host", host).
+			Str("output_sample", outputStr[:1000]+"...").
+			Msg("Ping raw output (truncated)")
+	} else {
+		log.Debug().
+			Str("host", host).
+			Str("output", outputStr).
+			Msg("Ping raw output")
+	}
+
 	// Parse ping output
-	result, err := s.parsePingOutput(string(output), host)
+	result, err := s.parsePingOutput(outputStr, host)
 	if err != nil {
+		log.Error().Err(err).
+			Str("host", host).
+			Str("output_sample", outputStr[:min(len(outputStr), 500)]).
+			Msg("Failed to parse ping output")
 		return nil, fmt.Errorf("failed to parse ping output: %w", err)
 	}
 
-	log.Debug().
+	log.Info().
 		Str("host", host).
 		Float64("avg_rtt", result.AvgRTT).
 		Float64("packet_loss", result.PacketLoss).
-		Msg("Ping test completed")
+		Int("packets_sent", result.PacketsSent).
+		Int("packets_received", result.PacketsReceived).
+		Msg("Ping test completed successfully")
 
 	return result, nil
 }
@@ -94,8 +140,28 @@ func (s *service) buildPingArgs(host string) []string {
 			"-c", strconv.Itoa(s.config.IPerf.Ping.Count), // packet count
 			"-i", fmt.Sprintf("%.1f", float64(s.config.IPerf.Ping.Interval)/1000), // interval in seconds
 			"-W", strconv.Itoa(s.config.IPerf.Ping.Timeout * 1000), // timeout in milliseconds
-			host,
 		}
+
+		// Add additional flags for Docker environments if needed
+		if s.isRunningInDocker() && runtime.GOOS == "linux" {
+			// In some Docker configurations, we might need different options
+			// Keep the same args for now but log the Docker detection
+			log.Info().
+				Str("host", host).
+				Msg("Detected Docker environment, using standard Linux ping args")
+		}
+
+		args = append(args, host)
+
+		log.Debug().
+			Str("os", runtime.GOOS).
+			Str("host", host).
+			Int("count", s.config.IPerf.Ping.Count).
+			Int("interval_ms", s.config.IPerf.Ping.Interval).
+			Int("timeout_ms", s.config.IPerf.Ping.Timeout*1000).
+			Strs("final_args", args).
+			Bool("docker_detected", s.isRunningInDocker()).
+			Msg("Built ping arguments for Unix/Linux/macOS")
 	case "windows":
 		args = []string{
 			"-n", strconv.Itoa(s.config.IPerf.Ping.Count), // packet count
@@ -139,10 +205,24 @@ func (s *service) parseUnixPingOutput(lines []string, result *PingResult) (*Ping
 	// Look for statistics line (e.g., "5 packets transmitted, 5 received, 0% packet loss")
 	statsRegex := regexp.MustCompile(`(\d+) packets transmitted, (\d+) (?:packets )?received, (?:\+\d+ errors, )?(\d+(?:\.\d+)?)% packet loss`)
 
-	// Look for timing line (e.g., "round-trip min/avg/max/stddev = 1.234/2.345/3.456/0.789 ms")
-	timingRegex := regexp.MustCompile(`round-trip min/avg/max/(?:stddev|mdev) = ([\d.]+)/([\d.]+)/([\d.]+)/([\d.]+) ms`)
+	// Look for timing line with stddev/mdev (macOS, some Linux distributions)
+	timingWithStddevRegex := regexp.MustCompile(`round-trip min/avg/max/(?:stddev|mdev) = ([\d.]+)/([\d.]+)/([\d.]+)/([\d.]+) ms`)
 
-	for _, line := range lines {
+	// Look for timing line without stddev (Alpine Linux and some minimal distributions)
+	timingWithoutStddevRegex := regexp.MustCompile(`round-trip min/avg/max = ([\d.]+)/([\d.]+)/([\d.]+) ms`)
+
+	log.Debug().
+		Str("host", result.Host).
+		Int("total_lines", len(lines)).
+		Msg("Starting to parse Unix ping output")
+
+	for i, line := range lines {
+		log.Debug().
+			Str("host", result.Host).
+			Int("line_number", i+1).
+			Str("line_content", line).
+			Msg("Processing ping output line")
+
 		if match := statsRegex.FindStringSubmatch(line); match != nil {
 			sent, _ := strconv.Atoi(match[1])
 			received, _ := strconv.Atoi(match[2])
@@ -151,9 +231,18 @@ func (s *service) parseUnixPingOutput(lines []string, result *PingResult) (*Ping
 			result.PacketsSent = sent
 			result.PacketsReceived = received
 			result.PacketLoss = loss
+
+			log.Info().
+				Str("host", result.Host).
+				Int("packets_sent", sent).
+				Int("packets_received", received).
+				Float64("packet_loss", loss).
+				Str("matched_line", line).
+				Msg("Successfully parsed ping statistics")
 		}
 
-		if match := timingRegex.FindStringSubmatch(line); match != nil {
+		// Try matching with stddev first
+		if match := timingWithStddevRegex.FindStringSubmatch(line); match != nil {
 			min, _ := strconv.ParseFloat(match[1], 64)
 			avg, _ := strconv.ParseFloat(match[2], 64)
 			max, _ := strconv.ParseFloat(match[3], 64)
@@ -163,12 +252,51 @@ func (s *service) parseUnixPingOutput(lines []string, result *PingResult) (*Ping
 			result.AvgRTT = avg
 			result.MaxRTT = max
 			result.StddevRTT = stddev
+
+			log.Info().
+				Str("host", result.Host).
+				Float64("min_rtt", min).
+				Float64("avg_rtt", avg).
+				Float64("max_rtt", max).
+				Float64("stddev_rtt", stddev).
+				Str("matched_line", line).
+				Msg("Successfully parsed ping timing statistics with stddev")
+		} else if match := timingWithoutStddevRegex.FindStringSubmatch(line); match != nil {
+			// Handle Alpine Linux format without stddev
+			min, _ := strconv.ParseFloat(match[1], 64)
+			avg, _ := strconv.ParseFloat(match[2], 64)
+			max, _ := strconv.ParseFloat(match[3], 64)
+
+			result.MinRTT = min
+			result.AvgRTT = avg
+			result.MaxRTT = max
+			result.StddevRTT = 0 // No stddev available in Alpine format
+
+			log.Info().
+				Str("host", result.Host).
+				Float64("min_rtt", min).
+				Float64("avg_rtt", avg).
+				Float64("max_rtt", max).
+				Str("matched_line", line).
+				Msg("Successfully parsed ping timing statistics without stddev (Alpine format)")
 		}
 	}
 
 	if result.PacketsSent == 0 {
+		log.Error().
+			Str("host", result.Host).
+			Int("total_lines", len(lines)).
+			Msg("Failed to parse ping statistics - no packets sent found")
 		return nil, fmt.Errorf("could not parse ping statistics")
 	}
+
+	log.Info().
+		Str("host", result.Host).
+		Int("packets_sent", result.PacketsSent).
+		Int("packets_received", result.PacketsReceived).
+		Float64("packet_loss", result.PacketLoss).
+		Float64("avg_rtt", result.AvgRTT).
+		Msg("Unix ping parsing completed successfully")
 
 	return result, nil
 }
@@ -220,4 +348,28 @@ func (result *PingResult) FormatLatency() string {
 		return ""
 	}
 	return fmt.Sprintf("%.2f ms", result.AvgRTT)
+}
+
+// isRunningInDocker checks if the application is running inside a Docker container
+func (s *service) isRunningInDocker() bool {
+	// Check for .dockerenv file
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return true
+	}
+
+	// Check for Docker-specific environment variables
+	if os.Getenv("DOCKER_CONTAINER") != "" ||
+		os.Getenv("HOSTNAME") != "" && strings.HasPrefix(os.Getenv("HOSTNAME"), "docker-") {
+		return true
+	}
+
+	// Check for container-specific cgroup entries
+	if data, err := os.ReadFile("/proc/1/cgroup"); err == nil {
+		content := string(data)
+		if strings.Contains(content, "docker") || strings.Contains(content, "containerd") {
+			return true
+		}
+	}
+
+	return false
 }
