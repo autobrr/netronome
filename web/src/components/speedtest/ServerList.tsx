@@ -213,7 +213,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                   Server Selection
                 </h2>
                 <p className="text-gray-400 text-sm pl-1 pb-1">
-                  Choose between speedtest.net or iperf3 servers
+                  Choose between speedtest.net, iperf3 or librespeed servers
                 </p>
               </div>
               <div className="flex items-center gap-2">
