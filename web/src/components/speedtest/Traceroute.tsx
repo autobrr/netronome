@@ -11,6 +11,7 @@ import {
   StopIcon,
   ChevronDownIcon,
   ChevronUpDownIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/solid";
 import {
   TracerouteResult,
@@ -81,7 +82,7 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
   const [iperfServers, setIperfServers] = useState<SavedIperfServer[]>([]);
   const [isOpen] = useState(() => {
     const saved = localStorage.getItem("traceroute-open");
-    return saved === null ? true : saved === "true";
+    return saved === null ? false : saved === "true";
   });
 
   // Fetch servers
@@ -229,7 +230,7 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
             >
               <div className="flex flex-col">
                 <h2 className="text-white text-xl font-semibold p-1 select-none">
-                  Network Route Tracer
+                  Traceroute
                 </h2>
                 <p className="text-gray-400 text-sm pl-1 pb-1">
                   Trace network paths to see which backbone providers you travel
@@ -507,19 +508,30 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
                         className="bg-gray-800/50 rounded-lg shadow-md border border-gray-900 overflow-hidden"
                       >
                         <div className="bg-gray-800/70 px-4 py-3 border-b border-gray-900">
-                          <h3 className="text-lg font-semibold text-white">
-                            Route to {results.destination}
-                            {results.ip &&
-                              results.ip !== results.destination && (
-                                <span className="text-gray-400 ml-2">
-                                  ({results.ip})
-                                </span>
-                              )}
-                          </h3>
-                          <p className="text-sm text-gray-400 mt-1">
-                            {results.totalHops} hops •{" "}
-                            {results.complete ? "Complete" : "Incomplete"}
-                          </p>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-lg font-semibold text-white">
+                                Route to {results.destination}
+                                {results.ip &&
+                                  results.ip !== results.destination && (
+                                    <span className="text-gray-400 ml-2">
+                                      ({results.ip})
+                                    </span>
+                                  )}
+                              </h3>
+                              <p className="text-sm text-gray-400 mt-1">
+                                {results.totalHops} hops •{" "}
+                                {results.complete ? "Complete" : "Incomplete"}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setResults(null)}
+                              className="text-red-500 p-1 bg-red-900/50 border border-gray-900 rounded-md hover:bg-red-900/70 hover:text-red-400 transition-colors"
+                              title="Clear results"
+                            >
+                              <XMarkIcon className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
 
                         <div className="divide-y divide-gray-900">
