@@ -44,6 +44,7 @@ import {
   getPublicHistory,
 } from "@/api/speedtest";
 import { motion, AnimatePresence } from "motion/react";
+import { formatNextRun } from "@/utils/timeUtils";
 
 interface SpeedTestProps {
   isPublic?: boolean;
@@ -77,6 +78,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const [scheduledTestRunning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [updateTrigger, setUpdateTrigger] = useState(0);
 
   // Queries
   const { data: speedtestServers = [] } = useQuery({
@@ -155,14 +157,55 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     return history && history.length > 0
       ? history[0]
       : allTimeHistory.length > 0
-      ? allTimeHistory[0]
-      : null;
+        ? allTimeHistory[0]
+        : null;
   }, [history, allTimeHistory]);
 
   const { data: schedules = [] } = useQuery({
     queryKey: ["schedules"],
-    queryFn: getSchedules,
+    queryFn: () => {
+      console.log("[SpeedTest] Fetching schedules...");
+      return getSchedules();
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds (same as ScheduleManager)
+    staleTime: 10000, // Consider data stale after 10 seconds
   }) as { data: Schedule[] };
+
+  // Log when schedules data changes
+  useEffect(() => {
+    console.log("[SpeedTest] Schedules data updated:", schedules);
+  }, [schedules]);
+
+  // Update "Next run in:" times every minute (synchronized)
+  useEffect(() => {
+    // Calculate delay to sync with minute boundary
+    const now = new Date();
+    const secondsUntilNextMinute = 60 - now.getSeconds();
+    const initialDelay = secondsUntilNextMinute * 1000;
+
+    // Start timer at the next minute boundary
+    const initialTimer = window.setTimeout(() => {
+      console.log("[SpeedTest] Updating next run times... (synced)");
+      setUpdateTrigger((prev) => prev + 1);
+
+      // Set up regular interval after initial sync
+      const timer = window.setInterval(() => {
+        console.log("[SpeedTest] Updating next run times... (synced)");
+        setUpdateTrigger((prev) => prev + 1);
+      }, 60000); // Update every minute
+
+      // Store timer ID for cleanup
+      (window as any)._speedTestTimer = timer;
+    }, initialDelay);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      if ((window as any)._speedTestTimer) {
+        window.clearInterval((window as any)._speedTestTimer);
+        delete (window as any)._speedTestTimer;
+      }
+    };
+  }, []);
 
   // Mutations
   const speedTestMutation = useMutation({
@@ -457,7 +500,11 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                   <div>
                     Next scheduled run:{" "}
                     <span className="text-blue-400 mr-1">
-                      {formatNextRun(schedules[0].nextRun)}
+                      {(() => {
+                        // Force re-calculation when updateTrigger changes
+                        updateTrigger; // This ensures the component re-renders
+                        return formatNextRun(schedules[0].nextRun);
+                      })()}
                     </span>
                   </div>
                 )}
@@ -641,23 +688,6 @@ const MetricCard: React.FC<{
     )}
   </div>
 );
-
-const formatNextRun = (dateString: string): string => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = date.getTime() - now.getTime();
-  const diffMins = Math.round(diffMs / 60000);
-
-  if (diffMins < 60) {
-    return `in ${diffMins} minute${diffMins !== 1 ? "s" : ""}`;
-  } else if (diffMins < 1440) {
-    const hours = Math.floor(diffMins / 60);
-    return `in ${hours} hour${hours !== 1 ? "s" : ""}`;
-  } else {
-    const days = Math.floor(diffMins / 1440);
-    return `in ${days} day${days !== 1 ? "s" : ""}`;
-  }
-};
 
 const calculateAverage = (
   history: SpeedTestResult[],

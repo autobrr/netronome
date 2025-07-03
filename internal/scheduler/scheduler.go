@@ -5,7 +5,10 @@ package scheduler
 
 import (
 	"context"
+	"math"
 	"math/rand"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -84,27 +87,33 @@ func (s *service) initializeSchedules(ctx context.Context) {
 			continue
 		}
 
-		// Parse the interval
-		_, err := time.ParseDuration(schedule.Interval)
-		if err != nil {
+		// Parse the interval (either duration or exact time)
+		if !s.isValidScheduleInterval(schedule.Interval) {
 			log.Error().
-				Err(err).
 				Int64("schedule_id", schedule.ID).
-				Msg("Error parsing interval during initialization")
+				Str("interval", schedule.Interval).
+				Msg("Invalid schedule interval during initialization")
 			continue
 		}
 
-		// If NextRun is in the past, calculate new NextRun with jitter
+		// If NextRun is in the past, calculate new NextRun
 		if schedule.NextRun.Before(now) {
-			// Add random jitter between 1-300 seconds (5 minutes) to prevent thundering herd
-			jitter := time.Duration(rand.Int63n(300)+1) * time.Second
-			schedule.NextRun = now.Add(jitter)
+			nextRun := s.calculateNextRun(schedule.Interval, now)
+			if nextRun.IsZero() {
+				log.Error().
+					Int64("schedule_id", schedule.ID).
+					Str("interval", schedule.Interval).
+					Msg("Could not calculate next run time")
+				continue
+			}
+
+			schedule.NextRun = nextRun
 
 			log.Info().
 				Int64("schedule_id", schedule.ID).
 				Time("next_run", schedule.NextRun).
 				Str("interval", schedule.Interval).
-				Msg("Rescheduling test with jitter")
+				Msg("Rescheduling test")
 
 			if err := s.db.UpdateSchedule(ctx, schedule); err != nil {
 				log.Error().
@@ -173,17 +182,17 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 				Float64("upload_speed", result.UploadSpeed).
 				Msg("Scheduled test completed")
 
-			duration, err := time.ParseDuration(schedule.Interval)
-			if err != nil {
+			nextRun := s.calculateNextRun(schedule.Interval, now)
+			if nextRun.IsZero() {
 				log.Error().
-					Err(err).
 					Int64("schedule_id", schedule.ID).
-					Msg("Error parsing interval")
+					Str("interval", schedule.Interval).
+					Msg("Error calculating next run time")
 				return
 			}
 
 			schedule.LastRun = &now
-			schedule.NextRun = now.Add(duration)
+			schedule.NextRun = nextRun
 
 			if err := s.db.UpdateSchedule(ctx, schedule); err != nil {
 				log.Error().
@@ -192,5 +201,107 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 					Msg("Error updating schedule")
 			}
 		}(schedule, testCtx, cancel)
+	}
+}
+
+// isValidScheduleInterval checks if the interval is valid (duration or exact time)
+func (s *service) isValidScheduleInterval(interval string) bool {
+	if strings.HasPrefix(interval, "exact:") {
+		// Extract time part and validate - supports multiple times
+		timePart := strings.TrimPrefix(interval, "exact:")
+		times := strings.Split(timePart, ",")
+
+		if len(times) == 0 {
+			return false
+		}
+
+		for _, timeStr := range times {
+			parts := strings.Split(strings.TrimSpace(timeStr), ":")
+			if len(parts) != 2 {
+				return false
+			}
+
+			hour, err := strconv.Atoi(parts[0])
+			if err != nil || hour < 0 || hour > 23 {
+				return false
+			}
+
+			minute, err := strconv.Atoi(parts[1])
+			if err != nil || minute < 0 || minute > 59 {
+				return false
+			}
+		}
+
+		return true
+	} else {
+		// Try to parse as duration
+		_, err := time.ParseDuration(interval)
+		return err == nil
+	}
+}
+
+// calculateNextRun calculates the next run time based on interval type
+func (s *service) calculateNextRun(interval string, from time.Time) time.Time {
+	if strings.HasPrefix(interval, "exact:") {
+		// Extract time part - supports multiple times separated by comma
+		timePart := strings.TrimPrefix(interval, "exact:")
+		times := strings.Split(timePart, ",")
+
+		var nextRun time.Time
+		minTimeDiff := time.Duration(math.MaxInt64)
+
+		// Find the next upcoming time from the list
+		for _, timeStr := range times {
+			parts := strings.Split(strings.TrimSpace(timeStr), ":")
+			if len(parts) != 2 {
+				continue
+			}
+
+			hour, err := strconv.Atoi(parts[0])
+			if err != nil || hour < 0 || hour > 23 {
+				continue
+			}
+
+			minute, err := strconv.Atoi(parts[1])
+			if err != nil || minute < 0 || minute > 59 {
+				continue
+			}
+
+			// Check today
+			todayRun := time.Date(from.Year(), from.Month(), from.Day(), hour, minute, 0, 0, from.Location())
+			if todayRun.After(from) {
+				diff := todayRun.Sub(from)
+				if diff < minTimeDiff {
+					minTimeDiff = diff
+					nextRun = todayRun
+				}
+			}
+
+			// Check tomorrow
+			tomorrowRun := todayRun.Add(24 * time.Hour)
+			diff := tomorrowRun.Sub(from)
+			if diff < minTimeDiff {
+				minTimeDiff = diff
+				nextRun = tomorrowRun
+			}
+		}
+
+		if nextRun.IsZero() {
+			return time.Time{}
+		}
+
+		// Add small random jitter (1-60 seconds) to prevent thundering herd
+		jitter := time.Duration(rand.Int63n(60)+1) * time.Second
+		return nextRun.Add(jitter)
+	} else {
+		// Parse as duration
+		duration, err := time.ParseDuration(interval)
+		if err != nil {
+			return time.Time{}
+		}
+
+		// Add small random jitter (1-300 seconds) to prevent thundering herd
+		jitter := time.Duration(rand.Int63n(300)+1) * time.Second
+		return from.Add(duration).Add(jitter)
 	}
 }
