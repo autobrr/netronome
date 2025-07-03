@@ -29,9 +29,11 @@ type IperfResult struct {
 	End struct {
 		SumSent struct {
 			BitsPerSecond float64 `json:"bits_per_second"`
+			JitterMs      float64 `json:"jitter_ms"`
 		} `json:"sum_sent"`
 		SumReceived struct {
 			BitsPerSecond float64 `json:"bits_per_second"`
+			JitterMs      float64 `json:"jitter_ms"`
 		} `json:"sum_received"`
 	} `json:"end"`
 	Error string `json:"error,omitempty"`
@@ -68,6 +70,14 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 		"-t", strconv.Itoa(s.config.IPerf.TestDuration), // Test duration in seconds
 		"-P", strconv.Itoa(s.config.IPerf.ParallelConns), // Number of parallel connections
 		"--format", "m", // Force Mbps output
+	}
+
+	// Add UDP-specific arguments if jitter testing is enabled
+	if opts.EnableJitter && s.config.IPerf.EnableUDP {
+		args = append(args, "-u") // UDP mode
+		if s.config.IPerf.UDPBandwidth != "" {
+			args = append(args, "-b", s.config.IPerf.UDPBandwidth) // Bandwidth limit
+		}
 	}
 
 	if opts.EnableDownload {
@@ -178,9 +188,11 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 		End struct {
 			SumSent struct {
 				BitsPerSecond float64 `json:"bits_per_second"`
+				JitterMs      float64 `json:"jitter_ms"`
 			} `json:"sum_sent"`
 			SumReceived struct {
 				BitsPerSecond float64 `json:"bits_per_second"`
+				JitterMs      float64 `json:"jitter_ms"`
 			} `json:"sum_received"`
 		} `json:"end"`
 	}
@@ -190,10 +202,17 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 	}
 
 	var speedMbps float64
+	var jitterMs *float64
 	if opts.EnableDownload {
 		speedMbps = finalResult.End.SumReceived.BitsPerSecond / 1_000_000
+		if opts.EnableJitter && finalResult.End.SumReceived.JitterMs > 0 {
+			jitterMs = &finalResult.End.SumReceived.JitterMs
+		}
 	} else {
 		speedMbps = finalResult.End.SumSent.BitsPerSecond / 1_000_000
+		if opts.EnableJitter && finalResult.End.SumSent.JitterMs > 0 {
+			jitterMs = &finalResult.End.SumSent.JitterMs
+		}
 	}
 
 	// Send final update
@@ -222,6 +241,7 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 			}
 			return 0
 		}(),
+		Jitter:      jitterMs,
 		IsScheduled: opts.IsScheduled,
 	}, nil
 }

@@ -78,9 +78,25 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 			Str("server_host", opts.ServerHost).
 			Bool("enable_download", opts.EnableDownload).
 			Bool("enable_upload", opts.EnableUpload).
+			Bool("enable_ping", opts.EnablePing).
+			Bool("enable_jitter", opts.EnableJitter).
 			Msg("Starting iperf3 test")
 
 		var downloadSpeed, uploadSpeed float64
+		var jitterMs *float64
+		var latency string = "0ms"
+
+		// Always run ping test for iperf3 to get accurate latency
+		pingResult, err := s.RunPingTest(ctx, opts.ServerHost)
+		if err != nil {
+			log.Warn().Err(err).Msg("Ping test failed, continuing with speed tests")
+		} else {
+			latency = pingResult.FormatLatency()
+			log.Debug().
+				Str("latency", latency).
+				Float64("packet_loss", pingResult.PacketLoss).
+				Msg("Ping test completed")
+		}
 
 		// Run download test if enabled
 		if opts.EnableDownload {
@@ -93,6 +109,9 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 				return nil, fmt.Errorf("download test failed: %w", err)
 			}
 			downloadSpeed = downloadResult.DownloadSpeed
+			if downloadResult.Jitter != nil {
+				jitterMs = downloadResult.Jitter
+			}
 		}
 
 		// Short pause between tests
@@ -109,6 +128,15 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 				return nil, fmt.Errorf("upload test failed: %w", err)
 			}
 			uploadSpeed = uploadResult.UploadSpeed
+			// Prefer jitter from upload test if available
+			if uploadResult.Jitter != nil {
+				jitterMs = uploadResult.Jitter
+			}
+		}
+
+		var jitterFloat float64
+		if jitterMs != nil {
+			jitterFloat = *jitterMs
 		}
 
 		result := &Result{
@@ -116,9 +144,9 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 			Server:        opts.ServerHost,
 			DownloadSpeed: downloadSpeed,
 			UploadSpeed:   uploadSpeed,
-			Latency:       "0ms",
+			Latency:       latency,
 			PacketLoss:    0.0,
-			Jitter:        0.0,
+			Jitter:        jitterFloat,
 			Download:      downloadSpeed,
 			Upload:        uploadSpeed,
 		}
@@ -131,9 +159,9 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 			TestType:      "iperf3",
 			DownloadSpeed: downloadSpeed,
 			UploadSpeed:   uploadSpeed,
-			Latency:       "0ms",
+			Latency:       latency,
 			PacketLoss:    0.0,
-			Jitter:        &result.Jitter,
+			Jitter:        jitterMs,
 			IsScheduled:   opts.IsScheduled,
 		})
 		if err != nil {

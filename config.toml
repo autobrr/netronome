@@ -36,6 +36,13 @@ timeout = 30
 test_duration = 10
 parallel_conns = 4
 timeout = 30
+enable_udp = true
+udp_bandwidth = "100M"
+
+[speedtest.iperf.ping]
+count = 5
+interval = 200
+timeout = 10
 
 [speedtest.librespeed]
 timeout = 60
