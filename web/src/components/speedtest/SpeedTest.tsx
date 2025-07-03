@@ -339,14 +339,40 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               <div className="relative flex items-start justify-between p-4">
                 <div className="flex items-start gap-3 flex-1">
                   <div className="flex-shrink-0 mt-0.5">
-                    <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg
+                      className="w-5 h-5 text-red-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-sm font-medium text-red-200 mb-1">Error</h3>
+                    <h3 className="text-sm font-medium text-red-200 mb-1">
+                      Error
+                    </h3>
                     <div className="text-sm text-red-300/90 whitespace-pre-wrap break-words">
-                      {error}
+                      {(() => {
+                        try {
+                          // Try to extract and format JSON from error messages
+                          const jsonMatch = error.match(/(\{[\s\S]*\})/);
+                          if (jsonMatch) {
+                            const jsonStr = jsonMatch[1];
+                            const parsed = JSON.parse(jsonStr);
+                            const formatted = JSON.stringify(parsed, null, 2);
+                            return error.replace(jsonMatch[1], formatted);
+                          }
+                          return error;
+                        } catch {
+                          return error;
+                        }
+                      })()}
                     </div>
                   </div>
                 </div>

@@ -180,7 +180,15 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 		if timeoutCtx.Err() == context.DeadlineExceeded {
 			return nil, fmt.Errorf("iperf3 test timed out after %d seconds", s.config.IPerf.Timeout)
 		}
-		return nil, fmt.Errorf("iperf3 failed: %s - %w", output.String(), err)
+		outputStr := output.String()
+		// Parse and format JSON output for better error display
+		var jsonOutput map[string]any
+		if jsonErr := json.Unmarshal([]byte(outputStr), &jsonOutput); jsonErr == nil {
+			if formattedJSON, formatErr := json.Marshal(jsonOutput); formatErr == nil {
+				outputStr = string(formattedJSON)
+			}
+		}
+		return nil, fmt.Errorf("iperf3 failed: %s - %w", outputStr, err)
 	}
 
 	// Parse final results from the complete output
