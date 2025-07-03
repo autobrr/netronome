@@ -5,6 +5,8 @@
 
 import { useState, useEffect } from "react";
 import { Schedule, Server, SavedIperfServer } from "@/types/types";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getSchedules } from "@/api/speedtest";
 import {
   DisclosureButton,
   Listbox,
@@ -23,6 +25,7 @@ import {
 } from "@heroicons/react/20/solid";
 import { motion, AnimatePresence } from "motion/react";
 import { getApiUrl } from "@/utils/baseUrl";
+import { formatNextRun } from "@/utils/timeUtils";
 
 interface ScheduleManagerProps {
   servers: Server[];
@@ -143,7 +146,7 @@ export default function ScheduleManager({
   servers,
   selectedServers,
 }: ScheduleManagerProps) {
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const queryClient = useQueryClient();
   const [iperfServers, setIperfServers] = useState<SavedIperfServer[]>([]);
   const [interval, setInterval] = useState<string>("1h");
   const [scheduleType, setScheduleType] = useState<"interval" | "exact">(
@@ -152,40 +155,69 @@ export default function ScheduleManager({
   const [exactTimes, setExactTimes] = useState<string[]>(["09:00"]);
   const [enabled] = useState(true);
   const [, setError] = useState<string | null>(null);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [updateTrigger, setUpdateTrigger] = useState(0);
   const [isOpen] = useState(() => {
     const saved = localStorage.getItem("schedule-manager-open");
     return saved === null ? true : saved === "true";
   });
 
+  // Use TanStack Query for schedules with automatic refetching
+  const {
+    data: schedules = [],
+    isLoading: isSchedulesLoading,
+    error: schedulesError,
+  } = useQuery({
+    queryKey: ["schedules"],
+    queryFn: () => {
+      console.log("[ScheduleManager] Fetching schedules...");
+      return getSchedules();
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 10000, // Consider data stale after 10 seconds
+  }) as { data: Schedule[]; isLoading: boolean; error: any };
+
+  // Log when schedules data changes
   useEffect(() => {
-    fetchSchedules();
-    fetchIperfServers();
+    console.log("[ScheduleManager] Schedules data updated:", schedules);
+    if (schedulesError) {
+      console.error("[ScheduleManager] Schedules error:", schedulesError);
+    }
+  }, [schedules, schedulesError]);
+
+  // Update "Next run in:" times every minute (synchronized)
+  useEffect(() => {
+    // Calculate delay to sync with minute boundary
+    const now = new Date();
+    const secondsUntilNextMinute = 60 - now.getSeconds();
+    const initialDelay = secondsUntilNextMinute * 1000;
+
+    // Start timer at the next minute boundary
+    const initialTimer = window.setTimeout(() => {
+      console.log("[ScheduleManager] Updating next run times... (synced)");
+      setUpdateTrigger((prev) => prev + 1);
+
+      // Set up regular interval after initial sync
+      const timer = window.setInterval(() => {
+        console.log("[ScheduleManager] Updating next run times... (synced)");
+        setUpdateTrigger((prev) => prev + 1);
+      }, 60000); // Update every minute
+
+      // Store timer ID for cleanup
+      (window as any)._scheduleManagerTimer = timer;
+    }, initialDelay);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      if ((window as any)._scheduleManagerTimer) {
+        window.clearInterval((window as any)._scheduleManagerTimer);
+        delete (window as any)._scheduleManagerTimer;
+      }
+    };
   }, []);
 
-  const fetchSchedules = async () => {
-    try {
-      if (schedules.length === 0) {
-        setIsInitialLoading(true);
-      }
-      const response = await fetch(getApiUrl("/schedules"));
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
-        );
-      }
-      const data = await response.json();
-      setSchedules(data || []);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to fetch schedules"
-      );
-      setSchedules([]);
-    } finally {
-      setIsInitialLoading(false);
-    }
-  };
+  useEffect(() => {
+    fetchIperfServers();
+  }, []);
 
   const fetchIperfServers = async () => {
     try {
@@ -247,19 +279,23 @@ export default function ScheduleManager({
         );
       }
 
-      const data = await response.json();
-      setSchedules((prev) => [...prev, data]);
+      await response.json();
+      // Invalidate and refetch schedules
+      queryClient.invalidateQueries({ queryKey: ["schedules"] });
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "Failed to create schedule"
       );
-      // Fetch only on error to restore state
-      fetchSchedules();
+      // Invalidate and refetch schedules on error
+      queryClient.invalidateQueries({ queryKey: ["schedules"] });
     }
   };
 
   const handleDeleteSchedule = async (id: number) => {
-    setSchedules((prev) => prev.filter((schedule) => schedule.id !== id));
+    // Optimistically update UI by invalidating the query
+    queryClient.setQueryData(["schedules"], (old: Schedule[] | undefined) =>
+      old ? old.filter((schedule) => schedule.id !== id) : []
+    );
 
     try {
       const response = await fetch(getApiUrl(`/schedules/${id}`), {
@@ -276,25 +312,8 @@ export default function ScheduleManager({
       setError(
         error instanceof Error ? error.message : "Failed to delete schedule"
       );
-      // Fetch only on error to restore state
-      fetchSchedules();
-    }
-  };
-
-  const formatNextRun = (dateString: string): string => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = date.getTime() - now.getTime();
-    const diffMins = Math.round(diffMs / (60 * 1000));
-
-    if (diffMins < 60) {
-      return `${diffMins} minute${diffMins !== 1 ? "s" : ""}`;
-    } else if (diffMins < 1440) {
-      const hours = Math.floor(diffMins / 60);
-      return `${hours} hour${hours !== 1 ? "s" : ""}`;
-    } else {
-      const days = Math.floor(diffMins / 1440);
-      return `${days} day${days !== 1 ? "s" : ""}`;
+      // Invalidate and refetch schedules on error
+      queryClient.invalidateQueries({ queryKey: ["schedules"] });
     }
   };
 
@@ -383,7 +402,7 @@ export default function ScheduleManager({
     return "No servers";
   };
 
-  if (isInitialLoading) {
+  if (isSchedulesLoading) {
     return (
       <div className="flex justify-center p-4">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
@@ -611,6 +630,8 @@ export default function ScheduleManager({
                                   <span className="font-medium">Next run:</span>{" "}
                                   <span className="text-blue-400">
                                     {(() => {
+                                      // Force re-calculation when updateTrigger changes
+                                      updateTrigger; // This ensures the component re-renders
                                       const nextRun = new Date(
                                         calculateNextRun(
                                           interval,
@@ -626,15 +647,21 @@ export default function ScheduleManager({
                                       );
 
                                       if (diffMins < 60) {
-                                        return `in ${diffMins} minute${diffMins !== 1 ? "s" : ""}`;
+                                        return `in ${diffMins} minute${
+                                          diffMins !== 1 ? "s" : ""
+                                        }`;
                                       } else if (diffMins < 1440) {
                                         const hours = Math.floor(diffMins / 60);
-                                        return `in ${hours} hour${hours !== 1 ? "s" : ""}`;
+                                        return `in ${hours} hour${
+                                          hours !== 1 ? "s" : ""
+                                        }`;
                                       } else {
                                         const days = Math.floor(
                                           diffMins / 1440
                                         );
-                                        return `in ${days} day${days !== 1 ? "s" : ""}`;
+                                        return `in ${days} day${
+                                          days !== 1 ? "s" : ""
+                                        }`;
                                       }
                                     })()}
                                   </span>
@@ -691,7 +718,12 @@ export default function ScheduleManager({
                                           (opt) => opt.value === interval
                                         )?.label
                                       : exactTimes.length === 1
-                                        ? `Daily at ${timeOptions.find((opt) => opt.value === exactTimes[0])?.label}`
+                                        ? `Daily at ${
+                                            timeOptions.find(
+                                              (opt) =>
+                                                opt.value === exactTimes[0]
+                                            )?.label
+                                          }`
                                         : `Daily at ${exactTimes.length} times`}
                                   </span>
                                 </>
