@@ -35,6 +35,7 @@ timeout = 30
 [speedtest.iperf]
 test_duration = 10
 parallel_conns = 4
+timeout = 30
 
 [speedtest.librespeed]
 timeout = 60

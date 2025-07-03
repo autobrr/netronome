@@ -10,7 +10,8 @@ export async function getServers(testType: string) {
   try {
     const response = await fetch(getApiUrl(`/servers?testType=${testType}`));
     if (!response.ok) {
-      throw new Error("Failed to fetch servers");
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to fetch servers");
     }
     return await response.json();
   } catch (error) {
@@ -31,7 +32,8 @@ export async function getHistory(
       )
     );
     if (!response.ok) {
-      throw new Error("Failed to fetch history");
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to fetch history");
     }
     return await response.json();
   } catch (error) {
@@ -44,7 +46,8 @@ export async function getSchedules() {
   try {
     const response = await fetch(getApiUrl("/schedules"));
     if (!response.ok) {
-      throw new Error("Failed to fetch schedules");
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to fetch schedules");
     }
     return await response.json();
   } catch (error) {
@@ -63,7 +66,8 @@ export async function runSpeedTest(options: SpeedTestOptions) {
       body: JSON.stringify(options),
     });
     if (!response.ok) {
-      throw new Error("Failed to run speed test");
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to run speed test");
     }
     return await response.json();
   } catch (error) {
@@ -78,7 +82,8 @@ export async function getPublicHistory(timeRange: string, page: number, limit: n
       getApiUrl(`/speedtest/public/history?timeRange=${timeRange}&page=${page}&limit=${limit}`)
     );
     if (!response.ok) {
-      throw new Error('Failed to fetch public history');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to fetch public history');
     }
     return await response.json();
   } catch (error) {
@@ -96,7 +101,8 @@ export async function getSpeedTestStatus() {
       },
     });
     if (!response.ok) {
-      throw new Error("Failed to get speed test status");
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to get speed test status");
     }
     return await response.json();
   } catch (error) {

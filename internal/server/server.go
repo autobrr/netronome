@@ -57,6 +57,7 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 
 	router.Use(LoggerMiddleware())
 	router.Use(gin.Recovery())
+	router.Use(ErrorHandlerMiddleware())
 
 	// CORS middleware with config
 	router.Use(func(c *gin.Context) {

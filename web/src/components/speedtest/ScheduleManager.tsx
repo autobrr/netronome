@@ -89,7 +89,8 @@ export default function ScheduleManager({
       }
       const response = await fetch(getApiUrl("/schedules"));
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
       setSchedules(data || []);
@@ -107,7 +108,8 @@ export default function ScheduleManager({
     try {
       const response = await fetch("/api/iperf/servers");
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
       setIperfServers(data || []);
@@ -153,7 +155,8 @@ export default function ScheduleManager({
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
@@ -176,7 +179,8 @@ export default function ScheduleManager({
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
     } catch (error) {
       setError(
