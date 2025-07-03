@@ -53,3 +53,5 @@ web/dist/*
 !web/dist/.gitkeep
 web/tsconfig.app.tsbuildinfo
 schedules.json
+CLAUDE.md
+.claude/

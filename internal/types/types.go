@@ -9,6 +9,8 @@ type TestOptions struct {
 	EnableDownload   bool     `json:"enableDownload"`
 	EnableUpload     bool     `json:"enableUpload"`
 	EnablePacketLoss bool     `json:"enablePacketLoss"`
+	EnablePing       bool     `json:"enablePing"`
+	EnableJitter     bool     `json:"enableJitter"`
 	ServerIDs        []string `json:"serverIds"`
 	IsScheduled      bool     `json:"isScheduled"`
 	UseIperf         bool     `json:"useIperf"`

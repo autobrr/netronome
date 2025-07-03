@@ -29,7 +29,7 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
 
   - Support for Speedtest.net, iperf3 servers, and LibreSpeed
   - Real-time test progress visualization
-  - Detailed latency measurements
+  - Latency and jitter measurements
 
 - **Monitoring**
 
@@ -156,6 +156,14 @@ timeout = 30
 [speedtest.iperf]
 test_duration = 10
 parallel_conns = 4
+timeout = 30
+enable_udp = false
+udp_bandwidth = "100M"
+
+[speedtest.iperf.ping]
+count = 5
+interval = 200
+timeout = 10
 
 [notifications]
 enabled = false
@@ -213,6 +221,12 @@ Example `librespeed-servers.json`:
 | `NETRONOME__DB_SSLMODE`                       | PostgreSQL SSL mode                                               | `disable`                                    | Only for PostgreSQL    |
 | `NETRONOME__IPERF_TEST_DURATION`              | Duration of iPerf tests in seconds                                | `10`                                         | No                     |
 | `NETRONOME__IPERF_PARALLEL_CONNS`             | Number of parallel iPerf connections                              | `4`                                          | No                     |
+| `NETRONOME__IPERF_TIMEOUT`                    | Timeout for iperf3 tests in seconds                               | `60`                                         | No                     |
+| `NETRONOME__IPERF_ENABLE_UDP`                 | Enable UDP mode for jitter testing                                | `false`                                      | No                     |
+| `NETRONOME__IPERF_UDP_BANDWIDTH`              | Bandwidth limit for UDP tests (e.g., "100M")                      | `100M`                                       | No                     |
+| `NETRONOME__IPERF_PING_COUNT`                 | Number of ping packets to send for iperf3 tests                   | `5`                                          | No                     |
+| `NETRONOME__IPERF_PING_INTERVAL`              | Interval between ping packets in milliseconds for iperf3 tests    | `200`                                        | No                     |
+| `NETRONOME__IPERF_PING_TIMEOUT`               | Timeout for ping tests in seconds for iperf3 tests                | `10`                                         | No                     |
 | `NETRONOME__SPEEDTEST_TIMEOUT`                | Speedtest timeout in seconds                                      | `30`                                         | No                     |
 | `NETRONOME__LOG_LEVEL`                        | Log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`/`panic`) | `info`                                       | No                     |
 | `NETRONOME__OIDC_ISSUER`                      | OpenID Connect issuer URL                                         | -                                            | Only for OIDC          |

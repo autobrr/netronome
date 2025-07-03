@@ -82,18 +82,27 @@ type OIDCConfig struct {
 type SpeedTestConfig struct {
 	IPerf      IperfConfig      `toml:"iperf"`
 	Librespeed LibrespeedConfig `toml:"librespeed"`
-	Timeout    int              `toml:"timeout" env:"SPEEDTEST_TIMEOUT"` // Timeout in seconds
+	Timeout    int              `toml:"timeout" env:"SPEEDTEST_TIMEOUT"`
 }
 
 type IperfConfig struct {
-	TestDuration  int `toml:"test_duration" env:"IPERF_TEST_DURATION"`
-	ParallelConns int `toml:"parallel_conns" env:"IPERF_PARALLEL_CONNS"`
-	Timeout       int `toml:"timeout" env:"IPERF_TIMEOUT"` // Timeout in seconds
+	TestDuration  int        `toml:"test_duration" env:"IPERF_TEST_DURATION"`
+	ParallelConns int        `toml:"parallel_conns" env:"IPERF_PARALLEL_CONNS"`
+	Timeout       int        `toml:"timeout" env:"IPERF_TIMEOUT"`
+	EnableUDP     bool       `toml:"enable_udp" env:"IPERF_ENABLE_UDP"`
+	UDPBandwidth  string     `toml:"udp_bandwidth" env:"IPERF_UDP_BANDWIDTH"`
+	Ping          PingConfig `toml:"ping"`
 }
 
 type LibrespeedConfig struct {
 	ServersPath string `toml:"-"`
 	Timeout     int    `toml:"timeout" env:"LIBRESPEED_TIMEOUT"`
+}
+
+type PingConfig struct {
+	Count    int `toml:"count" env:"IPERF_PING_COUNT"`
+	Interval int `toml:"interval" env:"IPERF_PING_INTERVAL"`
+	Timeout  int `toml:"timeout" env:"IPERF_PING_TIMEOUT"`
 }
 
 type PaginationConfig struct {
@@ -170,13 +179,20 @@ func New() *Config {
 			IPerf: IperfConfig{
 				TestDuration:  10,
 				ParallelConns: 4,
-				Timeout:       60, // 60 seconds default timeout for iperf3
+				Timeout:       60,
+				EnableUDP:     false,
+				UDPBandwidth:  "100M",
+				Ping: PingConfig{
+					Count:    5,
+					Interval: 200,
+					Timeout:  10,
+				},
 			},
 			Librespeed: LibrespeedConfig{
 				ServersPath: "librespeed-servers.json",
 				Timeout:     60,
 			},
-			Timeout: 30, // 30 seconds default timeout
+			Timeout: 30,
 		},
 		Pagination: PaginationConfig{
 			DefaultPage:      1,
@@ -372,6 +388,29 @@ func (c *Config) loadSpeedTestFromEnv() {
 	if v := getEnv("IPERF_TIMEOUT"); v != "" {
 		if val, err := strconv.Atoi(v); err == nil {
 			c.SpeedTest.IPerf.Timeout = val
+		}
+	}
+	if v := getEnv("IPERF_ENABLE_UDP"); v != "" {
+		if val, err := strconv.ParseBool(v); err == nil {
+			c.SpeedTest.IPerf.EnableUDP = val
+		}
+	}
+	if v := getEnv("IPERF_UDP_BANDWIDTH"); v != "" {
+		c.SpeedTest.IPerf.UDPBandwidth = v
+	}
+	if v := getEnv("IPERF_PING_COUNT"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.IPerf.Ping.Count = val
+		}
+	}
+	if v := getEnv("IPERF_PING_INTERVAL"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.IPerf.Ping.Interval = val
+		}
+	}
+	if v := getEnv("IPERF_PING_TIMEOUT"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.IPerf.Ping.Timeout = val
 		}
 	}
 	if v := getEnv("LIBRESPEED_TIMEOUT"); v != "" {
@@ -588,6 +627,12 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "timeout = %d\n", cfg.SpeedTest.IPerf.Timeout); err != nil {
 		return err
 	}
+	if _, err := fmt.Fprintf(w, "enable_udp = %v\n", cfg.SpeedTest.IPerf.EnableUDP); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "udp_bandwidth = \"%s\"\n", cfg.SpeedTest.IPerf.UDPBandwidth); err != nil {
+		return err
+	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
 		return err
 	}
@@ -597,6 +642,23 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "timeout = %d\n", cfg.SpeedTest.Librespeed.Timeout); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+
+	// SpeedTest IPerf Ping section
+	if _, err := fmt.Fprintln(w, "[speedtest.iperf.ping]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "count = %d\n", cfg.SpeedTest.IPerf.Ping.Count); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "interval = %d\n", cfg.SpeedTest.IPerf.Ping.Interval); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "timeout = %d\n", cfg.SpeedTest.IPerf.Ping.Timeout); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
