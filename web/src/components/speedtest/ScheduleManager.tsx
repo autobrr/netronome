@@ -15,7 +15,12 @@ import {
 } from "@headlessui/react";
 import { ChevronUpDownIcon } from "@heroicons/react/20/solid";
 import { Disclosure } from "@headlessui/react";
-import { ChevronDownIcon, XMarkIcon } from "@heroicons/react/20/solid";
+import {
+  ChevronDownIcon,
+  XMarkIcon,
+  ClockIcon,
+  ArrowPathIcon,
+} from "@heroicons/react/20/solid";
 import { motion, AnimatePresence } from "motion/react";
 import { getApiUrl } from "@/utils/baseUrl";
 
@@ -30,6 +35,11 @@ interface IntervalOption {
   label: string;
 }
 
+interface TimeOption {
+  value: string;
+  label: string;
+}
+
 const intervalOptions: IntervalOption[] = [
   { value: "5m", label: "Every 5 Minutes" },
   { value: "15m", label: "Every 15 Minutes" },
@@ -39,6 +49,33 @@ const intervalOptions: IntervalOption[] = [
   { value: "12h", label: "Every 12 Hours" },
   { value: "24h", label: "Every Day" },
   { value: "7d", label: "Every Week" },
+];
+
+const timeOptions: TimeOption[] = [
+  { value: "00:00", label: "12:00 AM" },
+  { value: "01:00", label: "1:00 AM" },
+  { value: "02:00", label: "2:00 AM" },
+  { value: "03:00", label: "3:00 AM" },
+  { value: "04:00", label: "4:00 AM" },
+  { value: "05:00", label: "5:00 AM" },
+  { value: "06:00", label: "6:00 AM" },
+  { value: "07:00", label: "7:00 AM" },
+  { value: "08:00", label: "8:00 AM" },
+  { value: "09:00", label: "9:00 AM" },
+  { value: "10:00", label: "10:00 AM" },
+  { value: "11:00", label: "11:00 AM" },
+  { value: "12:00", label: "12:00 PM" },
+  { value: "13:00", label: "1:00 PM" },
+  { value: "14:00", label: "2:00 PM" },
+  { value: "15:00", label: "3:00 PM" },
+  { value: "16:00", label: "4:00 PM" },
+  { value: "17:00", label: "5:00 PM" },
+  { value: "18:00", label: "6:00 PM" },
+  { value: "19:00", label: "7:00 PM" },
+  { value: "20:00", label: "8:00 PM" },
+  { value: "21:00", label: "9:00 PM" },
+  { value: "22:00", label: "10:00 PM" },
+  { value: "23:00", label: "11:00 PM" },
 ];
 
 const parseInterval = (intervalStr: string): number => {
@@ -57,9 +94,49 @@ const parseInterval = (intervalStr: string): number => {
   }
 };
 
-const calculateNextRun = (intervalStr: string): string => {
-  const milliseconds = parseInterval(intervalStr);
-  return new Date(Date.now() + milliseconds).toISOString();
+const calculateNextRun = (
+  intervalStr: string,
+  scheduleType: "interval" | "exact",
+  exactTime?: string
+): string => {
+  if (scheduleType === "exact" && exactTime) {
+    const now = new Date();
+    const times = exactTime.split(",");
+
+    let closestTime: Date | null = null;
+    let minDiff = Infinity;
+
+    // Check each time to find the next upcoming one
+    for (const timeStr of times) {
+      const [hours, minutes] = timeStr.trim().split(":").map(Number);
+
+      // Try today
+      const todayRun = new Date(now);
+      todayRun.setHours(hours, minutes, 0, 0);
+
+      if (todayRun > now) {
+        const diff = todayRun.getTime() - now.getTime();
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestTime = todayRun;
+        }
+      }
+
+      // Try tomorrow
+      const tomorrowRun = new Date(todayRun);
+      tomorrowRun.setDate(tomorrowRun.getDate() + 1);
+      const tomorrowDiff = tomorrowRun.getTime() - now.getTime();
+      if (tomorrowDiff < minDiff) {
+        minDiff = tomorrowDiff;
+        closestTime = tomorrowRun;
+      }
+    }
+
+    return closestTime ? closestTime.toISOString() : new Date().toISOString();
+  } else {
+    const milliseconds = parseInterval(intervalStr);
+    return new Date(Date.now() + milliseconds).toISOString();
+  }
 };
 
 export default function ScheduleManager({
@@ -69,6 +146,10 @@ export default function ScheduleManager({
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [iperfServers, setIperfServers] = useState<SavedIperfServer[]>([]);
   const [interval, setInterval] = useState<string>("1h");
+  const [scheduleType, setScheduleType] = useState<"interval" | "exact">(
+    "interval"
+  );
+  const [exactTimes, setExactTimes] = useState<string[]>(["09:00"]);
   const [enabled] = useState(true);
   const [, setError] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -90,7 +171,9 @@ export default function ScheduleManager({
       const response = await fetch(getApiUrl("/schedules"));
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
       }
       const data = await response.json();
       setSchedules(data || []);
@@ -109,7 +192,9 @@ export default function ScheduleManager({
       const response = await fetch("/api/iperf/servers");
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
       }
       const data = await response.json();
       setIperfServers(data || []);
@@ -131,8 +216,9 @@ export default function ScheduleManager({
 
     const newSchedule: Schedule = {
       serverIds: selectedServers.map((s) => s.id),
-      interval: interval,
-      nextRun: calculateNextRun(interval),
+      interval:
+        scheduleType === "exact" ? `exact:${exactTimes.join(",")}` : interval,
+      nextRun: calculateNextRun(interval, scheduleType, exactTimes.join(",")),
       enabled,
       options: {
         enableDownload: true,
@@ -156,7 +242,9 @@ export default function ScheduleManager({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
       }
 
       const data = await response.json();
@@ -180,7 +268,9 @@ export default function ScheduleManager({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
       }
     } catch (error) {
       setError(
@@ -337,71 +427,276 @@ export default function ScheduleManager({
                     <div className="flex flex-col gap-4 pb-4">
                       <div className="grid grid-cols-1 gap-4">
                         <div>
-                          <Listbox value={interval} onChange={setInterval}>
-                            <div className="relative">
-                              <ListboxButton className="relative w-full px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg text-left text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
-                                <span className="block truncate">
-                                  {
-                                    intervalOptions.find(
-                                      (opt) => opt.value === interval
-                                    )?.label
-                                  }
-                                </span>
-                                <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                                  <ChevronUpDownIcon
-                                    className="h-5 w-5 text-gray-400"
-                                    aria-hidden="true"
-                                  />
-                                </span>
-                              </ListboxButton>
-                              <Transition
-                                enter="transition duration-100 ease-out"
-                                enterFrom="transform scale-95 opacity-0"
-                                enterTo="transform scale-100 opacity-100"
-                                leave="transition duration-75 ease-out"
-                                leaveFrom="transform scale-100 opacity-100"
-                                leaveTo="transform scale-95 opacity-0"
-                              >
-                                <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-gray-800 border border-gray-900 py-1 shadow-lg focus:outline-none">
-                                  {intervalOptions.map((option) => (
-                                    <ListboxOption
-                                      key={option.value}
-                                      value={option.value}
-                                      className={({ focus }) =>
-                                        `relative cursor-pointer select-none py-2 px-4 ${
-                                          focus
-                                            ? "bg-blue-500/10 text-blue-200"
-                                            : "text-gray-300"
-                                        }`
-                                      }
-                                    >
-                                      {option.label}
-                                    </ListboxOption>
-                                  ))}
-                                </ListboxOptions>
-                              </Transition>
-                            </div>
-                          </Listbox>
-
-                          <div className="flex items-center justify-between mt-4">
-                            <div className="relative inline-block group">
+                          {/* Schedule Type Toggle Buttons */}
+                          <div className="mb-4">
+                            <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800/30 rounded-lg">
                               <button
-                                className={`ml-1 px-3 py-2 rounded-lg shadow-md transition-colors border ${
-                                  selectedServers.length === 0
-                                    ? "bg-gray-700 text-gray-400 cursor-not-allowed border-gray-900"
-                                    : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
+                                onClick={() => setScheduleType("interval")}
+                                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-md font-medium transition-all duration-200 ${
+                                  scheduleType === "interval"
+                                    ? "bg-blue-500 text-white shadow-lg"
+                                    : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/50"
                                 }`}
-                                onClick={handleCreateSchedule}
-                                disabled={selectedServers.length === 0}
                               >
-                                Create schedule
+                                <ArrowPathIcon className="w-4 h-4" />
+                                <span>Interval</span>
                               </button>
-                              {selectedServers.length === 0 && (
-                                <div className="absolute bottom-full border border-gray-900 left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 text-sm text-white bg-gray-800 rounded-md invisible group-hover:visible transition-all duration-200 whitespace-nowrap">
-                                  Pick a server first
+                              <button
+                                onClick={() => setScheduleType("exact")}
+                                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-md font-medium transition-all duration-200 ${
+                                  scheduleType === "exact"
+                                    ? "bg-blue-500 text-white shadow-lg"
+                                    : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/50"
+                                }`}
+                              >
+                                <ClockIcon className="w-4 h-4" />
+                                <span>Exact Time</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Interval or Time Selector */}
+                          {scheduleType === "interval" ? (
+                            <Listbox value={interval} onChange={setInterval}>
+                              <div className="relative">
+                                <ListboxButton className="relative w-full px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg text-left text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
+                                  <span className="block truncate">
+                                    {
+                                      intervalOptions.find(
+                                        (opt) => opt.value === interval
+                                      )?.label
+                                    }
+                                  </span>
+                                  <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                                    <ChevronUpDownIcon
+                                      className="h-5 w-5 text-gray-400"
+                                      aria-hidden="true"
+                                    />
+                                  </span>
+                                </ListboxButton>
+                                <Transition
+                                  enter="transition duration-100 ease-out"
+                                  enterFrom="transform scale-95 opacity-0"
+                                  enterTo="transform scale-100 opacity-100"
+                                  leave="transition duration-75 ease-out"
+                                  leaveFrom="transform scale-100 opacity-100"
+                                  leaveTo="transform scale-95 opacity-0"
+                                >
+                                  <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-gray-800 border border-gray-900 py-1 shadow-lg focus:outline-none">
+                                    {intervalOptions.map((option) => (
+                                      <ListboxOption
+                                        key={option.value}
+                                        value={option.value}
+                                        className={({ focus }) =>
+                                          `relative cursor-pointer select-none py-2 px-4 ${
+                                            focus
+                                              ? "bg-blue-500/10 text-blue-200"
+                                              : "text-gray-300"
+                                          }`
+                                        }
+                                      >
+                                        {option.label}
+                                      </ListboxOption>
+                                    ))}
+                                  </ListboxOptions>
+                                </Transition>
+                              </div>
+                            </Listbox>
+                          ) : (
+                            <div className="space-y-3">
+                              {/* Selected Times Display */}
+                              {exactTimes.length > 0 && (
+                                <div className="flex flex-wrap gap-2 p-3 bg-gray-800/30 rounded-lg border border-gray-900">
+                                  {exactTimes.sort().map((time) => (
+                                    <div
+                                      key={time}
+                                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-md border border-blue-500/30"
+                                    >
+                                      <ClockIcon className="w-3.5 h-3.5" />
+                                      <span className="text-sm font-medium">
+                                        {timeOptions.find(
+                                          (opt) => opt.value === time
+                                        )?.label || time}
+                                      </span>
+                                      <button
+                                        onClick={() =>
+                                          setExactTimes(
+                                            exactTimes.filter((t) => t !== time)
+                                          )
+                                        }
+                                        className="ml-1 text-blue-300 hover:text-blue-200 transition-colors"
+                                      >
+                                        <XMarkIcon className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  ))}
                                 </div>
                               )}
+
+                              {/* Time Picker */}
+                              <Listbox
+                                value=""
+                                onChange={(newTime: string) => {
+                                  if (
+                                    newTime &&
+                                    !exactTimes.includes(newTime)
+                                  ) {
+                                    setExactTimes([...exactTimes, newTime]);
+                                  }
+                                }}
+                              >
+                                <div className="relative">
+                                  <ListboxButton className="relative w-full px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg text-left text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
+                                    <span className="block truncate">
+                                      {exactTimes.length === 0
+                                        ? "Select times..."
+                                        : "Add another time..."}
+                                    </span>
+                                    <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                                      <ChevronUpDownIcon
+                                        className="h-5 w-5 text-gray-400"
+                                        aria-hidden="true"
+                                      />
+                                    </span>
+                                  </ListboxButton>
+                                  <Transition
+                                    enter="transition duration-100 ease-out"
+                                    enterFrom="transform scale-95 opacity-0"
+                                    enterTo="transform scale-100 opacity-100"
+                                    leave="transition duration-75 ease-out"
+                                    leaveFrom="transform scale-100 opacity-100"
+                                    leaveTo="transform scale-95 opacity-0"
+                                  >
+                                    <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-gray-800 border border-gray-900 py-1 shadow-lg focus:outline-none">
+                                      {timeOptions.map((option) => (
+                                        <ListboxOption
+                                          key={option.value}
+                                          value={option.value}
+                                          disabled={exactTimes.includes(
+                                            option.value
+                                          )}
+                                          className={({ focus, disabled }) =>
+                                            `relative cursor-pointer select-none py-2 px-4 flex items-center justify-between ${
+                                              disabled
+                                                ? "opacity-50 cursor-not-allowed text-gray-500"
+                                                : focus
+                                                  ? "bg-blue-500/10 text-blue-200"
+                                                  : "text-gray-300"
+                                            }`
+                                          }
+                                        >
+                                          <span>{option.label}</span>
+                                          {exactTimes.includes(
+                                            option.value
+                                          ) && (
+                                            <span className="text-xs text-gray-500">
+                                              Added
+                                            </span>
+                                          )}
+                                        </ListboxOption>
+                                      ))}
+                                    </ListboxOptions>
+                                  </Transition>
+                                </div>
+                              </Listbox>
                             </div>
+                          )}
+
+                          {/* Next Run Preview */}
+                          {selectedServers.length > 0 &&
+                            (scheduleType === "interval" ||
+                              exactTimes.length > 0) && (
+                              <div className="mt-4 p-3 bg-gray-800/30 rounded-lg border border-gray-900">
+                                <p className="text-sm text-gray-400">
+                                  <span className="font-medium">Next run:</span>{" "}
+                                  <span className="text-blue-400">
+                                    {(() => {
+                                      const nextRun = new Date(
+                                        calculateNextRun(
+                                          interval,
+                                          scheduleType,
+                                          exactTimes.join(",")
+                                        )
+                                      );
+                                      const now = new Date();
+                                      const diffMs =
+                                        nextRun.getTime() - now.getTime();
+                                      const diffMins = Math.round(
+                                        diffMs / 60000
+                                      );
+
+                                      if (diffMins < 60) {
+                                        return `in ${diffMins} minute${diffMins !== 1 ? "s" : ""}`;
+                                      } else if (diffMins < 1440) {
+                                        const hours = Math.floor(diffMins / 60);
+                                        return `in ${hours} hour${hours !== 1 ? "s" : ""}`;
+                                      } else {
+                                        const days = Math.floor(
+                                          diffMins / 1440
+                                        );
+                                        return `in ${days} day${days !== 1 ? "s" : ""}`;
+                                      }
+                                    })()}
+                                  </span>
+                                  {scheduleType === "exact" && (
+                                    <span className="text-gray-500 text-xs ml-2">
+                                      (
+                                      {new Date(
+                                        calculateNextRun(
+                                          interval,
+                                          scheduleType,
+                                          exactTimes.join(",")
+                                        )
+                                      ).toLocaleDateString()}
+                                      )
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                            )}
+
+                          {/* Create Schedule Button */}
+                          <div className="mt-6">
+                            <button
+                              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+                                selectedServers.length === 0 ||
+                                (scheduleType === "exact" &&
+                                  exactTimes.length === 0)
+                                  ? "bg-gray-800/50 text-gray-500 cursor-not-allowed border border-gray-900"
+                                  : "bg-blue-500 hover:bg-blue-600 text-white shadow-lg border border-blue-600 hover:border-blue-700 hover:shadow-xl"
+                              }`}
+                              onClick={handleCreateSchedule}
+                              disabled={
+                                selectedServers.length === 0 ||
+                                (scheduleType === "exact" &&
+                                  exactTimes.length === 0)
+                              }
+                            >
+                              {selectedServers.length === 0 ? (
+                                <>Select a server to create schedule</>
+                              ) : scheduleType === "exact" &&
+                                exactTimes.length === 0 ? (
+                                <>Select at least one time</>
+                              ) : (
+                                <>
+                                  {scheduleType === "interval" ? (
+                                    <ArrowPathIcon className="w-5 h-5" />
+                                  ) : (
+                                    <ClockIcon className="w-5 h-5" />
+                                  )}
+                                  <span>
+                                    Create{" "}
+                                    {scheduleType === "interval"
+                                      ? intervalOptions.find(
+                                          (opt) => opt.value === interval
+                                        )?.label
+                                      : exactTimes.length === 1
+                                        ? `Daily at ${timeOptions.find((opt) => opt.value === exactTimes[0])?.label}`
+                                        : `Daily at ${exactTimes.length} times`}
+                                  </span>
+                                </>
+                              )}
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -448,8 +743,41 @@ export default function ScheduleManager({
                                   >
                                     <div className="flex flex-col gap-2">
                                       <div className="flex items-center justify-between">
-                                        <h6 className="text-white font-medium">
-                                          Every {schedule.interval}
+                                        <h6 className="text-white font-medium flex items-center gap-2">
+                                          {schedule.interval.startsWith(
+                                            "exact:"
+                                          ) ? (
+                                            <>
+                                              <ClockIcon className="w-4 h-4 text-blue-400" />
+                                              <span>
+                                                Daily at{" "}
+                                                {(() => {
+                                                  const times =
+                                                    schedule.interval
+                                                      .substring(6)
+                                                      .split(",");
+                                                  if (times.length === 1) {
+                                                    return new Date(
+                                                      `2000-01-01T${times[0]}:00`
+                                                    ).toLocaleTimeString([], {
+                                                      hour: "numeric",
+                                                      minute: "2-digit",
+                                                      hour12: true,
+                                                    });
+                                                  } else {
+                                                    return `${times.length} times`;
+                                                  }
+                                                })()}
+                                              </span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <ArrowPathIcon className="w-4 h-4 text-green-400" />
+                                              <span>
+                                                Every {schedule.interval}
+                                              </span>
+                                            </>
+                                          )}
                                         </h6>
                                         <button
                                           onClick={() =>
@@ -470,6 +798,31 @@ export default function ScheduleManager({
                                           {getServerNames(schedule.serverIds)}
                                         </span>
                                       </p>
+                                      {schedule.interval.startsWith("exact:") &&
+                                        schedule.interval
+                                          .substring(6)
+                                          .split(",").length > 1 && (
+                                          <div className="text-gray-400 text-sm mt-1">
+                                            <span className="font-medium">
+                                              Times:
+                                            </span>{" "}
+                                            <span className="text-blue-400">
+                                              {schedule.interval
+                                                .substring(6)
+                                                .split(",")
+                                                .map((time) =>
+                                                  new Date(
+                                                    `2000-01-01T${time}:00`
+                                                  ).toLocaleTimeString([], {
+                                                    hour: "numeric",
+                                                    minute: "2-digit",
+                                                    hour12: true,
+                                                  })
+                                                )
+                                                .join(", ")}
+                                            </span>
+                                          </div>
+                                        )}
                                       <p className="text-gray-400 text-xs pt-2">
                                         <span className="font-normal">
                                           Next run in:
