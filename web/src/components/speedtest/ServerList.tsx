@@ -53,7 +53,6 @@ export const ServerList: React.FC<ServerListProps> = ({
   const [displayCount, setDisplayCount] = useState(3);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCountry, setFilterCountry] = useState("");
-  const [iperfHost, setIperfHost] = useState("");
   const [iperfSearchTerm, setIperfSearchTerm] = useState("");
   const [addServerModalOpen, setAddServerModalOpen] = useState(false);
   const [iperfDisplayCount, setIperfDisplayCount] = useState(3);
@@ -160,9 +159,6 @@ export const ServerList: React.FC<ServerListProps> = ({
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || "Failed to save iperf server");
       }
-
-      // Clear the input after successful save
-      setIperfHost("");
 
       // Refresh the list of saved servers
       await fetchSavedIperfServers();
@@ -656,7 +652,6 @@ export const ServerList: React.FC<ServerListProps> = ({
                     newServerDetails.host,
                     parseInt(newServerDetails.port)
                   );
-                  setIperfHost("");
                 }
               }}
               title="Save Server"
