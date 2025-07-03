@@ -459,12 +459,9 @@ export const ServerList: React.FC<ServerListProps> = ({
                                   transition={{ duration: 0.3 }}
                                 >
                                   <button
-                                    onClick={() => {
-                                      selectedServers.forEach((s) =>
-                                        onSelect(s)
-                                      );
-                                      onSelect(iperfServer);
-                                    }}
+                                    onClick={() =>
+                                      handleServerSelect(iperfServer)
+                                    }
                                     className={`w-full p-4 rounded-lg text-left transition-colors relative ${
                                       selectedServers.some(
                                         (s) => s.id === iperfServer.id
