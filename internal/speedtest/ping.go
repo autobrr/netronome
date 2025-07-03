@@ -139,11 +139,8 @@ func (s *service) parseUnixPingOutput(lines []string, result *PingResult) (*Ping
 	// Look for statistics line (e.g., "5 packets transmitted, 5 received, 0% packet loss")
 	statsRegex := regexp.MustCompile(`(\d+) packets transmitted, (\d+) (?:packets )?received, (?:\+\d+ errors, )?(\d+(?:\.\d+)?)% packet loss`)
 
-	// Look for timing line - handle both formats:
-	// "round-trip min/avg/max/stddev = 1.234/2.345/3.456/0.789 ms" (Linux)
-	// "round-trip min/avg/max = 1.234/2.345/3.456 ms" (Alpine)
-	timingRegexWithStddev := regexp.MustCompile(`round-trip min/avg/max/(?:stddev|mdev) = ([\d.]+)/([\d.]+)/([\d.]+)/([\d.]+) ms`)
-	timingRegexSimple := regexp.MustCompile(`round-trip min/avg/max = ([\d.]+)/([\d.]+)/([\d.]+) ms`)
+	// Look for timing line (e.g., "round-trip min/avg/max/stddev = 1.234/2.345/3.456/0.789 ms")
+	timingRegex := regexp.MustCompile(`round-trip min/avg/max/(?:stddev|mdev) = ([\d.]+)/([\d.]+)/([\d.]+)/([\d.]+) ms`)
 
 	for _, line := range lines {
 		if match := statsRegex.FindStringSubmatch(line); match != nil {
@@ -156,8 +153,7 @@ func (s *service) parseUnixPingOutput(lines []string, result *PingResult) (*Ping
 			result.PacketLoss = loss
 		}
 
-		// Try format with stddev first
-		if match := timingRegexWithStddev.FindStringSubmatch(line); match != nil {
+		if match := timingRegex.FindStringSubmatch(line); match != nil {
 			min, _ := strconv.ParseFloat(match[1], 64)
 			avg, _ := strconv.ParseFloat(match[2], 64)
 			max, _ := strconv.ParseFloat(match[3], 64)
@@ -167,16 +163,6 @@ func (s *service) parseUnixPingOutput(lines []string, result *PingResult) (*Ping
 			result.AvgRTT = avg
 			result.MaxRTT = max
 			result.StddevRTT = stddev
-		} else if match := timingRegexSimple.FindStringSubmatch(line); match != nil {
-			// Alpine format without stddev
-			min, _ := strconv.ParseFloat(match[1], 64)
-			avg, _ := strconv.ParseFloat(match[2], 64)
-			max, _ := strconv.ParseFloat(match[3], 64)
-
-			result.MinRTT = min
-			result.AvgRTT = avg
-			result.MaxRTT = max
-			result.StddevRTT = 0 // Not available in Alpine format
 		}
 	}
 

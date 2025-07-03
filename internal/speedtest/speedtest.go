@@ -86,18 +86,16 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 		var jitterMs *float64
 		var latency string = "0ms"
 
-		// Run ping test for iperf3 if enabled to get accurate latency
-		if opts.EnablePing {
-			pingResult, err := s.RunPingTest(ctx, opts.ServerHost)
-			if err != nil {
-				log.Warn().Err(err).Msg("Ping test failed, continuing with speed tests")
-			} else {
-				latency = pingResult.FormatLatency()
-				log.Debug().
-					Str("latency", latency).
-					Float64("packet_loss", pingResult.PacketLoss).
-					Msg("Ping test completed")
-			}
+		// Always run ping test for iperf3 to get accurate latency
+		pingResult, err := s.RunPingTest(ctx, opts.ServerHost)
+		if err != nil {
+			log.Warn().Err(err).Msg("Ping test failed, continuing with speed tests")
+		} else {
+			latency = pingResult.FormatLatency()
+			log.Debug().
+				Str("latency", latency).
+				Float64("packet_loss", pingResult.PacketLoss).
+				Msg("Ping test completed")
 		}
 
 		// Run download test if enabled
