@@ -6,17 +6,14 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "motion/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  PlayIcon,
-  StopIcon,
-  ChevronUpDownIcon,
-} from "@heroicons/react/24/solid";
+import { ChevronUpDownIcon } from "@heroicons/react/24/solid";
 import {
   TracerouteResult,
   TracerouteUpdate,
   Server,
   SavedIperfServer,
 } from "@/types/types";
+import { Button } from "@/components/ui/Button";
 import {
   runTraceroute,
   getTracerouteStatus,
@@ -263,13 +260,6 @@ export const TracerouteTab: React.FC = () => {
     }
   };
 
-  const handleStop = () => {
-    tracerouteMutation.reset();
-    queryClient.setQueryData(["traceroute", "results"], null);
-    setTracerouteStatus(null);
-    setError(null);
-  };
-
   const formatRTT = (rtt: number) => {
     if (rtt === 0) return "*";
     return `${rtt.toFixed(1)}ms`;
@@ -452,31 +442,14 @@ export const TracerouteTab: React.FC = () => {
                 }
               }}
             />
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={
-                tracerouteMutation.isPending ? handleStop : handleRunTraceroute
-              }
-              disabled={!host.trim() && !tracerouteMutation.isPending}
-              className={`px-6 py-2 rounded-lg font-medium transition-colors border shadow-md flex items-center gap-2 min-w-[100px] justify-center ${
-                tracerouteMutation.isPending
-                  ? "bg-red-500 hover:bg-red-600 text-white border-red-600 hover:border-red-700"
-                  : "bg-blue-500 hover:bg-blue-600 text-white disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed border-blue-600 hover:border-blue-700 disabled:border-gray-900"
-              }`}
+            <Button
+              onClick={handleRunTraceroute}
+              disabled={!host.trim() || tracerouteMutation.isPending}
+              isLoading={tracerouteMutation.isPending}
+              className="bg-blue-500 hover:bg-blue-600 text-white disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed border-blue-600 hover:border-blue-700 disabled:border-gray-900"
             >
-              {tracerouteMutation.isPending ? (
-                <>
-                  <StopIcon className="w-4 h-4" />
-                  Stop
-                </>
-              ) : (
-                <>
-                  <PlayIcon className="w-4 h-4" />
-                  Trace
-                </>
-              )}
-            </motion.button>
+              {tracerouteMutation.isPending ? "Running..." : "Trace"}
+            </Button>
           </div>
         </div>
       </motion.div>
@@ -589,12 +562,10 @@ export const TracerouteTab: React.FC = () => {
                         </td>
                         <td
                           className="py-3 px-2 text-gray-300 text-center"
-                          title={hop.timeout ? "Request timed out" : hop.host}
+                          title={hop.timeout ? "-" : hop.host}
                         >
                           {hop.timeout ? (
-                            <span className="text-red-400">
-                              Request timed out
-                            </span>
+                            <span className="text-gray-500">Timeout</span>
                           ) : (
                             hop.host
                           )}
@@ -790,15 +761,15 @@ export const TracerouteTab: React.FC = () => {
                       transition={{ duration: 0.3 }}
                       className="border-b border-gray-800/50 last:border-0 hover:bg-gray-800/30 transition-colors"
                     >
-                      <td className="py-3 px-2 text-gray-300 text-center">{hop.number}</td>
+                      <td className="py-3 px-2 text-gray-300 text-center">
+                        {hop.number}
+                      </td>
                       <td
                         className="py-3 px-2 text-gray-300 text-center"
                         title={hop.timeout ? "Request timed out" : hop.host}
                       >
                         {hop.timeout ? (
-                          <span className="text-red-400">
-                            Request timed out
-                          </span>
+                          <span className="text-gray-500">Timeout</span>
                         ) : (
                           hop.host
                         )}
