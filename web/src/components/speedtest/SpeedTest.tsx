@@ -5,10 +5,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Container } from "@mui/material";
-import {
-  FaGithub,
-  FaArrowDown,
-} from "react-icons/fa";
+import { FaGithub, FaArrowDown } from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
 import { XMarkIcon } from "@heroicons/react/20/solid";
 import { ShareModal } from "./ShareModal";
@@ -186,8 +183,8 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     return history && history.length > 0
       ? history[0]
       : allTimeHistory.length > 0
-        ? allTimeHistory[0]
-        : null;
+      ? allTimeHistory[0]
+      : null;
   }, [history, allTimeHistory]);
 
   const { data: schedules = [] } = useQuery({
@@ -204,7 +201,6 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   useEffect(() => {
     console.log("[SpeedTest] Schedules data updated:", schedules);
   }, [schedules]);
-
 
   // Mutations
   const speedTestMutation = useMutation({
@@ -352,7 +348,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
           {(testStatus === "running" || scheduledTestRunning) && (
             <div
-              className="mt-8 md:mt-0 flex items-center justify-center"
+              className="mt-8 md:mt-0 flex items-center justify-center md:mr-20"
               style={{ minWidth: "120px", height: "40px" }}
             >
               {progress !== null && <TestProgress progress={progress} />}
@@ -448,7 +444,9 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                     <FaArrowDown className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900 dark:text-white">Run a test now</p>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      Run a test now
+                    </p>
                     <p className="text-sm">
                       Select a server below and start testing
                     </p>
@@ -509,7 +507,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               />
             </motion.div>
           )}
-          
+
           {!isPublic && activeTab === "speedtest" && (
             <motion.div
               key="speedtest"
@@ -533,7 +531,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               />
             </motion.div>
           )}
-          
+
           {!isPublic && activeTab === "traceroute" && (
             <motion.div
               key="traceroute"
@@ -546,8 +544,6 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
             </motion.div>
           )}
         </AnimatePresence>
-
-
       </Container>
 
       {/* Public Footer */}
@@ -585,4 +581,3 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     </div>
   );
 }
-
