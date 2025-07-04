@@ -124,3 +124,17 @@ export interface TracerouteResult {
   totalHops: number;
   complete: boolean;
 }
+
+export interface TracerouteUpdate {
+  type: string;
+  host: string;
+  progress: number;
+  isComplete: boolean;
+  currentHop: number;
+  totalHops: number;
+  isScheduled: boolean;
+  hops: TracerouteHop[];
+  destination: string;
+  ip: string;
+  terminatedEarly?: boolean;
+}

@@ -3,7 +3,9 @@
 
 package types
 
-import "time"
+import (
+	"time"
+)
 
 type TestOptions struct {
 	EnableDownload   bool     `json:"enableDownload"`
@@ -68,4 +70,18 @@ type SavedIperfServer struct {
 	Port      int       `db:"port" json:"port"`
 	CreatedAt time.Time `db:"created_at" json:"createdAt"`
 	UpdatedAt time.Time `db:"updated_at" json:"updatedAt"`
+}
+
+type TracerouteUpdate struct {
+	Type            string      `json:"type"`
+	Host            string      `json:"host"`
+	Progress        float64     `json:"progress"`
+	IsComplete      bool        `json:"isComplete"`
+	CurrentHop      int         `json:"currentHop"`
+	TotalHops       int         `json:"totalHops"`
+	IsScheduled     bool        `json:"isScheduled"`
+	Hops            interface{} `json:"hops"`  // Will be []TracerouteHop from speedtest package
+	Destination     string      `json:"destination"`
+	IP              string      `json:"ip"`
+	TerminatedEarly bool        `json:"terminatedEarly,omitempty"`
 }

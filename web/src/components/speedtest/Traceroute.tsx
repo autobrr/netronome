@@ -15,11 +15,12 @@ import {
 } from "@heroicons/react/24/solid";
 import {
   TracerouteResult,
+  TracerouteUpdate,
   TracerouteHop,
   Server,
   SavedIperfServer,
 } from "@/types/types";
-import { runTraceroute, getServers } from "@/api/speedtest";
+import { runTraceroute, getTracerouteStatus, getServers } from "@/api/speedtest";
 import {
   Disclosure,
   DisclosureButton,
@@ -75,6 +76,7 @@ const CountryFlag: React.FC<{ countryCode?: string; className?: string }> = ({
 export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
   const [host, setHost] = useState(defaultHost);
   const [results, setResults] = useState<TracerouteResult | null>(null);
+  const [tracerouteStatus, setTracerouteStatus] = useState<TracerouteUpdate | null>(null);
   const [selectedServer, setSelectedServer] = useState<Server | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("");
@@ -172,13 +174,46 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
 
   const tracerouteMutation = useMutation({
     mutationFn: runTraceroute,
+    onMutate: () => {
+      // Clear previous results and start tracking
+      setResults(null);
+      setTracerouteStatus({
+        type: "traceroute",
+        host: host,
+        progress: 0,
+        isComplete: false,
+        currentHop: 0,
+        totalHops: 30,
+        isScheduled: false,
+        hops: [],
+        destination: host,
+        ip: "",
+      });
+    },
     onSuccess: (data) => {
       setResults(data);
+      setTracerouteStatus(null);
     },
     onError: (error) => {
       console.error("Traceroute failed:", error);
+      setTracerouteStatus(null);
     },
   });
+
+  // Poll for traceroute status
+  const { data: statusData } = useQuery({
+    queryKey: ["traceroute", "status"],
+    queryFn: getTracerouteStatus,
+    refetchInterval: tracerouteStatus && !tracerouteStatus.isComplete ? 1000 : false,
+    enabled: tracerouteMutation.isPending || (tracerouteStatus ? !tracerouteStatus.isComplete : false),
+  });
+
+  // Update status when we get new data
+  useEffect(() => {
+    if (statusData) {
+      setTracerouteStatus(statusData);
+    }
+  }, [statusData]);
 
   const handleRunTraceroute = () => {
     let targetHost = selectedServer ? selectedServer.host : host.trim();
@@ -455,24 +490,32 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
                     </div>
                   )}
 
-                  {/* Loading State */}
+                  {/* Progress State */}
                   <AnimatePresence>
-                    {tracerouteMutation.isPending && (
+                    {tracerouteStatus && !tracerouteStatus.isComplete && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
-                        className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 text-center mb-4"
+                        className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-4"
                       >
                         <div className="flex items-center justify-center gap-3 mb-3">
                           <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-500"></div>
                           <span className="text-blue-300 font-medium">
-                            Tracing route to {host}...
+                            Tracing route to {tracerouteStatus.host}...
                           </span>
                         </div>
-                        <p className="text-blue-400 text-sm">
-                          This may take up to 90 seconds depending on network
-                          conditions
+                        <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
+                          <div 
+                            className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(tracerouteStatus.progress, 100)}%` }}
+                          ></div>
+                        </div>
+                        <div className="text-sm text-blue-300 text-center">
+                          Hop {tracerouteStatus.currentHop} of {tracerouteStatus.totalHops} ({Math.round(tracerouteStatus.progress)}%)
+                        </div>
+                        <p className="text-blue-400 text-sm text-center mt-2">
+                          This may take up to 90 seconds depending on network conditions
                         </p>
                       </motion.div>
                     )}
@@ -498,7 +541,256 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
                     )}
                   </AnimatePresence>
 
-                  {/* Results */}
+                  {/* Partial Results (during traceroute) */}
+                  <AnimatePresence>
+                    {tracerouteStatus && !tracerouteStatus.isComplete && tracerouteStatus.hops && tracerouteStatus.hops.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-900 mb-4"
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h2 className="text-xl font-semibold text-white mb-1">
+                              Traceroute Results (In Progress)
+                            </h2>
+                            <p className="text-gray-400 text-sm">
+                              Route to {tracerouteStatus.destination || tracerouteStatus.host}
+                              {tracerouteStatus.ip && tracerouteStatus.ip !== tracerouteStatus.destination && (
+                                <span className="text-gray-500 ml-1">
+                                  ({tracerouteStatus.ip})
+                                </span>
+                              )}
+                              {" • "}
+                              {tracerouteStatus.hops.length} of {tracerouteStatus.totalHops} hops discovered
+                              {tracerouteStatus.terminatedEarly && (
+                                <span className="text-orange-400 ml-2">
+                                  • Terminated early due to consecutive timeouts
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-gray-700">
+                                <th
+                                  rowSpan={2}
+                                  className="text-left py-3 px-2 text-gray-400 font-medium border-r border-gray-800"
+                                >
+                                  Hop
+                                </th>
+                                <th
+                                  rowSpan={2}
+                                  className="text-left py-3 px-2 text-gray-400 font-medium border-r border-gray-800"
+                                >
+                                  Host
+                                </th>
+                                <th
+                                  rowSpan={2}
+                                  className="text-left py-3 px-2 text-gray-400 font-medium border-r border-gray-800"
+                                >
+                                  Provider
+                                </th>
+                                <th
+                                  colSpan={4}
+                                  className="text-center py-2 px-2 text-gray-300 font-medium"
+                                >
+                                  Round Trip Time (RTT)
+                                </th>
+                              </tr>
+                              <tr className="border-b border-gray-800">
+                                <th className="text-right py-2 px-2 text-gray-400 font-medium">
+                                  <span className="text-emerald-400">RTT1</span>
+                                </th>
+                                <th className="text-right py-2 px-2 text-gray-400 font-medium">
+                                  <span className="text-yellow-400">RTT2</span>
+                                </th>
+                                <th className="text-right py-2 px-2 text-gray-400 font-medium">
+                                  <span className="text-orange-400">RTT3</span>
+                                </th>
+                                <th className="text-right py-2 px-2 text-gray-400 font-medium">
+                                  <span className="text-blue-400">Avg</span>
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {tracerouteStatus.hops.map((hop) => (
+                                <motion.tr
+                                  key={hop.number}
+                                  initial={{ opacity: 0, y: 20 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.3 }}
+                                  className="border-b border-gray-800/50 last:border-0 hover:bg-gray-800/30 transition-colors"
+                                >
+                                  <td className="py-3 px-2 text-gray-300 border-r border-gray-800">
+                                    <div className="w-6 h-6 bg-blue-500/20 border border-blue-500/30 rounded-full flex items-center justify-center">
+                                      <span className="text-blue-400 font-medium text-xs">
+                                        {hop.number}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td
+                                    className="py-3 px-2 text-gray-300 truncate max-w-[200px] border-r border-gray-800"
+                                    title={
+                                      hop.timeout
+                                        ? "Request timed out"
+                                        : hop.host
+                                    }
+                                  >
+                                    {hop.timeout ? (
+                                      <span className="text-red-400">
+                                        Request timed out
+                                      </span>
+                                    ) : (
+                                      <>
+                                        <div className="font-medium">
+                                          {hop.host}
+                                        </div>
+                                        {hop.ip &&
+                                          hop.ip !== hop.host &&
+                                          hop.ip !== "*" && (
+                                            <div className="text-xs text-gray-500">
+                                              {hop.ip}
+                                            </div>
+                                          )}
+                                      </>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-2 border-r border-gray-800">
+                                    {hop.as ? (
+                                      <div className="flex items-baseline gap-2">
+                                        <CountryFlag
+                                          countryCode={hop.countryCode}
+                                          className="w-4 h-3 flex-shrink-0"
+                                        />
+                                        <span
+                                          className="text-blue-400 text-xs truncate max-w-[150px]"
+                                          title={hop.as}
+                                        >
+                                          {hop.as}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-500">—</span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-2 text-right text-emerald-400 font-mono">
+                                    {hop.timeout ? "*" : formatRTT(hop.rtt1)}
+                                  </td>
+                                  <td className="py-3 px-2 text-right text-yellow-400 font-mono">
+                                    {hop.timeout ? "*" : formatRTT(hop.rtt2)}
+                                  </td>
+                                  <td className="py-3 px-2 text-right text-orange-400 font-mono">
+                                    {hop.timeout ? "*" : formatRTT(hop.rtt3)}
+                                  </td>
+                                  <td className="py-3 px-2 text-right text-blue-400 font-mono font-medium">
+                                    {hop.timeout
+                                      ? "*"
+                                      : formatRTT(getAverageRTT(hop))}
+                                  </td>
+                                </motion.tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Mobile Card View */}
+                        <div className="md:hidden space-y-3">
+                          {tracerouteStatus.hops.map((hop) => (
+                            <motion.div
+                              key={hop.number}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="bg-gray-800/50 rounded-lg p-4 border border-gray-800"
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-6 h-6 bg-blue-500/20 border border-blue-500/30 rounded-full flex items-center justify-center">
+                                    <span className="text-blue-400 font-medium text-xs">
+                                      {hop.number}
+                                    </span>
+                                  </div>
+                                  <div className="text-gray-300 text-sm font-medium truncate flex-1 mr-2">
+                                    {hop.timeout
+                                      ? "Request timed out"
+                                      : hop.host}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {!hop.timeout &&
+                                hop.ip &&
+                                hop.ip !== hop.host &&
+                                hop.ip !== "*" && (
+                                  <div className="text-gray-500 text-xs mb-3">
+                                    {hop.ip}
+                                  </div>
+                                )}
+
+                              {hop.as && (
+                                <div className="flex items-center gap-2 mb-3">
+                                  <CountryFlag
+                                    countryCode={hop.countryCode}
+                                    className="w-4 h-3 flex-shrink-0"
+                                  />
+                                  <span className="text-blue-400 text-xs">
+                                    {hop.as}
+                                  </span>
+                                </div>
+                              )}
+
+                              <div className="space-y-3">
+                                {/* RTT Section Header */}
+                                <div className="text-gray-300 text-sm font-medium border-b border-gray-700 pb-2">
+                                  Round Trip Time (RTT)
+                                </div>
+
+                                {/* RTT Values Grid */}
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">1st:</span>
+                                    <span className="text-emerald-400 font-mono">
+                                      {hop.timeout ? "*" : formatRTT(hop.rtt1)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">2nd:</span>
+                                    <span className="text-yellow-400 font-mono">
+                                      {hop.timeout ? "*" : formatRTT(hop.rtt2)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">3rd:</span>
+                                    <span className="text-orange-400 font-mono">
+                                      {hop.timeout ? "*" : formatRTT(hop.rtt3)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">
+                                      Average:
+                                    </span>
+                                    <span className="text-blue-400 font-mono font-medium">
+                                      {hop.timeout
+                                        ? "*"
+                                        : formatRTT(getAverageRTT(hop))}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Final Results */}
                   <AnimatePresence>
                     {results && (
                       <motion.div
@@ -523,6 +815,11 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
                               {" • "}
                               {results.totalHops} hops •{" "}
                               {results.complete ? "Complete" : "Incomplete"}
+                              {tracerouteStatus?.terminatedEarly && (
+                                <span className="text-orange-400 ml-2">
+                                  • Terminated early due to consecutive timeouts
+                                </span>
+                              )}
                             </p>
                           </div>
                           <button

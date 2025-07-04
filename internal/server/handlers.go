@@ -199,6 +199,14 @@ func (s *Server) handleTraceroute(c *gin.Context) {
 		return
 	}
 
+	// Reset lastTracerouteUpdate before starting new traceroute
+	s.mu.Lock()
+	s.lastTracerouteUpdate = &types.TracerouteUpdate{
+		Type: "traceroute",
+		Host: host,
+	}
+	s.mu.Unlock()
+
 	// Create a timeout context for the traceroute
 	timeout := 90 * time.Second // Extended timeout for traceroute
 	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
@@ -206,10 +214,38 @@ func (s *Server) handleTraceroute(c *gin.Context) {
 
 	result, err := s.speedtest.RunTraceroute(ctx, host)
 	if err != nil {
+		// Update status with error
+		s.mu.Lock()
+		s.lastTracerouteUpdate.IsComplete = true
+		s.mu.Unlock()
+		
 		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to run traceroute: %w", err))
 		return
 	}
 
+	// Ensure final update is set
+	s.mu.Lock()
+	s.lastTracerouteUpdate.IsComplete = true
+	s.lastTracerouteUpdate.Progress = 100.0
+	s.lastTracerouteUpdate.TotalHops = result.TotalHops
+	s.mu.Unlock()
+
 	c.JSON(http.StatusOK, result)
+}
+
+func (s *Server) handleTracerouteStatus(c *gin.Context) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	log.Trace().
+		Interface("lastTracerouteUpdate", s.lastTracerouteUpdate).
+		Msg("Sending traceroute status update")
+
+	if s.lastTracerouteUpdate == nil {
+		c.JSON(http.StatusOK, &types.TracerouteUpdate{})
+		return
+	}
+
+	c.JSON(http.StatusOK, s.lastTracerouteUpdate)
 }

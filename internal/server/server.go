@@ -27,14 +27,15 @@ import (
 var _ broadcaster.Broadcaster = &Server{}
 
 type Server struct {
-	Router     *gin.Engine
-	speedtest  speedtest.Service
-	db         database.Service
-	scheduler  scheduler.Service
-	auth       *AuthHandler
-	mu         sync.RWMutex
-	lastUpdate *types.SpeedUpdate
-	config     *config.Config
+	Router              *gin.Engine
+	speedtest           speedtest.Service
+	db                  database.Service
+	scheduler           scheduler.Service
+	auth                *AuthHandler
+	mu                  sync.RWMutex
+	lastUpdate          *types.SpeedUpdate
+	lastTracerouteUpdate *types.TracerouteUpdate
+	config              *config.Config
 }
 
 func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config) *Server {
@@ -104,6 +105,21 @@ func (s *Server) BroadcastUpdate(update types.SpeedUpdate) {
 		Msg("Broadcasting speed test update")
 }
 
+func (s *Server) BroadcastTracerouteUpdate(update types.TracerouteUpdate) {
+	s.mu.Lock()
+	s.lastTracerouteUpdate = &update
+	s.mu.Unlock()
+
+	log.Debug().
+		Bool("isScheduled", update.IsScheduled).
+		Str("type", update.Type).
+		Str("host", update.Host).
+		Int("currentHop", update.CurrentHop).
+		Int("totalHops", update.TotalHops).
+		Float64("progress", update.Progress).
+		Msg("Broadcasting traceroute update")
+}
+
 func (s *Server) StartScheduler(ctx context.Context) {
 	s.scheduler.Start(ctx)
 	log.Info().Msg("Scheduler service started")
@@ -164,6 +180,7 @@ func (s *Server) RegisterRoutes() {
 			protected.GET("/speedtest/status", s.handleSpeedTestStatus)
 			protected.GET("/speedtest/history", s.handleSpeedTestHistory)
 			protected.GET("/traceroute", s.handleTraceroute)
+			protected.GET("/traceroute/status", s.handleTracerouteStatus)
 			protected.GET("/schedules", s.handleGetSchedules)
 			protected.POST("/schedules", s.handleCreateSchedule)
 			protected.PUT("/schedules/:id", s.handleUpdateSchedule)
