@@ -78,7 +78,7 @@ export const TracerouteTab: React.FC = () => {
   const [tracerouteStatus, setTracerouteStatus] =
     useState<TracerouteUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
-    
+
   // Get cached results from TanStack Query
   const { data: results } = useQuery<TracerouteResult | null>({
     queryKey: ["traceroute", "results"],
@@ -90,7 +90,7 @@ export const TracerouteTab: React.FC = () => {
   const [selectedServer, setSelectedServer] = useState<Server | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("");
-  const [displayCount, setDisplayCount] = useState(6);
+  const [displayCount, setDisplayCount] = useState(4);
   const [iperfServers, setIperfServers] = useState<SavedIperfServer[]>([]);
 
   // Fetch servers
@@ -205,7 +205,10 @@ export const TracerouteTab: React.FC = () => {
     onError: (error) => {
       console.error("Traceroute failed:", error);
       setTracerouteStatus(null);
-      setError(error.message || "Traceroute failed. Please check the hostname and try again.");
+      setError(
+        error.message ||
+          "Traceroute failed. Please check the hostname and try again."
+      );
     },
   });
 
@@ -213,8 +216,14 @@ export const TracerouteTab: React.FC = () => {
   const { data: statusData } = useQuery({
     queryKey: ["traceroute", "status"],
     queryFn: getTracerouteStatus,
-    refetchInterval: tracerouteMutation.isPending || (tracerouteStatus && !tracerouteStatus.isComplete) ? 1000 : false,
-    enabled: tracerouteMutation.isPending || Boolean(tracerouteStatus && !tracerouteStatus.isComplete),
+    refetchInterval:
+      tracerouteMutation.isPending ||
+      (tracerouteStatus && !tracerouteStatus.isComplete)
+        ? 1000
+        : false,
+    enabled:
+      tracerouteMutation.isPending ||
+      Boolean(tracerouteStatus && !tracerouteStatus.isComplete),
   });
 
   // Update status when we get new data
@@ -417,7 +426,7 @@ export const TracerouteTab: React.FC = () => {
           {filteredServers.length > displayCount && (
             <div className="flex justify-center mb-4">
               <button
-                onClick={() => setDisplayCount((prev) => prev + 6)}
+                onClick={() => setDisplayCount((prev) => prev + 4)}
                 className="px-4 py-2 bg-gray-800/50 border border-gray-900/80 text-gray-300/50 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors"
               >
                 Load More
@@ -483,7 +492,8 @@ export const TracerouteTab: React.FC = () => {
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
             <div className="text-red-400 text-sm">
-              <span className="font-medium">Error: </span>{error}
+              <span className="font-medium">Error: </span>
+              {error}
             </div>
           </div>
         )}
@@ -519,7 +529,7 @@ export const TracerouteTab: React.FC = () => {
               <h2 className="text-xl font-semibold text-white mb-4">
                 Traceroute Results (In Progress)
               </h2>
-              <p className="text-gray-400 text-sm mb-4">
+              <p className="text-gray-400 text-sm mb-6">
                 Route to {tracerouteStatus.destination || tracerouteStatus.host}
                 {tracerouteStatus.ip &&
                   tracerouteStatus.ip !== tracerouteStatus.destination && (
@@ -538,29 +548,29 @@ export const TracerouteTab: React.FC = () => {
               </p>
 
               {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto">
+              <div className="hidden md:block">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-800">
-                      <th className="text-left py-3 px-2 text-gray-400 font-medium">
+                      <th className="text-center py-3 px-2 text-gray-400 font-medium">
                         Hop
                       </th>
-                      <th className="text-left py-3 px-2 text-gray-400 font-medium">
+                      <th className="text-center py-3 px-2 text-gray-400 font-medium">
                         Host
                       </th>
-                      <th className="text-left py-3 px-2 text-gray-400 font-medium">
+                      <th className="text-center py-3 px-2 text-gray-400 font-medium">
                         Provider
                       </th>
-                      <th className="text-right py-3 px-2 text-gray-400 font-medium">
+                      <th className="text-center py-3 px-2 text-gray-400 font-medium">
                         RTT 1
                       </th>
-                      <th className="text-right py-3 px-2 text-gray-400 font-medium">
+                      <th className="text-center py-3 px-2 text-gray-400 font-medium">
                         RTT 2
                       </th>
-                      <th className="text-right py-3 px-2 text-gray-400 font-medium">
+                      <th className="text-center py-3 px-2 text-gray-400 font-medium">
                         RTT 3
                       </th>
-                      <th className="text-right py-3 px-2 text-gray-400 font-medium">
+                      <th className="text-center py-3 px-2 text-gray-400 font-medium">
                         Average
                       </th>
                     </tr>
@@ -574,11 +584,11 @@ export const TracerouteTab: React.FC = () => {
                         transition={{ duration: 0.3 }}
                         className="border-b border-gray-800/50 last:border-0 hover:bg-gray-800/30 transition-colors"
                       >
-                        <td className="py-3 px-2 text-gray-300">
+                        <td className="py-3 px-2 text-gray-300 text-center">
                           {hop.number}
                         </td>
                         <td
-                          className="py-3 px-2 text-gray-300 truncate max-w-[200px]"
+                          className="py-3 px-2 text-gray-300 text-center"
                           title={hop.timeout ? "Request timed out" : hop.host}
                         >
                           {hop.timeout ? (
@@ -589,9 +599,9 @@ export const TracerouteTab: React.FC = () => {
                             hop.host
                           )}
                         </td>
-                        <td className="py-3 px-2 min-w-[200px]">
+                        <td className="py-3 px-2 text-center">
                           {hop.as ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-center gap-2">
                               <CountryFlag
                                 countryCode={hop.countryCode}
                                 className="w-4 h-3 flex-shrink-0"
@@ -607,16 +617,16 @@ export const TracerouteTab: React.FC = () => {
                             <span className="text-gray-500">—</span>
                           )}
                         </td>
-                        <td className="py-3 px-2 text-right text-emerald-400 font-mono">
+                        <td className="py-3 px-2 text-center text-emerald-400 font-mono">
                           {hop.timeout ? "*" : formatRTT(hop.rtt1)}
                         </td>
-                        <td className="py-3 px-2 text-right text-yellow-400 font-mono">
+                        <td className="py-3 px-2 text-center text-yellow-400 font-mono">
                           {hop.timeout ? "*" : formatRTT(hop.rtt2)}
                         </td>
-                        <td className="py-3 px-2 text-right text-orange-400 font-mono">
+                        <td className="py-3 px-2 text-center text-orange-400 font-mono">
                           {hop.timeout ? "*" : formatRTT(hop.rtt3)}
                         </td>
-                        <td className="py-3 px-2 text-right text-blue-400 font-mono">
+                        <td className="py-3 px-2 text-center text-blue-400 font-mono">
                           {hop.timeout ? "*" : formatRTT(getAverageRTT(hop))}
                         </td>
                       </motion.tr>
@@ -682,13 +692,53 @@ export const TracerouteTab: React.FC = () => {
             </div>
           )}
 
+        {/* Placeholder when no results */}
+        {!results && !tracerouteStatus && !error && (
+          <div className="bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-900">
+            <h2 className="text-xl font-semibold text-white mb-4">
+              Network Path Tracing
+            </h2>
+            <div className="text-gray-400 space-y-3">
+              <p>
+                Select a server or enter a hostname to trace the network path
+                and see:
+              </p>
+              <ul className="space-y-2 ml-4">
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-400 mt-1">•</span>
+                  <span>Each hop (router) your data travels through</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 mt-1">•</span>
+                  <span>Network latency at each hop</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-yellow-400 mt-1">•</span>
+                  <span>Internet service providers and backbone networks</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-purple-400 mt-1">•</span>
+                  <span>Geographic location of network infrastructure</span>
+                </li>
+              </ul>
+              <div className="mt-4 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+                <p className="text-blue-300 text-sm">
+                  <span className="font-medium">Tip:</span> Traceroute helps
+                  diagnose network issues by showing where delays or packet loss
+                  occur along the path to your destination.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Final Results */}
         {results && (
           <div className="bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-900">
             <h2 className="text-xl font-semibold text-white mb-4">
               Traceroute Results
             </h2>
-            <p className="text-gray-400 text-sm mb-4">
+            <p className="text-gray-400 text-sm mb-6">
               Route to {results.destination}
               {results.ip && results.ip !== results.destination && (
                 <span className="text-gray-500 ml-1">({results.ip})</span>
@@ -704,29 +754,29 @@ export const TracerouteTab: React.FC = () => {
             </p>
 
             {/* Desktop Table View */}
-            <div className="hidden md:block overflow-x-auto">
+            <div className="hidden md:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-800">
-                    <th className="text-left py-3 px-2 text-gray-400 font-medium">
+                    <th className="text-center py-3 px-2 text-gray-400 font-medium">
                       Hop
                     </th>
-                    <th className="text-left py-3 px-2 text-gray-400 font-medium">
+                    <th className="text-center py-3 px-2 text-gray-400 font-medium">
                       Host
                     </th>
-                    <th className="text-left py-3 px-2 text-gray-400 font-medium">
+                    <th className="text-center py-3 px-2 text-gray-400 font-medium">
                       Provider
                     </th>
-                    <th className="text-right py-3 px-2 text-gray-400 font-medium">
+                    <th className="text-center py-3 px-2 text-gray-400 font-medium">
                       RTT 1
                     </th>
-                    <th className="text-right py-3 px-2 text-gray-400 font-medium">
+                    <th className="text-center py-3 px-2 text-gray-400 font-medium">
                       RTT 2
                     </th>
-                    <th className="text-right py-3 px-2 text-gray-400 font-medium">
+                    <th className="text-center py-3 px-2 text-gray-400 font-medium">
                       RTT 3
                     </th>
-                    <th className="text-right py-3 px-2 text-gray-400 font-medium">
+                    <th className="text-center py-3 px-2 text-gray-400 font-medium">
                       Average
                     </th>
                   </tr>
@@ -740,9 +790,9 @@ export const TracerouteTab: React.FC = () => {
                       transition={{ duration: 0.3 }}
                       className="border-b border-gray-800/50 last:border-0 hover:bg-gray-800/30 transition-colors"
                     >
-                      <td className="py-3 px-2 text-gray-300">{hop.number}</td>
+                      <td className="py-3 px-2 text-gray-300 text-center">{hop.number}</td>
                       <td
-                        className="py-3 px-2 text-gray-300 truncate max-w-[200px]"
+                        className="py-3 px-2 text-gray-300 text-center"
                         title={hop.timeout ? "Request timed out" : hop.host}
                       >
                         {hop.timeout ? (
@@ -753,9 +803,9 @@ export const TracerouteTab: React.FC = () => {
                           hop.host
                         )}
                       </td>
-                      <td className="py-3 px-2 min-w-[200px]">
+                      <td className="py-3 px-2 min-w-[200px] max-w-[200px] text-center">
                         {hop.as ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-center gap-2">
                             <CountryFlag
                               countryCode={hop.countryCode}
                               className="w-4 h-3 flex-shrink-0"
@@ -771,16 +821,16 @@ export const TracerouteTab: React.FC = () => {
                           <span className="text-gray-500">—</span>
                         )}
                       </td>
-                      <td className="py-3 px-2 text-right text-emerald-400 font-mono">
+                      <td className="py-3 px-2 text-center text-emerald-400 font-mono">
                         {hop.timeout ? "*" : formatRTT(hop.rtt1)}
                       </td>
-                      <td className="py-3 px-2 text-right text-yellow-400 font-mono">
+                      <td className="py-3 px-2 text-center text-yellow-400 font-mono">
                         {hop.timeout ? "*" : formatRTT(hop.rtt2)}
                       </td>
-                      <td className="py-3 px-2 text-right text-orange-400 font-mono">
+                      <td className="py-3 px-2 text-center text-orange-400 font-mono">
                         {hop.timeout ? "*" : formatRTT(hop.rtt3)}
                       </td>
-                      <td className="py-3 px-2 text-right text-blue-400 font-mono">
+                      <td className="py-3 px-2 text-center text-blue-400 font-mono">
                         {hop.timeout ? "*" : formatRTT(getAverageRTT(hop))}
                       </td>
                     </motion.tr>

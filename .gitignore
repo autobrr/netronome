@@ -53,3 +53,13 @@ web/dist/*
 !web/dist/.gitkeep
 web/tsconfig.app.tsbuildinfo
 schedules.json
+web/src/components/speedtest/TracerouteTab.tsx
+GeoLite2-Country.mmdb
+GeoLite2-City.mmdb
+GeoLite2-ASN.mmdb
+GeoLite2-ASN-CSV.zip
+GeoLite2-City-CSV.zip
+GeoLite2-Country-CSV.zip
+GeoLite2-ASN-CSV.zip
+GeoLite2-City-CSV.zip
+GeoLite2-Country-CSV.zip
