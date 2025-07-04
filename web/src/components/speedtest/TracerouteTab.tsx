@@ -11,6 +11,13 @@ import {
   ClipboardDocumentIcon,
 } from "@heroicons/react/24/solid";
 import {
+  GlobeAltIcon,
+  ClockIcon,
+  BuildingOfficeIcon,
+  MapPinIcon,
+  PlayIcon,
+} from "@heroicons/react/24/outline";
+import {
   TracerouteResult,
   TracerouteUpdate,
   Server,
@@ -737,37 +744,128 @@ export const TracerouteTab: React.FC = () => {
         {/* Placeholder when no results */}
         {!results && !tracerouteStatus && !error && (
           <div className="bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-900">
-            <h2 className="text-xl font-semibold text-white mb-4">
-              Network Path Tracing
-            </h2>
-            <div className="text-gray-400 space-y-3">
-              <p>
-                Select a server or enter a hostname to trace the network path
-                and see:
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <GlobeAltIcon className="w-8 h-8 text-blue-400" />
+              </div>
+              <h2 className="text-xl font-semibold text-white mb-2">
+                Network Path Tracing
+              </h2>
+              <p className="text-gray-400 text-sm">
+                Discover the route your data takes across the internet
               </p>
-              <ul className="space-y-2 ml-4">
-                <li className="flex items-start gap-2">
-                  <span className="text-blue-400 mt-1">•</span>
-                  <span>Each hop (router) your data travels through</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 mt-1">•</span>
-                  <span>Network latency at each hop</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-yellow-400 mt-1">•</span>
-                  <span>Internet service providers and backbone networks</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-purple-400 mt-1">•</span>
-                  <span>Geographic location of network infrastructure</span>
-                </li>
-              </ul>
-              <div className="mt-4 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
-                <p className="text-blue-300 text-sm">
-                  <span className="font-medium">Tip:</span> Traceroute helps
-                  diagnose network issues by showing where delays or packet loss
-                  occur along the path to your destination.
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-start gap-3 p-3 bg-gray-800/30 rounded-lg">
+                  <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <GlobeAltIcon className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-white text-sm font-medium mb-1">
+                      Network Hops
+                    </h3>
+                    <p className="text-gray-400 text-xs">
+                      See each router your data travels through
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-gray-800/30 rounded-lg">
+                  <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <ClockIcon className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-white text-sm font-medium mb-1">
+                      Latency Analysis
+                    </h3>
+                    <p className="text-gray-400 text-xs">
+                      Measure response times at each hop
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-gray-800/30 rounded-lg">
+                  <div className="w-8 h-8 bg-yellow-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <BuildingOfficeIcon className="w-4 h-4 text-yellow-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-white text-sm font-medium mb-1">
+                      ISP Information
+                    </h3>
+                    <p className="text-gray-400 text-xs">
+                      Identify network providers and ASNs
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-gray-800/30 rounded-lg">
+                  <div className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <MapPinIcon className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-white text-sm font-medium mb-1">
+                      Geographic Data
+                    </h3>
+                    <p className="text-gray-400 text-xs">
+                      View estimated country information
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <PlayIcon className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-blue-300 text-sm font-medium mb-1">
+                      Quick Start
+                    </h3>
+                    <p className="text-blue-300/80 text-xs mb-3">
+                      Select a server from the server list, enter your own
+                      hostname, or try these popular destinations:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => {
+                          setHost("google.com");
+                          setSelectedServer(null);
+                        }}
+                        className="px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded text-xs transition-colors"
+                      >
+                        google.com
+                      </button>
+                      <button
+                        onClick={() => {
+                          setHost("cloudflare.com");
+                          setSelectedServer(null);
+                        }}
+                        className="px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded text-xs transition-colors"
+                      >
+                        cloudflare.com
+                      </button>
+                      <button
+                        onClick={() => {
+                          setHost("github.com");
+                          setSelectedServer(null);
+                        }}
+                        className="px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded text-xs transition-colors"
+                      >
+                        github.com
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                <p className="text-amber-300 text-xs">
+                  <span className="font-medium">💡</span> Traceroute helps
+                  diagnose network routing issues by showing response times and
+                  timeouts at each hop along the path to your destination.
                 </p>
               </div>
             </div>
