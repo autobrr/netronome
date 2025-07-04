@@ -4,7 +4,7 @@
  */
 
 import { Dialog, Transition } from "@headlessui/react";
-import { Fragment, useEffect, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import {
   RocketLaunchIcon,
   GlobeAltIcon,
@@ -23,12 +23,22 @@ interface DonationLink {
   icon: string;
 }
 
+// Polar SVG component
+const PolarIcon: React.FC<{ className?: string }> = ({ className = "w-full h-full" }) => (
+  <svg viewBox="-0.5 -0.5 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M7.5 14.337187499999999C3.7239375000000003 14.337187499999999 0.6628125 11.276062499999998 0.6628125 7.5 0.6628125 3.7239375000000003 3.7239375000000003 0.6628125 7.5 0.6628125c3.7760624999999997 0 6.837187500000001 3.061125 6.837187500000001 6.837187500000001 0 3.7760624999999997 -3.061125 6.837187500000001 -6.837187500000001 6.837187500000001Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" />
+    <path d="M7.5 14.337187499999999c-1.5104375 0 -2.7348749999999997 -3.061125 -2.7348749999999997 -6.837187500000001C4.765125 3.7239375000000003 5.9895625 0.6628125 7.5 0.6628125c1.5103749999999998 0 2.7348749999999997 3.061125 2.7348749999999997 6.837187500000001 0 3.7760624999999997 -1.2245 6.837187500000001 -2.7348749999999997 6.837187500000001Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" />
+    <path d="M5.4488125 13.653500000000001c-2.051125 -0.6837500000000001 -2.7348749999999997 -3.6845624999999997 -2.7348749999999997 -5.811625 0 -2.1270625 1.025625 -4.7860625 3.418625 -6.495375" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" />
+    <path d="M9.551187500000001 1.3464999999999998c2.051125 0.6837500000000001 2.7348749999999997 3.6846250000000005 2.7348749999999997 5.811625 0 2.1270625 -1.025625 4.7860625 -3.418625 6.495375" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" />
+  </svg>
+);
+
 const donationLinks: DonationLink[] = [
   {
     name: "Polar",
     url: "https://buy.polar.sh/polar_cl_wWoEUigSOTJIoTrKaGIj3NU6oOCc4xJsKnsDN3NaATF",
     description: "Support netronome development via Polar.sh",
-    icon: "https://polar.sh/favicon.ico",
+    icon: "polar-svg", // Special identifier for SVG
   },
   {
     name: "s0up",
@@ -159,13 +169,31 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group flex items-center gap-4 p-4 rounded-lg dark:bg-gray-900/40 border border-gray-200 dark:border-black/60 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                    className="group flex items-center gap-4 p-4 rounded-lg bg-gray-50/50 dark:bg-gray-900/40 border border-gray-200 dark:border-black/60 hover:bg-gray-100/70 dark:hover:bg-gray-900 transition-colors"
                   >
-                    <img
-                      src={link.icon}
-                      alt={`${link.name} icon`}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
+                    <div className="w-10 h-10 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center p-1.5">
+                      {link.icon === "polar-svg" ? (
+                        <PolarIcon className="w-full h-full text-gray-900 dark:text-white" />
+                      ) : (
+                        <img
+                          src={link.icon}
+                          alt={`${link.name} icon`}
+                          className="w-full h-full rounded-full object-cover"
+                          onError={(e) => {
+                            // Fallback for failed image loads
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent && !parent.querySelector('.fallback-icon')) {
+                              const fallback = document.createElement('div');
+                              fallback.className = 'fallback-icon w-full h-full bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold';
+                              fallback.textContent = link.name.charAt(0).toUpperCase();
+                              parent.appendChild(fallback);
+                            }
+                          }}
+                        />
+                      )}
+                    </div>
                     <div>
                       <h3 className="font-medium text-gray-900 dark:text-white group-hover:text-blue-500 dark:group-hover:text-blue-400 flex items-center gap-1 transition-colors">
                         {link.name}

@@ -341,10 +341,10 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               draggable="false"
             />
             <div>
-              <h1 className="text-3xl font-bold text-white select-none">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white select-none">
                 Netronome
               </h1>
-              <h2 className="text-sm font-medium text-gray-300 select-none">
+              <h2 className="text-sm font-medium text-gray-600 dark:text-gray-300 select-none">
                 Network Speed Testing
               </h2>
             </div>
@@ -375,14 +375,14 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
-              className="relative bg-red-950/80 backdrop-blur-sm border border-red-800/50 rounded-xl mb-4 shadow-lg overflow-hidden"
+              className="relative bg-red-100/90 dark:bg-red-950/80 backdrop-blur-sm border border-red-400/50 dark:border-red-800/50 rounded-xl mb-4 shadow-lg overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-red-900/20 to-red-800/20 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-r from-red-200/20 to-red-300/20 dark:from-red-900/20 dark:to-red-800/20 pointer-events-none" />
               <div className="relative flex items-start justify-between p-4">
                 <div className="flex items-start gap-3 flex-1">
                   <div className="flex-shrink-0 mt-0.5">
                     <svg
-                      className="w-5 h-5 text-red-400"
+                      className="w-5 h-5 text-red-600 dark:text-red-400"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -396,10 +396,10 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-sm font-medium text-red-200 mb-1">
+                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
                       Error
                     </h3>
-                    <div className="text-sm text-red-300/90 whitespace-pre-wrap break-words">
+                    <div className="text-sm text-red-700/90 dark:text-red-300/90 whitespace-pre-wrap break-words">
                       {(() => {
                         try {
                           // Try to extract and format JSON from error messages
@@ -420,7 +420,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                 </div>
                 <button
                   onClick={() => setError(null)}
-                  className="flex-shrink-0 ml-4 text-red-400 hover:text-red-300 transition-colors duration-200"
+                  className="flex-shrink-0 ml-4 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors duration-200"
                   aria-label="Dismiss error"
                 >
                   <XMarkIcon className="w-5 h-5" />
@@ -432,23 +432,23 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
         {/* No History Message - Only show when no tests exist at all */}
         {!isHistoryLoading && !hasAnyTests && (
-          <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900 mb-6">
+          <div className="bg-gray-50/95 dark:bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900 mb-6">
             <div className="text-center space-y-4">
               <div>
-                <h2 className="text-white text-xl font-semibold mb-2">
+                <h2 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">
                   No History Available
                 </h2>
-                <p className="text-gray-400">
+                <p className="text-gray-600 dark:text-gray-400">
                   Get started with your first speed test in two ways:
                 </p>
               </div>
-              <div className="flex justify-center gap-12 text-left text-gray-400">
+              <div className="flex justify-center gap-12 text-left text-gray-600 dark:text-gray-400">
                 <div className="flex items-start gap-3">
                   <div className="mt-1 flex-shrink-0">
-                    <FaArrowDown className="w-4 h-4 text-emerald-400" />
+                    <FaArrowDown className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
-                    <p className="font-medium text-white">Run a test now</p>
+                    <p className="font-medium text-gray-900 dark:text-white">Run a test now</p>
                     <p className="text-sm">
                       Select a server below and start testing
                     </p>
@@ -456,10 +456,10 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="mt-1 flex-shrink-0">
-                    <IoIosPulse className="w-4 h-4 text-blue-400" />
+                    <IoIosPulse className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <p className="font-medium text-white">
+                    <p className="font-medium text-gray-900 dark:text-white">
                       Schedule regular tests
                     </p>
                     <p className="text-sm">
@@ -552,16 +552,16 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
       {/* Public Footer */}
       {isPublic && (
-        <div className="border-t border-gray-800/50 py-4 mt-8">
+        <div className="border-t border-gray-300/50 dark:border-gray-800/50 py-4 mt-8">
           <Container maxWidth="xl">
             <div className="flex justify-center">
-              <div className="text-gray-500 text-sm">
+              <div className="text-gray-600 dark:text-gray-500 text-sm">
                 Powered by{" "}
                 <a
                   href="https://netrono.me"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-gray-300 hover:text-white transition-colors duration-200 underline decoration-gray-600 hover:decoration-gray-400"
+                  className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors duration-200 underline decoration-gray-500 dark:decoration-gray-600 hover:decoration-gray-700 dark:hover:decoration-gray-400"
                 >
                   Netronome
                 </a>
@@ -570,7 +570,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                   href="https://github.com/autobrr/netronome"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-gray-300 transition-colors duration-200 inline-flex items-center gap-1"
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 transition-colors duration-200 inline-flex items-center gap-1"
                 >
                   <span className="underline decoration-gray-600 hover:decoration-gray-400">
                     Source

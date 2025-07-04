@@ -51,7 +51,7 @@ const ChartSkeleton: React.FC = () => (
     exit={{ opacity: 0 }}
     className="animate-pulse h-full w-full"
   >
-    <div className="h-full w-full bg-gray-800/50 rounded-lg" />
+    <div className="h-full w-full bg-gray-200/50 dark:bg-gray-800/50 rounded-lg" />
   </motion.div>
 );
 
@@ -216,12 +216,14 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
             strokeDasharray="3 3"
             horizontal={true}
             vertical={false}
+            stroke="var(--chart-text)"
+            opacity={0.3}
           />
           <XAxis
             dataKey="timestamp"
             height={isMobile ? 50 : 60}
             tickMargin={isMobile ? 5 : 10}
-            tick={{ fontSize: isMobile ? 11 : 12 }}
+            tick={{ fontSize: isMobile ? 11 : 12, fill: "var(--chart-text)" }}
             tickFormatter={(value) => {
               if (isMobile) {
                 const date = new Date(value);
@@ -244,7 +246,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     offset: 0,
                     style: {
                       textAnchor: "middle",
-                      fill: "rgb(156 163 175)",
+                      fill: "var(--chart-text)",
                       fontSize: 11,
                     },
                     dy: 40,
@@ -256,12 +258,12 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     offset: 0,
                     style: {
                       textAnchor: "middle",
-                      fill: "rgb(156 163 175)",
+                      fill: "var(--chart-text)",
                     },
                     dy: 0,
                   }
             }
-            tick={{ fontSize: isMobile ? 11 : 12 }}
+            tick={{ fontSize: isMobile ? 11 : 12, fill: "var(--chart-text)" }}
             tickFormatter={(value) => (isMobile ? Math.round(value) : value)}
             width={isMobile ? 35 : 45}
             domain={[0, "auto"]}
@@ -279,7 +281,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     offset: 0,
                     style: {
                       textAnchor: "middle",
-                      fill: "rgb(156 163 175)",
+                      fill: "var(--chart-text)",
                       fontSize: 11,
                     },
                     dy: 20,
@@ -289,10 +291,10 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     position: "insideRight",
                     angle: -90,
                     offset: 0,
-                    className: "fill-gray-400",
+                    style: { fill: "var(--chart-text)" },
                   }
             }
-            tick={{ fontSize: isMobile ? 11 : 12 }}
+            tick={{ fontSize: isMobile ? 11 : 12, fill: "var(--chart-text)" }}
             tickFormatter={(value) => (isMobile ? Math.round(value) : value)}
             width={isMobile ? 30 : 45}
             domain={[0, "auto"]}
@@ -300,18 +302,18 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#1F2937",
-              border: "1px solid #374151",
+              backgroundColor: "var(--tooltip-bg)",
+              border: "1px solid var(--tooltip-border)",
               borderRadius: "0.5rem",
               fontSize: isMobile ? "12px" : "14px",
               padding: isMobile ? "8px" : "12px",
             }}
             labelStyle={{
-              color: "#9CA3AF",
+              color: "var(--tooltip-label)",
               fontSize: isMobile ? "11px" : "12px",
             }}
             itemStyle={{
-              color: "#E5E7EB",
+              color: "var(--tooltip-text)",
               padding: isMobile ? "2px 0" : "4px 0",
             }}
             formatter={(value: number, name: string) => {
@@ -334,7 +336,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     <br />
                     <span
                       style={{
-                        color: "#60A5FA",
+                        color: "var(--tooltip-accent)",
                         fontSize: isMobile ? "11px" : "12px",
                         fontWeight: "500",
                       }}
@@ -345,7 +347,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                       {data.testType && (
                         <span
                           style={{
-                            color: "#9CA3AF",
+                            color: "var(--tooltip-muted)",
                             fontSize: isMobile ? "10px" : "11px",
                             marginLeft: "8px",
                           }}
@@ -462,22 +464,22 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         return (
           <div className="flex flex-col h-full mb-6">
             <DisclosureButton
-              className={`flex justify-between items-center w-full px-4 py-2 bg-gray-850/95 ${
+              className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
                 open ? "rounded-t-xl border-b-0" : "rounded-xl"
-              } shadow-lg border-b-0 border-gray-900 text-left`}
+              } shadow-lg border-b-0 border-gray-200 dark:border-gray-900 text-left`}
             >
-              <h2 className="text-white text-xl font-semibold p-1 select-none">
+              <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
                 Speed History
               </h2>
               <ChevronDownIcon
                 className={`${
                   open ? "transform rotate-180" : ""
-                } w-5 h-5 text-gray-400 transition-transform duration-200`}
+                } w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200`}
               />
             </DisclosureButton>
 
             {open && (
-              <div className="bg-gray-850/95 px-2 sm:px-4 rounded-b-xl shadow-lg flex-1">
+              <div className="bg-gray-50/95 dark:bg-gray-850/95 px-2 sm:px-4 rounded-b-xl shadow-lg flex-1">
                 <motion.div
                   className="mt-1 speed-history-animate"
                   initial={{ opacity: 0, y: -20 }}
@@ -544,7 +546,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                               ${
                                 isActive
                                   ? `bg-opacity-20 border hover:bg-opacity-30`
-                                  : "bg-gray-800 text-gray-400 border border-gray-700 hover:bg-gray-750 hover:border-gray-600"
+                                  : "bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 hover:bg-gray-300 dark:hover:bg-gray-750 hover:border-gray-400 dark:hover:border-gray-600"
                               }
                             `}
                             style={{
@@ -559,7 +561,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                               layout
                               className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
                               style={{
-                                backgroundColor: isActive ? color : "#6B7280",
+                                backgroundColor: isActive ? color : "var(--chart-text)",
                               }}
                             />
                             <span className="hidden sm:inline">{label}</span>
@@ -586,7 +588,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                             ${
                               timeRange === option.value
                                 ? "bg-blue-500 text-white border border-blue-600 hover:border-blue-700"
-                                : "bg-gray-800 text-gray-400 border border-gray-900/80 hover:bg-gray-700"
+                                : "bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-300/80 dark:border-gray-900/80 hover:bg-gray-300 dark:hover:bg-gray-700"
                             }
                           `}
                         >
@@ -626,7 +628,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                           className="h-full flex items-center justify-center"
                         >
                           <div className="text-center">
-                            <h3 className="text-white text-lg font-medium mb-2">
+                            <h3 className="text-gray-900 dark:text-white text-lg font-medium mb-2">
                               No tests in the last{" "}
                               {timeRange === "1d"
                                 ? "24 hours"
@@ -638,7 +640,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                                 ? "month"
                                 : "selected period"}
                             </h3>
-                            <p className="text-gray-400">
+                            <p className="text-gray-600 dark:text-gray-400">
                               Try selecting a different time range to view your
                               test history.
                             </p>

@@ -10,6 +10,7 @@ import { HeartIcon } from "@heroicons/react/24/solid";
 import { initializeDarkMode } from "@/utils/darkMode";
 import { useAuth } from "@/context/auth";
 import { DonateModal } from "@/components/DonateModal";
+import { DarkModeToggle } from "@/components/DarkModeToggle";
 
 function App() {
   const { isAuthenticated, logout } = useAuth();
@@ -20,7 +21,7 @@ function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white pattern dark:bg-gray-900 relative">
+    <div className="min-h-screen bg-white pattern dark:bg-gray-900 relative transition-colors duration-300 ease-in-out">
       {isAuthenticated && (
         <div className="absolute z-10 top-4 right-4 flex items-center gap-4">
           <button
@@ -30,6 +31,7 @@ function App() {
           >
             <HeartIcon className="h-6 w-6" />
           </button>
+          <DarkModeToggle />
           <button
             onClick={() => logout()}
             className="text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-blue-400"
