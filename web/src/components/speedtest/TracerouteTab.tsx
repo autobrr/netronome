@@ -6,7 +6,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "motion/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronUpDownIcon } from "@heroicons/react/24/solid";
+import {
+  ChevronUpDownIcon,
+  ClipboardDocumentIcon,
+} from "@heroicons/react/24/solid";
 import {
   TracerouteResult,
   TracerouteUpdate,
@@ -14,6 +17,11 @@ import {
   SavedIperfServer,
 } from "@/types/types";
 import { Button } from "@/components/ui/Button";
+import {
+  formatTracerouteForClipboard,
+  copyToClipboard,
+  filterTrailingTimeouts,
+} from "@/utils/clipboard";
 import {
   runTraceroute,
   getTracerouteStatus,
@@ -75,6 +83,7 @@ export const TracerouteTab: React.FC = () => {
   const [tracerouteStatus, setTracerouteStatus] =
     useState<TracerouteUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   // Get cached results from TanStack Query
   const { data: results } = useQuery<TracerouteResult | null>({
@@ -265,31 +274,6 @@ export const TracerouteTab: React.FC = () => {
     return `${rtt.toFixed(1)}ms`;
   };
 
-  const filterTrailingTimeouts = (hops: any[]) => {
-    if (!hops || hops.length === 0) return hops;
-    
-    // Find the last non-timeout hop
-    let lastValidIndex = -1;
-    for (let i = hops.length - 1; i >= 0; i--) {
-      if (!hops[i].timeout) {
-        lastValidIndex = i;
-        break;
-      }
-    }
-    
-    // If no valid hops found, return all hops
-    if (lastValidIndex === -1) return hops;
-    
-    // Check if there are 3 or more consecutive timeouts at the end
-    const trailingTimeouts = hops.length - 1 - lastValidIndex;
-    if (trailingTimeouts >= 3) {
-      // Return hops up to the last valid hop
-      return hops.slice(0, lastValidIndex + 1);
-    }
-    
-    return hops;
-  };
-
   const getAverageRTT = (hop: {
     rtt1: number;
     rtt2: number;
@@ -300,6 +284,18 @@ export const TracerouteTab: React.FC = () => {
     const validRTTs = [hop.rtt1, hop.rtt2, hop.rtt3].filter((rtt) => rtt > 0);
     if (validRTTs.length === 0) return 0;
     return validRTTs.reduce((sum, rtt) => sum + rtt, 0) / validRTTs.length;
+  };
+
+  const copyTracerouteResults = async () => {
+    if (!results) return;
+
+    const formattedOutput = formatTracerouteForClipboard(results);
+    const success = await copyToClipboard(formattedOutput);
+
+    if (success) {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
   };
 
   return (
@@ -574,59 +570,61 @@ export const TracerouteTab: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filterTrailingTimeouts(tracerouteStatus.hops).map((hop) => (
-                      <motion.tr
-                        key={hop.number}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="border-b border-gray-800/50 last:border-0 hover:bg-gray-800/30 transition-colors"
-                      >
-                        <td className="py-3 px-2 text-gray-300 text-center">
-                          {hop.number}
-                        </td>
-                        <td
-                          className="py-3 px-2 text-gray-300 text-center"
-                          title={hop.timeout ? "-" : hop.host}
+                    {filterTrailingTimeouts(tracerouteStatus.hops).map(
+                      (hop) => (
+                        <motion.tr
+                          key={hop.number}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="border-b border-gray-800/50 last:border-0 hover:bg-gray-800/30 transition-colors"
                         >
-                          {hop.timeout ? (
-                            <span className="text-gray-500">Timeout</span>
-                          ) : (
-                            hop.host
-                          )}
-                        </td>
-                        <td className="py-3 px-2 text-center">
-                          {hop.as ? (
-                            <div className="flex items-center justify-center gap-2">
-                              <CountryFlag
-                                countryCode={hop.countryCode}
-                                className="w-4 h-3 flex-shrink-0"
-                              />
-                              <span
-                                className="text-blue-400 text-xs truncate"
-                                title={hop.as}
-                              >
-                                {hop.as}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-500">—</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-2 text-center text-emerald-400 font-mono">
-                          {hop.timeout ? "*" : formatRTT(hop.rtt1)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-yellow-400 font-mono">
-                          {hop.timeout ? "*" : formatRTT(hop.rtt2)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-orange-400 font-mono">
-                          {hop.timeout ? "*" : formatRTT(hop.rtt3)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-blue-400 font-mono">
-                          {hop.timeout ? "*" : formatRTT(getAverageRTT(hop))}
-                        </td>
-                      </motion.tr>
-                    ))}
+                          <td className="py-3 px-2 text-gray-300 text-center">
+                            {hop.number}
+                          </td>
+                          <td
+                            className="py-3 px-2 text-gray-300 text-center"
+                            title={hop.timeout ? "-" : hop.host}
+                          >
+                            {hop.timeout ? (
+                              <span className="text-gray-500">Timeout</span>
+                            ) : (
+                              hop.host
+                            )}
+                          </td>
+                          <td className="py-3 px-2 text-center">
+                            {hop.as ? (
+                              <div className="flex items-center justify-center gap-2">
+                                <CountryFlag
+                                  countryCode={hop.countryCode}
+                                  className="w-4 h-3 flex-shrink-0"
+                                />
+                                <span
+                                  className="text-blue-400 text-xs truncate"
+                                  title={hop.as}
+                                >
+                                  {hop.as}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-500">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-2 text-center text-emerald-400 font-mono">
+                            {hop.timeout ? "*" : formatRTT(hop.rtt1)}
+                          </td>
+                          <td className="py-3 px-2 text-center text-yellow-400 font-mono">
+                            {hop.timeout ? "*" : formatRTT(hop.rtt2)}
+                          </td>
+                          <td className="py-3 px-2 text-center text-orange-400 font-mono">
+                            {hop.timeout ? "*" : formatRTT(hop.rtt3)}
+                          </td>
+                          <td className="py-3 px-2 text-center text-blue-400 font-mono">
+                            {hop.timeout ? "*" : formatRTT(getAverageRTT(hop))}
+                          </td>
+                        </motion.tr>
+                      )
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -731,9 +729,41 @@ export const TracerouteTab: React.FC = () => {
         {/* Final Results */}
         {results && (
           <div className="bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-900">
-            <h2 className="text-xl font-semibold text-white mb-4">
-              Traceroute Results
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-white">
+                Traceroute Results
+              </h2>
+              <motion.button
+                onClick={copyTracerouteResults}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-xs ${
+                  copySuccess
+                    ? "bg-emerald-600 text-white"
+                    : "bg-gray-700 hover:bg-gray-600 text-white"
+                }`}
+                title="Copy traceroute results to clipboard"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <motion.div
+                  animate={{
+                    rotate: copySuccess ? 360 : 0,
+                    scale: copySuccess ? 1.1 : 1,
+                  }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <ClipboardDocumentIcon className="w-3 h-3" />
+                </motion.div>
+                <motion.span
+                  key={copySuccess ? "copied" : "copy"}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {copySuccess ? "Copied!" : "Copy"}
+                </motion.span>
+              </motion.button>
+            </div>
             <p className="text-gray-400 text-sm mb-6">
               Route to {results.destination}
               {results.ip && results.ip !== results.destination && (

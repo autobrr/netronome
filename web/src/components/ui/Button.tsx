@@ -9,7 +9,12 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   isLoading?: boolean;
 }
 
-export const Button = ({ className, children, isLoading, ...props }: ButtonProps) => {
+export const Button = ({
+  className,
+  children,
+  isLoading,
+  ...props
+}: ButtonProps) => {
   const [scope, animate] = useAnimate();
 
   React.useEffect(() => {
@@ -23,7 +28,7 @@ export const Button = ({ className, children, isLoading, ...props }: ButtonProps
         },
         {
           duration: 0.2,
-        },
+        }
       );
     } else {
       animate(
@@ -35,13 +40,18 @@ export const Button = ({ className, children, isLoading, ...props }: ButtonProps
         },
         {
           duration: 0.2,
-        },
+        }
       );
     }
   }, [isLoading, animate]);
 
+  // Filter out motion-conflicting props
   const {
-    isLoading: _isLoading,
+    onAnimationStart,
+    onAnimationEnd,
+    onDrag,
+    onDragStart,
+    onDragEnd,
     ...buttonProps
   } = props;
 
@@ -52,7 +62,7 @@ export const Button = ({ className, children, isLoading, ...props }: ButtonProps
       ref={scope}
       className={cn(
         "px-6 py-2 rounded-lg font-medium transition-colors border shadow-md flex items-center gap-2 min-w-[100px] justify-center",
-        className,
+        className
       )}
       {...buttonProps}
     >
