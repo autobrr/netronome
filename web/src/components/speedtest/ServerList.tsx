@@ -50,12 +50,19 @@ export const ServerList: React.FC<ServerListProps> = ({
   testType,
   onTestTypeChange,
 }) => {
-  const [displayCount, setDisplayCount] = useState(3);
+  const getInitialDisplayCount = () => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024 ? 6 : 3;
+    }
+    return 3;
+  };
+
+  const [displayCount, setDisplayCount] = useState(getInitialDisplayCount);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCountry, setFilterCountry] = useState("");
   const [iperfSearchTerm, setIperfSearchTerm] = useState("");
   const [addServerModalOpen, setAddServerModalOpen] = useState(false);
-  const [iperfDisplayCount, setIperfDisplayCount] = useState(3);
+  const [iperfDisplayCount, setIperfDisplayCount] = useState(getInitialDisplayCount);
   const [savedIperfServers, setSavedIperfServers] = useState<
     SavedIperfServer[]
   >([]);
@@ -70,6 +77,18 @@ export const ServerList: React.FC<ServerListProps> = ({
     const saved = localStorage.getItem("server-list-open");
     return saved === null ? true : saved === "true";
   });
+
+  // Handle window resize for responsive display counts
+  useEffect(() => {
+    const handleResize = () => {
+      const newDisplayCount = window.innerWidth >= 1024 ? 6 : 3;
+      setDisplayCount(newDisplayCount);
+      setIperfDisplayCount(newDisplayCount);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Get unique countries for filter dropdown
   const countries = useMemo(() => {
