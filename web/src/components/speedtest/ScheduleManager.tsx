@@ -734,7 +734,7 @@ export default function ScheduleManager({
                       </div>
 
                       <AnimatePresence mode="popLayout">
-                        {schedules.length > 0 && (
+                        {schedules && schedules.length > 0 && (
                           <motion.div
                             className="mt-6 px-1 select-none pointer-events-none schedule-manager-animate"
                             initial={{ opacity: 0, y: -20 }}
@@ -764,7 +764,7 @@ export default function ScheduleManager({
 
                             <div className="grid grid-cols-1 gap-4">
                               <AnimatePresence mode="popLayout">
-                                {schedules.map((schedule) => (
+                                {schedules?.map((schedule) => (
                                   <motion.div
                                     key={schedule.id}
                                     initial={{ opacity: 0, y: 20 }}
