@@ -90,17 +90,17 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     {
       id: "dashboard",
       label: "Dashboard",
-      icon: <ChartBarIcon className="w-4 h-4" />,
+      icon: <ChartBarIcon className="w-5 h-5" />,
     },
     {
       id: "speedtest",
       label: "Speed Test",
-      icon: <PlayIcon className="w-4 h-4" />,
+      icon: <PlayIcon className="w-5 h-5" />,
     },
     {
       id: "traceroute",
       label: "Traceroute",
-      icon: <GlobeAltIcon className="w-4 h-4" />,
+      icon: <GlobeAltIcon className="w-5 h-5" />,
     },
   ];
 
