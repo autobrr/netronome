@@ -19,6 +19,7 @@ import { TestProgress } from "./TestProgress";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import ScheduleManager from "./ScheduleManager";
 import { ShareModal } from "./ShareModal";
+import { Traceroute } from "./Traceroute";
 import {
   Server,
   SpeedTestResult,
@@ -588,42 +589,59 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
           </motion.div>
         )}
 
-        {/* Server Selection and Schedule Manager Container */}
+        {/* Main Tools Layout */}
         {!isPublic && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
+          <div className="space-y-6 mb-6">
+            {/* Top Row - Traceroute (Full Width) */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.5 }}
             >
-              <ServerList
-                servers={servers}
-                selectedServers={selectedServers}
-                onSelect={handleServerSelect}
-                multiSelect={options.multiServer}
-                onMultiSelectChange={(value: boolean) =>
-                  setOptions((prev) => ({ ...prev, multiServer: value }))
-                }
-                onRunTest={runTest}
-                isLoading={isLoading}
-                testType={testType}
-                onTestTypeChange={setTestType}
-              />
+              <Traceroute />
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              transition={{ duration: 0.5 }}
-            >
-              <ScheduleManager
-                servers={allServers}
-                selectedServers={selectedServers}
-                onServerSelect={handleServerSelect}
-              />
-            </motion.div>
+            {/* Bottom Row - Server Selection and Schedule Manager */}
+            <div className="flex flex-col md:flex-row gap-6 md:items-start">
+              {/* Server Selection - Primary Tool */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                transition={{ duration: 0.5 }}
+                className="flex-1"
+              >
+                <ServerList
+                  servers={servers}
+                  selectedServers={selectedServers}
+                  onSelect={handleServerSelect}
+                  multiSelect={options.multiServer}
+                  onMultiSelectChange={(value: boolean) =>
+                    setOptions((prev) => ({ ...prev, multiServer: value }))
+                  }
+                  onRunTest={runTest}
+                  isLoading={isLoading}
+                  testType={testType}
+                  onTestTypeChange={setTestType}
+                />
+              </motion.div>
+
+              {/* Schedule Manager - Automation Tool */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                transition={{ duration: 0.5 }}
+                className="flex-1"
+              >
+                <ScheduleManager
+                  servers={allServers}
+                  selectedServers={selectedServers}
+                  onServerSelect={handleServerSelect}
+                />
+              </motion.div>
+            </div>
           </div>
         )}
       </Container>
