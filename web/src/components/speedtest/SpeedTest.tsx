@@ -3,23 +3,25 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Container } from "@mui/material";
 import {
-  FaWaveSquare,
-  FaShare,
   FaGithub,
   FaArrowDown,
-  FaArrowUp,
 } from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
 import { XMarkIcon } from "@heroicons/react/20/solid";
-import { ServerList } from "./ServerList";
-import { TestProgress } from "./TestProgress";
-import { SpeedHistoryChart } from "./SpeedHistoryChart";
-import ScheduleManager from "./ScheduleManager";
 import { ShareModal } from "./ShareModal";
-import { Traceroute } from "./Traceroute";
+import { TestProgress } from "./TestProgress";
+import { TabNavigation } from "../common/TabNavigation";
+import { DashboardTab } from "./DashboardTab";
+import { SpeedTestTab } from "./SpeedTestTab";
+import { TracerouteTab } from "./TracerouteTab";
+import {
+  ChartBarIcon,
+  PlayIcon,
+  GlobeAltIcon,
+} from "@heroicons/react/24/outline";
 import {
   Server,
   SpeedTestResult,
@@ -45,7 +47,6 @@ import {
   getPublicHistory,
 } from "@/api/speedtest";
 import { motion, AnimatePresence } from "motion/react";
-import { formatNextRun } from "@/utils/timeUtils";
 
 interface SpeedTestProps {
   isPublic?: boolean;
@@ -79,7 +80,34 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const [scheduledTestRunning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [updateTrigger, setUpdateTrigger] = useState(0);
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = localStorage.getItem("netronome-active-tab");
+    return saved || "dashboard";
+  });
+
+  // Tab configuration
+  const tabs = [
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      icon: <ChartBarIcon className="w-4 h-4" />,
+    },
+    {
+      id: "speedtest",
+      label: "Speed Test",
+      icon: <PlayIcon className="w-4 h-4" />,
+    },
+    {
+      id: "traceroute",
+      label: "Traceroute",
+      icon: <GlobeAltIcon className="w-4 h-4" />,
+    },
+  ];
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    localStorage.setItem("netronome-active-tab", tabId);
+  };
 
   // Queries
   const { data: speedtestServers = [] } = useQuery({
@@ -177,36 +205,6 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     console.log("[SpeedTest] Schedules data updated:", schedules);
   }, [schedules]);
 
-  // Update "Next run in:" times every minute (synchronized)
-  useEffect(() => {
-    // Calculate delay to sync with minute boundary
-    const now = new Date();
-    const secondsUntilNextMinute = 60 - now.getSeconds();
-    const initialDelay = secondsUntilNextMinute * 1000;
-
-    // Start timer at the next minute boundary
-    const initialTimer = window.setTimeout(() => {
-      console.log("[SpeedTest] Updating next run times... (synced)");
-      setUpdateTrigger((prev) => prev + 1);
-
-      // Set up regular interval after initial sync
-      const timer = window.setInterval(() => {
-        console.log("[SpeedTest] Updating next run times... (synced)");
-        setUpdateTrigger((prev) => prev + 1);
-      }, 60000); // Update every minute
-
-      // Store timer ID for cleanup
-      (window as any)._speedTestTimer = timer;
-    }, initialDelay);
-
-    return () => {
-      window.clearTimeout(initialTimer);
-      if ((window as any)._speedTestTimer) {
-        window.clearInterval((window as any)._speedTestTimer);
-        delete (window as any)._speedTestTimer;
-      }
-    };
-  }, []);
 
   // Mutations
   const speedTestMutation = useMutation({
@@ -474,176 +472,82 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
           </div>
         )}
 
-        {/* Latest Results */}
-        {hasAnyTests && latestTest && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }} // Initial state for animation
-            animate={{ opacity: 1, y: 0 }} // Animate to this state
-            exit={{ opacity: 0, y: 20 }} // Exit animation state
-            transition={{ duration: 0.5 }} // Duration of the animation
-            className="mb-6"
-          >
-            <h2 className="text-white text-xl ml-1 font-semibold">
-              Latest Run
-            </h2>
-            <div className="flex justify-between ml-1 items-center text-gray-400 text-sm mb-4">
-              <div>
-                Last test run:{" "}
-                {latestTest?.createdAt
-                  ? new Date(latestTest.createdAt).toLocaleString(undefined, {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    })
-                  : "N/A"}
-              </div>
-              <div className="flex items-center gap-4">
-                {schedules && schedules.length > 0 && (
-                  <div>
-                    Next scheduled run:{" "}
-                    <span className="text-blue-400 mr-1">
-                      {(() => {
-                        // Force re-calculation when updateTrigger changes
-                        updateTrigger; // This ensures the component re-renders
-                        return formatNextRun(schedules[0].nextRun);
-                      })()}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 cursor-default relative">
-              <MetricCard
-                icon={<IoIosPulse className="w-5 h-5 text-amber-500" />}
-                title="Latency"
-                value={parseFloat(latestTest.latency).toFixed(2)}
-                unit="ms"
-                average={calculateAverage(
-                  history.length > 0 ? history : allTimeHistory,
-                  "latency",
-                  timeRange
-                )}
-              />
-              <MetricCard
-                icon={<FaArrowDown className="w-5 h-5 text-blue-500" />}
-                title="Download"
-                value={latestTest.downloadSpeed.toFixed(2)}
-                unit="Mbps"
-                average={calculateAverage(
-                  history.length > 0 ? history : allTimeHistory,
-                  "downloadSpeed",
-                  timeRange
-                )}
-              />
-              <MetricCard
-                icon={<FaArrowUp className="w-5 h-5 text-emerald-500" />}
-                title="Upload"
-                value={latestTest.uploadSpeed.toFixed(2)}
-                unit="Mbps"
-                average={calculateAverage(
-                  history.length > 0 ? history : allTimeHistory,
-                  "uploadSpeed",
-                  timeRange
-                )}
-              />
-              <MetricCard
-                icon={<FaWaveSquare className="w-5 h-5 text-purple-400" />}
-                title="Jitter"
-                value={latestTest.jitter?.toFixed(2) ?? "N/A"}
-                unit="ms"
-                average={calculateAverage(
-                  history.length > 0 ? history : allTimeHistory,
-                  "jitter",
-                  timeRange
-                )}
-              />
-
-              {/* Floating Share Button over Jitter Card */}
-              {!isPublic && (
-                <motion.button
-                  onClick={() => setShareModalOpen(true)}
-                  className="absolute top-3 right-3 p-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 rounded-lg transition-all duration-200 backdrop-blur-sm z-10 opacity-80 hover:opacity-100"
-                  aria-label="Share public speed test page"
-                >
-                  <FaShare className="w-2.5 h-2.5" />
-                </motion.button>
-              )}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Speed History Chart */}
-        {hasAnyTests && (
+        {/* Tab Navigation */}
+        {!isPublic && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.5 }}
+            className="mb-6"
           >
-            <SpeedHistoryChart
-              timeRange={timeRange}
-              onTimeRangeChange={setTimeRange}
-              isPublic={isPublic}
-              hasAnyTests={hasAnyTests}
-              hasCurrentRangeTests={history.length > 0}
+            <TabNavigation
+              tabs={tabs}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
             />
           </motion.div>
         )}
 
-        {/* Main Tools Layout */}
-        {!isPublic && (
-          <div className="space-y-6 mb-6">
-            {/* Top Row - Traceroute (Full Width) */}
+        {/* Tab Content */}
+        <AnimatePresence mode="wait">
+          {(activeTab === "dashboard" || isPublic) && (
             <motion.div
+              key="dashboard"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              transition={{ duration: 0.5 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
             >
-              <Traceroute />
+              <DashboardTab
+                latestTest={latestTest}
+                tests={history}
+                timeRange={timeRange}
+                onTimeRangeChange={setTimeRange}
+                isPublic={isPublic}
+                hasAnyTests={hasAnyTests}
+                onShareClick={() => setShareModalOpen(true)}
+              />
             </motion.div>
+          )}
+          
+          {!isPublic && activeTab === "speedtest" && (
+            <motion.div
+              key="speedtest"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <SpeedTestTab
+                servers={servers}
+                selectedServers={selectedServers}
+                onServerSelect={handleServerSelect}
+                options={options}
+                onOptionsChange={setOptions}
+                testType={testType}
+                onTestTypeChange={setTestType}
+                isLoading={isLoading}
+                onRunTest={runTest}
+                progress={progress}
+                allServers={allServers}
+              />
+            </motion.div>
+          )}
+          
+          {!isPublic && activeTab === "traceroute" && (
+            <motion.div
+              key="traceroute"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <TracerouteTab />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-            {/* Bottom Row - Server Selection and Schedule Manager */}
-            <div className="flex flex-col md:flex-row gap-6 md:items-start">
-              {/* Server Selection - Primary Tool */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.5 }}
-                className="flex-1"
-              >
-                <ServerList
-                  servers={servers}
-                  selectedServers={selectedServers}
-                  onSelect={handleServerSelect}
-                  multiSelect={options.multiServer}
-                  onMultiSelectChange={(value: boolean) =>
-                    setOptions((prev) => ({ ...prev, multiServer: value }))
-                  }
-                  onRunTest={runTest}
-                  isLoading={isLoading}
-                  testType={testType}
-                  onTestTypeChange={setTestType}
-                />
-              </motion.div>
 
-              {/* Schedule Manager - Automation Tool */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.5 }}
-                className="flex-1"
-              >
-                <ScheduleManager
-                  servers={allServers}
-                  selectedServers={selectedServers}
-                  onServerSelect={handleServerSelect}
-                />
-              </motion.div>
-            </div>
-          </div>
-        )}
       </Container>
 
       {/* Public Footer */}
@@ -682,100 +586,3 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   );
 }
 
-// Helper Components
-const MetricCard: React.FC<{
-  icon: React.ReactNode;
-  title: string;
-  value: string;
-  unit: string;
-  average?: string;
-}> = ({ icon, title, value, unit, average }) => (
-  <div className="bg-gray-850/95 p-4 rounded-xl border border-gray-900 shadow-lg">
-    <div className="flex items-center gap-3 mb-2">
-      <div className="text-gray-400">{icon}</div>
-      <h3 className="text-gray-300 font-medium">{title}</h3>
-    </div>
-    <div className="flex items-baseline gap-2">
-      <span className="text-2xl font-bold text-white">{value}</span>
-      <span className="text-gray-400">{unit}</span>
-    </div>
-    {average && (
-      <div className="mt-1 text-sm text-gray-400">
-        Average: {average} {unit}
-      </div>
-    )}
-  </div>
-);
-
-const calculateAverage = (
-  history: SpeedTestResult[],
-  field: keyof SpeedTestResult,
-  timeRange: TimeRange
-): string => {
-  const now = new Date();
-  const cutoff = new Date();
-
-  // Set cutoff date based on timeRange
-  switch (timeRange) {
-    case "1d":
-      cutoff.setDate(now.getDate() - 1);
-      break;
-    case "3d":
-      cutoff.setDate(now.getDate() - 3);
-      break;
-    case "1w":
-      cutoff.setDate(now.getDate() - 7);
-      break;
-    case "1m":
-      cutoff.setMonth(now.getMonth() - 1);
-      break;
-    case "all":
-      return calculateAllTimeAverage(history, field);
-    default:
-      cutoff.setDate(now.getDate() - 7); // Default to 1 week
-  }
-
-  const filteredHistory = history.filter(
-    (item) => new Date(item.createdAt) >= cutoff
-  );
-
-  const validValues = filteredHistory
-    .map((item) => {
-      const value = item[field];
-      if (typeof value === "string") {
-        // Handle string values (like latency with "ms" suffix)
-        return parseFloat(value.replace("ms", ""));
-      }
-      return Number(value);
-    })
-    .filter((value) => !isNaN(value));
-
-  if (validValues.length === 0) return "N/A";
-
-  const avg =
-    validValues.reduce((sum, value) => sum + value, 0) / validValues.length;
-  return avg.toFixed(2);
-};
-
-// Helper function for "all" time range
-const calculateAllTimeAverage = (
-  history: SpeedTestResult[],
-  field: keyof SpeedTestResult
-): string => {
-  const validValues = history
-    .map((item) => {
-      const value = item[field];
-      if (typeof value === "string") {
-        // Handle string values (like latency with "ms" suffix)
-        return parseFloat(value.replace("ms", ""));
-      }
-      return Number(value);
-    })
-    .filter((value) => !isNaN(value));
-
-  if (validValues.length === 0) return "N/A";
-
-  const avg =
-    validValues.reduce((sum, value) => sum + value, 0) / validValues.length;
-  return avg.toFixed(2);
-};

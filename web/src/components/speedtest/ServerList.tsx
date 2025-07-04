@@ -257,7 +257,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                   }}
                 >
                   {/* Controls Header */}
-                  <div className="flex justify-between items-center mb-4">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
                     <div className="flex items-center gap-6">
                       {/* Multi-select Toggle */}
                       {/* TODO: backend needs some work for multiple server tests
@@ -291,7 +291,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                       <RadioGroup
                         value={testType}
                         onChange={handleTestTypeChange}
-                        className="flex items-center gap-4"
+                        className="flex items-center gap-2 sm:gap-4"
                       >
                         <RadioOption value="speedtest">Speedtest</RadioOption>
                         <RadioOption value="iperf">iperf3</RadioOption>
@@ -309,6 +309,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                         shadow-md
                         transition-colors
                         border
+                        w-full sm:w-auto
                         ${
                           isLoading || selectedServers.length === 0
                             ? "bg-gray-700 text-gray-400 cursor-not-allowed border-gray-900"
