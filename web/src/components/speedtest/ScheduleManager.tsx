@@ -543,7 +543,7 @@ export default function ScheduleManager({
                                             exactTimes.filter((t) => t !== time)
                                           )
                                         }
-                                        className="ml-1 text-blue-300 hover:text-blue-200 transition-colors"
+                                        className="ml-1 text-gray-400 hover:text-gray-300 transition-colors"
                                       >
                                         <XMarkIcon className="w-3.5 h-3.5" />
                                       </button>
@@ -816,7 +816,7 @@ export default function ScheduleManager({
                                             schedule.id &&
                                             handleDeleteSchedule(schedule.id)
                                           }
-                                          className="text-red-500 p-1 bg-red-900/50 border border-gray-900 rounded-md hover:bg-red-900/70 hover:text-red-400 transition-colors"
+                                          className="text-gray-400 p-1 bg-gray-800/50 border border-gray-900 rounded-md hover:bg-red-900/50 hover:text-red-400 transition-colors"
                                           title="Delete schedule"
                                         >
                                           <XMarkIcon className="h-4 w-4" />

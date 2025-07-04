@@ -516,7 +516,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                                         setServerToDelete(server.id);
                                         setDeleteModalOpen(true);
                                       }}
-                                      className="absolute top-2 right-2 text-red-500 p-1 bg-red-900/50 border border-gray-900 rounded-md hover:bg-red-900/70 hover:text-red-400 transition-colors"
+                                      className="absolute top-2 right-2 text-gray-400 p-1 bg-gray-800/50 border border-gray-900 rounded-md hover:bg-red-900/50 hover:text-red-400 transition-colors"
                                       title="Delete server"
                                     >
                                       <XMarkIcon className="h-4 w-4" />
