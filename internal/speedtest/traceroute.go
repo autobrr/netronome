@@ -294,9 +294,9 @@ func (s *service) buildTracerouteArgs(host string) []string {
 	switch runtime.GOOS {
 	case "darwin", "linux":
 		args = []string{
-			"-w", "2", // Wait 2 seconds for response (reduced from 3)
+			"-w", "5", // Wait 5 seconds for response (more reliable)
 			"-m", "30", // Max 30 hops
-			"-q", "1", // 1 query per hop (reduced from 3 for speed)
+			"-q", "3", // 3 queries per hop for better statistics
 			host,
 		}
 
@@ -308,7 +308,7 @@ func (s *service) buildTracerouteArgs(host string) []string {
 			Msg("Built traceroute arguments for Unix/Linux/macOS")
 	case "windows":
 		args = []string{
-			"-w", "2000", // Wait 2000 milliseconds for response (reduced from 3000)
+			"-w", "5000", // Wait 5000 milliseconds for response (more reliable)
 			"-h", "30", // Max 30 hops
 			host,
 		}
@@ -321,9 +321,9 @@ func (s *service) buildTracerouteArgs(host string) []string {
 	default:
 		// Default to Linux/Unix style
 		args = []string{
-			"-w", "2",
+			"-w", "5",
 			"-m", "30",
-			"-q", "1",
+			"-q", "3",
 			host,
 		}
 	}

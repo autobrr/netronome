@@ -45,7 +45,7 @@ const extractHostname = (hostValue: string): string => {
     try {
       const url = new URL(hostname);
       hostname = url.hostname;
-    } catch (error) {
+    } catch {
       console.warn("Failed to parse URL:", hostname);
     }
   }
@@ -66,7 +66,7 @@ const CountryFlag: React.FC<{ countryCode?: string; className?: string }> = ({
   if (!countryCode) return null;
 
   return (
-    <span className={`text-sm flex-shrink-0 ${className}`} title={countryCode}>
+    <span className={`text-xs leading-none ${className}`} title={countryCode} style={{ verticalAlign: 'baseline' }}>
       {getCountryFlag(countryCode)}
     </span>
   );
@@ -504,105 +504,244 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className="bg-gray-800/50 rounded-lg shadow-md border border-gray-900 overflow-hidden"
+                        transition={{ delay: 0.2 }}
+                        className="bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-900"
                       >
-                        <div className="bg-gray-800/70 px-4 py-3 border-b border-gray-900">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="text-lg font-semibold text-white">
-                                Route to {results.destination}
-                                {results.ip &&
-                                  results.ip !== results.destination && (
-                                    <span className="text-gray-400 ml-2">
-                                      ({results.ip})
-                                    </span>
-                                  )}
-                              </h3>
-                              <p className="text-sm text-gray-400 mt-1">
-                                {results.totalHops} hops •{" "}
-                                {results.complete ? "Complete" : "Incomplete"}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => setResults(null)}
-                              className="text-red-500 p-1 bg-red-900/50 border border-gray-900 rounded-md hover:bg-red-900/70 hover:text-red-400 transition-colors"
-                              title="Clear results"
-                            >
-                              <XMarkIcon className="h-4 w-4" />
-                            </button>
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h2 className="text-xl font-semibold text-white mb-1">
+                              Traceroute Results
+                            </h2>
+                            <p className="text-gray-400 text-sm">
+                              Route to {results.destination}
+                              {results.ip &&
+                                results.ip !== results.destination && (
+                                  <span className="text-gray-500 ml-1">
+                                    ({results.ip})
+                                  </span>
+                                )}
+                              {" • "}
+                              {results.totalHops} hops •{" "}
+                              {results.complete ? "Complete" : "Incomplete"}
+                            </p>
                           </div>
+                          <button
+                            onClick={() => setResults(null)}
+                            className="text-red-500 p-2 bg-red-900/20 hover:bg-red-900/40 rounded-lg transition-colors"
+                            title="Clear results"
+                          >
+                            <XMarkIcon className="h-4 w-4" />
+                          </button>
                         </div>
 
-                        <div className="divide-y divide-gray-900">
-                          {results.hops.map((hop, index) => (
-                            <motion.div
-                              key={hop.number}
-                              initial={{ opacity: 0, x: -20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: index * 0.05 }}
-                              className="p-3 hover:bg-gray-800/30 transition-colors"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex-shrink-0 w-7 h-7 bg-blue-500/20 border border-blue-500/30 rounded-full flex items-center justify-center">
-                                    <span className="text-blue-400 font-medium text-sm">
-                                      {hop.number}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <div className="font-medium text-white">
-                                      {hop.timeout
-                                        ? "Request timed out"
-                                        : hop.host}
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-gray-700">
+                                <th
+                                  rowSpan={2}
+                                  className="text-left py-3 px-2 text-gray-400 font-medium border-r border-gray-800"
+                                >
+                                  Hop
+                                </th>
+                                <th
+                                  rowSpan={2}
+                                  className="text-left py-3 px-2 text-gray-400 font-medium border-r border-gray-800"
+                                >
+                                  Host
+                                </th>
+                                <th
+                                  rowSpan={2}
+                                  className="text-left py-3 px-2 text-gray-400 font-medium border-r border-gray-800"
+                                >
+                                  Provider
+                                </th>
+                                <th
+                                  colSpan={4}
+                                  className="text-center py-2 px-2 text-gray-300 font-medium"
+                                >
+                                  Round Trip Time (RTT)
+                                </th>
+                              </tr>
+                              <tr className="border-b border-gray-800">
+                                <th className="text-right py-2 px-2 text-gray-400 font-medium">
+                                  <span className="text-emerald-400">RTT1</span>
+                                </th>
+                                <th className="text-right py-2 px-2 text-gray-400 font-medium">
+                                  <span className="text-yellow-400">RTT2</span>
+                                </th>
+                                <th className="text-right py-2 px-2 text-gray-400 font-medium">
+                                  <span className="text-orange-400">RTT3</span>
+                                </th>
+                                <th className="text-right py-2 px-2 text-gray-400 font-medium">
+                                  <span className="text-blue-400">Avg</span>
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {results.hops.map((hop) => (
+                                <motion.tr
+                                  key={hop.number}
+                                  initial={{ opacity: 0, y: 20 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.3 }}
+                                  className="border-b border-gray-800/50 last:border-0 hover:bg-gray-800/30 transition-colors"
+                                >
+                                  <td className="py-3 px-2 text-gray-300 border-r border-gray-800">
+                                    <div className="w-6 h-6 bg-blue-500/20 border border-blue-500/30 rounded-full flex items-center justify-center">
+                                      <span className="text-blue-400 font-medium text-xs">
+                                        {hop.number}
+                                      </span>
                                     </div>
-                                    {hop.ip &&
-                                      hop.ip !== hop.host &&
-                                      hop.ip !== "*" && (
-                                        <div className="text-sm text-gray-400">
-                                          {hop.ip}
+                                  </td>
+                                  <td
+                                    className="py-3 px-2 text-gray-300 truncate max-w-[200px] border-r border-gray-800"
+                                    title={
+                                      hop.timeout
+                                        ? "Request timed out"
+                                        : hop.host
+                                    }
+                                  >
+                                    {hop.timeout ? (
+                                      <span className="text-red-400">
+                                        Request timed out
+                                      </span>
+                                    ) : (
+                                      <>
+                                        <div className="font-medium">
+                                          {hop.host}
                                         </div>
-                                      )}
-                                    {hop.as && (
-                                      <div className="text-xs text-blue-400 flex items-baseline gap-1">
+                                        {hop.ip &&
+                                          hop.ip !== hop.host &&
+                                          hop.ip !== "*" && (
+                                            <div className="text-xs text-gray-500">
+                                              {hop.ip}
+                                            </div>
+                                          )}
+                                      </>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-2 border-r border-gray-800">
+                                    {hop.as ? (
+                                      <div className="flex items-baseline gap-2">
                                         <CountryFlag
                                           countryCode={hop.countryCode}
                                           className="w-4 h-3 flex-shrink-0"
                                         />
-                                        <span>{hop.as}</span>
+                                        <span
+                                          className="text-blue-400 text-xs truncate max-w-[150px]"
+                                          title={hop.as}
+                                        >
+                                          {hop.as}
+                                        </span>
                                       </div>
+                                    ) : (
+                                      <span className="text-gray-500">—</span>
                                     )}
+                                  </td>
+                                  <td className="py-3 px-2 text-right text-emerald-400 font-mono">
+                                    {hop.timeout ? "*" : formatRTT(hop.rtt1)}
+                                  </td>
+                                  <td className="py-3 px-2 text-right text-yellow-400 font-mono">
+                                    {hop.timeout ? "*" : formatRTT(hop.rtt2)}
+                                  </td>
+                                  <td className="py-3 px-2 text-right text-orange-400 font-mono">
+                                    {hop.timeout ? "*" : formatRTT(hop.rtt3)}
+                                  </td>
+                                  <td className="py-3 px-2 text-right text-blue-400 font-mono font-medium">
+                                    {hop.timeout
+                                      ? "*"
+                                      : formatRTT(getAverageRTT(hop))}
+                                  </td>
+                                </motion.tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Mobile Card View */}
+                        <div className="md:hidden space-y-3">
+                          {results.hops.map((hop) => (
+                            <motion.div
+                              key={hop.number}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="bg-gray-800/50 rounded-lg p-4 border border-gray-800"
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-6 h-6 bg-blue-500/20 border border-blue-500/30 rounded-full flex items-center justify-center">
+                                    <span className="text-blue-400 font-medium text-xs">
+                                      {hop.number}
+                                    </span>
+                                  </div>
+                                  <div className="text-gray-300 text-sm font-medium truncate flex-1 mr-2">
+                                    {hop.timeout
+                                      ? "Request timed out"
+                                      : hop.host}
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                  <div className="text-right">
-                                    <div className="text-xs text-gray-500">
-                                      RTT
-                                    </div>
-                                    <div className="font-mono text-sm">
-                                      {hop.timeout ? (
-                                        <span className="text-red-400">
-                                          * * *
-                                        </span>
-                                      ) : (
-                                        <span className="text-gray-300">
-                                          {formatRTT(hop.rtt1)}{" "}
-                                          {formatRTT(hop.rtt2)}{" "}
-                                          {formatRTT(hop.rtt3)}
-                                        </span>
-                                      )}
-                                    </div>
+                              </div>
+
+                              {!hop.timeout &&
+                                hop.ip &&
+                                hop.ip !== hop.host &&
+                                hop.ip !== "*" && (
+                                  <div className="text-gray-500 text-xs mb-3">
+                                    {hop.ip}
                                   </div>
-                                  {!hop.timeout && (
-                                    <div className="text-right">
-                                      <div className="text-xs text-gray-500">
-                                        Avg
-                                      </div>
-                                      <div className="font-mono text-sm font-medium text-blue-400">
-                                        {formatRTT(getAverageRTT(hop))}
-                                      </div>
-                                    </div>
-                                  )}
+                                )}
+
+                              {hop.as && (
+                                <div className="flex items-center gap-2 mb-3">
+                                  <CountryFlag
+                                    countryCode={hop.countryCode}
+                                    className="w-4 h-3 flex-shrink-0"
+                                  />
+                                  <span className="text-blue-400 text-xs">
+                                    {hop.as}
+                                  </span>
+                                </div>
+                              )}
+
+                              <div className="space-y-3">
+                                {/* RTT Section Header */}
+                                <div className="text-gray-300 text-sm font-medium border-b border-gray-700 pb-2">
+                                  Round Trip Time (RTT)
+                                </div>
+
+                                {/* RTT Values Grid */}
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">1st:</span>
+                                    <span className="text-emerald-400 font-mono">
+                                      {hop.timeout ? "*" : formatRTT(hop.rtt1)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">2nd:</span>
+                                    <span className="text-yellow-400 font-mono">
+                                      {hop.timeout ? "*" : formatRTT(hop.rtt2)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">3rd:</span>
+                                    <span className="text-orange-400 font-mono">
+                                      {hop.timeout ? "*" : formatRTT(hop.rtt3)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">
+                                      Average:
+                                    </span>
+                                    <span className="text-blue-400 font-mono font-medium">
+                                      {hop.timeout
+                                        ? "*"
+                                        : formatRTT(getAverageRTT(hop))}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             </motion.div>

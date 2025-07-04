@@ -18,7 +18,7 @@ interface SpeedTestTabProps {
   testType: TestType;
   onTestTypeChange: (type: TestType) => void;
   isLoading: boolean;
-  onRunTest: () => void;
+  onRunTest: () => Promise<void>;
   progress: TestProgressType | null;
   allServers: Server[];
 }
@@ -27,13 +27,10 @@ export const SpeedTestTab: React.FC<SpeedTestTabProps> = ({
   servers,
   selectedServers,
   onServerSelect,
-  options,
-  onOptionsChange,
   testType,
   onTestTypeChange,
   isLoading,
   onRunTest,
-  progress,
   allServers,
 }) => {
   return (

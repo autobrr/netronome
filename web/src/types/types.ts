@@ -76,6 +76,8 @@ export interface TestOptions {
 
 export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
 
+export type TestType = "speedtest" | "iperf" | "librespeed";
+
 export interface SpeedUpdate {
   isComplete: boolean;
   type: "download" | "upload" | "ping" | "complete";
