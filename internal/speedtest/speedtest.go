@@ -27,6 +27,7 @@ type Service interface {
 	GetServers(testType string) ([]ServerResponse, error)
 	GetLibrespeedServers() ([]ServerResponse, error)
 	RunLibrespeedTest(ctx context.Context, opts *types.TestOptions) (*Result, error)
+	RunTraceroute(ctx context.Context, host string) (*TracerouteResult, error)
 	SetBroadcastUpdate(broadcastUpdate func(types.SpeedUpdate))
 }
 
@@ -34,6 +35,7 @@ type service struct {
 	client          *st.Speedtest
 	db              database.Service
 	config          config.SpeedTestConfig
+	fullConfig      *config.Config
 	notifier        *notifications.Notifier
 	broadcaster     broadcaster.Broadcaster
 	broadcastUpdate func(types.SpeedUpdate)
@@ -42,11 +44,12 @@ type service struct {
 	cacheDuration   time.Duration
 }
 
-func New(db database.Service, cfg config.SpeedTestConfig, notifier *notifications.Notifier) Service {
+func New(db database.Service, cfg config.SpeedTestConfig, notifier *notifications.Notifier, fullConfig *config.Config) Service {
 	svc := &service{
 		client:        st.New(),
 		db:            db,
 		config:        cfg,
+		fullConfig:    fullConfig,
 		notifier:      notifier,
 		cacheDuration: 30 * time.Minute,
 		cacheExpiry:   time.Now(),

@@ -101,3 +101,24 @@ export interface SavedIperfServer {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface TracerouteHop {
+  number: number;
+  host: string;
+  ip: string;
+  rtt1: number;
+  rtt2: number;
+  rtt3: number;
+  timeout: boolean;
+  as?: string;
+  location?: string;
+  countryCode?: string;
+}
+
+export interface TracerouteResult {
+  destination: string;
+  ip: string;
+  hops: TracerouteHop[];
+  totalHops: number;
+  complete: boolean;
+}

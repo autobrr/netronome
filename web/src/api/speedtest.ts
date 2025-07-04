@@ -76,18 +76,24 @@ export async function runSpeedTest(options: SpeedTestOptions) {
   }
 }
 
-export async function getPublicHistory(timeRange: string, page: number, limit: number) {
+export async function getPublicHistory(
+  timeRange: string,
+  page: number,
+  limit: number
+) {
   try {
     const response = await fetch(
-      getApiUrl(`/speedtest/public/history?timeRange=${timeRange}&page=${page}&limit=${limit}`)
+      getApiUrl(
+        `/speedtest/public/history?timeRange=${timeRange}&page=${page}&limit=${limit}`
+      )
     );
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Failed to fetch public history');
+      throw new Error(errorData.message || "Failed to fetch public history");
     }
     return await response.json();
   } catch (error) {
-    console.error('Error fetching public history:', error);
+    console.error("Error fetching public history:", error);
     throw error;
   }
 }
@@ -107,6 +113,22 @@ export async function getSpeedTestStatus() {
     return await response.json();
   } catch (error) {
     console.error("Error getting speed test status:", error);
+    throw error;
+  }
+}
+
+export async function runTraceroute(host: string) {
+  try {
+    const response = await fetch(
+      getApiUrl(`/traceroute?host=${encodeURIComponent(host)}`)
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to run traceroute");
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error running traceroute:", error);
     throw error;
   }
 }

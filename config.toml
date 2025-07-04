@@ -18,10 +18,10 @@ port = 7575
 #base_url = "/netronome"
 
 [logging]
-level = "trace" # trace, debug, info, warn, error, fatal, panic
+level = "debug" # trace, debug, info, warn, error, fatal, panic
 
 #[auth]
-#whitelist = ["127.0.0.1/32"]
+#whitelist = ["127.0.0.1/32", "::1/128"]
 
 [oidc]
 issuer = ""
@@ -46,6 +46,10 @@ timeout = 10
 
 [speedtest.librespeed]
 timeout = 60
+
+[geoip]
+country_database_path = "./GeoLite2-Country.mmdb"
+asn_database_path = "./GeoLite2-ASN.mmdb"
 
 # Pagination options (defaults work well for most cases)
 # Only uncomment and modify if you need to adjust the API response pagination

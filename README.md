@@ -26,22 +26,18 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
 ## ✨ Features
 
 - **Speed Testing**
-
   - Support for Speedtest.net, iperf3 servers, and LibreSpeed
   - Real-time test progress visualization
   - Latency and jitter measurements
 
 - **Monitoring**
-
   - Interactive historical data charts
   - Customizable time ranges (1d, 3d, 1w, 1m, all)
 
 - **Scheduling & Automation**
-
   - Automated speed tests with flexible scheduling
 
 - **Modern Interface**
-
   - Clean, responsive design
   - Dark mode optimized
   - Real-time updates
@@ -246,13 +242,14 @@ Example `librespeed-servers.json`:
 | `NETRONOME__NOTIFICATIONS_DOWNLOAD_THRESHOLD` | Download threshold in Mbps for notifications                      | `200`                                        | No                     |
 | `NETRONOME__NOTIFICATIONS_DISCORD_MENTION_ID` | Discord user/role ID to mention on alerts                         | -                                            | No                     |
 | `NETRONOME__AUTH_WHITELIST`                   | Whitelist for authentication                                      | -                                            | No                     |
+| `NETRONOME__GEOIP_COUNTRY_DATABASE_PATH`      | Path to GeoLite2-Country.mmdb file                                | -                                            | No                     |
+| `NETRONOME__GEOIP_ASN_DATABASE_PATH`          | Path to GeoLite2-ASN.mmdb file                                    | -                                            | No                     |
 
 ### Database
 
 Netronome supports two database backends:
 
 1. **SQLite** (Default)
-
    - No additional setup required
 
 2. **PostgreSQL**
@@ -272,12 +269,10 @@ Netronome supports two database backends:
 Netronome supports two authentication methods:
 
 1. **Built-in Authentication**
-
    - Username/password authentication
    - Default option if no OIDC is configured
 
 2. **OpenID Connect (OIDC)**
-
    - Integration with identity providers (Google, Okta, Auth0, Keycloak, Pocket-ID etc.)
    - Configure via environment variables:
      ```bash
@@ -288,13 +283,53 @@ Netronome supports two authentication methods:
      ```
 
 3. **IP Whitelisting**
-
    - Bypass authentication for specific network ranges or IP addresses.
    - Configure in `config.toml` using CIDR notation:
      ```toml
      [auth]
      whitelist = ["127.0.0.1/32"]
      ```
+
+### GeoIP Configuration
+
+Netronome can display country flags and ASN information in traceroute results using MaxMind's GeoLite2 databases.
+
+#### Setup Instructions
+
+1. **Get a MaxMind License Key**
+   - Sign up for a free account at [MaxMind](https://www.maxmind.com/en/geolite2/signup)
+   - Generate a license key in your account dashboard
+
+2. **Download the Databases**
+
+   ```bash
+   # Download GeoLite2-Country database (for country flags)
+   curl -L "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country&license_key=YOUR_LICENSE_KEY&suffix=tar.gz" -o GeoLite2-Country.tar.gz
+   tar -xzf GeoLite2-Country.tar.gz
+   cp GeoLite2-Country_*/GeoLite2-Country.mmdb /path/to/your/databases/
+
+   # Download GeoLite2-ASN database (for ASN information)
+   curl -L "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-ASN&license_key=YOUR_LICENSE_KEY&suffix=tar.gz" -o GeoLite2-ASN.tar.gz
+   tar -xzf GeoLite2-ASN.tar.gz
+   cp GeoLite2-ASN_*/GeoLite2-ASN.mmdb /path/to/your/databases/
+   ```
+
+3. **Configure Netronome**
+
+   ```toml
+   [geoip]
+   country_database_path = "/path/to/your/databases/GeoLite2-Country.mmdb"
+   asn_database_path = "/path/to/your/databases/GeoLite2-ASN.mmdb"
+   ```
+
+   Or using environment variables:
+
+   ```bash
+   NETRONOME__GEOIP_COUNTRY_DATABASE_PATH=/path/to/your/databases/GeoLite2-Country.mmdb
+   NETRONOME__GEOIP_ASN_DATABASE_PATH=/path/to/your/databases/GeoLite2-ASN.mmdb
+   ```
+
+**Note:** Both databases are optional. You can configure only one if you only want country flags or ASN information. The databases should be updated monthly for best accuracy.
 
 ### Notifications
 

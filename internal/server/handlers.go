@@ -190,3 +190,26 @@ func (s *Server) handleDeleteSchedule(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Schedule deleted successfully"})
 }
+
+func (s *Server) handleTraceroute(c *gin.Context) {
+	host := c.Query("host")
+	if host == "" {
+		c.Status(http.StatusBadRequest)
+		_ = c.Error(fmt.Errorf("host parameter is required"))
+		return
+	}
+
+	// Create a timeout context for the traceroute
+	timeout := 90 * time.Second // Extended timeout for traceroute
+	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+	defer cancel()
+
+	result, err := s.speedtest.RunTraceroute(ctx, host)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		_ = c.Error(fmt.Errorf("failed to run traceroute: %w", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
