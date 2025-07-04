@@ -610,17 +610,41 @@ export const TracerouteTab: React.FC = () => {
                               <span className="text-gray-500">—</span>
                             )}
                           </td>
-                          <td className="py-3 px-2 text-center text-emerald-400 font-mono">
-                            {hop.timeout ? "*" : formatRTT(hop.rtt1)}
+                          <td className="py-3 px-2 text-center font-mono">
+                            {hop.timeout ? (
+                              <span className="text-gray-500">*</span>
+                            ) : (
+                              <span className="text-emerald-400">
+                                {formatRTT(hop.rtt1)}
+                              </span>
+                            )}
                           </td>
-                          <td className="py-3 px-2 text-center text-yellow-400 font-mono">
-                            {hop.timeout ? "*" : formatRTT(hop.rtt2)}
+                          <td className="py-3 px-2 text-center font-mono">
+                            {hop.timeout ? (
+                              <span className="text-gray-500">*</span>
+                            ) : (
+                              <span className="text-yellow-400">
+                                {formatRTT(hop.rtt2)}
+                              </span>
+                            )}
                           </td>
-                          <td className="py-3 px-2 text-center text-orange-400 font-mono">
-                            {hop.timeout ? "*" : formatRTT(hop.rtt3)}
+                          <td className="py-3 px-2 text-center font-mono">
+                            {hop.timeout ? (
+                              <span className="text-gray-500">*</span>
+                            ) : (
+                              <span className="text-orange-400">
+                                {formatRTT(hop.rtt3)}
+                              </span>
+                            )}
                           </td>
-                          <td className="py-3 px-2 text-center text-blue-400 font-mono">
-                            {hop.timeout ? "*" : formatRTT(getAverageRTT(hop))}
+                          <td className="py-3 px-2 text-center font-mono">
+                            {hop.timeout ? (
+                              <span className="text-gray-500">*</span>
+                            ) : (
+                              <span className="text-blue-400">
+                                {formatRTT(getAverageRTT(hop))}
+                              </span>
+                            )}
                           </td>
                         </motion.tr>
                       )
@@ -657,26 +681,50 @@ export const TracerouteTab: React.FC = () => {
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-400">RTT 1:</span>
-                        <span className="text-emerald-400 font-mono">
-                          {hop.timeout ? "*" : formatRTT(hop.rtt1)}
+                        <span className="font-mono">
+                          {hop.timeout ? (
+                            <span className="text-gray-500">*</span>
+                          ) : (
+                            <span className="text-emerald-400">
+                              {formatRTT(hop.rtt1)}
+                            </span>
+                          )}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">RTT 2:</span>
-                        <span className="text-yellow-400 font-mono">
-                          {hop.timeout ? "*" : formatRTT(hop.rtt2)}
+                        <span className="font-mono">
+                          {hop.timeout ? (
+                            <span className="text-gray-500">*</span>
+                          ) : (
+                            <span className="text-yellow-400">
+                              {formatRTT(hop.rtt2)}
+                            </span>
+                          )}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">RTT 3:</span>
-                        <span className="text-orange-400 font-mono">
-                          {hop.timeout ? "*" : formatRTT(hop.rtt3)}
+                        <span className="font-mono">
+                          {hop.timeout ? (
+                            <span className="text-gray-500">*</span>
+                          ) : (
+                            <span className="text-orange-400">
+                              {formatRTT(hop.rtt3)}
+                            </span>
+                          )}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">Average:</span>
-                        <span className="text-blue-400 font-mono">
-                          {hop.timeout ? "*" : formatRTT(getAverageRTT(hop))}
+                        <span className="font-mono">
+                          {hop.timeout ? (
+                            <span className="text-gray-500">*</span>
+                          ) : (
+                            <span className="text-blue-400">
+                              {formatRTT(getAverageRTT(hop))}
+                            </span>
+                          )}
                         </span>
                       </div>
                     </div>
@@ -847,17 +895,41 @@ export const TracerouteTab: React.FC = () => {
                           <span className="text-gray-500">—</span>
                         )}
                       </td>
-                      <td className="py-3 px-2 text-center text-emerald-400 font-mono">
-                        {hop.timeout ? "*" : formatRTT(hop.rtt1)}
+                      <td className="py-3 px-2 text-center font-mono">
+                        {hop.timeout ? (
+                          <span className="text-gray-500">*</span>
+                        ) : (
+                          <span className="text-emerald-400">
+                            {formatRTT(hop.rtt1)}
+                          </span>
+                        )}
                       </td>
-                      <td className="py-3 px-2 text-center text-yellow-400 font-mono">
-                        {hop.timeout ? "*" : formatRTT(hop.rtt2)}
+                      <td className="py-3 px-2 text-center font-mono">
+                        {hop.timeout ? (
+                          <span className="text-gray-500">*</span>
+                        ) : (
+                          <span className="text-yellow-400">
+                            {formatRTT(hop.rtt2)}
+                          </span>
+                        )}
                       </td>
-                      <td className="py-3 px-2 text-center text-orange-400 font-mono">
-                        {hop.timeout ? "*" : formatRTT(hop.rtt3)}
+                      <td className="py-3 px-2 text-center font-mono">
+                        {hop.timeout ? (
+                          <span className="text-gray-500">*</span>
+                        ) : (
+                          <span className="text-orange-400">
+                            {formatRTT(hop.rtt3)}
+                          </span>
+                        )}
                       </td>
-                      <td className="py-3 px-2 text-center text-blue-400 font-mono">
-                        {hop.timeout ? "*" : formatRTT(getAverageRTT(hop))}
+                      <td className="py-3 px-2 text-center font-mono">
+                        {hop.timeout ? (
+                          <span className="text-gray-500">*</span>
+                        ) : (
+                          <span className="text-blue-400">
+                            {formatRTT(getAverageRTT(hop))}
+                          </span>
+                        )}
                       </td>
                     </motion.tr>
                   ))}
@@ -893,26 +965,50 @@ export const TracerouteTab: React.FC = () => {
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-400">RTT 1:</span>
-                      <span className="text-emerald-400 font-mono">
-                        {hop.timeout ? "*" : formatRTT(hop.rtt1)}
+                      <span className="font-mono">
+                        {hop.timeout ? (
+                          <span className="text-gray-500">*</span>
+                        ) : (
+                          <span className="text-emerald-400">
+                            {formatRTT(hop.rtt1)}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">RTT 2:</span>
-                      <span className="text-yellow-400 font-mono">
-                        {hop.timeout ? "*" : formatRTT(hop.rtt2)}
+                      <span className="font-mono">
+                        {hop.timeout ? (
+                          <span className="text-gray-500">*</span>
+                        ) : (
+                          <span className="text-yellow-400">
+                            {formatRTT(hop.rtt2)}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">RTT 3:</span>
-                      <span className="text-orange-400 font-mono">
-                        {hop.timeout ? "*" : formatRTT(hop.rtt3)}
+                      <span className="font-mono">
+                        {hop.timeout ? (
+                          <span className="text-gray-500">*</span>
+                        ) : (
+                          <span className="text-orange-400">
+                            {formatRTT(hop.rtt3)}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Average:</span>
-                      <span className="text-blue-400 font-mono">
-                        {hop.timeout ? "*" : formatRTT(getAverageRTT(hop))}
+                      <span className="font-mono">
+                        {hop.timeout ? (
+                          <span className="text-gray-500">*</span>
+                        ) : (
+                          <span className="text-blue-400">
+                            {formatRTT(getAverageRTT(hop))}
+                          </span>
+                        )}
                       </span>
                     </div>
                   </div>
