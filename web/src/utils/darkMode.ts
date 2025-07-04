@@ -3,13 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-// Track if user has manually set a preference
-let hasUserPreference = false;
-
 export const toggleDarkMode = () => {
-  // Mark that user has manually set a preference
-  hasUserPreference = true;
-  
   // Add transition class before changing theme
   document.documentElement.classList.add('theme-transition');
   
@@ -79,7 +73,6 @@ export const initializeDarkMode = () => {
   
   // Check if user has a saved preference
   const hasStoredTheme = 'theme' in localStorage;
-  hasUserPreference = false; // Reset on initialization
   
   // Set up system theme detection
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -111,7 +104,6 @@ export const initializeDarkMode = () => {
 // Export function to reset to system preference
 export const resetToSystemTheme = () => {
   localStorage.removeItem('theme');
-  hasUserPreference = false;
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   applyTheme(mediaQuery.matches, true);
   console.log('Reset to system theme:', mediaQuery.matches ? 'dark' : 'light');
