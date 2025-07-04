@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import {
   PlayIcon,
@@ -74,9 +74,18 @@ const CountryFlag: React.FC<{ countryCode?: string; className?: string }> = ({
 };
 
 export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
+  const queryClient = useQueryClient();
   const [host, setHost] = useState(defaultHost);
-  const [results, setResults] = useState<TracerouteResult | null>(null);
   const [tracerouteStatus, setTracerouteStatus] = useState<TracerouteUpdate | null>(null);
+  
+  // Get cached results from TanStack Query
+  const { data: results } = useQuery<TracerouteResult | null>({
+    queryKey: ["traceroute", "results"],
+    queryFn: () => null,
+    enabled: false,
+    staleTime: Infinity,
+    initialData: null,
+  });
   const [selectedServer, setSelectedServer] = useState<Server | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("");
@@ -176,7 +185,7 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
     mutationFn: runTraceroute,
     onMutate: () => {
       // Clear previous results and start tracking
-      setResults(null);
+      queryClient.setQueryData(["traceroute", "results"], null);
       setTracerouteStatus({
         type: "traceroute",
         host: host,
@@ -191,7 +200,7 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
       });
     },
     onSuccess: (data) => {
-      setResults(data);
+      queryClient.setQueryData(["traceroute", "results"], data);
       setTracerouteStatus(null);
     },
     onError: (error) => {
@@ -204,16 +213,19 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
   const { data: statusData } = useQuery({
     queryKey: ["traceroute", "status"],
     queryFn: getTracerouteStatus,
-    refetchInterval: tracerouteStatus && !tracerouteStatus.isComplete ? 1000 : false,
-    enabled: tracerouteMutation.isPending || (tracerouteStatus ? !tracerouteStatus.isComplete : false),
+    refetchInterval: tracerouteMutation.isPending || (tracerouteStatus && !tracerouteStatus.isComplete) ? 1000 : false,
+    enabled: tracerouteMutation.isPending || Boolean(tracerouteStatus && !tracerouteStatus.isComplete),
   });
 
   // Update status when we get new data
   useEffect(() => {
-    if (statusData) {
+    if (statusData && !results) {
       setTracerouteStatus(statusData);
+    } else if (results) {
+      // Clear status when we have final results
+      setTracerouteStatus(null);
     }
-  }, [statusData]);
+  }, [statusData, results]);
 
   const handleRunTraceroute = () => {
     let targetHost = selectedServer ? selectedServer.host : host.trim();
@@ -222,7 +234,9 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
     // Extract hostname for all server types
     targetHost = extractHostname(targetHost);
 
-    setResults(null);
+    // Clear previous state before starting
+    queryClient.setQueryData(["traceroute", "results"], null);
+    setTracerouteStatus(null);
     tracerouteMutation.mutate(targetHost);
   };
 
@@ -234,7 +248,8 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
 
   const handleStop = () => {
     tracerouteMutation.reset();
-    setResults(null);
+    queryClient.setQueryData(["traceroute", "results"], null);
+    setTracerouteStatus(null);
   };
 
   const formatRTT = (rtt: number) => {
@@ -823,7 +838,7 @@ export const Traceroute: React.FC<TracerouteProps> = ({ defaultHost = "" }) => {
                             </p>
                           </div>
                           <button
-                            onClick={() => setResults(null)}
+                            onClick={() => queryClient.setQueryData<TracerouteResult | null>(["traceroute", "results"], null)}
                             className="text-red-500 p-2 bg-red-900/20 hover:bg-red-900/40 rounded-lg transition-colors"
                             title="Clear results"
                           >
