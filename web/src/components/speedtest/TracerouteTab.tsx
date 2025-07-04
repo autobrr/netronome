@@ -265,6 +265,31 @@ export const TracerouteTab: React.FC = () => {
     return `${rtt.toFixed(1)}ms`;
   };
 
+  const filterTrailingTimeouts = (hops: any[]) => {
+    if (!hops || hops.length === 0) return hops;
+    
+    // Find the last non-timeout hop
+    let lastValidIndex = -1;
+    for (let i = hops.length - 1; i >= 0; i--) {
+      if (!hops[i].timeout) {
+        lastValidIndex = i;
+        break;
+      }
+    }
+    
+    // If no valid hops found, return all hops
+    if (lastValidIndex === -1) return hops;
+    
+    // Check if there are 3 or more consecutive timeouts at the end
+    const trailingTimeouts = hops.length - 1 - lastValidIndex;
+    if (trailingTimeouts >= 3) {
+      // Return hops up to the last valid hop
+      return hops.slice(0, lastValidIndex + 1);
+    }
+    
+    return hops;
+  };
+
   const getAverageRTT = (hop: {
     rtt1: number;
     rtt2: number;
@@ -549,7 +574,7 @@ export const TracerouteTab: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {tracerouteStatus.hops.map((hop) => (
+                    {filterTrailingTimeouts(tracerouteStatus.hops).map((hop) => (
                       <motion.tr
                         key={hop.number}
                         initial={{ opacity: 0, y: 20 }}
@@ -608,7 +633,7 @@ export const TracerouteTab: React.FC = () => {
 
               {/* Mobile Card View */}
               <div className="md:hidden space-y-3">
-                {tracerouteStatus.hops.map((hop) => (
+                {filterTrailingTimeouts(tracerouteStatus.hops).map((hop) => (
                   <motion.div
                     key={hop.number}
                     initial={{ opacity: 0, y: 20 }}
@@ -753,7 +778,7 @@ export const TracerouteTab: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {results.hops.map((hop) => (
+                  {filterTrailingTimeouts(results.hops).map((hop) => (
                     <motion.tr
                       key={hop.number}
                       initial={{ opacity: 0, y: 20 }}
@@ -812,7 +837,7 @@ export const TracerouteTab: React.FC = () => {
 
             {/* Mobile Card View */}
             <div className="md:hidden space-y-3">
-              {results.hops.map((hop) => (
+              {filterTrailingTimeouts(results.hops).map((hop) => (
                 <motion.div
                   key={hop.number}
                   initial={{ opacity: 0, y: 20 }}
