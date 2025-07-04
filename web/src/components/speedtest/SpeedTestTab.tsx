@@ -34,7 +34,7 @@ export const SpeedTestTab: React.FC<SpeedTestTabProps> = ({
   allServers,
 }) => {
   return (
-    <div className="flex flex-col md:flex-row gap-6 md:items-start max-w-7xl mx-auto">
+    <div className="flex flex-col md:flex-row gap-6 md:items-start">
       {/* Server Selection - Primary Tool */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
