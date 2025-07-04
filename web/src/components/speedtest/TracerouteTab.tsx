@@ -77,6 +77,7 @@ export const TracerouteTab: React.FC = () => {
   const [host, setHost] = useState("");
   const [tracerouteStatus, setTracerouteStatus] =
     useState<TracerouteUpdate | null>(null);
+  const [error, setError] = useState<string | null>(null);
     
   // Get cached results from TanStack Query
   const { data: results } = useQuery<TracerouteResult | null>({
@@ -180,8 +181,9 @@ export const TracerouteTab: React.FC = () => {
   const tracerouteMutation = useMutation({
     mutationFn: runTraceroute,
     onMutate: () => {
-      // Clear previous results and start tracking
+      // Clear previous results and error state
       queryClient.setQueryData(["traceroute", "results"], null);
+      setError(null);
       setTracerouteStatus({
         type: "traceroute",
         host: host,
@@ -198,10 +200,12 @@ export const TracerouteTab: React.FC = () => {
     onSuccess: (data) => {
       queryClient.setQueryData(["traceroute", "results"], data);
       setTracerouteStatus(null);
+      setError(null);
     },
     onError: (error) => {
       console.error("Traceroute failed:", error);
       setTracerouteStatus(null);
+      setError(error.message || "Traceroute failed. Please check the hostname and try again.");
     },
   });
 
@@ -254,6 +258,7 @@ export const TracerouteTab: React.FC = () => {
     tracerouteMutation.reset();
     queryClient.setQueryData(["traceroute", "results"], null);
     setTracerouteStatus(null);
+    setError(null);
   };
 
   const formatRTT = (rtt: number) => {
@@ -474,6 +479,15 @@ export const TracerouteTab: React.FC = () => {
         transition={{ duration: 0.5, delay: 0.1 }}
         className="flex-1"
       >
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+            <div className="text-red-400 text-sm">
+              <span className="font-medium">Error: </span>{error}
+            </div>
+          </div>
+        )}
+
         {/* Progress */}
         {tracerouteStatus && !tracerouteStatus.isComplete && (
           <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">

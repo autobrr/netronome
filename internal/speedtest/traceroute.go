@@ -204,12 +204,23 @@ func (s *service) RunTraceroute(ctx context.Context, host string) (*TracerouteRe
 	// Resolve the destination hostname to IP address
 	var destinationIP string
 	ips, err := net.LookupIP(host)
-	if err == nil && len(ips) > 0 {
+	if err != nil {
+		log.Error().Err(err).
+			Str("host", host).
+			Msg("Failed to resolve hostname")
+		return nil, fmt.Errorf("failed to resolve hostname '%s': %w", host, err)
+	}
+	if len(ips) > 0 {
 		destinationIP = ips[0].String()
 		log.Info().
 			Str("host", host).
 			Str("resolved_ip", destinationIP).
 			Msg("Resolved destination hostname to IP")
+	} else {
+		log.Error().
+			Str("host", host).
+			Msg("No IP addresses found for hostname")
+		return nil, fmt.Errorf("no IP addresses found for hostname '%s'", host)
 	}
 
 	// Check for Docker environment indicators
@@ -276,9 +287,19 @@ func (s *service) RunTraceroute(ctx context.Context, host string) (*TracerouteRe
 				Msg("Traceroute test timed out")
 			return nil, fmt.Errorf("traceroute test timed out after 60 seconds")
 		}
+		
+		// If we have no hops at all, this is likely a command error (like unknown host)
+		if result.TotalHops == 0 {
+			log.Error().Err(err).
+				Str("host", host).
+				Msg("Traceroute command failed with no results")
+			return nil, fmt.Errorf("traceroute failed for host '%s': %w", host, err)
+		}
+		
+		// If we have some hops, log the error but continue with partial results
 		log.Warn().Err(err).
 			Str("host", host).
-			Msg("Traceroute command finished with error, but we may have partial results")
+			Msg("Traceroute command finished with error, but we have partial results")
 	}
 
 	log.Info().
