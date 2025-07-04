@@ -51,7 +51,7 @@ export const ServerList: React.FC<ServerListProps> = ({
   onTestTypeChange,
 }) => {
   const getInitialDisplayCount = () => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       return window.innerWidth >= 1024 ? 6 : 3;
     }
     return 3;
@@ -62,7 +62,9 @@ export const ServerList: React.FC<ServerListProps> = ({
   const [filterCountry, setFilterCountry] = useState("");
   const [iperfSearchTerm, setIperfSearchTerm] = useState("");
   const [addServerModalOpen, setAddServerModalOpen] = useState(false);
-  const [iperfDisplayCount, setIperfDisplayCount] = useState(getInitialDisplayCount);
+  const [iperfDisplayCount, setIperfDisplayCount] = useState(
+    getInitialDisplayCount
+  );
   const [savedIperfServers, setSavedIperfServers] = useState<
     SavedIperfServer[]
   >([]);
@@ -86,8 +88,8 @@ export const ServerList: React.FC<ServerListProps> = ({
       setIperfDisplayCount(newDisplayCount);
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // Get unique countries for filter dropdown
@@ -351,7 +353,9 @@ export const ServerList: React.FC<ServerListProps> = ({
                               placeholder="Search saved servers..."
                               className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
                               value={iperfSearchTerm}
-                              onChange={(e) => setIperfSearchTerm(e.target.value)}
+                              onChange={(e) =>
+                                setIperfSearchTerm(e.target.value)
+                              }
                             />
                           </div>
                           <button
@@ -535,7 +539,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                             onClick={() =>
                               setIperfDisplayCount((prev) => prev + 6)
                             }
-                            className="px-4 py-2 bg-gray-800/30 border border-gray-900/50 text-gray-400 hover:text-gray-300 rounded-lg hover:bg-gray-800/50 transition-colors"
+                            className="px-4 py-2 bg-gray-800/30 border border-gray-900/50 text-gray-300/50 hover:text-gray-300 rounded-lg hover:bg-gray-800/50 transition-colors"
                           >
                             Load More
                           </button>
@@ -633,7 +637,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                       <div className="flex justify-center mt-6">
                         <button
                           onClick={() => setDisplayCount((prev) => prev + 6)}
-                          className="px-4 py-2 bg-gray-800/30 border border-gray-900/50 text-gray-400 hover:text-gray-300 rounded-lg hover:bg-gray-800/50 transition-colors"
+                          className="px-4 py-2 bg-gray-800/30 border border-gray-900/50 text-gray-300/50 hover:text-gray-300 rounded-lg hover:bg-gray-800/50 transition-colors"
                         >
                           Load More
                         </button>
