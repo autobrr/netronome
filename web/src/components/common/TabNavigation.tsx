@@ -53,9 +53,9 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
   onTabChange,
 }) => {
   return (
-    <div className="flex items-center justify-center w-full">
+    <div className="flex items-center justify-center w-full px-2 sm:px-0">
       <nav 
-        className="flex space-x-2 bg-gray-900/50 p-2 rounded-xl shadow-inner border border-gray-800/50"
+        className="flex space-x-1 sm:space-x-2 bg-gray-900/50 p-1 sm:p-2 rounded-xl shadow-inner border border-gray-800/50 max-w-full sm:w-auto"
         role="tablist"
       >
         {tabs.map((tab) => {
@@ -66,7 +66,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`relative px-6 py-3 rounded-lg text-base font-medium transition-all duration-200 ${
+              className={`relative flex-1 sm:flex-none px-2 sm:px-6 py-2 sm:py-3 rounded-lg text-sm sm:text-base font-medium transition-all duration-200 ${
                 isActive ? colors.active : colors.inactive
               }`}
               type="button"
@@ -85,12 +85,13 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
                 />
               )}
               <span 
-                className={`relative flex items-center gap-3 ${
+                className={`relative flex items-center gap-2 sm:gap-3 ${
                   isActive ? colors.active : colors.inactive
                 }`}
               >
                 {tab.icon}
-                {tab.label}
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
               </span>
             </button>
           );
