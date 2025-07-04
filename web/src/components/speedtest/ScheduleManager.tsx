@@ -453,7 +453,7 @@ export default function ScheduleManager({
                                 onClick={() => setScheduleType("interval")}
                                 className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-md font-medium transition-all duration-200 ${
                                   scheduleType === "interval"
-                                    ? "bg-blue-500 text-white shadow-lg"
+                                    ? "bg-gray-700 text-gray-200 shadow-lg transform scale-105"
                                     : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/50"
                                 }`}
                               >
@@ -464,7 +464,7 @@ export default function ScheduleManager({
                                 onClick={() => setScheduleType("exact")}
                                 className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-md font-medium transition-all duration-200 ${
                                   scheduleType === "exact"
-                                    ? "bg-blue-500 text-white shadow-lg"
+                                    ? "bg-gray-700 text-gray-200 shadow-lg transform scale-105"
                                     : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/50"
                                 }`}
                               >

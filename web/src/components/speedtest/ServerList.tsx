@@ -343,22 +343,25 @@ export const ServerList: React.FC<ServerListProps> = ({
                   {testType === "iperf" && (
                     <div className="flex flex-col gap-4 mb-4">
                       {/* Search Input and Add Button for iperf3 servers */}
-                      <div className="flex flex-col md:flex-row gap-4">
-                        <div className="flex-1">
-                          <input
-                            type="text"
-                            placeholder="Search saved servers..."
-                            className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
-                            value={iperfSearchTerm}
-                            onChange={(e) => setIperfSearchTerm(e.target.value)}
-                          />
+                      <div className="flex flex-col gap-4">
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              placeholder="Search saved servers..."
+                              className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
+                              value={iperfSearchTerm}
+                              onChange={(e) => setIperfSearchTerm(e.target.value)}
+                            />
+                          </div>
+                          <button
+                            onClick={() => setAddServerModalOpen(true)}
+                            className="px-3 py-2 bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 rounded-lg transition-colors border border-gray-900 hover:border-gray-700 shadow-md text-sm"
+                            title="Add new iperf3 server"
+                          >
+                            + Add
+                          </button>
                         </div>
-                        <button
-                          onClick={() => setAddServerModalOpen(true)}
-                          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors border border-blue-600 hover:border-blue-700 shadow-md"
-                        >
-                          Add Server
-                        </button>
                       </div>
                     </div>
                   )}
@@ -532,7 +535,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                             onClick={() =>
                               setIperfDisplayCount((prev) => prev + 6)
                             }
-                            className="px-4 py-2 bg-gray-800/50 border border-gray-900/80 text-gray-300/50 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors"
+                            className="px-4 py-2 bg-gray-800/30 border border-gray-900/50 text-gray-400 hover:text-gray-300 rounded-lg hover:bg-gray-800/50 transition-colors"
                           >
                             Load More
                           </button>
@@ -630,7 +633,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                       <div className="flex justify-center mt-6">
                         <button
                           onClick={() => setDisplayCount((prev) => prev + 6)}
-                          className="px-4 py-2 bg-gray-800/50 border border-gray-900/80 text-gray-300/50 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors"
+                          className="px-4 py-2 bg-gray-800/30 border border-gray-900/50 text-gray-400 hover:text-gray-300 rounded-lg hover:bg-gray-800/50 transition-colors"
                         >
                           Load More
                         </button>
