@@ -374,7 +374,7 @@ export default function ScheduleManager({
           if (server.isLibrespeed) {
             return (
               <span key={id}>
-                {server.sponsor} - {server.name} -{" "}
+                {server.name} -{" "}
                 <span className="text-blue-400 drop-shadow-[0_0_1px_rgba(96,165,250,0.8)]">
                   librespeed
                 </span>
