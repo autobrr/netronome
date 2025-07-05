@@ -26,18 +26,27 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
 ## ✨ Features
 
 - **Speed Testing**
+
   - Support for Speedtest.net, iperf3 servers, and LibreSpeed
   - Real-time test progress visualization
   - Latency and jitter measurements
 
+- **Network Diagnostics**
+
+  - Traceroute with real-time hop discovery
+  - GeoIP integration for country flags and ASN information
+
 - **Monitoring**
+
   - Interactive historical data charts
   - Customizable time ranges (1d, 3d, 1w, 1m, all)
 
 - **Scheduling & Automation**
+
   - Automated speed tests with flexible scheduling
 
 - **Modern Interface**
+
   - Clean, responsive design
   - Dark mode optimized
   - Real-time updates
@@ -46,6 +55,22 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
 - **Flexible Authentication**
   - Built-in user authentication
   - OpenID Connect support
+
+## 📦 External Dependencies
+
+Netronome requires the following external tools for full functionality:
+
+### Required for Speed Tests
+
+- **iperf3** - Required for iperf3 speed testing
+- **librespeed-cli** - Required for LibreSpeed testing (automatically included in Docker)
+- **traceroute** - Required for network diagnostics (usually pre-installed on most systems)
+
+### Required for Development
+
+- **air** - Go live reload tool for `make watch` command
+- **tmux** - Terminal multiplexer for `make dev` command
+- **pnpm** - Package manager for frontend dependencies
 
 ## 🚀 Getting Started
 
@@ -161,6 +186,10 @@ count = 5
 interval = 200
 timeout = 10
 
+[geoip]
+country_database_path = ""
+asn_database_path = ""
+
 [notifications]
 enabled = false
 webhook_url = ""
@@ -250,6 +279,7 @@ Example `librespeed-servers.json`:
 Netronome supports two database backends:
 
 1. **SQLite** (Default)
+
    - No additional setup required
 
 2. **PostgreSQL**
@@ -269,10 +299,12 @@ Netronome supports two database backends:
 Netronome supports two authentication methods:
 
 1. **Built-in Authentication**
+
    - Username/password authentication
    - Default option if no OIDC is configured
 
 2. **OpenID Connect (OIDC)**
+
    - Integration with identity providers (Google, Okta, Auth0, Keycloak, Pocket-ID etc.)
    - Configure via environment variables:
      ```bash
@@ -297,6 +329,7 @@ Netronome can display country flags and ASN information in traceroute results us
 #### Setup Instructions
 
 1. **Get a MaxMind License Key**
+
    - Sign up for a free account at [MaxMind](https://www.maxmind.com/en/geolite2/signup)
    - Generate a license key in your account dashboard
 
