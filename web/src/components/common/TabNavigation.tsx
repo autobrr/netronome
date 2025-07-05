@@ -22,15 +22,18 @@ interface TabNavigationProps {
 const TAB_COLORS = {
   dashboard: {
     active: "text-blue-600 dark:text-blue-400",
-    inactive: "text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-300",
+    inactive:
+      "text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-300",
   },
   speedtest: {
     active: "text-emerald-600 dark:text-emerald-400",
-    inactive: "text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-300",
+    inactive:
+      "text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-300",
   },
   traceroute: {
     active: "text-amber-600 dark:text-amber-400",
-    inactive: "text-gray-500 dark:text-gray-400 hover:text-amber-500 dark:hover:text-amber-300",
+    inactive:
+      "text-gray-500 dark:text-gray-400 hover:text-amber-500 dark:hover:text-amber-300",
   },
 } as const;
 
@@ -54,14 +57,14 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
 }) => {
   return (
     <div className="flex items-center justify-center w-full px-2 sm:px-0">
-      <nav 
-        className="flex space-x-1 sm:space-x-2 bg-gray-100/60 dark:bg-gray-900/50 p-1 sm:p-2 rounded-xl shadow-sm border border-gray-200/60 dark:border-gray-800/50 max-w-full sm:w-auto"
+      <nav
+        className="flex space-x-1 sm:space-x-2 bg-gray-100/60 dark:bg-gray-800/20 p-1 sm:p-2 rounded-xl shadow-sm border border-gray-200/60 dark:border-gray-800/80 max-w-full sm:w-auto"
         role="tablist"
       >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const colors = getTabColors(tab.id);
-          
+
           return (
             <button
               key={tab.id}
@@ -77,21 +80,21 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
               {isActive && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 rounded-lg shadow-sm border border-gray-200/40 dark:border-gray-700/50"
+                  className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 rounded-lg shadow-sm border border-gray-200/40 dark:border-gray-700/80"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={SPRING_TRANSITION}
                 />
               )}
-              <span 
+              <span
                 className={`relative flex items-center gap-2 sm:gap-3 ${
                   isActive ? colors.active : colors.inactive
                 }`}
               >
                 {tab.icon}
                 <span className="hidden sm:inline">{tab.label}</span>
-                <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+                <span className="sm:hidden">{tab.label.split(" ")[0]}</span>
               </span>
             </button>
           );
