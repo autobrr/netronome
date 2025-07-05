@@ -113,24 +113,26 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
             leaveFrom="opacity-100 scale-100"
             leaveTo="opacity-0 scale-95"
           >
-            <Dialog.Panel className="mx-auto max-w-md rounded-xl border-2 border-gray-200 dark:border-black/40 bg-white dark:bg-gray-500/10 backdrop-blur-xl p-6 shadow-xl transform transition-all relative">
+            <Dialog.Panel className="mx-auto max-w-md rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 backdrop-blur-xl p-6 shadow-xl transform transition-all relative">
               <button
                 onClick={onClose}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 transition-colors"
+                className="absolute top-4 right-4 p-1 rounded-md text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 aria-label="Close dialog"
               >
                 <XMarkIcon className="h-6 w-6" />
               </button>
-              <Dialog.Title className="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4">
+              
+              <Dialog.Title className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                 Support Netronome
               </Dialog.Title>
-              <div className="mb-6 space-y-4 p-1">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+              
+              <div className="mb-6 space-y-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
                   Your donations directly contribute to:
                 </p>
                 <ul className="list-none space-y-3 text-sm text-gray-600 dark:text-gray-300">
-                  <li className="flex items-center gap-2">
-                    <RocketLaunchIcon className="h-4 w-4 text-blue-500" />
+                  <li className="flex items-center gap-3">
+                    <RocketLaunchIcon className="h-4 w-4 text-blue-500 flex-shrink-0" />
                     <a
                       href="https://github.com/autobrr/netronome/issues"
                       target="_blank"
@@ -141,12 +143,12 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
                       <ArrowTopRightOnSquareIcon className="h-3 w-3" />
                     </a>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <GlobeAltIcon className="h-4 w-4 text-green-500" />
+                  <li className="flex items-center gap-3">
+                    <GlobeAltIcon className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                     Infrastructure costs
                   </li>
-                  <li className="flex items-center gap-2">
-                    <UserGroupIcon className="h-4 w-4 text-purple-500" />
+                  <li className="flex items-center gap-3">
+                    <UserGroupIcon className="h-4 w-4 text-purple-500 flex-shrink-0" />
                     <a
                       href="https://discord.gg/WQ2eUycxyT"
                       target="_blank"
@@ -158,27 +160,28 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
                     </a>
                   </li>
                 </ul>
-                <p className="text-sm text-gray-500 dark:text-gray-400 pt-2 flex items-center gap-1">
+                <p className="text-sm text-gray-500 dark:text-gray-400 pt-3 flex items-center gap-1">
                   Thank you <HeartIcon className="h-4 w-4 text-red-500" />
                 </p>
               </div>
-              <div className="space-y-4">
+              
+              <div className="space-y-3">
                 {shuffledLinks.map((link) => (
                   <a
                     key={link.name}
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group flex items-center gap-4 p-4 rounded-lg bg-gray-50/50 dark:bg-gray-900/40 border border-gray-200 dark:border-black/60 hover:bg-gray-100/70 dark:hover:bg-gray-900 transition-colors"
+                    className="group flex items-center gap-4 p-4 rounded-lg bg-gray-50/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 hover:bg-gray-100/70 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors"
                   >
-                    <div className="w-10 h-10 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center p-1.5">
+                    <div className="w-12 h-12 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center p-2 shadow-sm group-hover:shadow-md transition-shadow duration-200">
                       {link.icon === "polar-svg" ? (
                         <PolarIcon className="w-full h-full text-gray-900 dark:text-white" />
                       ) : (
                         <img
                           src={link.icon}
                           alt={`${link.name} icon`}
-                          className="w-full h-full rounded-full object-cover"
+                          className="w-full h-full rounded-lg object-cover"
                           onError={(e) => {
                             // Fallback for failed image loads
                             const target = e.target as HTMLImageElement;
@@ -186,7 +189,7 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
                             const parent = target.parentElement;
                             if (parent && !parent.querySelector('.fallback-icon')) {
                               const fallback = document.createElement('div');
-                              fallback.className = 'fallback-icon w-full h-full bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold';
+                              fallback.className = 'fallback-icon w-full h-full bg-blue-500 rounded-lg flex items-center justify-center text-white text-xs font-bold';
                               fallback.textContent = link.name.charAt(0).toUpperCase();
                               parent.appendChild(fallback);
                             }

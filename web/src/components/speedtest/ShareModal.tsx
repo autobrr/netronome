@@ -61,7 +61,7 @@ export function ShareModal({ isOpen, onClose }: ShareModalProps) {
           leaveTo="opacity-0"
         >
           <div
-            className="fixed inset-0 bg-black/25 dark:bg-black/80 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/80 backdrop-blur-xs"
             aria-hidden="true"
           />
         </Transition.Child>
@@ -76,10 +76,10 @@ export function ShareModal({ isOpen, onClose }: ShareModalProps) {
             leaveFrom="opacity-100 scale-100"
             leaveTo="opacity-0 scale-95"
           >
-            <Dialog.Panel className="mx-auto max-w-md w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-850/95 backdrop-blur-xl p-6 shadow-xl transform transition-all relative">
+            <Dialog.Panel className="mx-auto max-w-md w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 backdrop-blur-xl p-6 shadow-xl transform transition-all relative">
               <button
                 onClick={onClose}
-                className="absolute top-4 right-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                className="absolute top-4 right-4 p-1 rounded-md text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 aria-label="Close dialog"
               >
                 <XMarkIcon className="h-6 w-6" />
@@ -94,61 +94,52 @@ export function ShareModal({ isOpen, onClose }: ShareModalProps) {
                 </Dialog.Title>
               </div>
 
-              <p className="text-gray-600 dark:text-gray-300 text-sm mb-6">
-                Share some proof that your gigabit connection is more like
-                maybe-a-bit.
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Public URL
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={generatePublicUrl()}
-                      readOnly
-                      className="flex-1 px-3 py-2 bg-gray-100 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
-                    />
-                    <motion.button
-                      onClick={handleCopyUrl}
-                      className={`px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${
-                        copySuccess
-                          ? "bg-green-500/20 border-green-500/50 text-green-600 dark:text-green-400"
-                          : "bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-500/50 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-                      }`}
-                      aria-label="Copy URL to clipboard"
-                    >
-                      {copySuccess ? (
-                        <FaCheck className="w-4 h-4" />
-                      ) : (
-                        <FaCopy className="w-4 h-4" />
-                      )}
-                    </motion.button>
-                  </div>
-                  <div className="h-5 mt-2">
-                    {copySuccess && (
-                      <motion.p
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="text-green-600 dark:text-green-400 text-xs"
-                      >
-                        URL copied to clipboard!
-                      </motion.p>
-                    )}
-                  </div>
-                </div>
+              <div className="bg-gray-100/50 dark:bg-gray-800/30 rounded-xl p-4 border border-gray-200 dark:border-gray-700/50 mb-6">
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Share some proof that your gigabit connection is more like
+                  maybe-a-bit.
+                </p>
               </div>
-
-              <div className="mt-2 flex justify-end">
-                <button
-                  onClick={onClose}
-                  className="px-4 py-0 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
-                >
-                  Close
-                </button>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  🔗 Public Dashboard Link
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={generatePublicUrl()}
+                    readOnly
+                    className="flex-1 px-3 py-2.5 cursor-default bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                  />
+                  <motion.button
+                    onClick={handleCopyUrl}
+                    className={`px-4 py-2.5 rounded-lg transition-all duration-200 flex items-center gap-2 min-w-[44px] h-[42px] justify-center ${
+                      copySuccess
+                        ? "bg-green-500/20 border border-green-500/50 text-green-600 dark:text-green-400"
+                        : "bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-500/50 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                    }`}
+                    aria-label="Copy URL to clipboard"
+                  >
+                    {copySuccess ? (
+                      <FaCheck className="w-4 h-4" />
+                    ) : (
+                      <FaCopy className="w-4 h-4" />
+                    )}
+                  </motion.button>
+                </div>
+                <div className="h-5 mt-2">
+                  {copySuccess && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="text-green-600 dark:text-green-400 text-xs flex items-center gap-1"
+                    >
+                      <FaCheck className="w-3 h-3" />
+                      URL copied to clipboard!
+                    </motion.p>
+                  )}
+                </div>
               </div>
             </Dialog.Panel>
           </Transition.Child>

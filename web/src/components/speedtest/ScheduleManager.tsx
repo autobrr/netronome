@@ -423,7 +423,9 @@ export default function ScheduleManager({
               <DisclosureButton
                 className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
                   open ? "rounded-t-xl" : "rounded-xl"
-                } shadow-lg border-b-0 border-gray-200 dark:border-gray-900 text-left`}
+                } shadow-lg border border-gray-200 dark:border-gray-800 ${
+                  open ? "border-b-0" : ""
+                } text-left`}
               >
                 <div className="flex flex-col">
                   <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
@@ -441,7 +443,7 @@ export default function ScheduleManager({
               </DisclosureButton>
 
               {open && (
-                <div className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-3 rounded-b-xl shadow-lg flex-1">
+                <div className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-3 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800">
                   <div className="flex flex-col pl-1">
                     <div className="flex flex-col gap-4 pb-4">
                       <div className="grid grid-cols-1 gap-4">

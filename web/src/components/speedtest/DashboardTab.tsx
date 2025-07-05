@@ -192,8 +192,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               <div className="flex flex-col h-full">
                 <DisclosureButton
                   className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
-                    open ? "rounded-t-xl border-b-0" : "rounded-xl"
-                  } shadow-lg border-b-0 border-gray-200 dark:border-gray-900 text-left`}
+                    open ? "rounded-t-xl" : "rounded-xl"
+                  } shadow-lg border border-gray-200 dark:border-gray-800 ${
+                    open ? "border-b-0" : ""
+                  } text-left`}
                 >
                   <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
                     Recent Tests
@@ -215,7 +217,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                       stiffness: 300,
                       damping: 20,
                     }}
-                    className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-3 pb-6 rounded-b-xl shadow-lg flex-1"
+                    className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-3 pb-6 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
                   >
                     {/* Desktop Table View */}
                     <div className="hidden md:block overflow-x-auto">

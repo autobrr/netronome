@@ -371,7 +371,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
-              className="relative bg-red-100/90 dark:bg-red-950/80 backdrop-blur-sm border border-red-400/50 dark:border-red-800/50 rounded-xl mb-4 shadow-lg overflow-hidden"
+              className="relative bg-red-100/50 dark:bg-red-950/10 backdrop-blur-sm border border-red-400/50 dark:border-red-800/50 rounded-xl mb-4 shadow-lg overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-red-200/20 to-red-300/20 dark:from-red-900/20 dark:to-red-800/20 pointer-events-none" />
               <div className="relative flex items-start justify-between p-4">
@@ -392,10 +392,10 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
+                    <h3 className="text-sm font-bold text-red-800 dark:text-red-300 mb-1">
                       Error
                     </h3>
-                    <div className="text-sm text-red-700/90 dark:text-red-300/90 whitespace-pre-wrap break-words">
+                    <div className="text-sm text-red-700/90 dark:text-red-300/90 break-words whitespace-pre-wrap">
                       {(() => {
                         try {
                           // Try to extract and format JSON from error messages

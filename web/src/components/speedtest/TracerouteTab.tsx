@@ -314,7 +314,7 @@ export const TracerouteTab: React.FC = () => {
         transition={{ duration: 0.5 }}
         className="flex-1"
       >
-        <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-900">
+        <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Traceroute
@@ -335,7 +335,7 @@ export const TracerouteTab: React.FC = () => {
                 setSelectedServer(null);
               }}
               placeholder="Enter hostname/IP (e.g., google.com, 8.8.8.8)"
-              className="flex-1 px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
+              className="flex-1 px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
               disabled={tracerouteMutation.isPending}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !tracerouteMutation.isPending) {
@@ -378,7 +378,7 @@ export const TracerouteTab: React.FC = () => {
               <input
                 type="text"
                 placeholder="Search servers..."
-                className="w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
+                className="w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -387,7 +387,7 @@ export const TracerouteTab: React.FC = () => {
             {/* Server Type Filter */}
             <Listbox value={filterType} onChange={setFilterType}>
               <div className="relative min-w-[160px]">
-                <ListboxButton className="relative w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-left text-gray-700 dark:text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
+                <ListboxButton className="relative w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 rounded-lg text-left text-gray-700 dark:text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
                   <span className="block truncate">
                     {serverTypes.find((type) => type.value === filterType)
                       ?.label || "All Types"}
@@ -407,7 +407,7 @@ export const TracerouteTab: React.FC = () => {
                   leaveFrom="transform scale-100 opacity-100"
                   leaveTo="transform scale-95 opacity-0"
                 >
-                  <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-900 py-1 shadow-lg focus:outline-none">
+                  <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-800 py-1 shadow-lg focus:outline-none">
                     {serverTypes.map((type) => (
                       <ListboxOption
                         key={type.value}
@@ -443,7 +443,7 @@ export const TracerouteTab: React.FC = () => {
                   className={`w-full p-3 rounded-lg text-left transition-colors ${
                     selectedServer?.id === server.id
                       ? "bg-blue-500/10 border-blue-400/50 shadow-lg"
-                      : "bg-gray-200/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-900 hover:bg-gray-300/50 dark:hover:bg-gray-800 shadow-lg"
+                      : "bg-gray-200/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 shadow-lg"
                   } border`}
                   disabled={tracerouteMutation.isPending}
                 >
@@ -493,7 +493,7 @@ export const TracerouteTab: React.FC = () => {
             <div className="flex justify-center mb-4">
               <button
                 onClick={() => setDisplayCount((prev) => prev + 4)}
-                className="px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300/80 dark:border-gray-900/80 text-gray-600/50 dark:text-gray-300/50 hover:text-gray-800 dark:hover:text-gray-300 rounded-lg hover:bg-gray-300/50 dark:hover:bg-gray-800 transition-colors"
+                className="px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300/80 dark:border-gray-800/80 text-gray-600/50 dark:text-gray-300/50 hover:text-gray-800 dark:hover:text-gray-300 rounded-lg hover:bg-gray-300/50 dark:hover:bg-gray-800 transition-colors"
               >
                 Load More
               </button>
@@ -511,7 +511,7 @@ export const TracerouteTab: React.FC = () => {
       >
         {/* Error Display */}
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+          <div className="mb-6 p-4 backdrop-blur-sm bg-red-500/10 border border-red-500/30 rounded-lg">
             <div className="text-red-600 dark:text-red-400 text-sm">
               <span className="font-medium">Error: </span>
               {error}
@@ -521,7 +521,7 @@ export const TracerouteTab: React.FC = () => {
 
         {/* Progress */}
         {tracerouteStatus && !tracerouteStatus.isComplete && (
-          <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+          <div className="mb-6 p-4 backdrop-blur-sm bg-blue-500/10 border border-blue-500/30 rounded-lg">
             <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-3">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 dark:border-blue-400"></div>
               <span>Running traceroute to {tracerouteStatus.host}...</span>
@@ -546,7 +546,7 @@ export const TracerouteTab: React.FC = () => {
           !tracerouteStatus.isComplete &&
           tracerouteStatus.hops &&
           tracerouteStatus.hops.length > 0 && (
-            <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-900">
+            <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                 Traceroute Results (In Progress)
               </h2>
@@ -785,7 +785,7 @@ export const TracerouteTab: React.FC = () => {
 
         {/* Placeholder when no results */}
         {!results && !tracerouteStatus && !error && (
-          <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-900">
+          <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <GlobeAltIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
@@ -916,7 +916,7 @@ export const TracerouteTab: React.FC = () => {
 
         {/* Final Results */}
         {results && (
-          <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-900">
+          <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Traceroute Results

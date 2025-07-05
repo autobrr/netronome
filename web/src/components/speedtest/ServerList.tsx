@@ -227,7 +227,9 @@ export const ServerList: React.FC<ServerListProps> = ({
             <DisclosureButton
               className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
                 open ? "rounded-t-xl" : "rounded-xl"
-              } shadow-lg border-b-0 border-gray-200 dark:border-gray-900 text-left`}
+              } shadow-lg border border-gray-200 dark:border-gray-800 ${
+                open ? "border-b-0" : ""
+              } text-left`}
             >
               <div className="flex flex-col">
                 <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
@@ -253,7 +255,7 @@ export const ServerList: React.FC<ServerListProps> = ({
             </DisclosureButton>
 
             {open && (
-              <div className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-2 rounded-b-xl shadow-lg flex-1">
+              <div className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-2 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800">
                 <div className="flex flex-col pl-1"></div>
                 <motion.div
                   className="mt-1 px-1 select-none pointer-events-none server-list-animate pb-4"

@@ -465,8 +465,10 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
           <div className="flex flex-col h-full mb-6">
             <DisclosureButton
               className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
-                open ? "rounded-t-xl border-b-0" : "rounded-xl"
-              } shadow-lg border-b-0 border-gray-200 dark:border-gray-900 text-left`}
+                open ? "rounded-t-xl" : "rounded-xl"
+              } shadow-lg border border-gray-200 dark:border-gray-800 ${
+                open ? "border-b-0" : ""
+              } text-left`}
             >
               <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
                 Speed History
@@ -479,7 +481,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
             </DisclosureButton>
 
             {open && (
-              <div className="bg-gray-50/95 dark:bg-gray-850/95 px-2 sm:px-4 rounded-b-xl shadow-lg flex-1">
+              <div className="bg-gray-50/95 dark:bg-gray-850/95 px-2 sm:px-4 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800">
                 <motion.div
                   className="mt-1 speed-history-animate"
                   initial={{ opacity: 0, y: -20 }}
