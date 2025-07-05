@@ -325,6 +325,52 @@ export const TracerouteTab: React.FC = () => {
             </p>
           </div>
 
+          {/* Manual Input Section */}
+          <div className="flex gap-3 mb-6">
+            <input
+              type="text"
+              value={host}
+              onChange={(e) => {
+                setHost(e.target.value);
+                setSelectedServer(null);
+              }}
+              placeholder="Enter hostname/IP (e.g., google.com, 8.8.8.8)"
+              className="flex-1 px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
+              disabled={tracerouteMutation.isPending}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !tracerouteMutation.isPending) {
+                  handleRunTraceroute();
+                }
+              }}
+            />
+            <Button
+              onClick={handleRunTraceroute}
+              disabled={!host.trim() || tracerouteMutation.isPending}
+              isLoading={tracerouteMutation.isPending}
+              className={`${
+                tracerouteMutation.isPending
+                  ? "bg-emerald-200/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30 cursor-not-allowed"
+                  : !host.trim()
+                  ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 cursor-not-allowed"
+                  : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
+              }`}
+            >
+              {tracerouteMutation.isPending ? "Running..." : "Trace"}
+            </Button>
+          </div>
+
+          {/* Separator with helper text */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-gray-50 dark:bg-gray-850 text-gray-600 dark:text-gray-400">
+                or select from available servers
+              </span>
+            </div>
+          </div>
+
           {/* Server Search and Filter Controls */}
           <div className="flex flex-col md:flex-row gap-4 mb-4">
             {/* Search Input */}
@@ -453,34 +499,6 @@ export const TracerouteTab: React.FC = () => {
               </button>
             </div>
           )}
-
-          {/* Manual Input Section */}
-          <div className="flex gap-3 mb-4">
-            <input
-              type="text"
-              value={host}
-              onChange={(e) => {
-                setHost(e.target.value);
-                setSelectedServer(null);
-              }}
-              placeholder="Or enter custom hostname/IP (e.g., google.com, 8.8.8.8)"
-              className="flex-1 px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
-              disabled={tracerouteMutation.isPending}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !tracerouteMutation.isPending) {
-                  handleRunTraceroute();
-                }
-              }}
-            />
-            <Button
-              onClick={handleRunTraceroute}
-              disabled={!host.trim() || tracerouteMutation.isPending}
-              isLoading={tracerouteMutation.isPending}
-              className="bg-blue-500 hover:bg-blue-600 text-white disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed border-blue-600 hover:border-blue-700 disabled:border-none"
-            >
-              {tracerouteMutation.isPending ? "Running..." : "Trace"}
-            </Button>
-          </div>
         </div>
       </motion.div>
 
