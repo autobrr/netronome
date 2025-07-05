@@ -9,7 +9,7 @@
 
 @layer base {
   body {
-    @apply bg-gray-900;
+    @apply bg-white dark:bg-gray-900;
   }
 
   /* Webkit browsers (Chrome, Safari, etc) */
@@ -37,6 +37,27 @@
 
   .dark * {
     scrollbar-color: theme("colors.gray.700") theme("colors.gray.900");
+  }
+
+  /* Chart theme variables */
+  :root {
+    --tooltip-bg: #ffffff;
+    --tooltip-border: #d1d5db;
+    --tooltip-label: #6b7280;
+    --tooltip-text: #374151;
+    --tooltip-accent: #2563eb;
+    --tooltip-muted: #9ca3af;
+    --chart-text: #6b7280;
+  }
+
+  .dark {
+    --tooltip-bg: #1f2937;
+    --tooltip-border: #374151;
+    --tooltip-label: #9ca3af;
+    --tooltip-text: #e5e7eb;
+    --tooltip-accent: #60a5fa;
+    --tooltip-muted: #9ca3af;
+    --chart-text: #9ca3af;
   }
 
   /* Small scrollbar styles */

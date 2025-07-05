@@ -4,8 +4,10 @@
 package speedtest
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os/exec"
@@ -17,6 +19,8 @@ import (
 
 	"github.com/oschwald/geoip2-golang"
 	"github.com/rs/zerolog/log"
+
+	"github.com/autobrr/netronome/internal/types"
 )
 
 // Global GeoIP database instances
@@ -197,6 +201,28 @@ func (s *service) RunTraceroute(ctx context.Context, host string) (*TracerouteRe
 		}
 	}
 
+	// Resolve the destination hostname to IP address
+	var destinationIP string
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		log.Error().Err(err).
+			Str("host", host).
+			Msg("Failed to resolve hostname")
+		return nil, fmt.Errorf("failed to resolve hostname '%s': %w", host, err)
+	}
+	if len(ips) > 0 {
+		destinationIP = ips[0].String()
+		log.Info().
+			Str("host", host).
+			Str("resolved_ip", destinationIP).
+			Msg("Resolved destination hostname to IP")
+	} else {
+		log.Error().
+			Str("host", host).
+			Msg("No IP addresses found for hostname")
+		return nil, fmt.Errorf("no IP addresses found for hostname '%s'", host)
+	}
+
 	// Check for Docker environment indicators
 	inDocker := s.isRunningInDocker()
 
@@ -204,6 +230,7 @@ func (s *service) RunTraceroute(ctx context.Context, host string) (*TracerouteRe
 		Str("host", host).
 		Bool("in_docker", inDocker).
 		Str("os", runtime.GOOS).
+		Str("destination_ip", destinationIP).
 		Msg("Starting traceroute test")
 
 	// Check if traceroute command is available
@@ -233,8 +260,26 @@ func (s *service) RunTraceroute(ctx context.Context, host string) (*TracerouteRe
 
 	cmd := exec.CommandContext(timeoutCtx, cmdName, args...)
 
-	output, err := cmd.Output()
+	// Use StdoutPipe to read output line by line for streaming
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start traceroute command: %w", err)
+	}
+
+	// Read output line by line and parse for streaming updates
+	result, err := s.parseTracerouteOutputStreaming(stdout, originalHost, host, destinationIP, cmd)
+	if err != nil {
+		_ = cmd.Process.Kill() // Kill the process if parsing fails
+		return nil, fmt.Errorf("failed to parse traceroute output: %w", err)
+	}
+
+	// Wait for the command to finish
+	if err := cmd.Wait(); err != nil {
 		// Check if the error was due to context timeout
 		if timeoutCtx.Err() == context.DeadlineExceeded {
 			log.Error().
@@ -242,40 +287,19 @@ func (s *service) RunTraceroute(ctx context.Context, host string) (*TracerouteRe
 				Msg("Traceroute test timed out")
 			return nil, fmt.Errorf("traceroute test timed out after 60 seconds")
 		}
-		log.Error().Err(err).
+		
+		// If we have no hops at all, this is likely a command error (like unknown host)
+		if result.TotalHops == 0 {
+			log.Error().Err(err).
+				Str("host", host).
+				Msg("Traceroute command failed with no results")
+			return nil, fmt.Errorf("traceroute failed for host '%s': %w", host, err)
+		}
+		
+		// If we have some hops, log the error but continue with partial results
+		log.Warn().Err(err).
 			Str("host", host).
-			Strs("args", args).
-			Msg("Traceroute command execution failed")
-		return nil, fmt.Errorf("traceroute failed: %w", err)
-	}
-
-	log.Info().
-		Str("host", host).
-		Int("output_length", len(output)).
-		Msg("Traceroute command completed, parsing output")
-
-	// Log the raw output for debugging (truncated if too long)
-	outputStr := string(output)
-	if len(outputStr) > 2000 {
-		log.Debug().
-			Str("host", host).
-			Str("output_sample", outputStr[:2000]+"...").
-			Msg("Traceroute raw output (truncated)")
-	} else {
-		log.Debug().
-			Str("host", host).
-			Str("output", outputStr).
-			Msg("Traceroute raw output")
-	}
-
-	// Parse traceroute output
-	result, err := s.parseTracerouteOutput(outputStr, originalHost)
-	if err != nil {
-		log.Error().Err(err).
-			Str("host", host).
-			Str("output_sample", outputStr[:min(len(outputStr), 500)]).
-			Msg("Failed to parse traceroute output")
-		return nil, fmt.Errorf("failed to parse traceroute output: %w", err)
+			Msg("Traceroute command finished with error, but we have partial results")
 	}
 
 	log.Info().
@@ -294,9 +318,9 @@ func (s *service) buildTracerouteArgs(host string) []string {
 	switch runtime.GOOS {
 	case "darwin", "linux":
 		args = []string{
-			"-w", "2", // Wait 2 seconds for response (reduced from 3)
+			"-w", "2", // Wait 2 seconds for response (faster than default)
 			"-m", "30", // Max 30 hops
-			"-q", "1", // 1 query per hop (reduced from 3 for speed)
+			"-q", "3", // 3 queries per hop for RTT1, RTT2, RTT3
 			host,
 		}
 
@@ -308,7 +332,7 @@ func (s *service) buildTracerouteArgs(host string) []string {
 			Msg("Built traceroute arguments for Unix/Linux/macOS")
 	case "windows":
 		args = []string{
-			"-w", "2000", // Wait 2000 milliseconds for response (reduced from 3000)
+			"-w", "2000", // Wait 2000 milliseconds for response (faster streaming)
 			"-h", "30", // Max 30 hops
 			host,
 		}
@@ -323,7 +347,7 @@ func (s *service) buildTracerouteArgs(host string) []string {
 		args = []string{
 			"-w", "2",
 			"-m", "30",
-			"-q", "1",
+			"-q", "3",
 			host,
 		}
 	}
@@ -568,4 +592,289 @@ func (s *service) parseWindowsTracerouteOutput(lines []string, result *Tracerout
 	result.Complete = result.TotalHops > 0
 
 	return result, nil
+}
+
+// parseTracerouteOutputStreaming parses traceroute output line by line and broadcasts updates
+func (s *service) parseTracerouteOutputStreaming(stdout io.ReadCloser, originalHost, host, destinationIP string, cmd *exec.Cmd) (*TracerouteResult, error) {
+	result := &TracerouteResult{
+		Destination: originalHost,
+		Hops:        []TracerouteHop{},
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	maxHops := 30 // Default max hops
+	maxConsecutiveTimeouts := 3 // Stop after 3 consecutive timeouts (reduced from 5)
+	consecutiveTimeouts := 0
+	reachedDestination := false
+
+	// Send initial update
+	if s.broadcastTracerouteUpdate != nil {
+		s.broadcastTracerouteUpdate(types.TracerouteUpdate{
+			Type:        "traceroute",
+			Host:        host,
+			Progress:    0.0,
+			IsComplete:  false,
+			CurrentHop:  0,
+			TotalHops:   maxHops,
+			Hops:        []TracerouteHop{},
+			Destination: originalHost,
+			IP:          "",
+		})
+	}
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		// Extract destination IP from first line
+		if len(result.Hops) == 0 && strings.Contains(line, "traceroute to") {
+			ipRegex := regexp.MustCompile(`\(([^)]+)\)`)
+			if match := ipRegex.FindStringSubmatch(line); match != nil {
+				result.IP = match[1]
+			}
+			continue
+		}
+
+		// Skip header lines for Windows
+		if strings.HasPrefix(line, "Tracing route to") || strings.HasPrefix(line, "over a maximum") {
+			continue
+		}
+
+		// Parse hop line
+		hop := s.parseHopLine(line)
+		if hop != nil {
+			result.Hops = append(result.Hops, *hop)
+			
+			// Check if we've reached the destination IP
+			if !hop.Timeout && destinationIP != "" && hop.IP == destinationIP {
+				reachedDestination = true
+				log.Info().
+					Str("destination_ip", destinationIP).
+					Int("hop", hop.Number).
+					Msg("Reached destination IP, traceroute will complete")
+			}
+			
+			// Track consecutive timeouts
+			if hop.Timeout {
+				consecutiveTimeouts++
+				log.Debug().
+					Int("hop", hop.Number).
+					Int("consecutive_timeouts", consecutiveTimeouts).
+					Msg("Timeout detected")
+			} else {
+				consecutiveTimeouts = 0 // Reset counter on successful hop
+			}
+			
+			// Calculate progress and broadcast update
+			progress := float64(hop.Number) / float64(maxHops) * 100.0
+			if progress > 100.0 {
+				progress = 100.0
+			}
+
+			if s.broadcastTracerouteUpdate != nil {
+				s.broadcastTracerouteUpdate(types.TracerouteUpdate{
+					Type:        "traceroute",
+					Host:        host,
+					Progress:    progress,
+					IsComplete:  false,
+					CurrentHop:  hop.Number,
+					TotalHops:   maxHops,
+					Hops:        result.Hops, // Include all hops found so far
+					Destination: result.Destination,
+					IP:          result.IP,
+				})
+			}
+
+			log.Debug().
+				Int("hop", hop.Number).
+				Str("host", hop.Host).
+				Str("ip", hop.IP).
+				Bool("timeout", hop.Timeout).
+				Float64("progress", progress).
+				Msg("Parsed traceroute hop")
+
+			// Check if we should terminate early
+			shouldTerminate := false
+			terminationReason := ""
+			
+			// Terminate due to consecutive timeouts
+			if consecutiveTimeouts >= maxConsecutiveTimeouts {
+				shouldTerminate = true
+				terminationReason = "consecutive timeouts"
+			}
+			
+			// If we reached destination and have timeouts after, terminate sooner
+			if reachedDestination && consecutiveTimeouts >= 2 {
+				shouldTerminate = true
+				terminationReason = "reached destination with subsequent timeouts"
+			}
+			
+			if shouldTerminate {
+				log.Info().
+					Int("consecutive_timeouts", consecutiveTimeouts).
+					Int("max_allowed", maxConsecutiveTimeouts).
+					Int("last_hop", hop.Number).
+					Str("reason", terminationReason).
+					Bool("reached_destination", reachedDestination).
+					Msg("Terminating traceroute early")
+				
+				// Kill the traceroute process to stop further output
+				if cmd.Process != nil {
+					_ = cmd.Process.Kill()
+				}
+				break
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading traceroute output: %w", err)
+	}
+
+	result.TotalHops = len(result.Hops)
+	result.Complete = result.TotalHops > 0
+	
+	// Determine if we terminated early (either due to consecutive timeouts or reaching destination)
+	terminatedEarly := consecutiveTimeouts >= maxConsecutiveTimeouts || (reachedDestination && consecutiveTimeouts >= 2)
+
+	// Send final update
+	if s.broadcastTracerouteUpdate != nil {
+		finalProgress := 100.0
+		if terminatedEarly && result.TotalHops > 0 {
+			// For early termination, calculate progress based on where we stopped
+			lastHop := result.Hops[result.TotalHops-1].Number
+			finalProgress = float64(lastHop) / float64(maxHops) * 100.0
+		}
+		
+		s.broadcastTracerouteUpdate(types.TracerouteUpdate{
+			Type:            "traceroute",
+			Host:            host,
+			Progress:        finalProgress,
+			IsComplete:      true,
+			CurrentHop:      result.TotalHops,
+			TotalHops:       result.TotalHops,
+			Hops:            result.Hops,
+			Destination:     result.Destination,
+			IP:              result.IP,
+			TerminatedEarly: terminatedEarly,
+		})
+	}
+	
+	if terminatedEarly {
+		log.Info().
+			Int("total_hops_found", result.TotalHops).
+			Int("consecutive_timeouts", consecutiveTimeouts).
+			Bool("reached_destination", reachedDestination).
+			Str("destination_ip", destinationIP).
+			Msg("Traceroute completed with early termination")
+	}
+
+	return result, nil
+}
+
+// parseHopLine parses a single hop line from traceroute output
+func (s *service) parseHopLine(line string) *TracerouteHop {
+	// Regex patterns for parsing hop lines based on OS
+	var hopRegex, hopRegexIPOnly, timeoutRegex *regexp.Regexp
+
+	switch runtime.GOOS {
+	case "darwin", "linux":
+		// Unix traceroute patterns (3 query format)
+		hopRegex = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+\(([^)]+)\)\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
+		hopRegexIPOnly = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
+		timeoutRegex = regexp.MustCompile(`^\s*(\d+)\s+\*\s+\*\s+\*`)
+	case "windows":
+		// Windows tracert patterns
+		hopRegex = regexp.MustCompile(`^\s*(\d+)\s+(<?[\d.]+)\s+ms\s+(<?[\d.]+)\s+ms\s+(<?[\d.]+)\s+ms\s+(.+)`)
+		timeoutRegex = regexp.MustCompile(`^\s*(\d+)\s+\*\s+\*\s+\*\s+Request timed out\.`)
+	default:
+		// Default to Unix style (3 query format)
+		hopRegex = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+\(([^)]+)\)\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
+		hopRegexIPOnly = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
+		timeoutRegex = regexp.MustCompile(`^\s*(\d+)\s+\*\s+\*\s+\*`)
+	}
+
+	// Try to match timeout line first
+	if match := timeoutRegex.FindStringSubmatch(line); match != nil {
+		hopNum, _ := strconv.Atoi(match[1])
+		return &TracerouteHop{
+			Number:      hopNum,
+			Host:        "*",
+			IP:          "*",
+			Timeout:     true,
+			CountryCode: "",
+			AS:          "",
+		}
+	}
+
+	// Try to match different hop patterns
+	if runtime.GOOS == "windows" {
+		if match := hopRegex.FindStringSubmatch(line); match != nil {
+			hopNum, _ := strconv.Atoi(match[1])
+			rtt1Str := strings.TrimPrefix(match[2], "<")
+			rtt2Str := strings.TrimPrefix(match[3], "<")
+			rtt3Str := strings.TrimPrefix(match[4], "<")
+			ip := strings.TrimSpace(match[5])
+
+			rtt1, _ := strconv.ParseFloat(rtt1Str, 64)
+			rtt2, _ := strconv.ParseFloat(rtt2Str, 64)
+			rtt3, _ := strconv.ParseFloat(rtt3Str, 64)
+
+			return &TracerouteHop{
+				Number:      hopNum,
+				Host:        ip,
+				IP:          ip,
+				RTT1:        rtt1,
+				RTT2:        rtt2,
+				RTT3:        rtt3,
+				Timeout:     false,
+				CountryCode: getCountryFromHost(ip),
+				AS:          getASNFromHost(ip),
+			}
+		}
+	} else {
+		// 3 query format
+		if match := hopRegex.FindStringSubmatch(line); match != nil {
+			hopNum, _ := strconv.Atoi(match[1])
+			hostname := match[2]
+			ip := match[3]
+			rtt1, _ := strconv.ParseFloat(match[4], 64)
+			rtt2, _ := strconv.ParseFloat(match[5], 64)
+			rtt3, _ := strconv.ParseFloat(match[6], 64)
+
+			return &TracerouteHop{
+				Number:      hopNum,
+				Host:        hostname,
+				IP:          ip,
+				RTT1:        rtt1,
+				RTT2:        rtt2,
+				RTT3:        rtt3,
+				Timeout:     false,
+				CountryCode: getCountryFromHost(ip),
+				AS:          getASNFromHost(ip),
+			}
+		} else if match := hopRegexIPOnly.FindStringSubmatch(line); match != nil {
+			hopNum, _ := strconv.Atoi(match[1])
+			ip := match[2]
+			rtt1, _ := strconv.ParseFloat(match[3], 64)
+			rtt2, _ := strconv.ParseFloat(match[4], 64)
+			rtt3, _ := strconv.ParseFloat(match[5], 64)
+
+			return &TracerouteHop{
+				Number:      hopNum,
+				Host:        ip,
+				IP:          ip,
+				RTT1:        rtt1,
+				RTT2:        rtt2,
+				RTT3:        rtt3,
+				Timeout:     false,
+				CountryCode: getCountryFromHost(ip),
+				AS:          getASNFromHost(ip),
+			}
+		}
+	}
+
+	return nil
 }

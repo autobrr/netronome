@@ -76,6 +76,8 @@ export interface TestOptions {
 
 export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
 
+export type TestType = "speedtest" | "iperf" | "librespeed";
+
 export interface SpeedUpdate {
   isComplete: boolean;
   type: "download" | "upload" | "ping" | "complete";
@@ -121,4 +123,18 @@ export interface TracerouteResult {
   hops: TracerouteHop[];
   totalHops: number;
   complete: boolean;
+}
+
+export interface TracerouteUpdate {
+  type: string;
+  host: string;
+  progress: number;
+  isComplete: boolean;
+  currentHop: number;
+  totalHops: number;
+  isScheduled: boolean;
+  hops: TracerouteHop[];
+  destination: string;
+  ip: string;
+  terminatedEarly?: boolean;
 }

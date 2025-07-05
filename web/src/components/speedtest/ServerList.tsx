@@ -50,12 +50,21 @@ export const ServerList: React.FC<ServerListProps> = ({
   testType,
   onTestTypeChange,
 }) => {
-  const [displayCount, setDisplayCount] = useState(3);
+  const getInitialDisplayCount = () => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth >= 1024 ? 6 : 3;
+    }
+    return 3;
+  };
+
+  const [displayCount, setDisplayCount] = useState(getInitialDisplayCount);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCountry, setFilterCountry] = useState("");
   const [iperfSearchTerm, setIperfSearchTerm] = useState("");
   const [addServerModalOpen, setAddServerModalOpen] = useState(false);
-  const [iperfDisplayCount, setIperfDisplayCount] = useState(3);
+  const [iperfDisplayCount, setIperfDisplayCount] = useState(
+    getInitialDisplayCount
+  );
   const [savedIperfServers, setSavedIperfServers] = useState<
     SavedIperfServer[]
   >([]);
@@ -70,6 +79,18 @@ export const ServerList: React.FC<ServerListProps> = ({
     const saved = localStorage.getItem("server-list-open");
     return saved === null ? true : saved === "true";
   });
+
+  // Handle window resize for responsive display counts
+  useEffect(() => {
+    const handleResize = () => {
+      const newDisplayCount = window.innerWidth >= 1024 ? 6 : 3;
+      setDisplayCount(newDisplayCount);
+      setIperfDisplayCount(newDisplayCount);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Get unique countries for filter dropdown
   const countries = useMemo(() => {
@@ -204,15 +225,17 @@ export const ServerList: React.FC<ServerListProps> = ({
         return (
           <div className="flex flex-col h-full">
             <DisclosureButton
-              className={`flex justify-between items-center w-full px-4 py-2 bg-gray-850/95 ${
+              className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
                 open ? "rounded-t-xl" : "rounded-xl"
-              } shadow-lg border-b-0 border-gray-900 text-left`}
+              } shadow-lg border border-gray-200 dark:border-gray-800 ${
+                open ? "border-b-0" : ""
+              } text-left`}
             >
               <div className="flex flex-col">
-                <h2 className="text-white text-xl font-semibold p-1 select-none">
+                <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
                   Server Selection
                 </h2>
-                <p className="text-gray-400 text-sm pl-1 pb-1">
+                <p className="text-gray-600 dark:text-gray-400 text-sm pl-1 pb-1">
                   Choose between speedtest.net, iperf3 or librespeed servers
                 </p>
               </div>
@@ -226,13 +249,13 @@ export const ServerList: React.FC<ServerListProps> = ({
                 <ChevronDownIcon
                   className={`${
                     open ? "transform rotate-180" : ""
-                  } w-5 h-5 text-gray-400 transition-transform duration-200`}
+                  } w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200`}
                 />
               </div>
             </DisclosureButton>
 
             {open && (
-              <div className="bg-gray-850/95 px-4 pt-2 rounded-b-xl shadow-lg flex-1">
+              <div className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-2 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800">
                 <div className="flex flex-col pl-1"></div>
                 <motion.div
                   className="mt-1 px-1 select-none pointer-events-none server-list-animate pb-4"
@@ -257,7 +280,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                   }}
                 >
                   {/* Controls Header */}
-                  <div className="flex justify-between items-center mb-4">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
                     <div className="flex items-center gap-6">
                       {/* Multi-select Toggle */}
                       {/* TODO: backend needs some work for multiple server tests
@@ -291,7 +314,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                       <RadioGroup
                         value={testType}
                         onChange={handleTestTypeChange}
-                        className="flex items-center gap-4"
+                        className="flex items-center gap-2 sm:gap-4"
                       >
                         <RadioOption value="speedtest">Speedtest</RadioOption>
                         <RadioOption value="iperf">iperf3</RadioOption>
@@ -309,9 +332,10 @@ export const ServerList: React.FC<ServerListProps> = ({
                         shadow-md
                         transition-colors
                         border
+                        w-full sm:w-auto
                         ${
                           isLoading || selectedServers.length === 0
-                            ? "bg-gray-700 text-gray-400 cursor-not-allowed border-gray-900"
+                            ? "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed border-gray-400 dark:border-gray-900"
                             : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
                         }
                       `}
@@ -323,22 +347,27 @@ export const ServerList: React.FC<ServerListProps> = ({
                   {testType === "iperf" && (
                     <div className="flex flex-col gap-4 mb-4">
                       {/* Search Input and Add Button for iperf3 servers */}
-                      <div className="flex flex-col md:flex-row gap-4">
-                        <div className="flex-1">
-                          <input
-                            type="text"
-                            placeholder="Search saved servers..."
-                            className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
-                            value={iperfSearchTerm}
-                            onChange={(e) => setIperfSearchTerm(e.target.value)}
-                          />
+                      <div className="flex flex-col gap-4">
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              placeholder="Search saved servers..."
+                              className="w-full px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-900 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
+                              value={iperfSearchTerm}
+                              onChange={(e) =>
+                                setIperfSearchTerm(e.target.value)
+                              }
+                            />
+                          </div>
+                          <button
+                            onClick={() => setAddServerModalOpen(true)}
+                            className="px-3 py-2 bg-gray-100 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300 rounded-lg transition-colors border border-gray-300 dark:border-gray-900 hover:border-gray-400 dark:hover:border-gray-700 shadow-md text-sm"
+                            title="Add new iperf3 server"
+                          >
+                            + Add
+                          </button>
                         </div>
-                        <button
-                          onClick={() => setAddServerModalOpen(true)}
-                          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors border border-blue-600 hover:border-blue-700 shadow-md"
-                        >
-                          Add Server
-                        </button>
                       </div>
                     </div>
                   )}
@@ -351,7 +380,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                         <input
                           type="text"
                           placeholder="Search servers..."
-                          className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
+                          className="w-full px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-900 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -363,13 +392,13 @@ export const ServerList: React.FC<ServerListProps> = ({
                         onChange={setFilterCountry}
                       >
                         <div className="relative min-w-[160px]">
-                          <ListboxButton className="relative w-full px-4 py-2 bg-gray-800/50 border border-gray-900 rounded-lg text-left text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
+                          <ListboxButton className="relative w-full px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-left text-gray-900 dark:text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
                             <span className="block truncate">
                               {filterCountry || "All Countries"}
                             </span>
                             <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
                               <ChevronUpDownIcon
-                                className="h-5 w-5 text-gray-400"
+                                className="h-5 w-5 text-gray-600 dark:text-gray-400"
                                 aria-hidden="true"
                               />
                             </span>
@@ -382,13 +411,13 @@ export const ServerList: React.FC<ServerListProps> = ({
                             leaveFrom="transform scale-100 opacity-100"
                             leaveTo="transform scale-95 opacity-0"
                           >
-                            <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-gray-800 border border-gray-900 py-1 shadow-lg focus:outline-none">
+                            <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-900 py-1 shadow-lg focus:outline-none">
                               <ListboxOption
                                 className={({ focus }) =>
                                   `relative cursor-pointer select-none py-2 px-4 ${
                                     focus
-                                      ? "bg-blue-500/10 text-blue-200"
-                                      : "text-gray-300"
+                                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-200"
+                                      : "text-gray-700 dark:text-gray-300"
                                   }`
                                 }
                                 value=""
@@ -402,8 +431,8 @@ export const ServerList: React.FC<ServerListProps> = ({
                                   className={({ focus }) =>
                                     `relative cursor-pointer select-none py-2 px-4 ${
                                       focus
-                                        ? "bg-blue-500/10 text-blue-200"
-                                        : "text-gray-300"
+                                        ? "bg-blue-500/10 text-blue-600 dark:text-blue-200"
+                                        : "text-gray-700 dark:text-gray-300"
                                     }`
                                   }
                                 >
@@ -423,11 +452,11 @@ export const ServerList: React.FC<ServerListProps> = ({
                       {filteredIperfServers.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 px-4">
                           <div className="text-center max-w-md">
-                            <div className="text-gray-400 text-lg mb-2">🔧</div>
-                            <h3 className="text-lg font-medium text-gray-300 mb-2">
+                            <div className="text-gray-600 dark:text-gray-400 text-lg mb-2">🔧</div>
+                            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">
                               No iperf3 servers found
                             </h3>
-                            <p className="text-gray-400 text-sm mb-4">
+                            <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
                               Add your first iperf3 server using the input
                               above. Enter the server address and port (e.g.,
                               iperf.example.com:5201)
@@ -466,24 +495,24 @@ export const ServerList: React.FC<ServerListProps> = ({
                                       selectedServers.some(
                                         (s) => s.id === iperfServer.id
                                       )
-                                        ? "bg-blue-500/10 border-blue-400/50 shadow-lg"
-                                        : "bg-gray-800/50 border-gray-900 hover:bg-gray-800 shadow-lg"
+                                        ? "bg-blue-100/50 dark:bg-blue-500/10 border-blue-400/50 shadow-lg"
+                                        : "bg-gray-100/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-900 hover:bg-gray-200/50 dark:hover:bg-gray-800 shadow-lg"
                                     } border`}
                                   >
                                     <div className="flex flex-col gap-1 pr-8">
-                                      <span className="text-blue-300 font-medium truncate">
+                                      <span className="text-blue-600 dark:text-blue-300 font-medium truncate">
                                         {server.name}
                                       </span>
-                                      <span className="text-gray-400 text-sm">
+                                      <span className="text-gray-600 dark:text-gray-400 text-sm">
                                         iperf3 Server
                                         <span
-                                          className="block truncate text-xs"
+                                          className="block truncate text-xs text-gray-500 dark:text-gray-500"
                                           title={`${server.host}:${server.port}`}
                                         >
                                           {server.host}:{server.port}
                                         </span>
                                       </span>
-                                      <span className="text-gray-400 text-sm mt-1">
+                                      <span className="text-gray-600 dark:text-gray-400 text-sm mt-1">
                                         Custom Server
                                       </span>
                                     </div>
@@ -493,7 +522,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                                         setServerToDelete(server.id);
                                         setDeleteModalOpen(true);
                                       }}
-                                      className="absolute top-2 right-2 text-red-500 p-1 bg-red-900/50 border border-gray-900 rounded-md hover:bg-red-900/70 hover:text-red-400 transition-colors"
+                                      className="absolute top-2 right-2 text-gray-600 dark:text-gray-400 p-1 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-md hover:bg-red-100/50 dark:hover:bg-red-900/50 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                                       title="Delete server"
                                     >
                                       <XMarkIcon className="h-4 w-4" />
@@ -512,7 +541,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                             onClick={() =>
                               setIperfDisplayCount((prev) => prev + 6)
                             }
-                            className="px-4 py-2 bg-gray-800/50 border border-gray-900/80 text-gray-300/50 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors"
+                            className="px-4 py-2 bg-gray-200/30 dark:bg-gray-800/30 border border-gray-300/50 dark:border-gray-900/50 text-gray-600/50 dark:text-gray-300/50 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-300/50 dark:hover:bg-gray-800/50 transition-colors"
                           >
                             Load More
                           </button>
@@ -525,16 +554,16 @@ export const ServerList: React.FC<ServerListProps> = ({
                       testType === "librespeed" ? (
                         <div className="flex flex-col items-center justify-center py-12 px-4">
                           <div className="text-center max-w-md">
-                            <div className="text-gray-400 text-lg mb-2">📡</div>
-                            <h3 className="text-lg font-medium text-gray-300 mb-2">
+                            <div className="text-gray-600 dark:text-gray-400 text-lg mb-2">📡</div>
+                            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">
                               No Librespeed servers found
                             </h3>
-                            <p className="text-gray-400 text-sm mb-4">
+                            <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
                               The librespeed-servers.json file was not found.
                               Please create this file in the same directory as
                               your config.toml to run librespeed tests.
                             </p>
-                            <div className="text-xs text-gray-500 bg-gray-800/30 rounded-lg p-3 border border-gray-900">
+                            <div className="text-xs text-gray-600 dark:text-gray-500 bg-gray-100/30 dark:bg-gray-800/30 rounded-lg p-3 border border-gray-300 dark:border-gray-900">
                               <p className="mb-2">
                                 Example librespeed-servers.json:
                               </p>
@@ -573,24 +602,24 @@ export const ServerList: React.FC<ServerListProps> = ({
                                       selectedServers.some(
                                         (s) => s.id === server.id
                                       )
-                                        ? "bg-blue-500/10 border-blue-400/50 shadow-lg"
-                                        : "bg-gray-800/50 border-gray-900 hover:bg-gray-800 shadow-lg"
+                                        ? "bg-blue-100/50 dark:bg-blue-500/10 border-blue-400/50 shadow-lg"
+                                        : "bg-gray-100/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-900 hover:bg-gray-200/50 dark:hover:bg-gray-800 shadow-lg"
                                     } border`}
                                   >
                                     <div className="flex flex-col gap-1">
-                                      <span className="text-blue-300 font-medium truncate">
+                                      <span className="text-blue-600 dark:text-blue-300 font-medium truncate">
                                         {server.sponsor}
                                       </span>
-                                      <span className="text-gray-400 text-sm">
+                                      <span className="text-gray-600 dark:text-gray-400 text-sm">
                                         {server.name}
                                         <span
-                                          className="block truncate text-xs"
+                                          className="block truncate text-xs text-gray-500 dark:text-gray-500"
                                           title={server.host}
                                         >
                                           {server.host}
                                         </span>
                                       </span>
-                                      <span className="text-gray-400 text-sm mt-1">
+                                      <span className="text-gray-600 dark:text-gray-400 text-sm mt-1">
                                         {server.country} -{" "}
                                         {Math.floor(distance)} km
                                       </span>
@@ -610,7 +639,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                       <div className="flex justify-center mt-6">
                         <button
                           onClick={() => setDisplayCount((prev) => prev + 6)}
-                          className="px-4 py-2 bg-gray-800/50 border border-gray-900/80 text-gray-300/50 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors"
+                          className="px-4 py-2 bg-gray-200/30 dark:bg-gray-800/30 border border-gray-300/50 dark:border-gray-900/50 text-gray-600/50 dark:text-gray-300/50 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-300/50 dark:hover:bg-gray-800/50 transition-colors"
                         >
                           Load More
                         </button>
@@ -680,13 +709,13 @@ const RadioOption: React.FC<{
       <div
         className={`cursor-pointer flex items-center gap-2 px-3 py-1 rounded-lg transition-colors ${
           checked
-            ? "bg-blue-500/10 text-blue-200 border-blue-500/50"
-            : "text-gray-400 hover:bg-gray-800 border-transparent"
+            ? "bg-blue-500/10 text-blue-600 dark:text-blue-200 border-blue-500/50"
+            : "text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 border-transparent"
         } border`}
       >
         <div
           className={`w-4 h-4 rounded-full border-2 ${
-            checked ? "border-blue-400 bg-blue-500" : "border-gray-600"
+            checked ? "border-blue-400 bg-blue-500" : "border-gray-400 dark:border-gray-600"
           } transition-colors`}
         />
         <Label className="text-xs sm:text-sm cursor-pointer">{children}</Label>
@@ -750,10 +779,10 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl bg-gray-850/95 border border-gray-900 p-6 shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl bg-white/95 dark:bg-gray-850/95 border border-gray-200 dark:border-gray-900 p-6 shadow-xl transition-all">
                 <Dialog.Title
                   as="h2"
-                  className="text-xl font-semibold text-white mb-4"
+                  className="text-xl font-semibold text-gray-900 dark:text-white mb-4"
                 >
                   Add iperf3 Server
                 </Dialog.Title>
@@ -762,7 +791,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
                   <div className="space-y-2">
                     <label
                       htmlFor="serverName"
-                      className="block text-sm font-medium text-gray-400"
+                      className="block text-sm font-medium text-gray-600 dark:text-gray-400"
                     >
                       Server Name
                     </label>
@@ -772,14 +801,14 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
                       value={serverName}
                       onChange={(e) => setServerName(e.target.value)}
                       placeholder="Enter a name for this server"
-                      className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
+                      className="w-full px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-900 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
                       autoFocus
                     />
                   </div>
                   <div className="space-y-2">
                     <label
                       htmlFor="serverHost"
-                      className="block text-sm font-medium text-gray-400"
+                      className="block text-sm font-medium text-gray-600 dark:text-gray-400"
                     >
                       Server Host
                     </label>
@@ -789,13 +818,13 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
                       value={serverHost}
                       onChange={(e) => setServerHost(e.target.value)}
                       placeholder="iperf.example.com"
-                      className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
+                      className="w-full px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-900 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
                     />
                   </div>
                   <div className="space-y-2">
                     <label
                       htmlFor="serverPort"
-                      className="block text-sm font-medium text-gray-400"
+                      className="block text-sm font-medium text-gray-600 dark:text-gray-400"
                     >
                       Server Port
                     </label>
@@ -805,7 +834,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
                       value={serverPort}
                       onChange={(e) => setServerPort(e.target.value)}
                       placeholder="5201"
-                      className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
+                      className="w-full px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-900 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
                     />
                   </div>
                 </div>
@@ -813,7 +842,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
                 <div className="mt-6 flex justify-end gap-3">
                   <button
                     type="button"
-                    className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                    className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
                     onClick={handleClose}
                   >
                     Cancel

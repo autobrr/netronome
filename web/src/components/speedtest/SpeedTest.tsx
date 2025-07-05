@@ -3,23 +3,22 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Container } from "@mui/material";
-import {
-  FaWaveSquare,
-  FaShare,
-  FaGithub,
-  FaArrowDown,
-  FaArrowUp,
-} from "react-icons/fa";
+import { FaGithub, FaArrowDown } from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
 import { XMarkIcon } from "@heroicons/react/20/solid";
-import { ServerList } from "./ServerList";
-import { TestProgress } from "./TestProgress";
-import { SpeedHistoryChart } from "./SpeedHistoryChart";
-import ScheduleManager from "./ScheduleManager";
 import { ShareModal } from "./ShareModal";
-import { Traceroute } from "./Traceroute";
+import { TestProgress } from "./TestProgress";
+import { TabNavigation } from "../common/TabNavigation";
+import { DashboardTab } from "./DashboardTab";
+import { SpeedTestTab } from "./SpeedTestTab";
+import { TracerouteTab } from "./TracerouteTab";
+import {
+  ChartBarIcon,
+  PlayIcon,
+  GlobeAltIcon,
+} from "@heroicons/react/24/outline";
 import {
   Server,
   SpeedTestResult,
@@ -45,7 +44,6 @@ import {
   getPublicHistory,
 } from "@/api/speedtest";
 import { motion, AnimatePresence } from "motion/react";
-import { formatNextRun } from "@/utils/timeUtils";
 
 interface SpeedTestProps {
   isPublic?: boolean;
@@ -79,7 +77,34 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const [scheduledTestRunning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [updateTrigger, setUpdateTrigger] = useState(0);
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = localStorage.getItem("netronome-active-tab");
+    return saved || "dashboard";
+  });
+
+  // Tab configuration
+  const tabs = [
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      icon: <ChartBarIcon className="w-5 h-5" />,
+    },
+    {
+      id: "speedtest",
+      label: "Speed Test",
+      icon: <PlayIcon className="w-5 h-5" />,
+    },
+    {
+      id: "traceroute",
+      label: "Traceroute",
+      icon: <GlobeAltIcon className="w-5 h-5" />,
+    },
+  ];
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    localStorage.setItem("netronome-active-tab", tabId);
+  };
 
   // Queries
   const { data: speedtestServers = [] } = useQuery({
@@ -158,8 +183,8 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     return history && history.length > 0
       ? history[0]
       : allTimeHistory.length > 0
-        ? allTimeHistory[0]
-        : null;
+      ? allTimeHistory[0]
+      : null;
   }, [history, allTimeHistory]);
 
   const { data: schedules = [] } = useQuery({
@@ -176,37 +201,6 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   useEffect(() => {
     console.log("[SpeedTest] Schedules data updated:", schedules);
   }, [schedules]);
-
-  // Update "Next run in:" times every minute (synchronized)
-  useEffect(() => {
-    // Calculate delay to sync with minute boundary
-    const now = new Date();
-    const secondsUntilNextMinute = 60 - now.getSeconds();
-    const initialDelay = secondsUntilNextMinute * 1000;
-
-    // Start timer at the next minute boundary
-    const initialTimer = window.setTimeout(() => {
-      console.log("[SpeedTest] Updating next run times... (synced)");
-      setUpdateTrigger((prev) => prev + 1);
-
-      // Set up regular interval after initial sync
-      const timer = window.setInterval(() => {
-        console.log("[SpeedTest] Updating next run times... (synced)");
-        setUpdateTrigger((prev) => prev + 1);
-      }, 60000); // Update every minute
-
-      // Store timer ID for cleanup
-      (window as any)._speedTestTimer = timer;
-    }, initialDelay);
-
-    return () => {
-      window.clearTimeout(initialTimer);
-      if ((window as any)._speedTestTimer) {
-        window.clearInterval((window as any)._speedTestTimer);
-        delete (window as any)._speedTestTimer;
-      }
-    };
-  }, []);
 
   // Mutations
   const speedTestMutation = useMutation({
@@ -343,10 +337,10 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               draggable="false"
             />
             <div>
-              <h1 className="text-3xl font-bold text-white select-none">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white select-none">
                 Netronome
               </h1>
-              <h2 className="text-sm font-medium text-gray-300 select-none">
+              <h2 className="text-sm font-medium text-gray-600 dark:text-gray-300 select-none">
                 Network Speed Testing
               </h2>
             </div>
@@ -354,7 +348,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
           {(testStatus === "running" || scheduledTestRunning) && (
             <div
-              className="mt-8 md:mt-0 flex items-center justify-center"
+              className="mt-8 md:mt-0 flex items-center justify-center md:mr-20"
               style={{ minWidth: "120px", height: "40px" }}
             >
               {progress !== null && <TestProgress progress={progress} />}
@@ -377,14 +371,14 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
-              className="relative bg-red-950/80 backdrop-blur-sm border border-red-800/50 rounded-xl mb-4 shadow-lg overflow-hidden"
+              className="relative bg-red-100/50 dark:bg-red-950/10 backdrop-blur-sm border border-red-400/50 dark:border-red-800/50 rounded-xl mb-4 shadow-lg overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-red-900/20 to-red-800/20 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-r from-red-200/20 to-red-300/20 dark:from-red-900/20 dark:to-red-800/20 pointer-events-none" />
               <div className="relative flex items-start justify-between p-4">
                 <div className="flex items-start gap-3 flex-1">
                   <div className="flex-shrink-0 mt-0.5">
                     <svg
-                      className="w-5 h-5 text-red-400"
+                      className="w-5 h-5 text-red-600 dark:text-red-400"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -398,10 +392,10 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-sm font-medium text-red-200 mb-1">
+                    <h3 className="text-sm font-bold text-red-800 dark:text-red-300 mb-1">
                       Error
                     </h3>
-                    <div className="text-sm text-red-300/90 whitespace-pre-wrap break-words">
+                    <div className="text-sm text-red-700/90 dark:text-red-300/90 break-words whitespace-pre-wrap">
                       {(() => {
                         try {
                           // Try to extract and format JSON from error messages
@@ -422,7 +416,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                 </div>
                 <button
                   onClick={() => setError(null)}
-                  className="flex-shrink-0 ml-4 text-red-400 hover:text-red-300 transition-colors duration-200"
+                  className="flex-shrink-0 ml-4 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors duration-200"
                   aria-label="Dismiss error"
                 >
                   <XMarkIcon className="w-5 h-5" />
@@ -434,23 +428,25 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
         {/* No History Message - Only show when no tests exist at all */}
         {!isHistoryLoading && !hasAnyTests && (
-          <div className="bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-900 mb-6">
+          <div className="bg-gray-50/95 dark:bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900 mb-6">
             <div className="text-center space-y-4">
               <div>
-                <h2 className="text-white text-xl font-semibold mb-2">
+                <h2 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">
                   No History Available
                 </h2>
-                <p className="text-gray-400">
+                <p className="text-gray-600 dark:text-gray-400">
                   Get started with your first speed test in two ways:
                 </p>
               </div>
-              <div className="flex justify-center gap-12 text-left text-gray-400">
+              <div className="flex justify-center gap-12 text-left text-gray-600 dark:text-gray-400">
                 <div className="flex items-start gap-3">
                   <div className="mt-1 flex-shrink-0">
-                    <FaArrowDown className="w-4 h-4 text-emerald-400" />
+                    <FaArrowDown className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
-                    <p className="font-medium text-white">Run a test now</p>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      Run a test now
+                    </p>
                     <p className="text-sm">
                       Select a server below and start testing
                     </p>
@@ -458,10 +454,10 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="mt-1 flex-shrink-0">
-                    <IoIosPulse className="w-4 h-4 text-blue-400" />
+                    <IoIosPulse className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <p className="font-medium text-white">
+                    <p className="font-medium text-gray-900 dark:text-white">
                       Schedule regular tests
                     </p>
                     <p className="text-sm">
@@ -474,190 +470,94 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
           </div>
         )}
 
-        {/* Latest Results */}
-        {hasAnyTests && latestTest && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }} // Initial state for animation
-            animate={{ opacity: 1, y: 0 }} // Animate to this state
-            exit={{ opacity: 0, y: 20 }} // Exit animation state
-            transition={{ duration: 0.5 }} // Duration of the animation
-            className="mb-6"
-          >
-            <h2 className="text-white text-xl ml-1 font-semibold">
-              Latest Run
-            </h2>
-            <div className="flex justify-between ml-1 items-center text-gray-400 text-sm mb-4">
-              <div>
-                Last test run:{" "}
-                {latestTest?.createdAt
-                  ? new Date(latestTest.createdAt).toLocaleString(undefined, {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    })
-                  : "N/A"}
-              </div>
-              <div className="flex items-center gap-4">
-                {schedules && schedules.length > 0 && (
-                  <div>
-                    Next scheduled run:{" "}
-                    <span className="text-blue-400 mr-1">
-                      {(() => {
-                        // Force re-calculation when updateTrigger changes
-                        updateTrigger; // This ensures the component re-renders
-                        return formatNextRun(schedules[0].nextRun);
-                      })()}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 cursor-default relative">
-              <MetricCard
-                icon={<IoIosPulse className="w-5 h-5 text-amber-500" />}
-                title="Latency"
-                value={parseFloat(latestTest.latency).toFixed(2)}
-                unit="ms"
-                average={calculateAverage(
-                  history.length > 0 ? history : allTimeHistory,
-                  "latency",
-                  timeRange
-                )}
-              />
-              <MetricCard
-                icon={<FaArrowDown className="w-5 h-5 text-blue-500" />}
-                title="Download"
-                value={latestTest.downloadSpeed.toFixed(2)}
-                unit="Mbps"
-                average={calculateAverage(
-                  history.length > 0 ? history : allTimeHistory,
-                  "downloadSpeed",
-                  timeRange
-                )}
-              />
-              <MetricCard
-                icon={<FaArrowUp className="w-5 h-5 text-emerald-500" />}
-                title="Upload"
-                value={latestTest.uploadSpeed.toFixed(2)}
-                unit="Mbps"
-                average={calculateAverage(
-                  history.length > 0 ? history : allTimeHistory,
-                  "uploadSpeed",
-                  timeRange
-                )}
-              />
-              <MetricCard
-                icon={<FaWaveSquare className="w-5 h-5 text-purple-400" />}
-                title="Jitter"
-                value={latestTest.jitter?.toFixed(2) ?? "N/A"}
-                unit="ms"
-                average={calculateAverage(
-                  history.length > 0 ? history : allTimeHistory,
-                  "jitter",
-                  timeRange
-                )}
-              />
-
-              {/* Floating Share Button over Jitter Card */}
-              {!isPublic && (
-                <motion.button
-                  onClick={() => setShareModalOpen(true)}
-                  className="absolute top-3 right-3 p-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 rounded-lg transition-all duration-200 backdrop-blur-sm z-10 opacity-80 hover:opacity-100"
-                  aria-label="Share public speed test page"
-                >
-                  <FaShare className="w-2.5 h-2.5" />
-                </motion.button>
-              )}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Speed History Chart */}
-        {hasAnyTests && (
+        {/* Tab Navigation */}
+        {!isPublic && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.5 }}
+            className="mb-6"
           >
-            <SpeedHistoryChart
-              timeRange={timeRange}
-              onTimeRangeChange={setTimeRange}
-              isPublic={isPublic}
-              hasAnyTests={hasAnyTests}
-              hasCurrentRangeTests={history.length > 0}
+            <TabNavigation
+              tabs={tabs}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
             />
           </motion.div>
         )}
 
-        {/* Main Tools Layout */}
-        {!isPublic && (
-          <div className="space-y-6 mb-6">
-            {/* Top Row - Traceroute (Full Width) */}
+        {/* Tab Content */}
+        <AnimatePresence mode="wait">
+          {(activeTab === "dashboard" || isPublic) && (
             <motion.div
+              key="dashboard"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              transition={{ duration: 0.5 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
             >
-              <Traceroute />
+              <DashboardTab
+                latestTest={latestTest}
+                tests={history}
+                timeRange={timeRange}
+                onTimeRangeChange={setTimeRange}
+                isPublic={isPublic}
+                hasAnyTests={hasAnyTests}
+                onShareClick={() => setShareModalOpen(true)}
+              />
             </motion.div>
+          )}
 
-            {/* Bottom Row - Server Selection and Schedule Manager */}
-            <div className="flex flex-col md:flex-row gap-6 md:items-start">
-              {/* Server Selection - Primary Tool */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.5 }}
-                className="flex-1"
-              >
-                <ServerList
-                  servers={servers}
-                  selectedServers={selectedServers}
-                  onSelect={handleServerSelect}
-                  multiSelect={options.multiServer}
-                  onMultiSelectChange={(value: boolean) =>
-                    setOptions((prev) => ({ ...prev, multiServer: value }))
-                  }
-                  onRunTest={runTest}
-                  isLoading={isLoading}
-                  testType={testType}
-                  onTestTypeChange={setTestType}
-                />
-              </motion.div>
+          {!isPublic && activeTab === "speedtest" && (
+            <motion.div
+              key="speedtest"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <SpeedTestTab
+                servers={servers}
+                selectedServers={selectedServers}
+                onServerSelect={handleServerSelect}
+                options={options}
+                onOptionsChange={setOptions}
+                testType={testType}
+                onTestTypeChange={setTestType}
+                isLoading={isLoading}
+                onRunTest={runTest}
+                progress={progress}
+                allServers={allServers}
+              />
+            </motion.div>
+          )}
 
-              {/* Schedule Manager - Automation Tool */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.5 }}
-                className="flex-1"
-              >
-                <ScheduleManager
-                  servers={allServers}
-                  selectedServers={selectedServers}
-                  onServerSelect={handleServerSelect}
-                />
-              </motion.div>
-            </div>
-          </div>
-        )}
+          {!isPublic && activeTab === "traceroute" && (
+            <motion.div
+              key="traceroute"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <TracerouteTab />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Container>
 
       {/* Public Footer */}
       {isPublic && (
-        <div className="border-t border-gray-800/50 py-4 mt-8">
+        <div className="mb-8">
           <Container maxWidth="xl">
             <div className="flex justify-center">
-              <div className="text-gray-500 text-sm">
+              <div className="text-gray-600 dark:text-gray-500 text-sm">
                 Powered by{" "}
                 <a
                   href="https://netrono.me"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-gray-300 hover:text-white transition-colors duration-200 underline decoration-gray-600 hover:decoration-gray-400"
+                  className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors duration-200 underline decoration-gray-500 dark:decoration-gray-600 hover:decoration-gray-700 dark:hover:decoration-gray-400"
                 >
                   Netronome
                 </a>
@@ -666,7 +566,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                   href="https://github.com/autobrr/netronome"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-gray-300 transition-colors duration-200 inline-flex items-center gap-1"
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 transition-colors duration-200 inline-flex items-center gap-1"
                 >
                   <span className="underline decoration-gray-600 hover:decoration-gray-400">
                     Source
@@ -681,101 +581,3 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     </div>
   );
 }
-
-// Helper Components
-const MetricCard: React.FC<{
-  icon: React.ReactNode;
-  title: string;
-  value: string;
-  unit: string;
-  average?: string;
-}> = ({ icon, title, value, unit, average }) => (
-  <div className="bg-gray-850/95 p-4 rounded-xl border border-gray-900 shadow-lg">
-    <div className="flex items-center gap-3 mb-2">
-      <div className="text-gray-400">{icon}</div>
-      <h3 className="text-gray-300 font-medium">{title}</h3>
-    </div>
-    <div className="flex items-baseline gap-2">
-      <span className="text-2xl font-bold text-white">{value}</span>
-      <span className="text-gray-400">{unit}</span>
-    </div>
-    {average && (
-      <div className="mt-1 text-sm text-gray-400">
-        Average: {average} {unit}
-      </div>
-    )}
-  </div>
-);
-
-const calculateAverage = (
-  history: SpeedTestResult[],
-  field: keyof SpeedTestResult,
-  timeRange: TimeRange
-): string => {
-  const now = new Date();
-  const cutoff = new Date();
-
-  // Set cutoff date based on timeRange
-  switch (timeRange) {
-    case "1d":
-      cutoff.setDate(now.getDate() - 1);
-      break;
-    case "3d":
-      cutoff.setDate(now.getDate() - 3);
-      break;
-    case "1w":
-      cutoff.setDate(now.getDate() - 7);
-      break;
-    case "1m":
-      cutoff.setMonth(now.getMonth() - 1);
-      break;
-    case "all":
-      return calculateAllTimeAverage(history, field);
-    default:
-      cutoff.setDate(now.getDate() - 7); // Default to 1 week
-  }
-
-  const filteredHistory = history.filter(
-    (item) => new Date(item.createdAt) >= cutoff
-  );
-
-  const validValues = filteredHistory
-    .map((item) => {
-      const value = item[field];
-      if (typeof value === "string") {
-        // Handle string values (like latency with "ms" suffix)
-        return parseFloat(value.replace("ms", ""));
-      }
-      return Number(value);
-    })
-    .filter((value) => !isNaN(value));
-
-  if (validValues.length === 0) return "N/A";
-
-  const avg =
-    validValues.reduce((sum, value) => sum + value, 0) / validValues.length;
-  return avg.toFixed(2);
-};
-
-// Helper function for "all" time range
-const calculateAllTimeAverage = (
-  history: SpeedTestResult[],
-  field: keyof SpeedTestResult
-): string => {
-  const validValues = history
-    .map((item) => {
-      const value = item[field];
-      if (typeof value === "string") {
-        // Handle string values (like latency with "ms" suffix)
-        return parseFloat(value.replace("ms", ""));
-      }
-      return Number(value);
-    })
-    .filter((value) => !isNaN(value));
-
-  if (validValues.length === 0) return "N/A";
-
-  const avg =
-    validValues.reduce((sum, value) => sum + value, 0) / validValues.length;
-  return avg.toFixed(2);
-};

@@ -174,6 +174,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg)
 
 	speedtestSvc.SetBroadcastUpdate(serverHandler.BroadcastUpdate)
+	speedtestSvc.SetBroadcastTracerouteUpdate(serverHandler.BroadcastTracerouteUpdate)
 
 	serverHandler.StartScheduler(context.Background())
 
