@@ -548,7 +548,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
       {/* Public Footer */}
       {isPublic && (
-        <div className="border-t border-gray-300/50 dark:border-gray-800/50 py-4 mt-8">
+        <div className="mb-8">
           <Container maxWidth="xl">
             <div className="flex justify-center">
               <div className="text-gray-600 dark:text-gray-500 text-sm">
