@@ -31,6 +31,11 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
   - Real-time test progress visualization
   - Latency and jitter measurements
 
+- **Network Diagnostics**
+
+  - Traceroute with real-time hop discovery
+  - GeoIP integration for country flags and ASN information
+
 - **Monitoring**
 
   - Interactive historical data charts
@@ -50,6 +55,22 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
 - **Flexible Authentication**
   - Built-in user authentication
   - OpenID Connect support
+
+## 📦 External Dependencies
+
+Netronome requires the following external tools for full functionality:
+
+### Required for Speed Tests
+
+- **iperf3** - Required for iperf3 speed testing
+- **librespeed-cli** - Required for LibreSpeed testing (automatically included in Docker)
+- **traceroute** - Required for network diagnostics (usually pre-installed on most systems)
+
+### Required for Development
+
+- **air** - Go live reload tool for `make watch` command
+- **tmux** - Terminal multiplexer for `make dev` command
+- **pnpm** - Package manager for frontend dependencies
 
 ## 🚀 Getting Started
 
@@ -164,6 +185,10 @@ udp_bandwidth = "100M"
 count = 5
 interval = 200
 timeout = 10
+
+[geoip]
+country_database_path = ""
+asn_database_path = ""
 
 [notifications]
 enabled = false

@@ -14,7 +14,7 @@ export const Footer = () => {
           href="https://discord.gg/WQ2eUycxyT"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-gray-400 hover:text-blue-500 transition-colors"
+          className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-500 transition-colors"
           title="Discord"
           style={{
             display: "flex",
@@ -28,7 +28,7 @@ export const Footer = () => {
           href="https://netrono.me"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-gray-400 hover:text-blue-500 transition-colors"
+          className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-500 transition-colors"
           title="Documentation"
           style={{
             display: "flex",

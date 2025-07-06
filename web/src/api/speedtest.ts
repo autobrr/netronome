@@ -132,3 +132,17 @@ export async function runTraceroute(host: string) {
     throw error;
   }
 }
+
+export async function getTracerouteStatus() {
+  try {
+    const response = await fetch(getApiUrl("/traceroute/status"));
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to get traceroute status");
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error getting traceroute status:", error);
+    throw error;
+  }
+}

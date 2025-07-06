@@ -29,19 +29,21 @@ type Service interface {
 	RunLibrespeedTest(ctx context.Context, opts *types.TestOptions) (*Result, error)
 	RunTraceroute(ctx context.Context, host string) (*TracerouteResult, error)
 	SetBroadcastUpdate(broadcastUpdate func(types.SpeedUpdate))
+	SetBroadcastTracerouteUpdate(broadcastUpdate func(types.TracerouteUpdate))
 }
 
 type service struct {
-	client          *st.Speedtest
-	db              database.Service
-	config          config.SpeedTestConfig
-	fullConfig      *config.Config
-	notifier        *notifications.Notifier
-	broadcaster     broadcaster.Broadcaster
-	broadcastUpdate func(types.SpeedUpdate)
-	serverCache     []ServerResponse
-	cacheExpiry     time.Time
-	cacheDuration   time.Duration
+	client                      *st.Speedtest
+	db                          database.Service
+	config                      config.SpeedTestConfig
+	fullConfig                  *config.Config
+	notifier                    *notifications.Notifier
+	broadcaster                 broadcaster.Broadcaster
+	broadcastUpdate             func(types.SpeedUpdate)
+	broadcastTracerouteUpdate   func(types.TracerouteUpdate)
+	serverCache                 []ServerResponse
+	cacheExpiry                 time.Time
+	cacheDuration               time.Duration
 }
 
 func New(db database.Service, cfg config.SpeedTestConfig, notifier *notifications.Notifier, fullConfig *config.Config) Service {
@@ -61,6 +63,10 @@ func New(db database.Service, cfg config.SpeedTestConfig, notifier *notification
 
 func (s *service) SetBroadcastUpdate(broadcastUpdate func(types.SpeedUpdate)) {
 	s.broadcastUpdate = broadcastUpdate
+}
+
+func (s *service) SetBroadcastTracerouteUpdate(broadcastUpdate func(types.TracerouteUpdate)) {
+	s.broadcastTracerouteUpdate = broadcastUpdate
 }
 
 func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {

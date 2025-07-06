@@ -85,25 +85,25 @@ export default function Login() {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-900 overflow-hidden">
+      <div className="h-screen flex items-center justify-center bg-white dark:bg-gray-900 overflow-hidden">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col items-center justify-center bg-gray-900 pattern overflow-hidden m-0 p-0">
-      <div className="max-w-md w-full px-8 pt-8 pb-4 bg-gray-850/40 border border-black/40 rounded-lg shadow-lg">
+    <div className="h-screen flex flex-col items-center justify-center bg-white dark:bg-gray-900 pattern overflow-hidden m-0 p-0">
+      <div className="max-w-md w-full px-8 pt-8 pb-4 bg-white/95 dark:bg-gray-850/40 border border-gray-200 dark:border-black/40 rounded-lg shadow-lg">
         <div className="flex flex-col items-center">
           <img
             src={logo}
             alt="Netronome Logo"
             className="text-white h-16 w-16 mb-2 select-none pointer-events-none"
           />
-          <h2 className="text-3xl font-bold text-white pointer-events-none select-none">
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white pointer-events-none select-none">
             Netronome
           </h2>
-          <p className="text-sm text-gray-500 pointer-events-none select-none mb-0">
+          <p className="text-sm text-gray-600 dark:text-gray-500 pointer-events-none select-none mb-0">
             network speed testing
           </p>
         </div>
@@ -111,7 +111,7 @@ export default function Login() {
         {oidcEnabled ? (
           <button
             onClick={() => handleOIDCLogin()}
-            className="w-full flex justify-center items-center mt-12 py-2 px-4 border border-gray-750 rounded-md shadow-sm bg-gray-800 hover:bg-gray-825 text-sm font-medium text-white hover:text-blue-450 focus:outline-none focus:ring-1  focus:ring-gray-700"
+            className="w-full flex justify-center items-center mt-12 py-2 px-4 border border-gray-300 dark:border-gray-750 rounded-md shadow-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-825 text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-450 focus:outline-none focus:ring-1 focus:ring-gray-300 dark:focus:ring-gray-700"
           >
             <span
               className="group relative inline-block"
@@ -128,7 +128,7 @@ export default function Login() {
         ) : (
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             {error && (
-              <div className="bg-red-500 bg-opacity-10 border border-red-500 text-red-500 px-4 py-3 rounded">
+              <div className="bg-red-100 dark:bg-red-500 dark:bg-opacity-10 border border-red-400 dark:border-red-500 text-red-700 dark:text-red-500 px-4 py-3 rounded">
                 <span className="block sm:inline">{error}</span>
               </div>
             )}
@@ -144,7 +144,7 @@ export default function Login() {
                   type="text"
                   autoComplete="username"
                   required
-                  className="appearance-none rounded-t-md relative block w-full px-3 py-2 border border-gray-700 dark:border-gray-900 bg-gray-700 text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  className="appearance-none rounded-t-md relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                   placeholder="Username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -160,7 +160,7 @@ export default function Login() {
                   type="password"
                   autoComplete="current-password"
                   required
-                  className="appearance-none rounded-b-md relative block w-full px-3 py-2 border border-gray-700 dark:border-gray-900 bg-gray-700 text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  className="appearance-none rounded-b-md relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
