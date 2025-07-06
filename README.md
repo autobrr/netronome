@@ -285,13 +285,13 @@ Netronome supports two database backends:
 2. **PostgreSQL**
    - Configure via:
      ```bash
-     NETRONOME_DB_TYPE=postgres
-     NETRONOME_DB_HOST=localhost
-     NETRONOME_DB_PORT=5432
-     NETRONOME_DB_USER=postgres
-     NETRONOME_DB_PASSWORD=your-password
-     NETRONOME_DB_NAME=netronome
-     NETRONOME_DB_SSLMODE=disable
+     NETRONOME__DB_TYPE=postgres
+     NETRONOME__DB_HOST=localhost
+     NETRONOME__DB_PORT=5432
+     NETRONOME__DB_USER=postgres
+     NETRONOME__DB_PASSWORD=your-password
+     NETRONOME__DB_NAME=netronome
+     NETRONOME__DB_SSLMODE=disable
      ```
 
 ### Authentication
