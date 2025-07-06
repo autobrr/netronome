@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024-2025, s0up and the autobrr contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 export const formatNextRun = (dateString: string): string => {
   const date = new Date(dateString);
   const now = new Date();
