@@ -10,7 +10,6 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
 
 - [Features](#-features)
 - [Getting Started](#-getting-started)
-  - [Swizzin](#swizzin)
   - [Linux Generic](#linux-generic)
   - [Docker Installation](#docker-installation)
 - [Configuration](#️-configuration)
@@ -62,9 +61,9 @@ Netronome requires the following external tools for full functionality:
 
 ### Required for Speed Tests
 
-- **iperf3** - Required for iperf3 speed testing
+- **iperf3** - Required for iperf3 speed testing (automatically included in Docker)
 - **librespeed-cli** - Required for LibreSpeed testing (automatically included in Docker)
-- **traceroute** - Required for network diagnostics (usually pre-installed on most systems)
+- **traceroute** - Required for network diagnostics (automatically included in Docker, usually pre-installed on most systems)
 
 ### Required for Development
 
@@ -73,12 +72,6 @@ Netronome requires the following external tools for full functionality:
 - **pnpm** - Package manager for frontend dependencies
 
 ## 🚀 Getting Started
-
-### Swizzin
-
-```bash
-sudo box install netronome
-```
 
 ### Linux Generic
 
