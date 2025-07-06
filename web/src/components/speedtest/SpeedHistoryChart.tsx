@@ -154,6 +154,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       )
       .map((item) => ({
+        rawTimestamp: item.createdAt,
         timestamp: new Date(item.createdAt).toLocaleString(undefined, {
           month: "short",
           day: "numeric",
@@ -220,19 +221,95 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
             opacity={0.3}
           />
           <XAxis
-            dataKey="timestamp"
+            dataKey="rawTimestamp"
             height={isMobile ? 50 : 60}
             tickMargin={isMobile ? 5 : 10}
             tick={{ fontSize: isMobile ? 11 : 12, fill: "var(--chart-text)" }}
             tickFormatter={(value) => {
-              if (isMobile) {
-                const date = new Date(value);
-                return date.toLocaleTimeString(undefined, {
-                  hour: "numeric",
-                  minute: "2-digit",
-                });
+              const date = new Date(value);
+              
+              // Dynamic formatting based on time range
+              switch (timeRange) {
+                case "1d":
+                  // 24 hours: show time, with day name on desktop
+                  if (isMobile) {
+                    return date.toLocaleTimeString(undefined, {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    });
+                  }
+                  return date.toLocaleString(undefined, {
+                    weekday: "short",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  });
+                  
+                case "3d":
+                  // 3 days: show day and time
+                  if (isMobile) {
+                    return date.toLocaleString(undefined, {
+                      weekday: "short",
+                      hour: "numeric",
+                    });
+                  }
+                  return date.toLocaleString(undefined, {
+                    weekday: "short",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  });
+                  
+                case "1w":
+                  // 1 week: show date with optional time on desktop
+                  if (isMobile) {
+                    return date.toLocaleString(undefined, {
+                      month: "numeric",
+                      day: "numeric",
+                    });
+                  }
+                  return date.toLocaleString(undefined, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  });
+                  
+                case "1m":
+                  // 1 month: show date
+                  if (isMobile) {
+                    return date.toLocaleString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    });
+                  }
+                  return date.toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                  });
+                  
+                case "all":
+                  // All time: show date with year if needed
+                  const now = new Date();
+                  const showYear = date.getFullYear() !== now.getFullYear();
+                  
+                  if (isMobile) {
+                    return date.toLocaleString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: showYear ? "2-digit" : undefined,
+                    });
+                  }
+                  return date.toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: showYear ? "numeric" : undefined,
+                  });
+                  
+                default:
+                  // Fallback to time-based format
+                  return date.toLocaleTimeString(undefined, {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  });
               }
-              return value;
             }}
           />
           <YAxis
@@ -329,10 +406,17 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   isPublic &&
                   (data.testType === "iperf3" ||
                     data.testType === "librespeed");
+                
+                const formattedDate = data.timestamp || new Date(label).toLocaleString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "numeric",
+                });
 
                 return (
                   <>
-                    <span>{label}</span>
+                    <span>{formattedDate}</span>
                     <br />
                     <span
                       style={{
