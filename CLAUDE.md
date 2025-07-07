@@ -90,12 +90,14 @@ internal/
 ### Speed Test Implementations
 
 **1. Speedtest.net** (`internal/speedtest/speedtest.go`)
+
 - Uses `github.com/showwin/speedtest-go` library
 - Auto-discovers servers with distance-based sorting
 - 30-minute server cache
 - Real-time progress callbacks
 
 **2. iperf3** (`internal/speedtest/iperf.go`)
+
 - Requires `iperf3` binary installation
 - JSON output parsing for real-time progress
 - Combined with ping tests (`internal/speedtest/ping.go`) for comprehensive metrics
@@ -103,11 +105,13 @@ internal/
 - Cross-platform ping implementation (Linux/macOS/Windows)
 
 **3. LibreSpeed** (`internal/speedtest/librespeed.go`)
+
 - Requires `librespeed-cli` binary
 - JSON server configuration (`librespeed-servers.json`)
 - Single command execution with result parsing
 
 **4. Traceroute** (`internal/speedtest/traceroute.go`)
+
 - Cross-platform implementation (Linux/macOS/Windows)
 - Uses system `traceroute`/`tracert` commands
 - Real-time streaming progress updates during execution
@@ -154,17 +158,20 @@ internal/
 ## Development Patterns
 
 ### Error Handling
+
 - Use structured errors with context throughout the codebase
 - All external operations (ping, iperf3, librespeed-cli) include timeout handling
 - Database operations use the interface pattern for testability
 - HTTP handlers return consistent JSON error responses
 
 ### Real-time Progress Updates
+
 - Speed tests broadcast progress via `SpeedUpdate` structs
 - Frontend polls `/api/speedtest/status` endpoint during active tests
 - Progress includes: test type, server name, speed, completion percentage, latency
 
 ### Traceroute Implementation Patterns
+
 - **Cross-platform command execution**: Adapts arguments for `traceroute` (Unix/Linux/macOS) vs `tracert` (Windows)
 - **Streaming output parsing**: Real-time line-by-line parsing with regex patterns for each OS
 - **Smart termination logic**: Early termination after 3 consecutive timeouts or reaching destination
@@ -173,17 +180,20 @@ internal/
 - **Hostname extraction**: Handles URLs, hostnames with ports, and IP addresses uniformly
 
 ### Background Services
+
 - Scheduler service runs independently with cron-like intervals
 - Notification service processes webhook deliveries
 - All services use context for graceful shutdown
 
 ### Database Interactions
+
 - All database operations go through the `database.Service` interface
 - Use Squirrel query builder for cross-database SQL generation
 - Migrations are embedded and run automatically on startup
 - Connection health monitoring included
 
 ### Configuration Management
+
 - Load order: Default values → TOML file → Environment variables
 - All config sections support environment variable overrides
 - Use `config.Load()` to get fully resolved configuration
@@ -192,6 +202,7 @@ internal/
 ## Key Dependencies
 
 ### Backend (Go 1.23.4)
+
 - **Gin**: HTTP framework and middleware
 - **Cobra**: CLI command structure
 - **Squirrel**: SQL query builder
@@ -201,6 +212,7 @@ internal/
 - **OIDC**: Authentication provider integration
 
 ### Frontend (React 18 + TypeScript)
+
 - **TanStack Router**: Client-side routing
 - **TanStack Query**: Server state management
 - **Tailwind CSS**: Utility-first styling
@@ -209,6 +221,7 @@ internal/
 - **Heroicons**: Icon system
 
 ### External Dependencies
+
 - **iperf3**: Binary required for iperf3 speed tests
 - **librespeed-cli**: Binary required for LibreSpeed tests
 - **ping**: System ping command (cross-platform support)
@@ -217,23 +230,27 @@ internal/
 ## Special Considerations
 
 ### Speed Test Coordination
+
 - Only one speed test can run at a time (enforced by backend)
 - Tests can be scheduled or triggered manually
 - Progress updates are broadcast to all connected clients
 - Failed tests are logged but don't crash the application
 
 ### Database Flexibility
+
 - Designed to work with both SQLite (single-user) and PostgreSQL (multi-user)
 - Migration system handles schema evolution
 - All queries use parameter binding for security
 
 ### Deployment Options
+
 - **Single binary**: Frontend assets embedded in Go binary
 - **Docker**: Multi-stage builds for optimized images
 - **Systemd**: Service file templates provided
 - **Development**: Hot reload with `make dev` (requires tmux)
 
 ### Configuration Hierarchy
+
 Always follows: Built-in defaults → TOML file → Environment variables (highest priority)
 
 Example: `NETRONOME__IPERF_TEST_DURATION=30` overrides `[speedtest.iperf] test_duration = 10` in TOML.
@@ -241,11 +258,14 @@ Example: `NETRONOME__IPERF_TEST_DURATION=30` overrides `[speedtest.iperf] test_d
 ## Development Guidelines
 
 ### Code Standards
+
 - **Conventional Commits**: When suggesting branch names and commit titles, always use Conventional Commit Guidelines
 - **License Headers**: Use `./license.sh` to add GPL-2.0-or-later headers to new source files
 - **Commit Attribution**: Never add yourself as co-author to commits
+- **Frontend Development**: Before writing any frontend-code, make sure to read through the docs/style-guide.md first, so you familiarize yourself with our style. This is a crucial step.
 
 ### Technical Notes
+
 - **Frontend Build**: Frontend is embedded into the Go binary using `embed.FS` during build
 - **Container Detection**: The application detects container environments and automatically adjusts network bindings
 - **Documentation**: When entering plan mode for work involving TanStack, Tailwind, Motion or Recharts, MUST check the context7 MCP for the most up-to-date documentation
@@ -255,16 +275,19 @@ Example: `NETRONOME__IPERF_TEST_DURATION=30` overrides `[speedtest.iperf] test_d
 The following external tools are required for full functionality:
 
 ### Required for Development
+
 - **air**: Go live reload tool for `make watch` command
 - **tmux**: Terminal multiplexer for `make dev` command
 - **pnpm**: Package manager for frontend dependencies
 
 ### Required for Speed Tests
+
 - **iperf3**: Binary required for iperf3 speed testing functionality
 - **librespeed-cli**: Binary required for LibreSpeed testing (automatically included in Docker)
 - **traceroute**: System traceroute command required for traceroute functionality (usually pre-installed on most systems)
 
 ### Optional GeoIP Enhancement
+
 - **MaxMind GeoLite2 databases**: For country flags and ASN information in traceroute results
   - Download from MaxMind with free license key
   - Configure paths in `[geoip]` section of config.toml
