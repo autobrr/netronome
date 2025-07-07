@@ -55,6 +55,11 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
   - Built-in user authentication
   - OpenID Connect support
 
+- **Public Dashboard**
+  - Optional separate public server for reverse proxy scenarios
+  - Secure public sharing of speed test results
+  - No admin interface exposure
+
 ## 📦 External Dependencies
 
 Netronome requires the following external tools for full functionality:
@@ -266,6 +271,9 @@ Example `librespeed-servers.json`:
 | `NETRONOME__AUTH_WHITELIST`                   | Whitelist for authentication                                      | -                                            | No                     |
 | `NETRONOME__GEOIP_COUNTRY_DATABASE_PATH`      | Path to GeoLite2-Country.mmdb file                                | -                                            | No                     |
 | `NETRONOME__GEOIP_ASN_DATABASE_PATH`          | Path to GeoLite2-ASN.mmdb file                                    | -                                            | No                     |
+| `NETRONOME__PUBLIC_SERVER_ENABLED`            | Enable public server for reverse proxy scenarios                  | `false`                                      | No                     |
+| `NETRONOME__PUBLIC_SERVER_HOST`               | Public server host                                                | `127.0.0.1`                                  | No                     |
+| `NETRONOME__PUBLIC_SERVER_PORT`               | Public server port                                                | `7576`                                       | No                     |
 
 ### Database
 
@@ -356,6 +364,77 @@ Netronome can display country flags and ASN information in traceroute results us
    ```
 
 **Note:** Both databases are optional. You can configure only one if you only want country flags or ASN information. The databases should be updated monthly for best accuracy.
+
+### Public Server
+
+Netronome includes an optional public server feature that allows you to safely expose speed test results to the internet without exposing administrative interfaces or authentication forms.
+
+#### Configuration
+
+Add to your `config.toml`:
+
+```toml
+[public_server]
+enabled = true
+host = "0.0.0.0"  # For public access
+port = 7576       # Different port from main server
+```
+
+Or using environment variables:
+
+```bash
+NETRONOME__PUBLIC_SERVER_ENABLED=true
+NETRONOME__PUBLIC_SERVER_HOST=0.0.0.0
+NETRONOME__PUBLIC_SERVER_PORT=7576
+```
+
+#### Features
+
+- **Security First**: Only serves public dashboard and required assets
+- **No Admin Access**: Login forms, admin interfaces completely blocked
+- **Separate Port**: Runs independently on different port (default: 7576)
+- **Read-Only**: Only displays historical speed test data
+- **Clean Logging**: Filters expected 404s to reduce log noise
+
+#### Reverse Proxy Setup
+
+You can now configure your reverse proxy to expose only the public server:
+
+```nginx
+# Public speed test results
+server {
+    listen 80;
+    server_name speedtest.example.com;
+    
+    location / {
+        proxy_pass http://localhost:7576;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+# Keep admin interface internal
+server {
+    listen 80;
+    server_name speedtest-admin.internal.example.com;
+    allow 192.168.1.0/24;  # Only allow internal network
+    deny all;
+    
+    location / {
+        proxy_pass http://localhost:7575;
+    }
+}
+```
+
+#### Available Endpoints
+
+The public server only serves:
+- `/public` - Public dashboard UI
+- `/api/speedtest/public/history` - Speed test data
+- `/health` - Health check
+- `/assets/*` - Static files for the web interface
+
+All other routes (like `/login`, `/admin`) return 404.
 
 ### Notifications
 
