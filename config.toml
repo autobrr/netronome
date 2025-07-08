@@ -41,7 +41,7 @@ udp_bandwidth = "100M"
 
 [speedtest.iperf.ping]
 count = 5
-interval = 200
+interval = 1000
 timeout = 10
 
 [speedtest.librespeed]

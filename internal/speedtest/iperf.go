@@ -16,6 +16,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/types"
 )
 
@@ -39,8 +40,111 @@ type IperfResult struct {
 	Error string `json:"error,omitempty"`
 }
 
-// RunIperfTest executes an iperf3 test against the specified server
-func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*types.SpeedTestResult, error) {
+type IperfRunner struct {
+	config           config.IperfConfig
+	progressCallback func(types.SpeedUpdate)
+	pingResult       *PingResult
+}
+
+func NewIperfRunner(cfg config.IperfConfig) *IperfRunner {
+	return &IperfRunner{
+		config: cfg,
+	}
+}
+
+func (r *IperfRunner) GetTestType() string {
+	return "iperf3"
+}
+
+func (r *IperfRunner) SetProgressCallback(callback func(types.SpeedUpdate)) {
+	r.progressCallback = callback
+}
+
+func (r *IperfRunner) SetPingResult(pingResult *PingResult) {
+	r.pingResult = pingResult
+}
+
+func (r *IperfRunner) GetServers() ([]ServerResponse, error) {
+	return []ServerResponse{}, nil
+}
+
+func (r *IperfRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
+	if opts.ServerHost == "" {
+		return nil, fmt.Errorf("server host is required for iperf3 test")
+	}
+
+	log.Info().
+		Str("server_host", opts.ServerHost).
+		Bool("enable_download", opts.EnableDownload).
+		Bool("enable_upload", opts.EnableUpload).
+		Bool("enable_jitter", opts.EnableJitter).
+		Msg("Starting iperf3 test")
+
+	var downloadSpeed, uploadSpeed float64
+	var jitterMs *float64
+	var latency string = "0ms"
+	var packetLoss float64 = 0.0
+
+	// Use ping results if available
+	if r.pingResult != nil {
+		latency = r.pingResult.FormatLatency()
+		packetLoss = r.pingResult.PacketLoss
+	}
+
+	if opts.EnableDownload {
+		downloadOpts := *opts
+		downloadOpts.EnableDownload = true
+		downloadOpts.EnableUpload = false
+
+		downloadResult, err := r.runSingleIperfTest(ctx, &downloadOpts)
+		if err != nil {
+			return nil, fmt.Errorf("download test failed: %w", err)
+		}
+		downloadSpeed = downloadResult.DownloadSpeed
+		if downloadResult.Jitter != nil {
+			jitterMs = downloadResult.Jitter
+		}
+	}
+
+	time.Sleep(2 * time.Second)
+
+	if opts.EnableUpload {
+		uploadOpts := *opts
+		uploadOpts.EnableDownload = false
+		uploadOpts.EnableUpload = true
+
+		uploadResult, err := r.runSingleIperfTest(ctx, &uploadOpts)
+		if err != nil {
+			return nil, fmt.Errorf("upload test failed: %w", err)
+		}
+		uploadSpeed = uploadResult.UploadSpeed
+		if uploadResult.Jitter != nil {
+			jitterMs = uploadResult.Jitter
+		}
+	}
+
+	var jitterFloat float64
+	if jitterMs != nil {
+		jitterFloat = *jitterMs
+	}
+
+	result := &Result{
+		Timestamp:     time.Now(),
+		Server:        opts.ServerHost,
+		DownloadSpeed: downloadSpeed,
+		UploadSpeed:   uploadSpeed,
+		Latency:       latency,
+		PacketLoss:    packetLoss,
+		Jitter:        jitterFloat,
+		Download:      downloadSpeed,
+		Upload:        uploadSpeed,
+	}
+
+	return result, nil
+}
+
+// runSingleIperfTest executes a single iperf3 test (download OR upload)
+func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOptions) (*types.SpeedTestResult, error) {
 	if opts.ServerHost == "" {
 		return nil, fmt.Errorf("server host is required for iperf3 test")
 	}
@@ -67,16 +171,16 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 		"-p", port,
 		"-J",        // JSON output
 		"-i", "0.5", // Half-second interval for smoother updates
-		"-t", strconv.Itoa(s.config.IPerf.TestDuration), // Test duration in seconds
-		"-P", strconv.Itoa(s.config.IPerf.ParallelConns), // Number of parallel connections
+		"-t", strconv.Itoa(r.config.TestDuration), // Test duration in seconds
+		"-P", strconv.Itoa(r.config.ParallelConns), // Number of parallel connections
 		"--format", "m", // Force Mbps output
 	}
 
 	// Add UDP-specific arguments if jitter testing is enabled
-	if opts.EnableJitter && s.config.IPerf.EnableUDP {
+	if opts.EnableJitter && r.config.EnableUDP {
 		args = append(args, "-u") // UDP mode
-		if s.config.IPerf.UDPBandwidth != "" {
-			args = append(args, "-b", s.config.IPerf.UDPBandwidth) // Bandwidth limit
+		if r.config.UDPBandwidth != "" {
+			args = append(args, "-b", r.config.UDPBandwidth) // Bandwidth limit
 		}
 	}
 
@@ -90,8 +194,8 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 	}
 
 	// Send initial status
-	if s.broadcastUpdate != nil {
-		s.broadcastUpdate(types.SpeedUpdate{
+	if r.progressCallback != nil {
+		r.progressCallback(types.SpeedUpdate{
 			Type:       testType,
 			ServerName: fmt.Sprintf("%s:%s", host, port),
 			Speed:      0,
@@ -106,7 +210,7 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 	}
 
 	// Create a timeout context for the iperf3 command
-	timeout := time.Duration(s.config.IPerf.Timeout) * time.Second
+	timeout := time.Duration(r.config.Timeout) * time.Second
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -119,7 +223,7 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 
 	var output strings.Builder
 	startTime := time.Now()
-	totalDuration := time.Duration(s.config.IPerf.TestDuration) * time.Second
+	totalDuration := time.Duration(r.config.TestDuration) * time.Second
 
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start iperf3: %w", err)
@@ -163,8 +267,8 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 				Str("type", testType).
 				Msg("iperf3 progress update")
 
-			if s.broadcastUpdate != nil {
-				s.broadcastUpdate(types.SpeedUpdate{
+			if r.progressCallback != nil {
+				r.progressCallback(types.SpeedUpdate{
 					Type:       testType,
 					ServerName: fmt.Sprintf("%s:%s", host, port),
 					Speed:      currentSpeed,
@@ -178,7 +282,7 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 	if err := cmd.Wait(); err != nil {
 		// Check if the error was due to context timeout
 		if timeoutCtx.Err() == context.DeadlineExceeded {
-			return nil, fmt.Errorf("iperf3 test timed out after %d seconds", s.config.IPerf.Timeout)
+			return nil, fmt.Errorf("iperf3 test timed out after %d seconds", r.config.Timeout)
 		}
 		outputStr := output.String()
 		// Parse and format JSON output for better error display
@@ -224,8 +328,8 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 	}
 
 	// Send final update
-	if s.broadcastUpdate != nil {
-		s.broadcastUpdate(types.SpeedUpdate{
+	if r.progressCallback != nil {
+		r.progressCallback(types.SpeedUpdate{
 			Type:       testType,
 			ServerName: fmt.Sprintf("%s:%s", host, port),
 			Speed:      speedMbps,
