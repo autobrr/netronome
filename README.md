@@ -298,7 +298,8 @@ Netronome supports two authentication methods:
 
 2. **OpenID Connect (OIDC)**
 
-   - Integration with identity providers (Google, Okta, Auth0, Keycloak, Pocket-ID etc.)
+   - Integration with identity providers (Google, Okta, Auth0, Keycloak, Pocket-ID, Authelia, Authentik etc.)
+   - PKCE support
    - Configure via environment variables:
      ```bash
      OIDC_ISSUER=https://pocketid.domain.net
