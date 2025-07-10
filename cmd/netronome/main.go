@@ -178,6 +178,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	serverHandler.StartScheduler(context.Background())
 
+	// Start main server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	srv := &http.Server{
 		Addr:    addr,
@@ -185,26 +186,52 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 
 	go func() {
-		log.Info().Str("addr", addr).Msg("Starting server")
+		log.Info().Str("addr", addr).Msg("Starting main server")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal().Err(err).Msg("Failed to start server")
+			log.Fatal().Err(err).Msg("Failed to start main server")
 		}
 	}()
+
+	// Start public server if enabled
+	var publicSrv *http.Server
+	if cfg.PublicServer.Enabled {
+		publicServerHandler := server.NewPublicServer(db, cfg)
+		publicAddr := fmt.Sprintf("%s:%d", cfg.PublicServer.Host, cfg.PublicServer.Port)
+		publicSrv = &http.Server{
+			Addr:    publicAddr,
+			Handler: publicServerHandler.Router,
+		}
+
+		go func() {
+			log.Info().Str("addr", publicAddr).Msg("Starting public server")
+			if err := publicSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatal().Err(err).Msg("Failed to start public server")
+			}
+		}()
+	}
 
 	// wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Info().Msg("Shutting down server...")
+	log.Info().Msg("Shutting down servers...")
 
 	// the context is used to inform the server it has 5 seconds to finish
 	// the request it is currently handling
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// Shutdown main server
 	if err := srv.Shutdown(ctx); err != nil {
-		return fmt.Errorf("server forced to shutdown: %w", err)
+		return fmt.Errorf("main server forced to shutdown: %w", err)
+	}
+
+	// Shutdown public server if it's running
+	if publicSrv != nil {
+		if err := publicSrv.Shutdown(ctx); err != nil {
+			return fmt.Errorf("public server forced to shutdown: %w", err)
+		}
 	}
 
 	log.Info().Msg("Server exiting")
