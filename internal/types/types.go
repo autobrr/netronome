@@ -86,6 +86,32 @@ type TracerouteUpdate struct {
 	TerminatedEarly bool        `json:"terminatedEarly,omitempty"`
 }
 
+// MTRHop represents a single hop in MTR results
+type MTRHop struct {
+	Number      int     `json:"number"`
+	Host        string  `json:"host"`
+	IP          string  `json:"ip,omitempty"`
+	PacketLoss  float64 `json:"loss"`
+	Sent        int     `json:"sent"`
+	Recv        int     `json:"recv"`
+	Last        float64 `json:"last"`
+	Avg         float64 `json:"avg"`
+	Best        float64 `json:"best"`
+	Worst       float64 `json:"worst"`
+	StdDev      float64 `json:"stddev"`
+	CountryCode string  `json:"countryCode,omitempty"`
+	AS          string  `json:"as,omitempty"`
+}
+
+// MTRData represents the complete MTR test results
+type MTRData struct {
+	Destination string   `json:"destination"`
+	IP          string   `json:"ip"`
+	HopCount    int      `json:"hopCount"`
+	Tests       int      `json:"tests"`
+	Hops        []MTRHop `json:"hops"`
+}
+
 type PacketLossUpdate struct {
 	Type        string  `json:"type"`
 	MonitorID   int64   `json:"monitorId"`
@@ -100,6 +126,8 @@ type PacketLossUpdate struct {
 	StdDevRTT   float64 `json:"stdDevRtt,omitempty"`
 	PacketsSent int     `json:"packetsSent,omitempty"`
 	PacketsRecv int     `json:"packetsRecv,omitempty"`
+	UsedMTR     bool    `json:"usedMtr,omitempty"`
+	HopCount    int     `json:"hopCount,omitempty"`
 	Error       string  `json:"error,omitempty"`
 }
 
@@ -116,14 +144,18 @@ type PacketLossMonitor struct {
 }
 
 type PacketLossResult struct {
-	ID          int64     `db:"id" json:"id"`
-	MonitorID   int64     `db:"monitor_id" json:"monitorId"`
-	PacketLoss  float64   `db:"packet_loss" json:"packetLoss"`
-	MinRTT      float64   `db:"min_rtt" json:"minRtt"`
-	MaxRTT      float64   `db:"max_rtt" json:"maxRtt"`
-	AvgRTT      float64   `db:"avg_rtt" json:"avgRtt"`
-	StdDevRTT   float64   `db:"std_dev_rtt" json:"stdDevRtt"`
-	PacketsSent int       `db:"packets_sent" json:"packetsSent"`
-	PacketsRecv int       `db:"packets_recv" json:"packetsRecv"`
-	CreatedAt   time.Time `db:"created_at" json:"createdAt"`
+	ID             int64     `db:"id" json:"id"`
+	MonitorID      int64     `db:"monitor_id" json:"monitorId"`
+	PacketLoss     float64   `db:"packet_loss" json:"packetLoss"`
+	MinRTT         float64   `db:"min_rtt" json:"minRtt"`
+	MaxRTT         float64   `db:"max_rtt" json:"maxRtt"`
+	AvgRTT         float64   `db:"avg_rtt" json:"avgRtt"`
+	StdDevRTT      float64   `db:"std_dev_rtt" json:"stdDevRtt"`
+	PacketsSent    int       `db:"packets_sent" json:"packetsSent"`
+	PacketsRecv    int       `db:"packets_recv" json:"packetsRecv"`
+	UsedMTR        bool      `db:"used_mtr" json:"usedMtr"`
+	HopCount       int       `db:"hop_count" json:"hopCount"`
+	MTRData        *string   `db:"mtr_data" json:"mtrData,omitempty"`
+	PrivilegedMode bool      `db:"privileged_mode" json:"privilegedMode"`
+	CreatedAt      time.Time `db:"created_at" json:"createdAt"`
 }

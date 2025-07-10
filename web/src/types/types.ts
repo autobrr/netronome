@@ -161,7 +161,35 @@ export interface PacketLossResult {
   stdDevRtt: number;
   packetsSent: number;
   packetsRecv: number;
+  usedMtr?: boolean;
+  hopCount?: number;
+  mtrData?: string; // JSON string containing MTRData
+  privilegedMode?: boolean;
   createdAt: string;
+}
+
+export interface MTRHop {
+  number: number;
+  host: string;
+  ip?: string;
+  loss: number;
+  sent: number;
+  recv: number;
+  last: number;
+  avg: number;
+  best: number;
+  worst: number;
+  stddev: number;
+  countryCode?: string;
+  as?: string;
+}
+
+export interface MTRData {
+  destination: string;
+  ip: string;
+  hopCount: number;
+  tests: number;
+  hops: MTRHop[];
 }
 
 export interface PacketLossUpdate {
@@ -178,5 +206,7 @@ export interface PacketLossUpdate {
   stdDevRtt?: number;
   packetsSent?: number;
   packetsRecv?: number;
+  usedMtr?: boolean;
+  hopCount?: number;
   error?: string;
 }

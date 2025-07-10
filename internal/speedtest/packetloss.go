@@ -5,7 +5,11 @@ package speedtest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net"
+	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +39,8 @@ type PacketLossService struct {
 	monitors       map[int64]*PacketLossMonitor
 	progress       map[int64]float64   // Track current progress for each monitor
 	completed      map[int64]time.Time // Track recently completed tests
+	mtrData        map[int64]string    // Store MTR JSON data temporarily
+	mtrPrivileged  map[int64]bool      // Track if MTR ran in privileged mode
 	mu             sync.RWMutex
 	db             database.Service
 	notifier       *notifications.Notifier
@@ -52,6 +58,8 @@ func NewPacketLossService(db database.Service, notifier *notifications.Notifier,
 		monitors:       make(map[int64]*PacketLossMonitor),
 		progress:       make(map[int64]float64),
 		completed:      make(map[int64]time.Time),
+		mtrData:        make(map[int64]string),
+		mtrPrivileged:  make(map[int64]bool),
 		db:             db,
 		notifier:       notifier,
 		broadcast:      broadcast,
@@ -147,7 +155,7 @@ func (s *PacketLossService) runMonitor(monitor *PacketLossMonitor) {
 	ticker := time.NewTicker(time.Duration(monitor.Interval) * time.Second)
 	defer ticker.Stop()
 
-	// Run initial test immediately
+	// Don't run initial test immediately - wait for the first scheduled interval
 	s.runSingleTest(monitor)
 
 	for {
@@ -188,6 +196,61 @@ func (s *PacketLossService) runSingleTest(monitor *PacketLossMonitor) {
 		})
 	}
 
+	// Try MTR first if available
+	if s.checkMTRAvailable() {
+		log.Info().
+			Int64("monitorID", monitor.ID).
+			Str("host", monitor.Host).
+			Msg("MTR is available, attempting MTR test")
+
+		if result, err := s.runMTRTest(monitor); err == nil {
+			s.processResults(monitor, result)
+			return
+		} else {
+			log.Warn().
+				Err(err).
+				Int64("monitorID", monitor.ID).
+				Str("host", monitor.Host).
+				Msg("MTR test failed, falling back to ping")
+		}
+	}
+
+	// Fall back to regular ping test
+	s.runPingTest(monitor)
+}
+
+// checkMTRAvailable checks if MTR is available on the system
+func (s *PacketLossService) checkMTRAvailable() bool {
+	_, err := exec.LookPath("mtr")
+	return err == nil
+}
+
+// runPingTest runs a traditional ping-based packet loss test
+func (s *PacketLossService) runPingTest(monitor *PacketLossMonitor) {
+	// Try privileged mode first if configured
+	if s.privilegedMode {
+		if err := s.runPingWithPrivilege(monitor, true); err == nil {
+			return // Success
+		} else if strings.Contains(err.Error(), "operation not permitted") {
+			log.Warn().
+				Err(err).
+				Int64("monitorID", monitor.ID).
+				Str("host", monitor.Host).
+				Msg("Privileged ping failed, trying unprivileged mode")
+
+			// Try unprivileged mode
+			if err := s.runPingWithPrivilege(monitor, false); err == nil {
+				return // Success with unprivileged
+			}
+		}
+	}
+
+	// If not using privileged mode or all attempts failed, run normally
+	s.runPingWithPrivilege(monitor, false)
+}
+
+// runPingWithPrivilege runs the ping test with specified privilege mode
+func (s *PacketLossService) runPingWithPrivilege(monitor *PacketLossMonitor, usePrivileged bool) error {
 	// Create a new pinger for this test
 	pinger, err := probing.NewPinger(monitor.Host)
 	if err != nil {
@@ -208,19 +271,19 @@ func (s *PacketLossService) runSingleTest(monitor *PacketLossMonitor) {
 				Error:      fmt.Sprintf("Failed to create pinger: %v", err),
 			})
 		}
-		return
+		return err
 	}
 
 	// Configure pinger
 	pinger.Interval = 1 * time.Second // Send one packet per second
 	pinger.Count = monitor.PacketCount
 	pinger.Timeout = time.Duration(monitor.PacketCount*2) * time.Second // 2 seconds per packet timeout
-	pinger.SetPrivileged(s.privilegedMode)
+	pinger.SetPrivileged(usePrivileged)
 
 	log.Info().
 		Int64("monitorID", monitor.ID).
 		Str("host", monitor.Host).
-		Bool("privilegedMode", s.privilegedMode).
+		Bool("privilegedMode", usePrivileged).
 		Msg("Configured pinger")
 
 	// Create results channel for this test
@@ -301,6 +364,7 @@ func (s *PacketLossService) runSingleTest(monitor *PacketLossMonitor) {
 	pingerDone := make(chan struct{})
 	var pingerStats *probing.Statistics
 	var pingerMutex sync.Mutex
+	var pingerError error
 
 	pinger.OnFinish = func(stats *probing.Statistics) {
 		pingerMutex.Lock()
@@ -338,11 +402,30 @@ func (s *PacketLossService) runSingleTest(monitor *PacketLossMonitor) {
 
 		err := pinger.Run()
 		if err != nil {
-			log.Error().
-				Err(err).
-				Int64("monitorID", monitor.ID).
-				Str("host", monitor.Host).
-				Msg("Pinger run failed")
+			// Check if it's a permission error and we were using privileged mode
+			if usePrivileged && strings.Contains(err.Error(), "operation not permitted") {
+				log.Warn().
+					Err(err).
+					Int64("monitorID", monitor.ID).
+					Str("host", monitor.Host).
+					Msg("Privileged ping failed, will retry with unprivileged mode")
+
+				// Store the error
+				pingerMutex.Lock()
+				pingerError = err
+				pingerMutex.Unlock()
+			} else {
+				log.Error().
+					Err(err).
+					Int64("monitorID", monitor.ID).
+					Str("host", monitor.Host).
+					Msg("Pinger run failed")
+
+				// Store the error
+				pingerMutex.Lock()
+				pingerError = err
+				pingerMutex.Unlock()
+			}
 		}
 
 		log.Debug().
@@ -372,7 +455,7 @@ func (s *PacketLossService) runSingleTest(monitor *PacketLossMonitor) {
 			Int64("monitorID", monitor.ID).
 			Msg("Test cancelled via monitor context")
 		completed = true
-		return
+		return nil
 
 	case stats := <-results:
 		log.Info().
@@ -481,6 +564,19 @@ func (s *PacketLossService) runSingleTest(monitor *PacketLossMonitor) {
 			}
 		}
 	}
+
+	// Check if there was an error
+	pingerMutex.Lock()
+	finalErr := pingerError
+	pingerMutex.Unlock()
+
+	// Return the error if privileged mode failed
+	if finalErr != nil && usePrivileged && strings.Contains(finalErr.Error(), "operation not permitted") {
+		return finalErr
+	}
+
+	// Return nil on success
+	return nil
 }
 
 // processResults processes the test results
@@ -508,17 +604,50 @@ func (s *PacketLossService) processResults(monitor *PacketLossMonitor, stats *pr
 	}
 	s.mu.Unlock()
 
+	// Check if this was an MTR test
+	usedMTR := false
+	hopCount := 0
+	var mtrDataStr *string
+	privilegedMode := false
+
+	s.mu.RLock()
+	if mtrJSON, exists := s.mtrData[monitor.ID]; exists {
+		usedMTR = true
+		mtrDataStr = &mtrJSON
+		// Extract hop count from Rtts hack
+		if len(stats.Rtts) > 0 {
+			hopCount = int(stats.Rtts[0])
+		}
+		// Get the privileged mode status
+		if priv, exists := s.mtrPrivileged[monitor.ID]; exists {
+			privilegedMode = priv
+		}
+	}
+	s.mu.RUnlock()
+
 	// Save results to database
 	result := &types.PacketLossResult{
-		MonitorID:   monitor.ID,
-		PacketLoss:  stats.PacketLoss,
-		MinRTT:      float64(stats.MinRtt.Milliseconds()),
-		MaxRTT:      float64(stats.MaxRtt.Milliseconds()),
-		AvgRTT:      float64(stats.AvgRtt.Milliseconds()),
-		StdDevRTT:   float64(stats.StdDevRtt.Milliseconds()),
-		PacketsSent: stats.PacketsSent,
-		PacketsRecv: stats.PacketsRecv,
-		CreatedAt:   time.Now(),
+		MonitorID:      monitor.ID,
+		PacketLoss:     stats.PacketLoss,
+		MinRTT:         float64(stats.MinRtt.Milliseconds()),
+		MaxRTT:         float64(stats.MaxRtt.Milliseconds()),
+		AvgRTT:         float64(stats.AvgRtt.Milliseconds()),
+		StdDevRTT:      float64(stats.StdDevRtt.Milliseconds()),
+		PacketsSent:    stats.PacketsSent,
+		PacketsRecv:    stats.PacketsRecv,
+		UsedMTR:        usedMTR,
+		HopCount:       hopCount,
+		MTRData:        mtrDataStr,
+		PrivilegedMode: privilegedMode,
+		CreatedAt:      time.Now(),
+	}
+
+	// Clean up MTR data after use
+	if usedMTR {
+		s.mu.Lock()
+		delete(s.mtrData, monitor.ID)
+		delete(s.mtrPrivileged, monitor.ID)
+		s.mu.Unlock()
 	}
 
 	if err := s.db.SavePacketLossResult(result); err != nil {
@@ -540,33 +669,45 @@ func (s *PacketLossService) processResults(monitor *PacketLossMonitor, stats *pr
 			MinRTT:      result.MinRTT,
 			MaxRTT:      result.MaxRTT,
 			AvgRTT:      result.AvgRTT,
+			StdDevRTT:   result.StdDevRTT,
 			PacketsSent: stats.PacketsSent,
 			PacketsRecv: stats.PacketsRecv,
+			UsedMTR:     usedMTR,
+			HopCount:    hopCount,
 		})
 	}
 
 	// Check threshold and send notification if needed
 	if s.notifier != nil && stats.PacketLoss > monitor.Threshold {
-		s.sendPacketLossAlert(monitor, stats)
+		s.sendPacketLossAlert(monitor, stats, usedMTR, hopCount)
 	}
 }
 
 // sendPacketLossAlert sends a notification for high packet loss
-func (s *PacketLossService) sendPacketLossAlert(monitor *PacketLossMonitor, stats *probing.Statistics) {
-	// Create a fake speed test result to reuse existing notification system
-	// In the future, we should extend the notification system to support different types
-	fakeResult := &types.SpeedTestResult{
-		ServerName:    fmt.Sprintf("Packet Loss Monitor: %s", monitor.Name),
-		TestType:      "packetloss",
-		Latency:       fmt.Sprintf("%.2fms", stats.AvgRtt.Seconds()*1000),
-		PacketLoss:    stats.PacketLoss,
-		DownloadSpeed: 0, // Not applicable
-		UploadSpeed:   0, // Not applicable
-		CreatedAt:     time.Now(),
+func (s *PacketLossService) sendPacketLossAlert(monitor *PacketLossMonitor, stats *probing.Statistics, usedMTR bool, hopCount int) {
+
+	// Create packet loss notification data
+	monitorName := monitor.Name
+	if monitorName == "" {
+		monitorName = monitor.Host
+	}
+
+	notification := &notifications.PacketLossNotification{
+		MonitorName: monitorName,
+		Host:        monitor.Host,
+		PacketLoss:  stats.PacketLoss,
+		Threshold:   monitor.Threshold,
+		AvgRTT:      float64(stats.AvgRtt.Milliseconds()),
+		MinRTT:      float64(stats.MinRtt.Milliseconds()),
+		MaxRTT:      float64(stats.MaxRtt.Milliseconds()),
+		PacketsSent: stats.PacketsSent,
+		PacketsRecv: stats.PacketsRecv,
+		UsedMTR:     usedMTR,
+		HopCount:    hopCount,
 	}
 
 	// Send notification
-	s.notifier.SendNotification(fakeResult)
+	s.notifier.SendPacketLossNotification(notification)
 
 	log.Warn().
 		Int64("monitorID", monitor.ID).
@@ -730,4 +871,215 @@ func (s *PacketLossService) StopAllMonitors() {
 				Msg("Failed to stop monitor")
 		}
 	}
+}
+
+// MTR JSON output structure
+type mtrReport struct {
+	Report struct {
+		MTR struct {
+			Src   string `json:"src"`
+			Dst   string `json:"dst"`
+			Tests int    `json:"tests"`
+		} `json:"mtr"`
+		Hubs []struct {
+			Count int     `json:"count"`
+			Host  string  `json:"host"`
+			Loss  float64 `json:"Loss%"`
+			Snt   int     `json:"Snt"`
+			Last  float64 `json:"Last"`
+			Avg   float64 `json:"Avg"`
+			Best  float64 `json:"Best"`
+			Wrst  float64 `json:"Wrst"`
+			StDev float64 `json:"StDev"`
+		} `json:"hubs"`
+	} `json:"report"`
+}
+
+// runMTRTest runs an MTR test and returns statistics
+func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Statistics, error) {
+	// Initialize GeoIP databases if not already done
+	// This is a workaround since PacketLossService doesn't have access to the main service
+	if countryDB == nil && asnDB == nil {
+		log.Info().Msg("GeoIP databases not initialized for MTR. GeoIP enrichment will be unavailable.")
+		log.Info().Msg("To enable GeoIP for MTR, ensure GeoIP is configured in the [geoip] section of your config file.")
+	}
+
+	// Broadcast that MTR is starting
+	if s.broadcast != nil {
+		s.broadcast(types.PacketLossUpdate{
+			Type:       "packetloss",
+			MonitorID:  monitor.ID,
+			Host:       monitor.Host,
+			IsRunning:  true,
+			IsComplete: false,
+			Progress:   50, // Show indeterminate progress since MTR doesn't provide real-time updates
+			UsedMTR:    true,
+		})
+	}
+
+	// Create timeout context
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(monitor.PacketCount*3)*time.Second)
+	defer cancel()
+
+	// Build MTR command with JSON output
+	args := []string{
+		"-4",                                         // Force IPv4
+		"-j",                                         // JSON output
+		"-c", fmt.Sprintf("%d", monitor.PacketCount), // Number of cycles
+		"-i", "1", // 1 second interval
+		"--no-dns", // Skip DNS resolution for speed
+		monitor.Host,
+	}
+
+	// Track if we're using privileged mode
+	actuallyPrivileged := s.privilegedMode
+
+	// Try privileged mode first (ICMP)
+	if s.privilegedMode {
+		log.Info().
+			Int64("monitorID", monitor.ID).
+			Str("host", monitor.Host).
+			Msg("Running MTR in privileged mode (ICMP)")
+	} else {
+		// Use UDP mode if unprivileged
+		args = append([]string{"-u"}, args...)
+		log.Info().
+			Int64("monitorID", monitor.ID).
+			Str("host", monitor.Host).
+			Msg("Running MTR in unprivileged mode (UDP)")
+	}
+
+	cmd := exec.CommandContext(ctx, "mtr", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		// If privileged mode failed, try UDP mode
+		if s.privilegedMode {
+			log.Warn().
+				Err(err).
+				Int64("monitorID", monitor.ID).
+				Msg("MTR privileged mode failed, trying UDP mode")
+
+			args = append([]string{"-u"}, args...)
+			cmd = exec.CommandContext(ctx, "mtr", args...)
+			output, err = cmd.Output()
+			if err != nil {
+				return nil, fmt.Errorf("MTR failed in both ICMP and UDP modes: %w", err)
+			}
+			// We fell back to UDP mode
+			actuallyPrivileged = false
+		} else {
+			return nil, fmt.Errorf("MTR command failed: %w", err)
+		}
+	}
+
+	// Store whether this MTR test ran in privileged mode
+	s.mu.Lock()
+	s.mtrPrivileged[monitor.ID] = actuallyPrivileged
+	s.mu.Unlock()
+
+	// Parse MTR JSON output
+	var report mtrReport
+	if err := json.Unmarshal(output, &report); err != nil {
+		return nil, fmt.Errorf("failed to parse MTR output: %w", err)
+	}
+
+	// Find the last hop (destination)
+	if len(report.Report.Hubs) == 0 {
+		return nil, fmt.Errorf("MTR returned no hops")
+	}
+
+	// Get the last hop statistics
+	lastHop := report.Report.Hubs[len(report.Report.Hubs)-1]
+
+	// Create MTRData for storage
+	mtrData := types.MTRData{
+		Destination: monitor.Host,
+		IP:          report.Report.MTR.Dst,
+		HopCount:    len(report.Report.Hubs),
+		Tests:       report.Report.MTR.Tests,
+		Hops:        make([]types.MTRHop, 0, len(report.Report.Hubs)),
+	}
+
+	// Convert hops to our format
+	for i, hop := range report.Report.Hubs {
+		mtrHop := types.MTRHop{
+			Number:     i + 1,
+			Host:       hop.Host,
+			PacketLoss: hop.Loss,
+			Sent:       hop.Snt,
+			Recv:       hop.Snt - int(float64(hop.Snt)*hop.Loss/100),
+			Last:       hop.Last,
+			Avg:        hop.Avg,
+			Best:       hop.Best,
+			Worst:      hop.Wrst,
+			StdDev:     hop.StDev,
+		}
+
+		// Extract IP from host if it's in format "hostname (IP)"
+		if strings.Contains(hop.Host, "(") && strings.Contains(hop.Host, ")") {
+			parts := strings.Split(hop.Host, "(")
+			if len(parts) > 1 {
+				mtrHop.Host = strings.TrimSpace(parts[0])
+				mtrHop.IP = strings.TrimSuffix(strings.TrimSpace(parts[1]), ")")
+			}
+		} else if hop.Host != "???" && hop.Host != "" {
+			// If we only have host (which might be an IP), use it as IP
+			if net.ParseIP(hop.Host) != nil {
+				mtrHop.IP = hop.Host
+			}
+		}
+
+		// Enrich with GeoIP data if we have an IP
+		if mtrHop.IP != "" {
+			mtrHop.CountryCode = getCountryFromIP(mtrHop.IP)
+			mtrHop.AS = getASNFromIP(mtrHop.IP)
+
+			// Debug logging
+			if mtrHop.CountryCode != "" || mtrHop.AS != "" {
+				log.Debug().
+					Str("ip", mtrHop.IP).
+					Str("countryCode", mtrHop.CountryCode).
+					Str("as", mtrHop.AS).
+					Msg("MTR hop enriched with GeoIP data")
+			}
+		}
+
+		mtrData.Hops = append(mtrData.Hops, mtrHop)
+	}
+
+	// Store MTR data as JSON
+	mtrJSON, _ := json.Marshal(mtrData)
+	mtrDataStr := string(mtrJSON)
+
+	// Create statistics compatible with existing ping results
+	stats := &probing.Statistics{
+		PacketsSent: lastHop.Snt,
+		PacketsRecv: lastHop.Snt - int(float64(lastHop.Snt)*lastHop.Loss/100),
+		PacketLoss:  lastHop.Loss,
+		MinRtt:      time.Duration(lastHop.Best * float64(time.Millisecond)),
+		MaxRtt:      time.Duration(lastHop.Wrst * float64(time.Millisecond)),
+		AvgRtt:      time.Duration(lastHop.Avg * float64(time.Millisecond)),
+		StdDevRtt:   time.Duration(lastHop.StDev * float64(time.Millisecond)),
+	}
+
+	// Mark this as MTR result
+	stats.Rtts = []time.Duration{time.Duration(len(report.Report.Hubs))} // Hack to store hop count
+
+	// Store MTR data for later retrieval
+	s.mu.Lock()
+	if s.mtrData == nil {
+		s.mtrData = make(map[int64]string)
+	}
+	s.mtrData[monitor.ID] = mtrDataStr
+	s.mu.Unlock()
+
+	log.Info().
+		Int64("monitorID", monitor.ID).
+		Str("host", monitor.Host).
+		Int("hopCount", len(report.Report.Hubs)).
+		Float64("packetLoss", lastHop.Loss).
+		Float64("avgRtt", lastHop.Avg).
+		Msg("MTR test completed successfully")
+
+	return stats, nil
 }

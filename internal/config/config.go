@@ -233,10 +233,10 @@ func New() *Config {
 		},
 		PacketLoss: PacketLossConfig{
 			Enabled:               true,
-			DefaultInterval:       60,
+			DefaultInterval:       3600,
 			DefaultPacketCount:    10,
 			MaxConcurrentMonitors: 10,
-			PrivilegedMode:        false,
+			PrivilegedMode:        true,
 		},
 	}
 }
@@ -832,7 +832,7 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "max_concurrent_monitors = %d\n", cfg.PacketLoss.MaxConcurrentMonitors); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "privileged_mode = %v # Use unprivileged UDP mode by default\n", cfg.PacketLoss.PrivilegedMode); err != nil {
+	if _, err := fmt.Fprintf(w, "privileged_mode = %v # Use privileged ICMP mode for better MTR support (requires root/sudo)\n", cfg.PacketLoss.PrivilegedMode); err != nil {
 		return err
 	}
 

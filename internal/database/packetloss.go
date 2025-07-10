@@ -87,8 +87,8 @@ func (s *service) GetEnabledPacketLossMonitors() ([]*types.PacketLossMonitor, er
 func (s *service) SavePacketLossResult(result *types.PacketLossResult) error {
 	query := s.sqlBuilder.
 		Insert("packet_loss_results").
-		Columns("monitor_id", "packet_loss", "min_rtt", "max_rtt", "avg_rtt", "std_dev_rtt", "packets_sent", "packets_recv", "created_at").
-		Values(result.MonitorID, result.PacketLoss, result.MinRTT, result.MaxRTT, result.AvgRTT, result.StdDevRTT, result.PacketsSent, result.PacketsRecv, result.CreatedAt)
+		Columns("monitor_id", "packet_loss", "min_rtt", "max_rtt", "avg_rtt", "std_dev_rtt", "packets_sent", "packets_recv", "used_mtr", "hop_count", "mtr_data", "privileged_mode", "created_at").
+		Values(result.MonitorID, result.PacketLoss, result.MinRTT, result.MaxRTT, result.AvgRTT, result.StdDevRTT, result.PacketsSent, result.PacketsRecv, result.UsedMTR, result.HopCount, result.MTRData, result.PrivilegedMode, result.CreatedAt)
 
 	res, err := query.RunWith(s.db).Exec()
 	if err != nil {
@@ -108,7 +108,7 @@ func (s *service) SavePacketLossResult(result *types.PacketLossResult) error {
 // GetLatestPacketLossResult retrieves the most recent packet loss result for a monitor
 func (s *service) GetLatestPacketLossResult(monitorID int64) (*types.PacketLossResult, error) {
 	query := s.sqlBuilder.
-		Select("id", "monitor_id", "packet_loss", "min_rtt", "max_rtt", "avg_rtt", "std_dev_rtt", "packets_sent", "packets_recv", "created_at").
+		Select("id", "monitor_id", "packet_loss", "min_rtt", "max_rtt", "avg_rtt", "std_dev_rtt", "packets_sent", "packets_recv", "used_mtr", "hop_count", "mtr_data", "privileged_mode", "created_at").
 		From("packet_loss_results").
 		Where(sq.Eq{"monitor_id": monitorID}).
 		OrderBy("created_at DESC").
@@ -125,6 +125,10 @@ func (s *service) GetLatestPacketLossResult(monitorID int64) (*types.PacketLossR
 		&result.StdDevRTT,
 		&result.PacketsSent,
 		&result.PacketsRecv,
+		&result.UsedMTR,
+		&result.HopCount,
+		&result.MTRData,
+		&result.PrivilegedMode,
 		&result.CreatedAt,
 	)
 
@@ -280,7 +284,7 @@ func (s *service) GetPacketLossMonitors() ([]*types.PacketLossMonitor, error) {
 // GetPacketLossResults retrieves packet loss results for a monitor
 func (s *service) GetPacketLossResults(monitorID int64, limit int) ([]*types.PacketLossResult, error) {
 	query := s.sqlBuilder.
-		Select("id", "monitor_id", "packet_loss", "min_rtt", "max_rtt", "avg_rtt", "std_dev_rtt", "packets_sent", "packets_recv", "created_at").
+		Select("id", "monitor_id", "packet_loss", "min_rtt", "max_rtt", "avg_rtt", "std_dev_rtt", "packets_sent", "packets_recv", "used_mtr", "hop_count", "mtr_data", "privileged_mode", "created_at").
 		From("packet_loss_results").
 		Where(sq.Eq{"monitor_id": monitorID}).
 		OrderBy("created_at DESC")
@@ -308,6 +312,10 @@ func (s *service) GetPacketLossResults(monitorID int64, limit int) ([]*types.Pac
 			&result.StdDevRTT,
 			&result.PacketsSent,
 			&result.PacketsRecv,
+			&result.UsedMTR,
+			&result.HopCount,
+			&result.MTRData,
+			&result.PrivilegedMode,
 			&result.CreatedAt,
 		)
 		if err != nil {

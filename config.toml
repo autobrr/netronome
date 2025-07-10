@@ -70,7 +70,7 @@ discord_mention_id = ""
 
 [packetloss]
 enabled = true
-default_interval = 60
+default_interval = 3600
 default_packet_count = 10
 max_concurrent_monitors = 10
-privileged_mode = false
+privileged_mode = true

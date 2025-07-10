@@ -54,7 +54,7 @@ pnpm lint        # Run ESLint
 
 ```bash
 # License header management for all code files
-./license.sh      # Add license headers to new files
+./license.sh false # Add headers without interactive prompts
 
 # Backend live reload during development (requires air)
 make watch
@@ -80,7 +80,7 @@ internal/
 ├── config/          # TOML + env var configuration system
 ├── database/        # Interface-based DB layer with Squirrel query builder
 ├── server/          # Gin HTTP server with middleware stack
-├── speedtest/       # Core testing logic (4 implementations)
+├── speedtest/       # Core testing logic (6 implementations)
 ├── scheduler/       # Background cron-like job scheduler
 ├── auth/           # Session + OIDC authentication
 ├── notifications/  # Webhook/Discord alert system
@@ -128,6 +128,15 @@ internal/
 - Robust timeout handling with tri-state logic (testing/monitoring/disabled)
 - Supports both privileged (raw sockets) and unprivileged (UDP) modes
 - Database-backed monitor configurations and historical results
+- MTR integration with automatic fallback to standard ping
+
+**6. MTR (My TraceRoute)** (`internal/speedtest/mtr.go`)
+
+- Advanced network diagnostic tool combining ping and traceroute
+- Per-hop packet loss and latency statistics
+- Automatic fallback to standard ping when MTR binary is unavailable
+- Supports both privileged (ICMP) and unprivileged (UDP) modes
+- Real-time progress updates during execution
 
 ### Database Schema and Migrations
 
@@ -188,7 +197,7 @@ internal/
 ### Error Handling
 
 - Use structured errors with context throughout the codebase
-- All external operations (ping, iperf3, librespeed-cli) include timeout handling
+- All external operations (ping, iperf3, librespeed-cli, mtr) include timeout handling
 - Database operations use the interface pattern for testability
 - HTTP handlers return consistent JSON error responses
 
@@ -264,6 +273,7 @@ internal/
 - **librespeed-cli**: Binary required for LibreSpeed tests
 - **ping**: System ping command (cross-platform support)
 - **traceroute/tracert**: System traceroute command (Unix/Linux/macOS) or tracert (Windows)
+- **mtr**: Binary for advanced network diagnostics (optional, falls back to ping)
 
 ## Special Considerations
 
@@ -342,6 +352,7 @@ The following external tools are required for full functionality:
 - **Timeout Handling**: Uses multiple completion paths (OnFinish callback, context timeout, goroutine completion, fallback cleanup)
 - **Progress Tracking**: Uses OnSend callbacks instead of OnRecv since some hosts block ICMP responses
 - **Input Sanitization**: Automatically trims whitespace from hostnames to prevent DNS lookup failures
+- **MTR Integration**: Automatically attempts MTR first, falls back to standard ping if MTR is unavailable or fails
 
 ### Frontend Integration (`web/src/components/speedtest/PacketLossTab.tsx`)
 
@@ -350,9 +361,27 @@ The following external tools are required for full functionality:
 - **Real-time Updates**: Shows progress during active tests, historical results during monitoring periods
 - **Responsive Design**: Table view on desktop, card view on mobile
 - **State Management**: Uses TanStack Query for server state, local state for UI interactions
+- **MTR Results Display**: Shows hop-by-hop statistics when MTR data is available
 
 ### Testing Endpoints for Packet Loss
 
 - **Responsive hosts**: `8.8.8.8`, `1.1.1.1` (should show 0-5% loss)
 - **Unresponsive hosts**: `203.0.113.1`, `192.0.2.1`, `198.51.100.1` (documentation IPs, should show 100% loss)
 - **Geographic distance**: Far locations may show real packet loss due to routing
+
+## Frontend Style Guide Reference
+
+The project includes a comprehensive style guide at `docs/style-guide.md` that covers:
+
+- Component architecture patterns
+- Tailwind CSS usage conventions
+- Dark mode implementation
+- Animation patterns with Motion
+- Responsive design approaches
+- Color system and semantic usage
+- Typography standards
+- State management patterns
+- Accessibility requirements
+- Performance optimizations
+
+Always refer to this guide when implementing new frontend features or modifying existing components.
