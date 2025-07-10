@@ -52,6 +52,7 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
   - Interactive charts and visualizations
 
 - **Flexible Authentication**
+
   - Built-in user authentication
   - OpenID Connect support
 
@@ -397,39 +398,10 @@ NETRONOME__PUBLIC_SERVER_PORT=7576
 - **Read-Only**: Only displays historical speed test data
 - **Clean Logging**: Filters expected 404s to reduce log noise
 
-#### Reverse Proxy Setup
-
-You can now configure your reverse proxy to expose only the public server:
-
-```nginx
-# Public speed test results
-server {
-    listen 80;
-    server_name speedtest.example.com;
-    
-    location / {
-        proxy_pass http://localhost:7576;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-
-# Keep admin interface internal
-server {
-    listen 80;
-    server_name speedtest-admin.internal.example.com;
-    allow 192.168.1.0/24;  # Only allow internal network
-    deny all;
-    
-    location / {
-        proxy_pass http://localhost:7575;
-    }
-}
-```
-
 #### Available Endpoints
 
 The public server only serves:
+
 - `/public` - Public dashboard UI
 - `/api/speedtest/public/history` - Speed test data
 - `/health` - Health check
