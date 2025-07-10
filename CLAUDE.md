@@ -119,6 +119,16 @@ internal/
 - Smart early termination on consecutive timeouts or destination reached
 - Supports URL hostname extraction and port stripping
 
+**5. Packet Loss Monitoring** (`internal/speedtest/packetloss.go`)
+
+- Uses `github.com/prometheus-community/pro-bing` library for ICMP ping tests
+- Continuous monitoring with configurable intervals (10s to hours/days)
+- Configurable packet count (1-100 packets per test)
+- Real-time progress tracking using OnSend callbacks
+- Robust timeout handling with tri-state logic (testing/monitoring/disabled)
+- Supports both privileged (raw sockets) and unprivileged (UDP) modes
+- Database-backed monitor configurations and historical results
+
 ### Database Schema and Migrations
 
 - **Migration system**: Embedded SQL files with version tracking (`internal/database/migrations/`)
@@ -127,6 +137,8 @@ internal/
   - `schedules` - Automated test configurations
   - `users` - Authentication data
   - `saved_iperf_servers` - Custom iperf3 server configs
+  - `packet_loss_monitors` - Packet loss monitor configurations
+  - `packet_loss_results` - Historical packet loss monitoring results
 - **Query patterns**: Interface-based with Squirrel query builder for cross-database compatibility
 
 ### Frontend Architecture
@@ -138,10 +150,26 @@ internal/
 - **Charts**: Recharts for speed test visualizations
 - **Real-time Updates**: Polling-based progress tracking during tests
 - **Traceroute UI**: Responsive table/card views with real-time hop discovery (`web/src/components/speedtest/TracerouteTab.tsx`)
+- **Packet Loss UI**: Monitor management with real-time progress and historical visualizations (`web/src/components/speedtest/PacketLossTab.tsx`)
+
+### Chart Data Patterns
+
+- **API Data Ordering**: Backend APIs typically return results in descending order (newest first)
+- **Chart Display Order**: Charts should display data chronologically (oldest to newest)
+- **Data Transformation Pattern**:
+  ```typescript
+  const chartData = historyList
+    .slice(0, 30) // Take first 30 items (most recent)
+    .reverse() // Reverse to chronological order
+    .map((item) => ({
+      /* transform data */
+    }));
+  ```
+- **Common Mistake**: Using `.slice(-30)` on descending data gets the oldest items instead of newest
 
 ### Configuration System
 
-- **Hierarchical TOML** with sections: `[database]`, `[server]`, `[speedtest]`, `[speedtest.iperf]`, `[speedtest.iperf.ping]`, `[geoip]`, etc.
+- **Hierarchical TOML** with sections: `[database]`, `[server]`, `[speedtest]`, `[speedtest.iperf]`, `[speedtest.iperf.ping]`, `[speedtest.packetloss]`, `[geoip]`, etc.
 - **Environment overrides**: Any config value can be overridden with `NETRONOME__SECTION_KEY` format
 - **Auto-generation**: Creates sensible defaults if no config exists
 - **Container detection**: Automatically binds to `0.0.0.0` in containerized environments
@@ -179,6 +207,15 @@ internal/
 - **Progress broadcasting**: Real-time hop discovery updates via `TracerouteUpdate` structs
 - **Hostname extraction**: Handles URLs, hostnames with ports, and IP addresses uniformly
 
+### Packet Loss Monitoring Patterns
+
+- **Tri-state monitor logic**: Distinguishes between actively testing, scheduled monitoring, and disabled states
+- **Context-based goroutine management**: Uses `context.WithTimeout` to prevent hanging on unresponsive hosts
+- **Multi-path completion handling**: Supports normal completion, timeout, and fallback scenarios
+- **Input validation**: Automatically trims whitespace from hostnames to prevent DNS resolution failures
+- **Real-time progress tracking**: Uses OnSend callbacks since OnRecv may not fire for all hosts
+- **Cross-tab navigation**: Integrates with TracerouteTab for seamless workflow between network diagnostics
+
 ### Background Services
 
 - Scheduler service runs independently with cron-like intervals
@@ -208,6 +245,7 @@ internal/
 - **Squirrel**: SQL query builder
 - **zerolog**: Structured logging
 - **showwin/speedtest-go**: Speedtest.net integration
+- **prometheus-community/pro-bing**: Packet loss monitoring via ICMP ping
 - **TOML**: Configuration parsing
 - **OIDC**: Authentication provider integration
 
@@ -260,7 +298,7 @@ Example: `NETRONOME__IPERF_TEST_DURATION=30` overrides `[speedtest.iperf] test_d
 ### Code Standards
 
 - **Conventional Commits**: When suggesting branch names and commit titles, always use Conventional Commit Guidelines
-- **License Headers**: Use `./license.sh` to add GPL-2.0-or-later headers to new source files
+- **License Headers**: Use `./license.sh false` to add GPL-2.0-or-later headers to new source files
 - **Commit Attribution**: Never add yourself as co-author to commits
 - **Frontend Development**: Before writing any frontend-code, make sure to read through the docs/style-guide.md first, so you familiarize yourself with our style. This is a crucial step.
 
@@ -291,3 +329,30 @@ The following external tools are required for full functionality:
 - **MaxMind GeoLite2 databases**: For country flags and ASN information in traceroute results
   - Download from MaxMind with free license key
   - Configure paths in `[geoip]` section of config.toml
+
+## Packet Loss Monitoring Implementation Notes
+
+### Backend Architecture (`internal/speedtest/packetloss.go`)
+
+- **Monitor Lifecycle**: Monitors are database-backed configurations that can be enabled/disabled independently of active testing
+- **Tri-state Status Logic**:
+  - Actively testing: `IsRunning=true, Progress>0` (show progress bar)
+  - Scheduled monitoring: `IsRunning=false, IsComplete=false` (show "Monitoring every Xs")
+  - Disabled: `IsComplete=true` (show disabled state)
+- **Timeout Handling**: Uses multiple completion paths (OnFinish callback, context timeout, goroutine completion, fallback cleanup)
+- **Progress Tracking**: Uses OnSend callbacks instead of OnRecv since some hosts block ICMP responses
+- **Input Sanitization**: Automatically trims whitespace from hostnames to prevent DNS lookup failures
+
+### Frontend Integration (`web/src/components/speedtest/PacketLossTab.tsx`)
+
+- **Smart Polling**: Only polls enabled monitors every 2 seconds, stops when no monitors are active
+- **Cross-tab Navigation**: Supports navigation to/from TracerouteTab with host pre-population
+- **Real-time Updates**: Shows progress during active tests, historical results during monitoring periods
+- **Responsive Design**: Table view on desktop, card view on mobile
+- **State Management**: Uses TanStack Query for server state, local state for UI interactions
+
+### Testing Endpoints for Packet Loss
+
+- **Responsive hosts**: `8.8.8.8`, `1.1.1.1` (should show 0-5% loss)
+- **Unresponsive hosts**: `203.0.113.1`, `192.0.2.1`, `198.51.100.1` (documentation IPs, should show 100% loss)
+- **Geographic distance**: Far locations may show real packet loss due to routing

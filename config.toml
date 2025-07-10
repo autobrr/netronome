@@ -20,8 +20,8 @@ port = 7575
 [logging]
 level = "debug" # trace, debug, info, warn, error, fatal, panic
 
-#[auth]
-#whitelist = ["127.0.0.1/32", "::1/128"]
+[auth]
+whitelist = ["127.0.0.1/32", "::1/128"]
 
 [oidc]
 issuer = ""
@@ -67,3 +67,10 @@ ping_threshold = 2
 upload_threshold = 2000
 download_threshold = 2000
 discord_mention_id = ""
+
+[packetloss]
+enabled = true
+default_interval = 60
+default_packet_count = 10
+max_concurrent_monitors = 10
+privileged_mode = false

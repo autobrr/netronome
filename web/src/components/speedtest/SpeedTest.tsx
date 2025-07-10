@@ -14,10 +14,13 @@ import { TabNavigation } from "../common/TabNavigation";
 import { DashboardTab } from "./DashboardTab";
 import { SpeedTestTab } from "./SpeedTestTab";
 import { TracerouteTab } from "./TracerouteTab";
+import { PacketLossTab } from "./PacketLossTab";
+import { useCrossTabNavigation } from "@/hooks/useCrossTabNavigation";
 import {
   ChartBarIcon,
   PlayIcon,
   GlobeAltIcon,
+  SignalIcon,
 } from "@heroicons/react/24/outline";
 import {
   Server,
@@ -68,7 +71,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const [selectedServers, setSelectedServers] = useState<Server[]>([]);
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
-    "idle"
+    "idle",
   );
   const [timeRange, setTimeRange] = useState<TimeRange>(() => {
     const saved = localStorage.getItem("speedtest-time-range");
@@ -99,12 +102,20 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
       label: "Traceroute",
       icon: <GlobeAltIcon className="w-5 h-5" />,
     },
+    {
+      id: "packetloss",
+      label: "Packet Loss",
+      icon: <SignalIcon className="w-5 h-5" />,
+    },
   ];
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
     localStorage.setItem("netronome-active-tab", tabId);
   };
+
+  // Cross-tab navigation hook
+  const crossTabNavigation = useCrossTabNavigation(activeTab, handleTabChange);
 
   // Queries
   const { data: speedtestServers = [] } = useQuery({
@@ -119,7 +130,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
   const allServers = useMemo(
     () => [...speedtestServers, ...librespeedServers],
-    [speedtestServers, librespeedServers]
+    [speedtestServers, librespeedServers],
   );
 
   const servers = useMemo(() => {
@@ -136,7 +147,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
       return response as PaginatedResponse<SpeedTestResult>;
     },
     getNextPageParam: (
-      lastPage: PaginatedResponse<SpeedTestResult> | undefined
+      lastPage: PaginatedResponse<SpeedTestResult> | undefined,
     ) => {
       if (!lastPage?.data) return undefined;
       if (lastPage.data.length < lastPage.limit) return undefined;
@@ -150,7 +161,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const history = useMemo(() => {
     if (!historyData?.pages) return [];
     return historyData.pages.flatMap(
-      (page) => page?.data ?? []
+      (page) => page?.data ?? [],
     ) as SpeedTestResult[];
   }, [historyData]);
 
@@ -170,7 +181,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const allTimeHistory = useMemo(() => {
     if (!allTimeHistoryData?.pages) return [];
     return allTimeHistoryData.pages.flatMap(
-      (page) => page?.data ?? []
+      (page) => page?.data ?? [],
     ) as SpeedTestResult[];
   }, [allTimeHistoryData]);
 
@@ -183,8 +194,8 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     return history && history.length > 0
       ? history[0]
       : allTimeHistory.length > 0
-      ? allTimeHistory[0]
-      : null;
+        ? allTimeHistory[0]
+        : null;
   }, [history, allTimeHistory]);
 
   const { data: schedules = [] } = useQuery({
@@ -257,7 +268,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     } catch (error) {
       console.error("Error running test:", error);
       setError(
-        error instanceof Error ? error.message : "An unknown error occurred"
+        error instanceof Error ? error.message : "An unknown error occurred",
       );
       setTestStatus("idle");
     } finally {
@@ -295,7 +306,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               }
 
               const speedDiff = Math.abs(
-                (prev.currentSpeed || 0) - (update.speed || 0)
+                (prev.currentSpeed || 0) - (update.speed || 0),
               );
               if (speedDiff < 2.0) return prev;
 
@@ -540,7 +551,19 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
             >
-              <TracerouteTab />
+              <TracerouteTab crossTabNavigation={crossTabNavigation} />
+            </motion.div>
+          )}
+
+          {!isPublic && activeTab === "packetloss" && (
+            <motion.div
+              key="packetloss"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <PacketLossTab crossTabNavigation={crossTabNavigation} />
             </motion.div>
           )}
         </AnimatePresence>

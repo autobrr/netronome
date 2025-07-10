@@ -16,6 +16,7 @@ import {
   BuildingOfficeIcon,
   MapPinIcon,
   PlayIcon,
+  SignalIcon,
 } from "@heroicons/react/24/outline";
 import {
   TracerouteResult,
@@ -23,6 +24,7 @@ import {
   Server,
   SavedIperfServer,
 } from "@/types/types";
+import { CrossTabNavigationHook } from "@/hooks/useCrossTabNavigation";
 import { Button } from "@/components/ui/Button";
 import {
   formatTracerouteForClipboard,
@@ -84,7 +86,13 @@ const CountryFlag: React.FC<{ countryCode?: string; className?: string }> = ({
   );
 };
 
-export const TracerouteTab: React.FC = () => {
+interface TracerouteTabProps {
+  crossTabNavigation?: CrossTabNavigationHook;
+}
+
+export const TracerouteTab: React.FC<TracerouteTabProps> = ({
+  crossTabNavigation,
+}) => {
   const queryClient = useQueryClient();
   const [host, setHost] = useState("");
   const [tracerouteStatus, setTracerouteStatus] =
@@ -220,7 +228,7 @@ export const TracerouteTab: React.FC = () => {
       setTracerouteStatus(null);
       setError(
         error.message ||
-          "Traceroute failed. Please check the hostname and try again."
+          "Traceroute failed. Please check the hostname and try again.",
       );
     },
   });
@@ -248,6 +256,27 @@ export const TracerouteTab: React.FC = () => {
       setTracerouteStatus(null);
     }
   }, [statusData, results]);
+
+  // Handle cross-tab data consumption
+  useEffect(() => {
+    if (crossTabNavigation) {
+      const crossTabData = crossTabNavigation.consumeTracerouteData();
+      if (crossTabData?.host) {
+        setHost(crossTabData.host);
+        setSelectedServer(null);
+        // Optionally auto-run the traceroute
+        if (crossTabData.fromPacketLoss) {
+          // Small delay to let the UI update
+          setTimeout(() => {
+            const targetHost = extractHostname(crossTabData.host || "");
+            queryClient.setQueryData(["traceroute", "results"], null);
+            setTracerouteStatus(null);
+            tracerouteMutation.mutate(targetHost);
+          }, 100);
+        }
+      }
+    }
+  }, [crossTabNavigation, queryClient, tracerouteMutation]);
 
   const handleRunTraceroute = () => {
     let targetHost = selectedServer ? selectedServer.host : host.trim();
@@ -305,6 +334,17 @@ export const TracerouteTab: React.FC = () => {
     }
   };
 
+  const handleCreateMonitor = () => {
+    if (!results || !crossTabNavigation) return;
+
+    const hostname = extractHostname(results.destination);
+    crossTabNavigation.navigateToPacketLoss({
+      host: hostname,
+      name: `Monitor for ${hostname}`,
+      fromTraceroute: true,
+    });
+  };
+
   return (
     <div className="flex flex-col md:flex-row gap-6 md:items-start">
       {/* Left Column - Server Selection */}
@@ -351,8 +391,8 @@ export const TracerouteTab: React.FC = () => {
                 tracerouteMutation.isPending
                   ? "bg-emerald-200/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30 cursor-not-allowed"
                   : !host.trim()
-                  ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 cursor-not-allowed"
-                  : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
+                    ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 cursor-not-allowed"
+                    : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
               }`}
             >
               {tracerouteMutation.isPending ? "Running..." : "Trace"}
@@ -464,7 +504,7 @@ export const TracerouteTab: React.FC = () => {
                       {server.isIperf
                         ? "Custom Server"
                         : `${server.country} - ${Math.floor(
-                            server.distance
+                            server.distance,
                           )} km`}
                       {server.isLibrespeed && (
                         <span className="ml-2 text-blue-600 dark:text-blue-400 drop-shadow-[0_0_1px_rgba(96,165,250,0.8)]">
@@ -686,7 +726,7 @@ export const TracerouteTab: React.FC = () => {
                             )}
                           </td>
                         </motion.tr>
-                      )
+                      ),
                     )}
                   </tbody>
                 </table>
@@ -921,36 +961,50 @@ export const TracerouteTab: React.FC = () => {
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Traceroute Results
               </h2>
-              <motion.button
-                onClick={copyTracerouteResults}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-xs ${
-                  copySuccess
-                    ? "bg-emerald-600 text-white"
-                    : "bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
-                }`}
-                title="Copy traceroute results to clipboard"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <motion.div
-                  animate={{
-                    rotate: copySuccess ? 360 : 0,
-                    scale: copySuccess ? 1.1 : 1,
-                  }}
-                  transition={{ duration: 0.3 }}
+              <div className="flex items-center gap-2">
+                {crossTabNavigation && (
+                  <motion.button
+                    onClick={handleCreateMonitor}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30 hover:bg-purple-500/20"
+                    title="Create packet loss monitor for this host"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <SignalIcon className="w-3 h-3" />
+                    <span>Monitor This Host</span>
+                  </motion.button>
+                )}
+                <motion.button
+                  onClick={copyTracerouteResults}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-xs ${
+                    copySuccess
+                      ? "bg-emerald-600 text-white"
+                      : "bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
+                  }`}
+                  title="Copy traceroute results to clipboard"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
-                  <ClipboardDocumentIcon className="w-3 h-3" />
-                </motion.div>
-                <motion.span
-                  key={copySuccess ? "copied" : "copy"}
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {copySuccess ? "Copied!" : "Copy"}
-                </motion.span>
-              </motion.button>
+                  <motion.div
+                    animate={{
+                      rotate: copySuccess ? 360 : 0,
+                      scale: copySuccess ? 1.1 : 1,
+                    }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ClipboardDocumentIcon className="w-3 h-3" />
+                  </motion.div>
+                  <motion.span
+                    key={copySuccess ? "copied" : "copy"}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {copySuccess ? "Copied!" : "Copy"}
+                  </motion.span>
+                </motion.button>
+              </div>
             </div>
             <p className="text-gray-600 dark:text-gray-400 text-sm mb-6">
               Route to {results.destination}

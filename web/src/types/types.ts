@@ -138,3 +138,45 @@ export interface TracerouteUpdate {
   ip: string;
   terminatedEarly?: boolean;
 }
+
+export interface PacketLossMonitor {
+  id: number;
+  host: string;
+  name?: string;
+  interval: number;
+  packetCount: number;
+  enabled: boolean;
+  threshold: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PacketLossResult {
+  id: number;
+  monitorId: number;
+  packetLoss: number;
+  minRtt: number;
+  maxRtt: number;
+  avgRtt: number;
+  stdDevRtt: number;
+  packetsSent: number;
+  packetsRecv: number;
+  createdAt: string;
+}
+
+export interface PacketLossUpdate {
+  type: string;
+  monitorId: number;
+  host: string;
+  isRunning: boolean;
+  isComplete: boolean;
+  progress: number;
+  packetLoss?: number;
+  minRtt?: number;
+  maxRtt?: number;
+  avgRtt?: number;
+  stdDevRtt?: number;
+  packetsSent?: number;
+  packetsRecv?: number;
+  error?: string;
+}
