@@ -8,6 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
+
+	"github.com/autobrr/netronome/internal/auth"
+	"github.com/autobrr/netronome/internal/utils"
 )
 
 func (h *AuthHandler) InitOIDCRoutes(r *gin.RouterGroup) {
@@ -20,7 +23,33 @@ func (h *AuthHandler) InitOIDCRoutes(r *gin.RouterGroup) {
 }
 
 func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
-	authURL := h.oidc.AuthURL()
+	// Generate state parameter
+	state, err := utils.GenerateSecureToken(32)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to generate state parameter")
+		c.Redirect(http.StatusTemporaryRedirect, "/?error=state_generation_failed")
+		return
+	}
+
+	// Generate PKCE parameters
+	pkceParams, err := auth.GeneratePKCEParams()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to generate PKCE parameters")
+		c.Redirect(http.StatusTemporaryRedirect, "/?error=pkce_generation_failed")
+		return
+	}
+
+	// Store PKCE verifier for later use in callback
+	h.storePKCEVerifier(state, pkceParams.CodeVerifier)
+
+	// Generate auth URL with PKCE and state
+	authURL := h.oidc.AuthURLWithPKCE(state, pkceParams)
+
+	log.Debug().
+		Str("state", state).
+		Str("auth_url", authURL).
+		Msg("Redirecting to OIDC provider")
+
 	c.Redirect(http.StatusTemporaryRedirect, authURL)
 }
 
@@ -37,13 +66,33 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 		return
 	}
 
-	// Exchange code for token using the exported OAuth2Config
-	token, err := h.oidc.OAuth2Config.Exchange(c.Request.Context(), code)
+	state := c.Query("state")
+	if state == "" {
+		log.Error().Msg("no state received in callback")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=invalid_state")
+		return
+	}
+
+	// Always try PKCE first for enhanced security
+	// Retrieve PKCE code verifier
+	codeVerifier, exists := h.getPKCEVerifier(state)
+	if !exists {
+		log.Error().Str("state", state).Msg("no PKCE verifier found for state")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=invalid_state")
+		return
+	}
+
+	// Exchange code for token using PKCE
+	token, err := h.oidc.ExchangeCodeWithPKCE(c.Request.Context(), code, codeVerifier)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to exchange code for token")
+		log.Error().Err(err).Msg("failed to exchange code for token with PKCE")
 		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=token_exchange")
 		return
 	}
+
+	log.Debug().
+		Str("state", state).
+		Msg("Token exchange successful")
 
 	// Get the ID token
 	rawIDToken, ok := token.Extra("id_token").(string)

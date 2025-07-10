@@ -176,7 +176,7 @@ udp_bandwidth = "100M"
 
 [speedtest.iperf.ping]
 count = 5
-interval = 200
+interval = 1000
 timeout = 10
 
 [geoip]
@@ -243,7 +243,7 @@ Example `librespeed-servers.json`:
 | `NETRONOME__IPERF_ENABLE_UDP`                 | Enable UDP mode for jitter testing                                | `false`                                      | No                     |
 | `NETRONOME__IPERF_UDP_BANDWIDTH`              | Bandwidth limit for UDP tests (e.g., "100M")                      | `100M`                                       | No                     |
 | `NETRONOME__IPERF_PING_COUNT`                 | Number of ping packets to send for iperf3 tests                   | `5`                                          | No                     |
-| `NETRONOME__IPERF_PING_INTERVAL`              | Interval between ping packets in milliseconds for iperf3 tests    | `200`                                        | No                     |
+| `NETRONOME__IPERF_PING_INTERVAL`              | Interval between ping packets in milliseconds for iperf3 tests    | `1000`                                       | No                     |
 | `NETRONOME__IPERF_PING_TIMEOUT`               | Timeout for ping tests in seconds for iperf3 tests                | `10`                                         | No                     |
 | `NETRONOME__SPEEDTEST_TIMEOUT`                | Speedtest timeout in seconds                                      | `30`                                         | No                     |
 | `NETRONOME__LOG_LEVEL`                        | Log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`/`panic`) | `info`                                       | No                     |
@@ -298,7 +298,8 @@ Netronome supports two authentication methods:
 
 2. **OpenID Connect (OIDC)**
 
-   - Integration with identity providers (Google, Okta, Auth0, Keycloak, Pocket-ID etc.)
+   - Integration with identity providers (Google, Okta, Auth0, Keycloak, Pocket-ID, Authelia, Authentik etc.)
+   - PKCE support
    - Configure via environment variables:
      ```bash
      OIDC_ISSUER=https://pocketid.domain.net

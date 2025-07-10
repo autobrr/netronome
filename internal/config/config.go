@@ -199,7 +199,7 @@ func New() *Config {
 				UDPBandwidth:  "100M",
 				Ping: PingConfig{
 					Count:    5,
-					Interval: 200,
+					Interval: 1000,
 					Timeout:  10,
 				},
 			},
