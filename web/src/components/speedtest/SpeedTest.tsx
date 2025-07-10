@@ -5,8 +5,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Container } from "@mui/material";
-import { FaGithub, FaArrowDown } from "react-icons/fa";
-import { IoIosPulse } from "react-icons/io";
+import { FaGithub } from "react-icons/fa";
 import { XMarkIcon } from "@heroicons/react/20/solid";
 import { ShareModal } from "./ShareModal";
 import { TestProgress } from "./TestProgress";
@@ -139,7 +138,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     return speedtestServers;
   }, [testType, speedtestServers, librespeedServers]);
 
-  const { data: historyData, isLoading: isHistoryLoading } = useInfiniteQuery({
+  const { data: historyData } = useInfiniteQuery({
     queryKey: ["history", timeRange, isPublic],
     queryFn: async ({ pageParam = 1 }) => {
       const historyFn = isPublic ? getPublicHistory : getHistory;
@@ -437,50 +436,6 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
           )}
         </AnimatePresence>
 
-        {/* No History Message - Only show when no tests exist at all */}
-        {!isHistoryLoading && !hasAnyTests && (
-          <div className="bg-gray-50/95 dark:bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900 mb-6">
-            <div className="text-center space-y-4">
-              <div>
-                <h2 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">
-                  No History Available
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Get started with your first speed test in two ways:
-                </p>
-              </div>
-              <div className="flex justify-center gap-12 text-left text-gray-600 dark:text-gray-400">
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 flex-shrink-0">
-                    <FaArrowDown className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      Run a test now
-                    </p>
-                    <p className="text-sm">
-                      Select a server below and start testing
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 flex-shrink-0">
-                    <IoIosPulse className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      Schedule regular tests
-                    </p>
-                    <p className="text-sm">
-                      Set up automated testing intervals
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Tab Navigation */}
         {!isPublic && (
           <motion.div
@@ -515,6 +470,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                 isPublic={isPublic}
                 hasAnyTests={hasAnyTests}
                 onShareClick={() => setShareModalOpen(true)}
+                onNavigateToSpeedTest={() => handleTabChange("speedtest")}
               />
             </motion.div>
           )}

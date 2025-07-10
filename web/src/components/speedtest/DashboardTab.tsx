@@ -21,6 +21,7 @@ interface DashboardTabProps {
   isPublic?: boolean;
   hasAnyTests?: boolean;
   onShareClick?: () => void;
+  onNavigateToSpeedTest?: () => void;
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({
@@ -31,6 +32,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   isPublic = false,
   hasAnyTests = false,
   onShareClick,
+  onNavigateToSpeedTest,
 }) => {
   const [displayCount, setDisplayCount] = useState(5);
   const [isRecentTestsOpen] = useState(() => {
@@ -68,6 +70,50 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* No History Available message */}
+      {!hasAnyTests && (
+        <div className="max-w-xl mx-auto bg-gray-50/95 dark:bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900">
+          <div className="text-center space-y-4">
+            <div>
+              <h2 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">
+                No History Available
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Start monitoring your network performance
+              </p>
+            </div>
+
+            {/* Empty Chart Visualization */}
+            <div className="my-6">
+              <div className="flex items-end justify-center gap-2 h-24">
+                {[40, 60, 35, 70, 45, 55, 65].map((height, i) => (
+                  <div
+                    key={i}
+                    className="w-8 bg-gray-300/50 dark:bg-gray-700/50 rounded-t-sm transition-all duration-500"
+                    style={{ height: `${height}%`, opacity: 0.3 + i * 0.1 }}
+                  />
+                ))}
+              </div>
+              <div className="border-t border-gray-300/50 dark:border-gray-700/50 mt-2" />
+            </div>
+
+            <div className="max-w-md mx-auto">
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                Go to the{" "}
+                <button
+                  onClick={onNavigateToSpeedTest}
+                  className="inline-flex items-center mx-1 px-2 py-1 rounded-lg transition-colors text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20"
+                  disabled={!onNavigateToSpeedTest}
+                >
+                  Speed Test tab
+                </button>{" "}
+                to run manual tests or set up automated schedules
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Latest Results */}
       {hasAnyTests && latestTest && (
         <motion.div
