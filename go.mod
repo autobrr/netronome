@@ -6,16 +6,16 @@ require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/gin-gonic/gin v1.10.1
-	github.com/go-jose/go-jose/v4 v4.0.5
+	github.com/go-jose/go-jose/v4 v4.1.1
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
-	github.com/oschwald/geoip2-golang v1.11.0
+	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.34.0
 	github.com/showwin/speedtest-go v1.7.10
 	github.com/spf13/cobra v1.9.1
-	golang.org/x/oauth2 v0.28.0
-	golang.org/x/term v0.30.0
+	golang.org/x/oauth2 v0.30.0
+	golang.org/x/term v0.32.0
 	modernc.org/sqlite v1.38.0
 )
 
@@ -60,10 +60,10 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	golang.org/x/arch v0.12.0 // indirect
-	golang.org/x/crypto v0.36.0
+	golang.org/x/crypto v0.39.0
 	golang.org/x/net v0.37.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/text v0.26.0 // indirect
 	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
