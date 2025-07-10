@@ -88,7 +88,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
     enabled: true,
   });
   const [monitorStatuses, setMonitorStatuses] = useState<Map<number, any>>(
-    new Map(),
+    new Map()
   );
 
   // Fetch monitors
@@ -121,7 +121,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
         .then((freshHistory) => {
           queryClient.setQueryData(
             ["packetloss", "history", selectedMonitor.id],
-            freshHistory,
+            freshHistory
           );
         })
         .catch((error) => {
@@ -146,7 +146,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
         } catch (error) {
           console.error(
             `Failed to get status for monitor ${monitor.id}:`,
-            error,
+            error
           );
           return null;
         }
@@ -156,7 +156,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
 
       // Check for completed tests - backend now properly sets isComplete
       const completedTests = results.filter(
-        (result) => result && result.status.isComplete,
+        (result) => result && result.status.isComplete
       );
 
       // Update state first
@@ -185,13 +185,13 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
             // Fetch fresh history from the backend
             const freshHistory = await getPacketLossHistory(
               completedTest.monitorId,
-              100,
+              100
             );
 
             // Directly update the cache with fresh data (like TracerouteTab does)
             queryClient.setQueryData(
               ["packetloss", "history", completedTest.monitorId],
-              freshHistory,
+              freshHistory
             );
 
             // Force React Query to notify all subscribers of the change
@@ -570,7 +570,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                           e.stopPropagation();
                           if (
                             confirm(
-                              "Are you sure you want to delete this monitor?",
+                              "Are you sure you want to delete this monitor?"
                             )
                           ) {
                             deleteMutation.mutate(monitor.id);
@@ -597,7 +597,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                           status.progress > 0
                         ) {
                           const progressText = `${Math.round(
-                            status.progress || 0,
+                            status.progress || 0
                           )}%`;
                           const packetsText = status.packetsSent
                             ? ` (${status.packetsRecv || 0}/${
@@ -786,7 +786,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                                 title="Avg RTT"
                                 value={formatRTT(status.avgRtt || 0).replace(
                                   "ms",
-                                  "",
+                                  ""
                                 )}
                                 unit="ms"
                                 status="normal"
@@ -798,7 +798,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                                 title="Min RTT"
                                 value={formatRTT(status.minRtt || 0).replace(
                                   "ms",
-                                  "",
+                                  ""
                                 )}
                                 unit="ms"
                                 status="normal"
@@ -810,7 +810,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                                 title="Max RTT"
                                 value={formatRTT(status.maxRtt || 0).replace(
                                   "ms",
-                                  "",
+                                  ""
                                 )}
                                 unit="ms"
                                 status="normal"
@@ -862,7 +862,9 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
                         data={chartData}
-                        key={`chart-${selectedMonitor.id}-${historyList[0]?.id || 0}`}
+                        key={`chart-${selectedMonitor.id}-${
+                          historyList[0]?.id || 0
+                        }`}
                       >
                         <CartesianGrid
                           strokeDasharray="3 3"
@@ -1284,7 +1286,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
             <div className="fixed inset-0 bg-black bg-opacity-25" />
           </TransitionChild>
 
-          <div className="fixed inset-0 overflow-y-auto">
+          <div className="fixed inset-0 overflow-y-auto backdrop-blur-sm">
             <div className="flex min-h-full items-center justify-center p-4 text-center">
               <TransitionChild
                 as={Fragment}
@@ -1295,7 +1297,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <DialogPanel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-850/95 border dark:border-gray-900 p-6 text-left align-middle shadow-xl transition-all">
+                <DialogPanel className="w-full max-w-md transform overflow-hidden rounded-2xl backdrop-blur-md bg-white dark:bg-gray-850/95 border dark:border-gray-900 p-6 text-left align-middle shadow-xl transition-all">
                   <div className="flex items-center justify-between mb-4">
                     <DialogTitle
                       as="h3"
