@@ -12,8 +12,12 @@ import {
   DialogTitle,
   Transition,
   TransitionChild,
+  Listbox,
+  ListboxButton,
+  ListboxOption,
+  ListboxOptions,
 } from "@headlessui/react";
-import { XMarkIcon } from "@heroicons/react/24/solid";
+import { XMarkIcon, ChevronUpDownIcon } from "@heroicons/react/24/solid";
 import {
   ChartBarIcon,
   TrashIcon,
@@ -60,6 +64,39 @@ interface MonitorFormData {
   threshold: number;
   enabled: boolean;
 }
+
+interface IntervalOption {
+  value: number;
+  label: string;
+}
+
+const intervalOptions: IntervalOption[] = [
+  { value: 10, label: "Every 10 seconds" },
+  { value: 30, label: "Every 30 seconds" },
+  { value: 60, label: "Every 1 minute" },
+  { value: 300, label: "Every 5 minutes" },
+  { value: 900, label: "Every 15 minutes" },
+  { value: 1800, label: "Every 30 minutes" },
+  { value: 3600, label: "Every 1 hour" },
+  { value: 21600, label: "Every 6 hours" },
+  { value: 43200, label: "Every 12 hours" },
+  { value: 86400, label: "Every 24 hours" },
+];
+
+const formatInterval = (seconds: number): string => {
+  if (seconds < 60) {
+    return `${seconds} second${seconds !== 1 ? "s" : ""}`;
+  } else if (seconds < 3600) {
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes} minute${minutes !== 1 ? "s" : ""}`;
+  } else if (seconds < 86400) {
+    const hours = Math.floor(seconds / 3600);
+    return `${hours} hour${hours !== 1 ? "s" : ""}`;
+  } else {
+    const days = Math.floor(seconds / 86400);
+    return `${days} day${days !== 1 ? "s" : ""}`;
+  }
+};
 
 const formatRTT = (rtt: number) => {
   if (rtt === 0) return "0";
@@ -429,11 +466,13 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                 Packet Loss Monitors
               </h2>
               <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
-                Continuously monitor packet loss to specific hosts
+                Direct ping monitoring to measure packet loss and latency over
+                time
               </p>
-              <p className="text-gray-500 dark:text-gray-500 text-xs mt-1">
-                Note: Measures end-to-end packet loss (like ping), not
-                hop-by-hop loss (like mtr)
+              <p className="text-gray-500 dark:text-gray-500 text-xs mt-1 max-w-md">
+                Note: This uses direct ICMP ping to measure packet loss - it
+                does NOT trace network paths or show intermediate hops (use
+                Traceroute tab for that)
               </p>
             </div>
             <Button
@@ -475,7 +514,11 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                       ? "bg-blue-500/10 border-blue-400/50 shadow-lg"
                       : "bg-gray-200/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 hover:shadow-md"
                   }`}
-                  onClick={() => setSelectedMonitor(monitor)}
+                  onClick={() =>
+                    setSelectedMonitor(
+                      selectedMonitor?.id === monitor.id ? null : monitor
+                    )
+                  }
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
@@ -510,10 +553,10 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                         </p>
                       )}
 
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 text-xs text-gray-600 dark:text-gray-400">
+                      <div className="flex flex-wrap mt-4 gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
                         <span className="flex items-center gap-1">
                           <ClockIcon className="w-3.5 h-3.5 text-blue-500" />
-                          Every {monitor.interval}s
+                          Every {formatInterval(monitor.interval)}
                         </span>
                         <span className="flex items-center gap-1">
                           <ChartBarIcon className="w-3.5 h-3.5 text-emerald-500" />
@@ -540,7 +583,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                         disabled={
                           startMutation.isPending || stopMutation.isPending
                         }
-                        className={`p-2 ${
+                        className={`px-1 py-1.5 min-w-8 ${
                           monitor.enabled
                             ? "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/20"
                             : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
@@ -560,7 +603,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                           e.stopPropagation();
                           handleEdit(monitor);
                         }}
-                        className="p-2 bg-gray-200/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+                        className="px-1 py-1.5 min-w-8 bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/20"
                         title="Edit Monitor"
                       >
                         <PencilIcon className="w-3.5 h-3.5" />
@@ -577,7 +620,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                           }
                         }}
                         disabled={deleteMutation.isPending}
-                        className="p-2 bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/20"
+                        className="px-1 py-1.5 min-w-8 bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/20"
                         title="Delete Monitor"
                       >
                         <TrashIcon className="w-3.5 h-3.5" />
@@ -659,7 +702,8 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                               <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                                 <span className="text-emerald-600 dark:text-emerald-400 text-sm">
-                                  Monitoring (every {monitor.interval}s)
+                                  Monitoring (every{" "}
+                                  {formatInterval(monitor.interval)})
                                 </span>
                               </div>
                             );
@@ -672,7 +716,8 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                               <span className="text-emerald-600 dark:text-emerald-400 text-sm">
-                                Monitoring (every {monitor.interval}s)
+                                Monitoring (every{" "}
+                                {formatInterval(monitor.interval)})
                               </span>
                             </div>
                           );
@@ -1185,11 +1230,11 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                 <ChartBarIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                Network Monitoring Dashboard
+                Direct Ping Monitoring Dashboard
               </h3>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Select a monitor from the list to view detailed analytics and
-                performance history
+                Select a monitor to view packet loss trends and latency
+                statistics from continuous ping tests
               </p>
             </div>
 
@@ -1201,10 +1246,10 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                   </div>
                   <div>
                     <h4 className="text-gray-900 dark:text-white text-sm font-medium mb-1">
-                      Real-time Monitoring
+                      Direct ICMP Ping Tests
                     </h4>
                     <p className="text-gray-600 dark:text-gray-400 text-xs">
-                      Continuous packet loss and latency tracking
+                      Measures end-to-end connectivity without route tracing
                     </p>
                   </div>
                 </div>
@@ -1297,7 +1342,7 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <DialogPanel className="w-full max-w-md transform overflow-hidden rounded-2xl backdrop-blur-md bg-white dark:bg-gray-850/95 border dark:border-gray-900 p-6 text-left align-middle shadow-xl transition-all">
+                <DialogPanel className="w-full max-w-md transform overflow-visible rounded-2xl backdrop-blur-md bg-white dark:bg-gray-850/95 border dark:border-gray-900 p-4 md:p-6 text-left align-middle shadow-xl transition-all">
                   <div className="flex items-center justify-between mb-4">
                     <DialogTitle
                       as="h3"
@@ -1347,23 +1392,62 @@ export const PacketLossTab: React.FC<PacketLossTabProps> = ({
                           className="w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Check Interval (seconds)
+                            Check Interval
                           </label>
-                          <input
-                            type="number"
+                          <Listbox
                             value={formData.interval}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                interval: parseInt(e.target.value) || 60,
-                              })
+                            onChange={(value) =>
+                              setFormData({ ...formData, interval: value })
                             }
-                            min="10"
-                            className="w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
-                          />
+                          >
+                            <div className="relative">
+                              <ListboxButton className="relative w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-left text-gray-700 dark:text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
+                                <span className="block truncate">
+                                  {intervalOptions.find(
+                                    (opt) => opt.value === formData.interval
+                                  )?.label ||
+                                    `Every ${formatInterval(
+                                      formData.interval
+                                    )}`}
+                                </span>
+                                <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                                  <ChevronUpDownIcon
+                                    className="h-5 w-5 text-gray-600 dark:text-gray-400"
+                                    aria-hidden="true"
+                                  />
+                                </span>
+                              </ListboxButton>
+                              <Transition
+                                enter="transition duration-100 ease-out"
+                                enterFrom="transform scale-95 opacity-0"
+                                enterTo="transform scale-100 opacity-100"
+                                leave="transition duration-75 ease-out"
+                                leaveFrom="transform scale-100 opacity-100"
+                                leaveTo="transform scale-95 opacity-0"
+                              >
+                                <ListboxOptions className="absolute z-10 mt-1 max-h-80 w-full overflow-auto rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-900 py-1 shadow-lg focus:outline-none">
+                                  {intervalOptions.map((option) => (
+                                    <ListboxOption
+                                      key={option.value}
+                                      value={option.value}
+                                      className={({ focus }) =>
+                                        `relative cursor-pointer select-none py-2 px-4 ${
+                                          focus
+                                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-200"
+                                            : "text-gray-700 dark:text-gray-300"
+                                        }`
+                                      }
+                                    >
+                                      {option.label}
+                                    </ListboxOption>
+                                  ))}
+                                </ListboxOptions>
+                              </Transition>
+                            </div>
+                          </Listbox>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
