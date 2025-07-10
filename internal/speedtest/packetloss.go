@@ -242,11 +242,16 @@ func (s *PacketLossService) runPingTest(monitor *PacketLossMonitor) {
 			if err := s.runPingWithPrivilege(monitor, false); err == nil {
 				return // Success with unprivileged
 			}
+			// If unprivileged also failed, let it fail naturally
+			// The error has already been handled in runPingWithPrivilege
+		} else {
+			// Other error in privileged mode, try unprivileged as fallback
+			s.runPingWithPrivilege(monitor, false)
 		}
+	} else {
+		// Not using privileged mode, run unprivileged directly
+		s.runPingWithPrivilege(monitor, false)
 	}
-
-	// If not using privileged mode or all attempts failed, run normally
-	s.runPingWithPrivilege(monitor, false)
 }
 
 // runPingWithPrivilege runs the ping test with specified privilege mode
@@ -522,6 +527,21 @@ func (s *PacketLossService) runPingWithPrivilege(monitor *PacketLossMonitor, use
 		log.Debug().
 			Int64("monitorID", monitor.ID).
 			Msg("Pinger goroutine completed, waiting for OnFinish")
+
+		// Check if there was an immediate error that should be returned
+		pingerMutex.Lock()
+		errorToCheck := pingerError
+		pingerMutex.Unlock()
+
+		// If this was a privileged mode permission error, don't create a fallback result
+		if errorToCheck != nil && usePrivileged && strings.Contains(errorToCheck.Error(), "operation not permitted") {
+			log.Debug().
+				Int64("monitorID", monitor.ID).
+				Msg("Skipping fallback result creation for privileged mode permission error")
+			completed = true
+			// Error will be returned at the end of the function
+			break
+		}
 
 		// Give OnFinish a short time to trigger after goroutine completes
 		select {
