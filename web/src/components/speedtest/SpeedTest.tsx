@@ -5,8 +5,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Container } from "@mui/material";
-import { FaGithub, FaArrowDown } from "react-icons/fa";
-import { IoIosPulse } from "react-icons/io";
+import { FaGithub } from "react-icons/fa";
 import { XMarkIcon } from "@heroicons/react/20/solid";
 import { ShareModal } from "./ShareModal";
 import { TestProgress } from "./TestProgress";
@@ -68,7 +67,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const [selectedServers, setSelectedServers] = useState<Server[]>([]);
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
-    "idle"
+    "idle",
   );
   const [timeRange, setTimeRange] = useState<TimeRange>(() => {
     const saved = localStorage.getItem("speedtest-time-range");
@@ -79,6 +78,11 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     const saved = localStorage.getItem("netronome-active-tab");
+    // Migrate old 'packetloss' tab to 'dashboard' since it no longer exists
+    if (saved === "packetloss") {
+      localStorage.setItem("netronome-active-tab", "dashboard");
+      return "dashboard";
+    }
     return saved || "dashboard";
   });
 
@@ -119,7 +123,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
   const allServers = useMemo(
     () => [...speedtestServers, ...librespeedServers],
-    [speedtestServers, librespeedServers]
+    [speedtestServers, librespeedServers],
   );
 
   const servers = useMemo(() => {
@@ -128,7 +132,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     return speedtestServers;
   }, [testType, speedtestServers, librespeedServers]);
 
-  const { data: historyData, isLoading: isHistoryLoading } = useInfiniteQuery({
+  const { data: historyData } = useInfiniteQuery({
     queryKey: ["history", timeRange, isPublic],
     queryFn: async ({ pageParam = 1 }) => {
       const historyFn = isPublic ? getPublicHistory : getHistory;
@@ -136,7 +140,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
       return response as PaginatedResponse<SpeedTestResult>;
     },
     getNextPageParam: (
-      lastPage: PaginatedResponse<SpeedTestResult> | undefined
+      lastPage: PaginatedResponse<SpeedTestResult> | undefined,
     ) => {
       if (!lastPage?.data) return undefined;
       if (lastPage.data.length < lastPage.limit) return undefined;
@@ -150,7 +154,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const history = useMemo(() => {
     if (!historyData?.pages) return [];
     return historyData.pages.flatMap(
-      (page) => page?.data ?? []
+      (page) => page?.data ?? [],
     ) as SpeedTestResult[];
   }, [historyData]);
 
@@ -170,7 +174,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const allTimeHistory = useMemo(() => {
     if (!allTimeHistoryData?.pages) return [];
     return allTimeHistoryData.pages.flatMap(
-      (page) => page?.data ?? []
+      (page) => page?.data ?? [],
     ) as SpeedTestResult[];
   }, [allTimeHistoryData]);
 
@@ -183,8 +187,8 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     return history && history.length > 0
       ? history[0]
       : allTimeHistory.length > 0
-      ? allTimeHistory[0]
-      : null;
+        ? allTimeHistory[0]
+        : null;
   }, [history, allTimeHistory]);
 
   const { data: schedules = [] } = useQuery({
@@ -243,6 +247,37 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     setTestStatus("running");
     setIsLoading(true);
 
+    // Initialize progress with correct type flags
+    if (testType === "iperf") {
+      setProgress({
+        currentServer: selectedServers[0].name,
+        currentTest: "download",
+        currentSpeed: 0,
+        isComplete: false,
+        type: "download",
+        speed: 0,
+        latency: 0,
+        isScheduled: false,
+        progress: 0,
+        isIperf: true,
+        isLibrespeed: false,
+      });
+    } else if (testType === "librespeed") {
+      setProgress({
+        currentServer: selectedServers[0].name,
+        currentTest: "running",
+        currentSpeed: 0,
+        isComplete: false,
+        type: "running",
+        speed: 0,
+        latency: 0,
+        isScheduled: false,
+        progress: 0,
+        isIperf: false,
+        isLibrespeed: true,
+      });
+    }
+
     try {
       await speedTestMutation.mutateAsync({
         ...options,
@@ -257,7 +292,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     } catch (error) {
       console.error("Error running test:", error);
       setError(
-        error instanceof Error ? error.message : "An unknown error occurred"
+        error instanceof Error ? error.message : "An unknown error occurred",
       );
       setTestStatus("idle");
     } finally {
@@ -272,6 +307,22 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
           const update = await getSpeedTestStatus();
 
           if (update) {
+            // Debug log for test updates
+            if (
+              update.testType === "iperf3" ||
+              update.testType === "speedtest"
+            ) {
+              console.log(`${update.testType} update:`, {
+                type: update.type,
+                speed: update.speed,
+                progress: update.progress,
+                isComplete: update.isComplete,
+                testType: update.testType,
+                serverName: update.serverName,
+                timestamp: new Date().toISOString(),
+              });
+            }
+
             setProgress((prev) => {
               const baseProgress = {
                 currentServer: update.serverName || "",
@@ -286,18 +337,21 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                     : update.latency || 0,
                 isScheduled: update.isScheduled,
                 progress: update.progress || 0,
-                isIperf: testType === "iperf",
-                isLibrespeed: testType === "librespeed",
+                // Preserve isIperf/isLibrespeed state if testType is not provided
+                isIperf: update.testType
+                  ? update.testType === "iperf3"
+                  : prev?.isIperf || false,
+                isLibrespeed: update.testType
+                  ? update.testType === "librespeed"
+                  : prev?.isLibrespeed || false,
               };
 
               if (!prev) {
                 return baseProgress;
               }
 
-              const speedDiff = Math.abs(
-                (prev.currentSpeed || 0) - (update.speed || 0)
-              );
-              if (speedDiff < 2.0) return prev;
+              // For iperf3 and speedtest.net, always update to show live progress
+              // The backend already throttles updates to once per second
 
               return {
                 ...prev,
@@ -318,7 +372,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
         } catch (error) {
           console.error("Test status check error:", error);
         }
-      }, 1000);
+      }, 2000); // Poll every 2 seconds to match both speedtest.net and iperf3
 
       return () => clearInterval(pollInterval);
     }
@@ -346,14 +400,19 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
             </div>
           </div>
 
-          {(testStatus === "running" || scheduledTestRunning) && (
-            <div
-              className="mt-8 md:mt-0 flex items-center justify-center md:mr-20"
-              style={{ minWidth: "120px", height: "40px" }}
-            >
-              {progress !== null && <TestProgress progress={progress} />}
-            </div>
-          )}
+          {(testStatus === "running" || scheduledTestRunning) &&
+            progress !== null && (
+              <>
+                {/* Desktop: absolute positioned at top */}
+                <div className="hidden md:flex absolute inset-x-0 top-10 justify-center">
+                  <TestProgress progress={progress} />
+                </div>
+                {/* Mobile: below the header */}
+                <div className="md:hidden mt-8 flex justify-center">
+                  <TestProgress progress={progress} />
+                </div>
+              </>
+            )}
         </div>
 
         {/* Share Modal */}
@@ -426,50 +485,6 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
           )}
         </AnimatePresence>
 
-        {/* No History Message - Only show when no tests exist at all */}
-        {!isHistoryLoading && !hasAnyTests && (
-          <div className="bg-gray-50/95 dark:bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900 mb-6">
-            <div className="text-center space-y-4">
-              <div>
-                <h2 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">
-                  No History Available
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Get started with your first speed test in two ways:
-                </p>
-              </div>
-              <div className="flex justify-center gap-12 text-left text-gray-600 dark:text-gray-400">
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 flex-shrink-0">
-                    <FaArrowDown className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      Run a test now
-                    </p>
-                    <p className="text-sm">
-                      Select a server below and start testing
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 flex-shrink-0">
-                    <IoIosPulse className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      Schedule regular tests
-                    </p>
-                    <p className="text-sm">
-                      Set up automated testing intervals
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Tab Navigation */}
         {!isPublic && (
           <motion.div
@@ -504,6 +519,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                 isPublic={isPublic}
                 hasAnyTests={hasAnyTests}
                 onShareClick={() => setShareModalOpen(true)}
+                onNavigateToSpeedTest={() => handleTabChange("speedtest")}
               />
             </motion.div>
           )}

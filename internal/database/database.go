@@ -68,6 +68,17 @@ type Service interface {
 	SaveIperfServer(ctx context.Context, name, host string, port int) (*types.SavedIperfServer, error)
 	GetIperfServers(ctx context.Context) ([]types.SavedIperfServer, error)
 	DeleteIperfServer(ctx context.Context, id int) error
+
+	// Packet Loss operations
+	GetPacketLossMonitor(monitorID int64) (*types.PacketLossMonitor, error)
+	GetEnabledPacketLossMonitors() ([]*types.PacketLossMonitor, error)
+	SavePacketLossResult(result *types.PacketLossResult) error
+	GetLatestPacketLossResult(monitorID int64) (*types.PacketLossResult, error)
+	CreatePacketLossMonitor(monitor *types.PacketLossMonitor) (*types.PacketLossMonitor, error)
+	UpdatePacketLossMonitor(monitor *types.PacketLossMonitor) error
+	DeletePacketLossMonitor(monitorID int64) error
+	GetPacketLossMonitors() ([]*types.PacketLossMonitor, error)
+	GetPacketLossResults(monitorID int64, limit int) ([]*types.PacketLossResult, error)
 }
 
 type service struct {

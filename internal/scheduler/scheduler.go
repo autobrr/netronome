@@ -26,21 +26,23 @@ type Service interface {
 }
 
 type service struct {
-	db        database.Service
-	speedtest speedtest.Service
-	notifier  *notifications.Notifier
-	ticker    *time.Ticker
-	done      chan bool
-	mu        sync.Mutex
-	running   bool
+	db         database.Service
+	speedtest  speedtest.Service
+	packetLoss *speedtest.PacketLossService
+	notifier   *notifications.Notifier
+	ticker     *time.Ticker
+	done       chan bool
+	mu         sync.Mutex
+	running    bool
 }
 
-func New(db database.Service, speedtest speedtest.Service, notifier *notifications.Notifier) Service {
+func New(db database.Service, speedtest speedtest.Service, packetLoss *speedtest.PacketLossService, notifier *notifications.Notifier) Service {
 	return &service{
-		db:        db,
-		speedtest: speedtest,
-		notifier:  notifier,
-		done:      make(chan bool),
+		db:         db,
+		speedtest:  speedtest,
+		packetLoss: packetLoss,
+		notifier:   notifier,
+		done:       make(chan bool),
 	}
 }
 
@@ -57,6 +59,7 @@ func (s *service) Start(ctx context.Context) {
 
 	// Initialize schedules before starting
 	s.initializeSchedules(ctx)
+	s.initializePacketLossMonitors(ctx)
 
 	go func() {
 		for {
@@ -68,6 +71,7 @@ func (s *service) Start(ctx context.Context) {
 				return
 			case <-s.ticker.C:
 				s.checkAndRunScheduledTests(ctx)
+				s.checkAndRunPacketLossMonitors(ctx)
 			}
 		}
 	}()
@@ -303,5 +307,113 @@ func (s *service) calculateNextRun(interval string, from time.Time) time.Time {
 		// Add small random jitter (1-300 seconds) to prevent thundering herd
 		jitter := time.Duration(rand.Int63n(300)+1) * time.Second
 		return from.Add(duration).Add(jitter)
+	}
+}
+
+// initializePacketLossMonitors prepares packet loss monitors on startup
+func (s *service) initializePacketLossMonitors(ctx context.Context) {
+	monitors, err := s.db.GetPacketLossMonitors()
+	if err != nil {
+		log.Error().Err(err).Msg("Error fetching packet loss monitors during initialization")
+		return
+	}
+
+	now := time.Now()
+	for _, monitor := range monitors {
+		if !monitor.Enabled {
+			continue
+		}
+
+		// Parse the interval (either duration or exact time)
+		if !s.isValidScheduleInterval(monitor.Interval) {
+			log.Error().
+				Int64("monitor_id", monitor.ID).
+				Str("interval", monitor.Interval).
+				Msg("Invalid monitor interval during initialization")
+			continue
+		}
+
+		// If NextRun is nil or in the past, calculate new NextRun
+		if monitor.NextRun == nil || monitor.NextRun.Before(now) {
+			nextRun := s.calculateNextRun(monitor.Interval, now)
+			if nextRun.IsZero() {
+				log.Error().
+					Int64("monitor_id", monitor.ID).
+					Str("interval", monitor.Interval).
+					Msg("Could not calculate next run time for monitor")
+				continue
+			}
+
+			monitor.NextRun = &nextRun
+
+			log.Info().
+				Int64("monitor_id", monitor.ID).
+				Time("next_run", nextRun).
+				Str("interval", monitor.Interval).
+				Msg("Rescheduling packet loss monitor")
+
+			if err := s.db.UpdatePacketLossMonitor(monitor); err != nil {
+				log.Error().
+					Err(err).
+					Int64("monitor_id", monitor.ID).
+					Msg("Error updating monitor during initialization")
+			}
+		}
+	}
+}
+
+// checkAndRunPacketLossMonitors checks for due packet loss monitors and runs them
+func (s *service) checkAndRunPacketLossMonitors(ctx context.Context) {
+	monitors, err := s.db.GetPacketLossMonitors()
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error fetching packet loss monitors")
+		return
+	}
+
+	now := time.Now()
+	for _, monitor := range monitors {
+		if !monitor.Enabled || monitor.NextRun == nil || monitor.NextRun.After(now) {
+			continue
+		}
+
+		log.Info().
+			Int64("monitor_id", monitor.ID).
+			Str("host", monitor.Host).
+			Time("next_run", *monitor.NextRun).
+			Str("interval", monitor.Interval).
+			Msg("Running scheduled packet loss test")
+
+		// Create a timeout context for the test
+		testCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		go func(monitor *types.PacketLossMonitor, ctx context.Context, cancel context.CancelFunc) {
+			defer cancel()
+
+			// Run the packet loss test
+			if s.packetLoss != nil {
+				s.packetLoss.RunScheduledTest(monitor)
+			}
+
+			// Calculate and update next run time
+			nextRun := s.calculateNextRun(monitor.Interval, now)
+			if nextRun.IsZero() {
+				log.Error().
+					Int64("monitor_id", monitor.ID).
+					Str("interval", monitor.Interval).
+					Msg("Error calculating next run time for monitor")
+				return
+			}
+
+			monitor.LastRun = &now
+			monitor.NextRun = &nextRun
+
+			if err := s.db.UpdatePacketLossMonitor(monitor); err != nil {
+				log.Error().
+					Err(err).
+					Int64("monitor_id", monitor.ID).
+					Msg("Error updating monitor schedule")
+			}
+		}(monitor, testCtx, cancel)
 	}
 }

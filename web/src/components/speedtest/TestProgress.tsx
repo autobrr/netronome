@@ -6,20 +6,88 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { TestProgress as TestProgressType } from "@/types/types";
-import { FaArrowDown, FaArrowUp } from "react-icons/fa";
+import { ArrowDownIcon, ArrowUpIcon } from "@heroicons/react/24/outline";
 
 interface TestProgressProps {
   progress: TestProgressType;
 }
 
 export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
-  if (progress.isIperf || progress.isLibrespeed) {
+  // Hide ping/latency test phase
+  if (progress.type === "ping") {
+    return null;
+  }
+
+  // Check iperf3 preparing state BEFORE other conditions to prevent flash
+  // Show preparing message for iperf3 during the initial ping phase
+  // But hide it between download and upload tests
+  if (
+    progress.isIperf &&
+    (progress.progress === 0 || !progress.progress) &&
+    (progress.speed === 0 || !progress.speed)
+  ) {
+    // If we have a currentTest that's not empty, we're between tests
+    if (progress.currentTest && progress.currentTest !== "") {
+      return null; // Hide during transition between download/upload
+    }
+
     return (
-      <div className="flex items-center justify-center">
-        <span className="text-white font-bold text-sm">
-          Running {progress.isIperf ? "iperf3" : "Librespeed"} test...
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex items-center justify-center space-x-2 text-xs w-full max-w-[16rem]"
+      >
+        <div className="flex space-x-1">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              className="w-1 h-1 bg-gray-600 dark:bg-gray-400 rounded-full"
+              animate={{
+                opacity: [0.3, 1, 0.3],
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                delay: i * 0.2,
+              }}
+            />
+          ))}
+        </div>
+        <span className="text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">
+          Preparing test...
         </span>
-      </div>
+      </motion.div>
+    );
+  }
+
+  // Show animated message for LibreSpeed
+  if (progress.isLibrespeed) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex items-center justify-center space-x-2 text-xs w-full max-w-[16rem]"
+      >
+        <div className="flex space-x-1">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              className="w-1 h-1 bg-gray-600 dark:bg-gray-400 rounded-full"
+              animate={{
+                opacity: [0.3, 1, 0.3],
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                delay: i * 0.2,
+              }}
+            />
+          ))}
+        </div>
+        <span className="text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">
+          Running LibreSpeed test...
+        </span>
+      </motion.div>
     );
   }
 
@@ -37,13 +105,6 @@ export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
     }
   };
 
-  const formatSpeed = (speed: number) => {
-    if (speed < 1) {
-      return `${(speed * 1000).toFixed(0)} Kbps`;
-    }
-    return `${speed.toFixed(2)} Mbps`;
-  };
-
   const getTestPhase = () => {
     switch (progress.type) {
       case "download":
@@ -57,79 +118,69 @@ export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
     }
   };
 
+  // Show test running with live progress
   return (
-    <motion.div className="flex justify-end items-center mb-0">
-      <motion.div
-        className="flex flex-col items-center"
-        initial="hidden"
-        animate="visible"
-        variants={{
-          hidden: { opacity: 0 },
-          visible: {
-            opacity: 1,
-            transition: {
-              staggerChildren: 0.05,
-            },
-          },
-        }}
-      >
-        {/* Active Test Display */}
-        {progress.type !== "ping" && (
-          <div className="flex items-center justify-center">
-            {progress.type === "download" ? (
-              <FaArrowDown className="text-blue-500" />
-            ) : (
-              <FaArrowUp className="text-emerald-500" />
-            )}
-            <span className="text-white font-bold text-sm mr-4">
-              {getTestPhase()}
-            </span>
-          </div>
-        )}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex items-center justify-center space-x-2 text-xs w-full max-w-[16rem] px-2"
+    >
+      {/* Test type icon */}
+      <div className={`${getStatusColor()} flex-shrink-0`}>
+        {progress.type === "download" ? (
+          <ArrowDownIcon className="w-4 h-4" />
+        ) : progress.type === "upload" ? (
+          <ArrowUpIcon className="w-4 h-4" />
+        ) : null}
+      </div>
 
-        {/* Current Speed Display */}
-        {(progress.type === "download" || progress.type === "upload") && (
-          <motion.div className="flex items-center justify-center mt-1">
-            <span className="text-gray-400 font-semibold text-sm">
-              Current Speed:
-            </span>
-            <div
-              className="text-white font-bold text-lg ml-1"
-              style={{
-                width: "120px",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
+      {/* Test info */}
+      <div className="flex items-baseline space-x-0.5 whitespace-nowrap">
+        <span className="text-gray-700 dark:text-gray-300 font-medium">
+          {getTestPhase()}:
+        </span>
+
+        <div className="relative inline-block w-10 text-right">
+          <AnimatePresence>
+            <motion.span
+              key={progress.currentSpeed}
+              initial={{
+                opacity: 0,
+                filter: "blur(4px)",
               }}
+              animate={{
+                opacity: 1,
+                filter: "blur(0px)",
+              }}
+              exit={{
+                opacity: 0,
+                filter: "blur(4px)",
+                position: "absolute",
+                right: 0,
+              }}
+              transition={{
+                duration: 0.5,
+                ease: "easeInOut",
+              }}
+              className={`font-bold ${getStatusColor()}`}
             >
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={progress.currentSpeed}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                    scale: [1, 1.05, 1], // Subtle pop effect
-                  }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 400,
-                    damping: 40,
-                    mass: 0.8,
-                    scale: {
-                      duration: 0.2,
-                    },
-                  }}
-                  className={getStatusColor()}
-                >
-                  {formatSpeed(progress.currentSpeed)}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </motion.div>
+              {progress.currentSpeed < 1
+                ? (progress.currentSpeed * 1000).toFixed(0)
+                : progress.currentSpeed.toFixed(1)}
+            </motion.span>
+          </AnimatePresence>
+        </div>
+
+        <span className="text-gray-600 dark:text-gray-400">
+          {progress.currentSpeed < 1 ? "Kbps" : "Mbps"}
+        </span>
+
+        {progress.progress > 0 && (
+          <span className="text-gray-500 dark:text-gray-500">
+            ({Math.round(progress.progress)}%)
+          </span>
         )}
-      </motion.div>
+      </div>
     </motion.div>
   );
 };

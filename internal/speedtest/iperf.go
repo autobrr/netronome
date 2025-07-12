@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -118,10 +119,10 @@ func (r *IperfRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Re
 			return nil, fmt.Errorf("upload test failed: %w", err)
 		}
 		uploadSpeed = uploadResult.UploadSpeed
-		if uploadResult.Jitter != nil {
-			jitterMs = uploadResult.Jitter
-		}
 	}
+
+	// Skip jitter test for iperf3 - it's unreliable and causes timeouts
+	// Users still get latency from ping which is more useful
 
 	var jitterFloat float64
 	if jitterMs != nil {
@@ -169,20 +170,15 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 	args := []string{
 		"-c", host,
 		"-p", port,
-		"-J",        // JSON output
-		"-i", "0.5", // Half-second interval for smoother updates
+		"--json-stream", // Streaming JSON output for real-time updates
+		"-i", "1",       // 1-second interval to match speedtest.net consistency
 		"-t", strconv.Itoa(r.config.TestDuration), // Test duration in seconds
 		"-P", strconv.Itoa(r.config.ParallelConns), // Number of parallel connections
 		"--format", "m", // Force Mbps output
 	}
 
-	// Add UDP-specific arguments if jitter testing is enabled
-	if opts.EnableJitter && r.config.EnableUDP {
-		args = append(args, "-u") // UDP mode
-		if r.config.UDPBandwidth != "" {
-			args = append(args, "-b", r.config.UDPBandwidth) // Bandwidth limit
-		}
-	}
+	// Always use TCP mode for iperf3 speed tests
+	// UDP mode with bandwidth limits gives misleading results
 
 	if opts.EnableDownload {
 		args = append(args, "-R")
@@ -201,6 +197,7 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 			Speed:      0,
 			Progress:   0,
 			IsComplete: false,
+			TestType:   "iperf3",
 		})
 	}
 
@@ -224,6 +221,7 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 	var output strings.Builder
 	startTime := time.Now()
 	totalDuration := time.Duration(r.config.TestDuration) * time.Second
+	var lastUpdate atomic.Int64
 
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start iperf3: %w", err)
@@ -234,47 +232,50 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 		line := scanner.Text()
 		output.WriteString(line + "\n")
 
-		// Try to parse JSON for progress updates
-		var data struct {
-			Start struct {
-				Connected []struct{} `json:"connected"`
-			} `json:"start"`
-			Intervals []struct {
-				Streams []struct {
-					Bits_per_second float64 `json:"bits_per_second"`
-				} `json:"streams"`
+		// Try to parse JSON streaming format for progress updates
+		var streamData struct {
+			Event string `json:"event"`
+			Data  struct {
 				Sum struct {
 					Bits_per_second float64 `json:"bits_per_second"`
 				} `json:"sum"`
-			} `json:"intervals"`
+			} `json:"data"`
 		}
 
-		if err := json.Unmarshal([]byte(line), &data); err == nil {
-			// Calculate progress based on elapsed time
-			elapsed := time.Since(startTime)
-			progress := math.Min(100, (elapsed.Seconds()/totalDuration.Seconds())*100)
+		if err := json.Unmarshal([]byte(line), &streamData); err == nil {
+			// Only process interval events for real-time progress
+			if streamData.Event == "interval" {
+				// Apply the same 1-second throttling as speedtest.net
+				now := time.Now().Unix()
+				lastUpdateTime := lastUpdate.Load()
 
-			// Get speed from the most recent interval
-			var currentSpeed float64
-			if len(data.Intervals) > 0 {
-				lastInterval := data.Intervals[len(data.Intervals)-1]
-				currentSpeed = lastInterval.Sum.Bits_per_second / 1_000_000 // Convert to Mbps
-			}
+				if now-lastUpdateTime >= 1 {
+					// Calculate progress based on elapsed time
+					elapsed := time.Since(startTime)
+					progress := math.Min(100, (elapsed.Seconds()/totalDuration.Seconds())*100)
 
-			log.Debug().
-				Float64("progress", progress).
-				Float64("speed", currentSpeed).
-				Str("type", testType).
-				Msg("iperf3 progress update")
+					// Get speed from current interval
+					currentSpeed := streamData.Data.Sum.Bits_per_second / 1_000_000 // Convert to Mbps
 
-			if r.progressCallback != nil {
-				r.progressCallback(types.SpeedUpdate{
-					Type:       testType,
-					ServerName: fmt.Sprintf("%s:%s", host, port),
-					Speed:      currentSpeed,
-					Progress:   progress,
-					IsComplete: false,
-				})
+					log.Debug().
+						Float64("progress", progress).
+						Float64("speed", currentSpeed).
+						Str("type", testType).
+						Str("event", streamData.Event).
+						Msg("iperf3 streaming progress update")
+
+					if progress > 0 && r.progressCallback != nil {
+						r.progressCallback(types.SpeedUpdate{
+							Type:       testType,
+							ServerName: fmt.Sprintf("%s:%s", host, port),
+							Speed:      currentSpeed,
+							Progress:   progress,
+							IsComplete: false,
+							TestType:   "iperf3",
+						})
+						lastUpdate.Store(now)
+					}
+				}
 			}
 		}
 	}
@@ -295,9 +296,11 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 		return nil, fmt.Errorf("iperf3 failed: %s - %w", outputStr, err)
 	}
 
-	// Parse final results from the complete output
+	// Parse final results from streaming JSON output
+	// Find the last "end" event in the output
 	var finalResult struct {
-		End struct {
+		Event string `json:"event"`
+		Data  struct {
 			SumSent struct {
 				BitsPerSecond float64 `json:"bits_per_second"`
 				JitterMs      float64 `json:"jitter_ms"`
@@ -306,25 +309,41 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 				BitsPerSecond float64 `json:"bits_per_second"`
 				JitterMs      float64 `json:"jitter_ms"`
 			} `json:"sum_received"`
-		} `json:"end"`
+		} `json:"data"`
 	}
 
-	if err := json.Unmarshal([]byte(output.String()), &finalResult); err != nil {
-		return nil, fmt.Errorf("failed to parse iperf3 output: %w", err)
+	// Parse the output line by line to find the "end" event
+	lines := strings.Split(output.String(), "\n")
+	var foundFinalResult bool
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var lineData struct {
+			Event string          `json:"event"`
+			Data  json.RawMessage `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(line), &lineData); err == nil {
+			if lineData.Event == "end" {
+				if err := json.Unmarshal(lineData.Data, &finalResult.Data); err == nil {
+					foundFinalResult = true
+					break
+				}
+			}
+		}
+	}
+
+	if !foundFinalResult {
+		return nil, fmt.Errorf("failed to find final results in iperf3 streaming output")
 	}
 
 	var speedMbps float64
 	var jitterMs *float64
+
 	if opts.EnableDownload {
-		speedMbps = finalResult.End.SumReceived.BitsPerSecond / 1_000_000
-		if opts.EnableJitter && finalResult.End.SumReceived.JitterMs > 0 {
-			jitterMs = &finalResult.End.SumReceived.JitterMs
-		}
+		speedMbps = finalResult.Data.SumReceived.BitsPerSecond / 1_000_000
 	} else {
-		speedMbps = finalResult.End.SumSent.BitsPerSecond / 1_000_000
-		if opts.EnableJitter && finalResult.End.SumSent.JitterMs > 0 {
-			jitterMs = &finalResult.End.SumSent.JitterMs
-		}
+		speedMbps = finalResult.Data.SumSent.BitsPerSecond / 1_000_000
 	}
 
 	// Send final update
@@ -335,6 +354,7 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 			Speed:      speedMbps,
 			Progress:   100.0,
 			IsComplete: true,
+			TestType:   "iperf3",
 		})
 	}
 

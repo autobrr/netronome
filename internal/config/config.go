@@ -45,6 +45,7 @@ type Config struct {
 	Pagination    PaginationConfig   `toml:"pagination"`
 	Session       SessionConfig      `toml:"session"`
 	Notifications NotificationConfig `toml:"notifications"`
+	PacketLoss    PacketLossConfig   `toml:"packetloss"`
 }
 
 type DatabaseConfig struct {
@@ -90,8 +91,6 @@ type IperfConfig struct {
 	TestDuration  int        `toml:"test_duration" env:"IPERF_TEST_DURATION"`
 	ParallelConns int        `toml:"parallel_conns" env:"IPERF_PARALLEL_CONNS"`
 	Timeout       int        `toml:"timeout" env:"IPERF_TIMEOUT"`
-	EnableUDP     bool       `toml:"enable_udp" env:"IPERF_ENABLE_UDP"`
-	UDPBandwidth  string     `toml:"udp_bandwidth" env:"IPERF_UDP_BANDWIDTH"`
 	Ping          PingConfig `toml:"ping"`
 }
 
@@ -130,6 +129,15 @@ type NotificationConfig struct {
 type GeoIPConfig struct {
 	CountryDatabasePath string `toml:"country_database_path" env:"GEOIP_COUNTRY_DATABASE_PATH"`
 	ASNDatabasePath     string `toml:"asn_database_path" env:"GEOIP_ASN_DATABASE_PATH"`
+}
+
+type PacketLossConfig struct {
+	Enabled                  bool `toml:"enabled" env:"PACKETLOSS_ENABLED"`
+	DefaultInterval          int  `toml:"default_interval" env:"PACKETLOSS_DEFAULT_INTERVAL"`
+	DefaultPacketCount       int  `toml:"default_packet_count" env:"PACKETLOSS_DEFAULT_PACKET_COUNT"`
+	MaxConcurrentMonitors    int  `toml:"max_concurrent_monitors" env:"PACKETLOSS_MAX_CONCURRENT_MONITORS"`
+	PrivilegedMode           bool `toml:"privileged_mode" env:"PACKETLOSS_PRIVILEGED_MODE"`
+	RestoreMonitorsOnStartup bool `toml:"restore_monitors_on_startup" env:"PACKETLOSS_RESTORE_MONITORS_ON_STARTUP"`
 }
 
 func isRunningInContainer() bool {
@@ -186,8 +194,6 @@ func New() *Config {
 				TestDuration:  10,
 				ParallelConns: 4,
 				Timeout:       60,
-				EnableUDP:     false,
-				UDPBandwidth:  "100M",
 				Ping: PingConfig{
 					Count:    5,
 					Interval: 1000,
@@ -221,6 +227,14 @@ func New() *Config {
 			UploadThreshold:   200,
 			DownloadThreshold: 200,
 			DiscordMentionID:  "",
+		},
+		PacketLoss: PacketLossConfig{
+			Enabled:                  true,
+			DefaultInterval:          3600,
+			DefaultPacketCount:       10,
+			MaxConcurrentMonitors:    10,
+			PrivilegedMode:           true,
+			RestoreMonitorsOnStartup: false,
 		},
 	}
 }
@@ -304,6 +318,7 @@ func (c *Config) loadFromEnv() error {
 	c.loadSessionFromEnv()
 	c.loadGeoIPFromEnv()
 	c.loadNotificationsFromEnv()
+	c.loadPacketLossFromEnv()
 	return nil
 }
 
@@ -401,14 +416,6 @@ func (c *Config) loadSpeedTestFromEnv() {
 			c.SpeedTest.IPerf.Timeout = val
 		}
 	}
-	if v := getEnv("IPERF_ENABLE_UDP"); v != "" {
-		if val, err := strconv.ParseBool(v); err == nil {
-			c.SpeedTest.IPerf.EnableUDP = val
-		}
-	}
-	if v := getEnv("IPERF_UDP_BANDWIDTH"); v != "" {
-		c.SpeedTest.IPerf.UDPBandwidth = v
-	}
 	if v := getEnv("IPERF_PING_COUNT"); v != "" {
 		if val, err := strconv.Atoi(v); err == nil {
 			c.SpeedTest.IPerf.Ping.Count = val
@@ -498,6 +505,39 @@ func (c *Config) loadNotificationsFromEnv() {
 	}
 	if v := getEnv("NOTIFICATIONS_DISCORD_MENTION_ID"); v != "" {
 		c.Notifications.DiscordMentionID = v
+	}
+}
+
+func (c *Config) loadPacketLossFromEnv() {
+	if v := getEnv("PACKETLOSS_ENABLED"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			c.PacketLoss.Enabled = enabled
+		}
+	}
+	if v := getEnv("PACKETLOSS_DEFAULT_INTERVAL"); v != "" {
+		if interval, err := strconv.Atoi(v); err == nil {
+			c.PacketLoss.DefaultInterval = interval
+		}
+	}
+	if v := getEnv("PACKETLOSS_DEFAULT_PACKET_COUNT"); v != "" {
+		if count, err := strconv.Atoi(v); err == nil {
+			c.PacketLoss.DefaultPacketCount = count
+		}
+	}
+	if v := getEnv("PACKETLOSS_MAX_CONCURRENT_MONITORS"); v != "" {
+		if max, err := strconv.Atoi(v); err == nil {
+			c.PacketLoss.MaxConcurrentMonitors = max
+		}
+	}
+	if v := getEnv("PACKETLOSS_PRIVILEGED_MODE"); v != "" {
+		if privileged, err := strconv.ParseBool(v); err == nil {
+			c.PacketLoss.PrivilegedMode = privileged
+		}
+	}
+	if v := getEnv("PACKETLOSS_RESTORE_MONITORS_ON_STARTUP"); v != "" {
+		if restore, err := strconv.ParseBool(v); err == nil {
+			c.PacketLoss.RestoreMonitorsOnStartup = restore
+		}
 	}
 }
 
@@ -647,12 +687,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "timeout = %d\n", cfg.SpeedTest.IPerf.Timeout); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "enable_udp = %v\n", cfg.SpeedTest.IPerf.EnableUDP); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "udp_bandwidth = \"%s\"\n", cfg.SpeedTest.IPerf.UDPBandwidth); err != nil {
-		return err
-	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
 		return err
 	}
@@ -765,6 +799,32 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "discord_mention_id = \"%s\"\n", cfg.Notifications.DiscordMentionID); err != nil {
+		return err
+	}
+
+	// Packet Loss section
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "[packetloss]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.PacketLoss.Enabled); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "default_interval = %d # seconds between tests\n", cfg.PacketLoss.DefaultInterval); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "default_packet_count = %d # packets per test\n", cfg.PacketLoss.DefaultPacketCount); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "max_concurrent_monitors = %d\n", cfg.PacketLoss.MaxConcurrentMonitors); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "privileged_mode = %v # Use privileged ICMP mode for better MTR support (requires root/sudo)\n", cfg.PacketLoss.PrivilegedMode); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "restore_monitors_on_startup = %v # WARNING: If true, immediately runs ALL enabled packet loss monitors on startup (may cause network congestion). Default: monitors run on their scheduled intervals only\n", cfg.PacketLoss.RestoreMonitorsOnStartup); err != nil {
 		return err
 	}
 

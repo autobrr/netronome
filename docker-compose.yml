@@ -6,4 +6,6 @@ services:
       - "7575:7575"
     volumes:
       - ./netronome:/data
+    cap_add:
+      - NET_RAW # Required for MTR and privileged ping operations
     restart: unless-stopped

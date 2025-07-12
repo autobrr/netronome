@@ -84,7 +84,7 @@ LABEL org.opencontainers.image.source="https://github.com/autobrr/netronome"
 LABEL org.opencontainers.image.licenses="GPL-2.0-or-later"
 LABEL org.opencontainers.image.base.name="alpine:latest"
 
-RUN apk add --no-cache sqlite iperf3 traceroute tzdata
+RUN apk add --no-cache sqlite iperf3 traceroute mtr tzdata
 
 ENV HOME="/data" \
     XDG_CONFIG_HOME="/data" \

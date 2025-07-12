@@ -54,7 +54,7 @@ pnpm lint        # Run ESLint
 
 ```bash
 # License header management for all code files
-./license.sh      # Add license headers to new files
+./license.sh false # Add headers without interactive prompts
 
 # Backend live reload during development (requires air)
 make watch
@@ -80,7 +80,7 @@ internal/
 ├── config/          # TOML + env var configuration system
 ├── database/        # Interface-based DB layer with Squirrel query builder
 ├── server/          # Gin HTTP server with middleware stack
-├── speedtest/       # Core testing logic (4 implementations)
+├── speedtest/       # Core testing logic (6 implementations)
 ├── scheduler/       # Background cron-like job scheduler
 ├── auth/           # Session + OIDC authentication
 ├── notifications/  # Webhook/Discord alert system
@@ -100,8 +100,8 @@ internal/
 
 - Requires `iperf3` binary installation
 - JSON output parsing for real-time progress
-- Combined with ping tests (`internal/speedtest/ping.go`) for comprehensive metrics
-- Supports UDP mode for jitter testing
+- Combined with ping tests (`internal/speedtest/ping.go`) for latency and packet loss metrics
+- Jitter measurement is not supported for iperf3 (use Speedtest.net for jitter measurements)
 - Cross-platform ping implementation (Linux/macOS/Windows)
 
 **3. LibreSpeed** (`internal/speedtest/librespeed.go`)
@@ -119,6 +119,25 @@ internal/
 - Smart early termination on consecutive timeouts or destination reached
 - Supports URL hostname extraction and port stripping
 
+**5. Packet Loss Monitoring** (`internal/speedtest/packetloss.go`)
+
+- Uses `github.com/prometheus-community/pro-bing` library for ICMP ping tests
+- Continuous monitoring with configurable intervals (10s to hours/days)
+- Configurable packet count (1-100 packets per test)
+- Real-time progress tracking using OnSend callbacks
+- Robust timeout handling with tri-state logic (testing/monitoring/disabled)
+- Supports both privileged (raw sockets) and unprivileged (UDP) modes
+- Database-backed monitor configurations and historical results
+- MTR integration (requires root/privileged mode) with automatic fallback to standard ICMP ping
+
+**6. MTR (My TraceRoute)** (`internal/speedtest/mtr.go`)
+
+- Advanced network diagnostic tool combining ping and traceroute
+- Per-hop packet loss and latency statistics
+- Automatic fallback to standard ping when MTR binary is unavailable or lacks root privileges
+- MTR requires privileged mode (root/NET_RAW capability) for ICMP; falls back to UDP or ping otherwise
+- Real-time progress updates during execution
+
 ### Database Schema and Migrations
 
 - **Migration system**: Embedded SQL files with version tracking (`internal/database/migrations/`)
@@ -127,6 +146,8 @@ internal/
   - `schedules` - Automated test configurations
   - `users` - Authentication data
   - `saved_iperf_servers` - Custom iperf3 server configs
+  - `packet_loss_monitors` - Packet loss monitor configurations
+  - `packet_loss_results` - Historical packet loss monitoring results
 - **Query patterns**: Interface-based with Squirrel query builder for cross-database compatibility
 
 ### Frontend Architecture
@@ -137,11 +158,26 @@ internal/
 - **Styling**: Tailwind CSS with dark theme optimization
 - **Charts**: Recharts for speed test visualizations
 - **Real-time Updates**: Polling-based progress tracking during tests
-- **Traceroute UI**: Responsive table/card views with real-time hop discovery (`web/src/components/speedtest/TracerouteTab.tsx`)
+- **Unified Traceroute UI**: Combined single-trace and monitoring interface with mode switching (`web/src/components/speedtest/TracerouteTab.tsx`)
+
+### Chart Data Patterns
+
+- **API Data Ordering**: Backend APIs typically return results in descending order (newest first)
+- **Chart Display Order**: Charts should display data chronologically (oldest to newest)
+- **Data Transformation Pattern**:
+  ```typescript
+  const chartData = historyList
+    .slice(0, 30) // Take first 30 items (most recent)
+    .reverse() // Reverse to chronological order
+    .map((item) => ({
+      /* transform data */
+    }));
+  ```
+- **Common Mistake**: Using `.slice(-30)` on descending data gets the oldest items instead of newest
 
 ### Configuration System
 
-- **Hierarchical TOML** with sections: `[database]`, `[server]`, `[speedtest]`, `[speedtest.iperf]`, `[speedtest.iperf.ping]`, `[geoip]`, etc.
+- **Hierarchical TOML** with sections: `[database]`, `[server]`, `[speedtest]`, `[speedtest.iperf]`, `[speedtest.iperf.ping]`, `[speedtest.packetloss]`, `[geoip]`, etc.
 - **Environment overrides**: Any config value can be overridden with `NETRONOME__SECTION_KEY` format
 - **Auto-generation**: Creates sensible defaults if no config exists
 - **Container detection**: Automatically binds to `0.0.0.0` in containerized environments
@@ -160,7 +196,7 @@ internal/
 ### Error Handling
 
 - Use structured errors with context throughout the codebase
-- All external operations (ping, iperf3, librespeed-cli) include timeout handling
+- All external operations (ping, iperf3, librespeed-cli, mtr) include timeout handling
 - Database operations use the interface pattern for testability
 - HTTP handlers return consistent JSON error responses
 
@@ -178,6 +214,16 @@ internal/
 - **GeoIP enrichment**: Optional country flags and ASN lookup for each hop using MaxMind databases
 - **Progress broadcasting**: Real-time hop discovery updates via `TracerouteUpdate` structs
 - **Hostname extraction**: Handles URLs, hostnames with ports, and IP addresses uniformly
+
+### Packet Loss Monitoring Patterns
+
+- **Tri-state monitor logic**: Distinguishes between actively testing, scheduled monitoring, and disabled states
+- **Context-based goroutine management**: Uses `context.WithTimeout` to prevent hanging on unresponsive hosts
+- **Multi-path completion handling**: Supports normal completion, timeout, and fallback scenarios
+- **Input validation**: Automatically trims whitespace from hostnames to prevent DNS resolution failures
+- **Real-time progress tracking**: Uses OnSend callbacks since OnRecv may not fire for all hosts
+- **Startup behavior**: Monitors DO NOT auto-start on program startup by default (prevents network congestion)
+- **Manual control**: Users must manually start monitors, which then run on their configured intervals
 
 ### Background Services
 
@@ -208,6 +254,7 @@ internal/
 - **Squirrel**: SQL query builder
 - **zerolog**: Structured logging
 - **showwin/speedtest-go**: Speedtest.net integration
+- **prometheus-community/pro-bing**: Packet loss monitoring via ICMP ping
 - **TOML**: Configuration parsing
 - **OIDC**: Authentication provider integration
 
@@ -226,6 +273,7 @@ internal/
 - **librespeed-cli**: Binary required for LibreSpeed tests
 - **ping**: System ping command (cross-platform support)
 - **traceroute/tracert**: System traceroute command (Unix/Linux/macOS) or tracert (Windows)
+- **mtr**: Binary for advanced network diagnostics (optional, falls back to ping)
 
 ## Special Considerations
 
@@ -260,7 +308,7 @@ Example: `NETRONOME__IPERF_TEST_DURATION=30` overrides `[speedtest.iperf] test_d
 ### Code Standards
 
 - **Conventional Commits**: When suggesting branch names and commit titles, always use Conventional Commit Guidelines
-- **License Headers**: Use `./license.sh` to add GPL-2.0-or-later headers to new source files
+- **License Headers**: Use `./license.sh false` to add GPL-2.0-or-later headers to new source files
 - **Commit Attribution**: Never add yourself as co-author to commits
 - **Frontend Development**: Before writing any frontend-code, make sure to read through the docs/style-guide.md first, so you familiarize yourself with our style. This is a crucial step.
 
@@ -291,3 +339,50 @@ The following external tools are required for full functionality:
 - **MaxMind GeoLite2 databases**: For country flags and ASN information in traceroute results
   - Download from MaxMind with free license key
   - Configure paths in `[geoip]` section of config.toml
+
+## Packet Loss Monitoring Implementation Notes
+
+### Backend Architecture (`internal/speedtest/packetloss.go`)
+
+- **Monitor Lifecycle**: Monitors are database-backed configurations that can be enabled/disabled independently of active testing
+- **Tri-state Status Logic**:
+  - Actively testing: `IsRunning=true, Progress>0` (show progress bar)
+  - Scheduled monitoring: `IsRunning=false, IsComplete=false` (show "Monitoring every Xs")
+  - Disabled: `IsComplete=true` (show disabled state)
+- **Timeout Handling**: Uses multiple completion paths (OnFinish callback, context timeout, goroutine completion, fallback cleanup)
+- **Progress Tracking**: Uses OnSend callbacks instead of OnRecv since some hosts block ICMP responses
+- **Input Sanitization**: Automatically trims whitespace from hostnames to prevent DNS lookup failures
+- **MTR Integration**: Automatically attempts MTR first (if available and has root), falls back to standard ping otherwise
+
+### Frontend Integration (`web/src/components/speedtest/TracerouteTab.tsx`)
+
+- **Unified Interface**: Single tab with mode switching between "Single Trace" and "Monitors"
+- **Smart Polling**: Only polls enabled monitors every 2 seconds, stops when no monitors are active
+- **Seamless Navigation**: Easy flow between single traces and creating monitors from results
+- **Real-time Updates**: Shows progress during active tests, historical results during monitoring periods
+- **Responsive Design**: Table view on desktop, card view on mobile
+- **State Management**: Uses TanStack Query for server state, local state for UI interactions
+- **MTR Results Display**: Shows hop-by-hop statistics when MTR data is available
+
+### Testing Endpoints for Packet Loss
+
+- **Responsive hosts**: `8.8.8.8`, `1.1.1.1` (should show 0-5% loss)
+- **Unresponsive hosts**: `203.0.113.1`, `192.0.2.1`, `198.51.100.1` (documentation IPs, should show 100% loss)
+- **Geographic distance**: Far locations may show real packet loss due to routing
+
+## Frontend Style Guide Reference
+
+The project includes a comprehensive style guide at `docs/style-guide.md` that covers:
+
+- Component architecture patterns
+- Tailwind CSS usage conventions
+- Dark mode implementation
+- Animation patterns with Motion
+- Responsive design approaches
+- Color system and semantic usage
+- Typography standards
+- State management patterns
+- Accessibility requirements
+- Performance optimizations
+
+Always refer to this guide when implementing new frontend features or modifying existing components.

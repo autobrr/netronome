@@ -86,6 +86,7 @@ export interface SpeedUpdate {
   serverName: string;
   latency?: string;
   isScheduled: boolean;
+  testType?: string; // "speedtest", "iperf3", "librespeed"
 }
 
 export interface PaginatedResponse<T> {
@@ -137,4 +138,78 @@ export interface TracerouteUpdate {
   destination: string;
   ip: string;
   terminatedEarly?: boolean;
+}
+
+export interface PacketLossMonitor {
+  id: number;
+  host: string;
+  name?: string;
+  interval: string; // Changed from number to string
+  packetCount: number;
+  enabled: boolean;
+  threshold: number;
+  lastRun?: string; // New field
+  nextRun?: string; // New field
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PacketLossResult {
+  id: number;
+  monitorId: number;
+  packetLoss: number;
+  minRtt: number;
+  maxRtt: number;
+  avgRtt: number;
+  stdDevRtt: number;
+  packetsSent: number;
+  packetsRecv: number;
+  usedMtr?: boolean;
+  hopCount?: number;
+  mtrData?: string; // JSON string containing MTRData
+  privilegedMode?: boolean;
+  createdAt: string;
+}
+
+export interface MTRHop {
+  number: number;
+  host: string;
+  ip?: string;
+  loss: number;
+  sent: number;
+  recv: number;
+  last: number;
+  avg: number;
+  best: number;
+  worst: number;
+  stddev: number;
+  countryCode?: string;
+  as?: string;
+}
+
+export interface MTRData {
+  destination: string;
+  ip: string;
+  hopCount: number;
+  tests: number;
+  hops: MTRHop[];
+}
+
+export interface PacketLossUpdate {
+  type: string;
+  monitorId: number;
+  host: string;
+  isRunning: boolean;
+  isComplete: boolean;
+  progress: number;
+  packetLoss?: number;
+  minRtt?: number;
+  maxRtt?: number;
+  avgRtt?: number;
+  stdDevRtt?: number;
+  packetsSent?: number;
+  packetsRecv?: number;
+  usedMtr?: boolean;
+  hopCount?: number;
+  error?: string;
 }
