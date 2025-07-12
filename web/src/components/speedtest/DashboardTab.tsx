@@ -319,10 +319,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                                   ? `${test.jitter.toFixed(1)}ms`
                                   : "—"}
                               </td>
-                              <td className="py-3 px-2 text-right text-green-600 dark:text-green-400 font-mono">
+                              <td className="py-3 px-2 text-right text-blue-600 dark:text-blue-400 font-mono">
                                 {formatSpeed(test.downloadSpeed)}
                               </td>
-                              <td className="py-3 px-2 text-right text-blue-600 dark:text-blue-400 font-mono">
+                              <td className="py-3 px-2 text-right text-emerald-600 dark:text-emerald-400 font-mono">
                                 {formatSpeed(test.uploadSpeed)}
                               </td>
                             </motion.tr>
@@ -395,7 +395,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                               <span className="text-gray-600 dark:text-gray-400">
                                 Download:
                               </span>
-                              <span className="text-green-600 dark:text-green-400 font-mono">
+                              <span className="text-blue-600 dark:text-blue-400 font-mono">
                                 {formatSpeed(test.downloadSpeed)}
                               </span>
                             </div>
@@ -403,7 +403,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                               <span className="text-gray-600 dark:text-gray-400">
                                 Upload:
                               </span>
-                              <span className="text-blue-600 dark:text-blue-400 font-mono">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-mono">
                                 {formatSpeed(test.uploadSpeed)}
                               </span>
                             </div>
