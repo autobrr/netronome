@@ -84,7 +84,7 @@ FROM alpine:latest
 
 
 # Install dependencies
-RUN apk add --no-cache sqlite iperf3 traceroute tzdata
+RUN apk add --no-cache sqlite iperf3 traceroute mtr tzdata
 
 ENV HOME="/data" \
     XDG_CONFIG_HOME="/data" \

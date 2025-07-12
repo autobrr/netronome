@@ -25,27 +25,25 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
 ## ✨ Features
 
 - **Speed Testing**
-
   - Support for Speedtest.net, iperf3 servers, and LibreSpeed
   - Real-time test progress visualization
   - Latency and jitter measurements
 
 - **Network Diagnostics**
-
   - Traceroute with real-time hop discovery
   - GeoIP integration for country flags and ASN information
+  - Packet loss monitoring with scheduled tests
+  - MTR (My TraceRoute) integration for hop-by-hop analysis (requires root/NET_RAW capability)
+  - Automatic fallback to ICMP ping when MTR is unavailable or lacks privileges
 
 - **Monitoring**
-
   - Interactive historical data charts
   - Customizable time ranges (1d, 3d, 1w, 1m, all)
 
 - **Scheduling & Automation**
-
   - Automated speed tests with flexible scheduling
 
 - **Modern Interface**
-
   - Clean, responsive design
   - Dark mode optimized
   - Real-time updates
@@ -130,6 +128,22 @@ If you are not running a reverse proxy change host in the config.toml to 0.0.0.0
 ### Docker Installation
 
 For containerized deployment see [docker-compose.yml](docker-compose.yml) and [docker-compose.postgres.yml](docker-compose.postgres.yml).
+
+**Important:** The Docker container requires the `NET_RAW` capability for MTR and privileged ping operations to work properly. This is already configured in the provided docker-compose files.
+
+If running Docker manually, add the capability:
+
+```bash
+docker run --cap-add=NET_RAW -p 7575:7575 -v ./netronome:/data ghcr.io/autobrr/netronome:latest
+```
+
+**Note about MTR without NET_RAW**: When MTR runs without the NET_RAW capability (unprivileged mode), it falls back to UDP mode instead of ICMP. UDP mode may show higher packet loss than ICMP because:
+
+- Some routers prioritize ICMP traffic over UDP
+- Firewalls may rate-limit or drop UDP packets more aggressively
+- UDP packets may be treated as lower priority during network congestion
+
+For the most accurate packet loss measurements, ensure the container has NET_RAW capability or run netronome with sudo/root privileges.
 
 ## ⚙️ Configuration
 
@@ -224,55 +238,58 @@ Example `librespeed-servers.json`:
 
 ### Environment Variables
 
-| Variable                                      | Description                                                       | Default                                      | Required               |
-| --------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------- | ---------------------- |
-| `NETRONOME__HOST`                             | Server host                                                       | `127.0.0.1`                                  | No                     |
-| `NETRONOME__PORT`                             | Server port                                                       | `7575`                                       | No                     |
-| `NETRONOME__GIN_MODE`                         | Gin framework mode (`debug`/`release`)                            | `release`                                    | No                     |
-| `NETRONOME__DB_TYPE`                          | Database type (`sqlite`/`postgres`)                               | `sqlite`                                     | No                     |
-| `NETRONOME__DB_PATH`                          | SQLite database file path                                         | `./netronome.db`                             | Only for SQLite        |
-| `NETRONOME__DB_HOST`                          | PostgreSQL host                                                   | `localhost`                                  | Only for PostgreSQL    |
-| `NETRONOME__DB_PORT`                          | PostgreSQL port                                                   | `5432`                                       | Only for PostgreSQL    |
-| `NETRONOME__DB_USER`                          | PostgreSQL user                                                   | `postgres`                                   | Only for PostgreSQL    |
-| `NETRONOME__DB_PASSWORD`                      | PostgreSQL password                                               | -                                            | Only for PostgreSQL    |
-| `NETRONOME__DB_NAME`                          | PostgreSQL database name                                          | `netronome`                                  | Only for PostgreSQL    |
-| `NETRONOME__DB_SSLMODE`                       | PostgreSQL SSL mode                                               | `disable`                                    | Only for PostgreSQL    |
-| `NETRONOME__IPERF_TEST_DURATION`              | Duration of iPerf tests in seconds                                | `10`                                         | No                     |
-| `NETRONOME__IPERF_PARALLEL_CONNS`             | Number of parallel iPerf connections                              | `4`                                          | No                     |
-| `NETRONOME__IPERF_TIMEOUT`                    | Timeout for iperf3 tests in seconds                               | `60`                                         | No                     |
-| `NETRONOME__IPERF_ENABLE_UDP`                 | Enable UDP mode for jitter testing                                | `false`                                      | No                     |
-| `NETRONOME__IPERF_UDP_BANDWIDTH`              | Bandwidth limit for UDP tests (e.g., "100M")                      | `100M`                                       | No                     |
-| `NETRONOME__IPERF_PING_COUNT`                 | Number of ping packets to send for iperf3 tests                   | `5`                                          | No                     |
-| `NETRONOME__IPERF_PING_INTERVAL`              | Interval between ping packets in milliseconds for iperf3 tests    | `1000`                                       | No                     |
-| `NETRONOME__IPERF_PING_TIMEOUT`               | Timeout for ping tests in seconds for iperf3 tests                | `10`                                         | No                     |
-| `NETRONOME__SPEEDTEST_TIMEOUT`                | Speedtest timeout in seconds                                      | `30`                                         | No                     |
-| `NETRONOME__LOG_LEVEL`                        | Log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`/`panic`) | `info`                                       | No                     |
-| `NETRONOME__OIDC_ISSUER`                      | OpenID Connect issuer URL                                         | -                                            | Only for OIDC          |
-| `NETRONOME__OIDC_CLIENT_ID`                   | OpenID Connect client ID                                          | -                                            | Only for OIDC          |
-| `NETRONOME__OIDC_CLIENT_SECRET`               | OpenID Connect client secret                                      | -                                            | Only for OIDC          |
-| `NETRONOME__OIDC_REDIRECT_URL`                | OpenID Connect redirect URL                                       | http://localhost:7575/api/auth/oidc/callback | Only for OIDC          |
-| `NETRONOME__DEFAULT_PAGE`                     | Default page number for pagination                                | `1`                                          | No                     |
-| `NETRONOME__DEFAULT_PAGE_SIZE`                | Default page size for pagination                                  | `20`                                         | No                     |
-| `NETRONOME__MAX_PAGE_SIZE`                    | Maximum page size for pagination                                  | `100`                                        | No                     |
-| `NETRONOME__DEFAULT_TIME_RANGE`               | Default time range for data queries                               | `1w`                                         | No                     |
-| `NETRONOME__DEFAULT_LIMIT`                    | Default limit for data queries                                    | `20`                                         | No                     |
-| `NETRONOME__SESSION_SECRET`                   | Session secret for authentication                                 | -                                            | No                     |
-| `NETRONOME__NOTIFICATIONS_ENABLED`            | Enable or disable notifications                                   | `false`                                      | No                     |
-| `NETRONOME__NOTIFICATIONS_WEBHOOK_URL`        | Webhook URL for notifications                                     | -                                            | Only for Notifications |
-| `NETRONOME__NOTIFICATIONS_PING_THRESHOLD`     | Ping threshold in ms for notifications                            | `30`                                         | No                     |
-| `NETRONOME__NOTIFICATIONS_UPLOAD_THRESHOLD`   | Upload threshold in Mbps for notifications                        | `200`                                        | No                     |
-| `NETRONOME__NOTIFICATIONS_DOWNLOAD_THRESHOLD` | Download threshold in Mbps for notifications                      | `200`                                        | No                     |
-| `NETRONOME__NOTIFICATIONS_DISCORD_MENTION_ID` | Discord user/role ID to mention on alerts                         | -                                            | No                     |
-| `NETRONOME__AUTH_WHITELIST`                   | Whitelist for authentication                                      | -                                            | No                     |
-| `NETRONOME__GEOIP_COUNTRY_DATABASE_PATH`      | Path to GeoLite2-Country.mmdb file                                | -                                            | No                     |
-| `NETRONOME__GEOIP_ASN_DATABASE_PATH`          | Path to GeoLite2-ASN.mmdb file                                    | -                                            | No                     |
+| Variable                                            | Description                                                       | Default                                      | Required               |
+| --------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------- | ---------------------- |
+| `NETRONOME__HOST`                                   | Server host                                                       | `127.0.0.1`                                  | No                     |
+| `NETRONOME__PORT`                                   | Server port                                                       | `7575`                                       | No                     |
+| `NETRONOME__GIN_MODE`                               | Gin framework mode (`debug`/`release`)                            | `release`                                    | No                     |
+| `NETRONOME__DB_TYPE`                                | Database type (`sqlite`/`postgres`)                               | `sqlite`                                     | No                     |
+| `NETRONOME__DB_PATH`                                | SQLite database file path                                         | `./netronome.db`                             | Only for SQLite        |
+| `NETRONOME__DB_HOST`                                | PostgreSQL host                                                   | `localhost`                                  | Only for PostgreSQL    |
+| `NETRONOME__DB_PORT`                                | PostgreSQL port                                                   | `5432`                                       | Only for PostgreSQL    |
+| `NETRONOME__DB_USER`                                | PostgreSQL user                                                   | `postgres`                                   | Only for PostgreSQL    |
+| `NETRONOME__DB_PASSWORD`                            | PostgreSQL password                                               | -                                            | Only for PostgreSQL    |
+| `NETRONOME__DB_NAME`                                | PostgreSQL database name                                          | `netronome`                                  | Only for PostgreSQL    |
+| `NETRONOME__DB_SSLMODE`                             | PostgreSQL SSL mode                                               | `disable`                                    | Only for PostgreSQL    |
+| `NETRONOME__IPERF_TEST_DURATION`                    | Duration of iPerf tests in seconds                                | `10`                                         | No                     |
+| `NETRONOME__IPERF_PARALLEL_CONNS`                   | Number of parallel iPerf connections                              | `4`                                          | No                     |
+| `NETRONOME__IPERF_TIMEOUT`                          | Timeout for iperf3 tests in seconds                               | `60`                                         | No                     |
+| `NETRONOME__IPERF_ENABLE_UDP`                       | Enable UDP mode for jitter testing                                | `false`                                      | No                     |
+| `NETRONOME__IPERF_UDP_BANDWIDTH`                    | Bandwidth limit for UDP tests (e.g., "100M")                      | `100M`                                       | No                     |
+| `NETRONOME__IPERF_PING_COUNT`                       | Number of ping packets to send for iperf3 tests                   | `5`                                          | No                     |
+| `NETRONOME__IPERF_PING_INTERVAL`                    | Interval between ping packets in milliseconds for iperf3 tests    | `1000`                                       | No                     |
+| `NETRONOME__IPERF_PING_TIMEOUT`                     | Timeout for ping tests in seconds for iperf3 tests                | `10`                                         | No                     |
+| `NETRONOME__SPEEDTEST_TIMEOUT`                      | Speedtest timeout in seconds                                      | `30`                                         | No                     |
+| `NETRONOME__LOG_LEVEL`                              | Log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`/`panic`) | `info`                                       | No                     |
+| `NETRONOME__OIDC_ISSUER`                            | OpenID Connect issuer URL                                         | -                                            | Only for OIDC          |
+| `NETRONOME__OIDC_CLIENT_ID`                         | OpenID Connect client ID                                          | -                                            | Only for OIDC          |
+| `NETRONOME__OIDC_CLIENT_SECRET`                     | OpenID Connect client secret                                      | -                                            | Only for OIDC          |
+| `NETRONOME__OIDC_REDIRECT_URL`                      | OpenID Connect redirect URL                                       | http://localhost:7575/api/auth/oidc/callback | Only for OIDC          |
+| `NETRONOME__DEFAULT_PAGE`                           | Default page number for pagination                                | `1`                                          | No                     |
+| `NETRONOME__DEFAULT_PAGE_SIZE`                      | Default page size for pagination                                  | `20`                                         | No                     |
+| `NETRONOME__MAX_PAGE_SIZE`                          | Maximum page size for pagination                                  | `100`                                        | No                     |
+| `NETRONOME__DEFAULT_TIME_RANGE`                     | Default time range for data queries                               | `1w`                                         | No                     |
+| `NETRONOME__DEFAULT_LIMIT`                          | Default limit for data queries                                    | `20`                                         | No                     |
+| `NETRONOME__SESSION_SECRET`                         | Session secret for authentication                                 | -                                            | No                     |
+| `NETRONOME__NOTIFICATIONS_ENABLED`                  | Enable or disable notifications                                   | `false`                                      | No                     |
+| `NETRONOME__NOTIFICATIONS_WEBHOOK_URL`              | Webhook URL for notifications                                     | -                                            | Only for Notifications |
+| `NETRONOME__NOTIFICATIONS_PING_THRESHOLD`           | Ping threshold in ms for notifications                            | `30`                                         | No                     |
+| `NETRONOME__NOTIFICATIONS_UPLOAD_THRESHOLD`         | Upload threshold in Mbps for notifications                        | `200`                                        | No                     |
+| `NETRONOME__NOTIFICATIONS_DOWNLOAD_THRESHOLD`       | Download threshold in Mbps for notifications                      | `200`                                        | No                     |
+| `NETRONOME__NOTIFICATIONS_DISCORD_MENTION_ID`       | Discord user/role ID to mention on alerts                         | -                                            | No                     |
+| `NETRONOME__AUTH_WHITELIST`                         | Whitelist for authentication                                      | -                                            | No                     |
+| `NETRONOME__GEOIP_COUNTRY_DATABASE_PATH`            | Path to GeoLite2-Country.mmdb file                                | -                                            | No                     |
+| `NETRONOME__GEOIP_ASN_DATABASE_PATH`                | Path to GeoLite2-ASN.mmdb file                                    | -                                            | No                     |
+| `NETRONOME__PACKETLOSS_ENABLED`                     | Enable packet loss monitoring feature                             | `true`                                       | No                     |
+| `NETRONOME__PACKETLOSS_MAX_CONCURRENT_MONITORS`     | Maximum number of monitors that can run simultaneously            | `10`                                         | No                     |
+| `NETRONOME__PACKETLOSS_PRIVILEGED_MODE`             | Use privileged ICMP mode for better accuracy                      | `false`                                      | No                     |
+| `NETRONOME__PACKETLOSS_RESTORE_MONITORS_ON_STARTUP` | **WARNING**: Immediately run ALL enabled monitors on startup      | `false`                                      | No                     |
 
 ### Database
 
 Netronome supports two database backends:
 
 1. **SQLite** (Default)
-
    - No additional setup required
 
 2. **PostgreSQL**
@@ -292,12 +309,10 @@ Netronome supports two database backends:
 Netronome supports two authentication methods:
 
 1. **Built-in Authentication**
-
    - Username/password authentication
    - Default option if no OIDC is configured
 
 2. **OpenID Connect (OIDC)**
-
    - Integration with identity providers (Google, Okta, Auth0, Keycloak, Pocket-ID, Authelia, Authentik etc.)
    - PKCE support
    - Configure via environment variables:
@@ -316,6 +331,32 @@ Netronome supports two authentication methods:
      whitelist = ["127.0.0.1/32"]
      ```
 
+### Packet Loss Monitoring
+
+Netronome includes continuous packet loss monitoring capabilities with the following features:
+
+- **Scheduled monitoring** using ICMP ping or MTR (if available)
+- **Multiple concurrent monitors** for different hosts
+- **Automatic MTR fallback** to ICMP ping when MTR is unavailable or lacks root privileges
+- **Historical data tracking** with charts and visualizations
+
+#### Important Notes on Monitor Startup Behavior
+
+By default, packet loss monitors **DO NOT** start automatically when Netronome starts. This prevents:
+
+- Network congestion from multiple simultaneous tests
+- False packet loss readings due to concurrent ICMP traffic
+- Unexpected network usage on startup
+
+Monitors will run on their configured intervals after being manually started by users. If you want monitors to start immediately on program startup (not recommended), you can set:
+
+```toml
+[speedtest.packetloss]
+restore_monitors_on_startup = true  # WARNING: This will immediately run ALL enabled monitors
+```
+
+**⚠️ Warning**: Setting `restore_monitors_on_startup = true` will cause ALL enabled monitors to run their tests immediately when Netronome starts, which can cause significant network traffic and potentially inaccurate results due to congestion.
+
 ### GeoIP Configuration
 
 Netronome can display country flags and ASN information in traceroute results using MaxMind's GeoLite2 databases.
@@ -323,7 +364,6 @@ Netronome can display country flags and ASN information in traceroute results us
 #### Setup Instructions
 
 1. **Get a MaxMind License Key**
-
    - Sign up for a free account at [MaxMind](https://www.maxmind.com/en/geolite2/signup)
    - Generate a license key in your account dashboard
 

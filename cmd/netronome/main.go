@@ -170,11 +170,34 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	// create server handler with all services
 	speedtestSvc := speedtest.New(db, cfg.SpeedTest, notifier, cfg)
-	schedulerSvc := scheduler.New(db, speedtestSvc, notifier)
-	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg)
+
+	// Create packet loss service variable
+	var packetLossService *speedtest.PacketLossService
+
+	// create packet loss service if enabled
+	if cfg.PacketLoss.Enabled {
+		// We'll set the actual broadcaster after creating the server
+		packetLossService = speedtest.NewPacketLossService(db, notifier, nil, cfg.PacketLoss.MaxConcurrentMonitors, cfg.PacketLoss.PrivilegedMode)
+	}
+
+	// Now create scheduler with packet loss service
+	schedulerSvc := scheduler.New(db, speedtestSvc, packetLossService, notifier)
+
+	// create server handler with packet loss service
+	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService)
 
 	speedtestSvc.SetBroadcastUpdate(serverHandler.BroadcastUpdate)
 	speedtestSvc.SetBroadcastTracerouteUpdate(serverHandler.BroadcastTracerouteUpdate)
+
+	// Set the broadcaster for packet loss service
+	if packetLossService != nil {
+		packetLossService.SetBroadcast(serverHandler.BroadcastPacketLossUpdate)
+
+		// Don't start monitors here - let the scheduler handle them
+	}
+
+	// Initialize server (register routes and static files)
+	serverHandler.Initialize()
 
 	serverHandler.StartScheduler(context.Background())
 

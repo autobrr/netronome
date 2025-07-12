@@ -422,7 +422,7 @@ func isWhitelisted(c *gin.Context, whitelist []string) bool {
 			continue
 		}
 		if ipNet.Contains(ip) {
-			log.Debug().Str("ip", clientIP).Str("network", network).Msg("Client IP is in whitelisted network")
+			//log.Debug().Str("ip", clientIP).Str("network", network).Msg("Client IP is in whitelisted network")
 			return true
 		}
 	}

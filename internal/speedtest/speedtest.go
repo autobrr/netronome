@@ -26,26 +26,26 @@ type Service interface {
 }
 
 type service struct {
-	db                          database.Service
-	config                      config.SpeedTestConfig
-	fullConfig                  *config.Config
-	notifier                    *notifications.Notifier
-	broadcastUpdate             func(types.SpeedUpdate)
-	broadcastTracerouteUpdate   func(types.TracerouteUpdate)
-	
+	db                        database.Service
+	config                    config.SpeedTestConfig
+	fullConfig                *config.Config
+	notifier                  *notifications.Notifier
+	broadcastUpdate           func(types.SpeedUpdate)
+	broadcastTracerouteUpdate func(types.TracerouteUpdate)
+
 	// New architecture components
-	speedtestNetRunner  *SpeedtestNetRunner
-	iperfRunner         *IperfRunner
-	librespeedRunner    *LibrespeedRunner
-	resultHandler       ResultHandler
+	speedtestNetRunner *SpeedtestNetRunner
+	iperfRunner        *IperfRunner
+	librespeedRunner   *LibrespeedRunner
+	resultHandler      ResultHandler
 }
 
 func New(db database.Service, cfg config.SpeedTestConfig, notifier *notifications.Notifier, fullConfig *config.Config) Service {
 	svc := &service{
-		db:            db,
-		config:        cfg,
-		fullConfig:    fullConfig,
-		notifier:      notifier,
+		db:         db,
+		config:     cfg,
+		fullConfig: fullConfig,
+		notifier:   notifier,
 	}
 
 	// Initialize new architecture components
@@ -53,6 +53,9 @@ func New(db database.Service, cfg config.SpeedTestConfig, notifier *notification
 	svc.speedtestNetRunner = NewSpeedtestNetRunner(cfg)
 	svc.iperfRunner = NewIperfRunner(cfg.IPerf)
 	svc.librespeedRunner = NewLibrespeedRunner(cfg.Librespeed)
+
+	// Initialize GeoIP databases for all speedtest features (traceroute, MTR, etc.)
+	svc.initGeoIP()
 
 	// log.Debug().Msg("Initialized speedtest service")
 	return svc
@@ -76,12 +79,12 @@ func (s *service) RunLibrespeedTest(ctx context.Context, opts *types.TestOptions
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Save result using the result handler
 	if err := s.resultHandler.SaveResult(ctx, result, "librespeed", opts); err != nil {
 		log.Error().Err(err).Msg("Failed to save librespeed result")
 	}
-	
+
 	return result, nil
 }
 
@@ -119,7 +122,7 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 				Float64("packet_loss", pingResult.PacketLoss).
 				Str("server_host", opts.ServerHost).
 				Msg("Ping test completed successfully")
-			
+
 			// Pass ping results to iperf runner
 			s.iperfRunner.SetPingResult(pingResult)
 		}

@@ -630,7 +630,7 @@ className =
 
 ```typescript
 className =
-  "px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 text-gray-700 dark:text-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50";
+  "px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50";
 ```
 
 **Status Badge:**
