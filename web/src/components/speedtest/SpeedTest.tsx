@@ -67,7 +67,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const [selectedServers, setSelectedServers] = useState<Server[]>([]);
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
-    "idle"
+    "idle",
   );
   const [timeRange, setTimeRange] = useState<TimeRange>(() => {
     const saved = localStorage.getItem("speedtest-time-range");
@@ -118,7 +118,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
   const allServers = useMemo(
     () => [...speedtestServers, ...librespeedServers],
-    [speedtestServers, librespeedServers]
+    [speedtestServers, librespeedServers],
   );
 
   const servers = useMemo(() => {
@@ -135,7 +135,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
       return response as PaginatedResponse<SpeedTestResult>;
     },
     getNextPageParam: (
-      lastPage: PaginatedResponse<SpeedTestResult> | undefined
+      lastPage: PaginatedResponse<SpeedTestResult> | undefined,
     ) => {
       if (!lastPage?.data) return undefined;
       if (lastPage.data.length < lastPage.limit) return undefined;
@@ -149,7 +149,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const history = useMemo(() => {
     if (!historyData?.pages) return [];
     return historyData.pages.flatMap(
-      (page) => page?.data ?? []
+      (page) => page?.data ?? [],
     ) as SpeedTestResult[];
   }, [historyData]);
 
@@ -169,7 +169,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const allTimeHistory = useMemo(() => {
     if (!allTimeHistoryData?.pages) return [];
     return allTimeHistoryData.pages.flatMap(
-      (page) => page?.data ?? []
+      (page) => page?.data ?? [],
     ) as SpeedTestResult[];
   }, [allTimeHistoryData]);
 
@@ -182,8 +182,8 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     return history && history.length > 0
       ? history[0]
       : allTimeHistory.length > 0
-      ? allTimeHistory[0]
-      : null;
+        ? allTimeHistory[0]
+        : null;
   }, [history, allTimeHistory]);
 
   const { data: schedules = [] } = useQuery({
@@ -242,6 +242,23 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     setTestStatus("running");
     setIsLoading(true);
 
+    // Initialize progress with correct type for iperf3
+    if (testType === "iperf") {
+      setProgress({
+        currentServer: selectedServers[0].name,
+        currentTest: "download",
+        currentSpeed: 0,
+        isComplete: false,
+        type: "download",
+        speed: 0,
+        latency: 0,
+        isScheduled: false,
+        progress: 0,
+        isIperf: true,
+        isLibrespeed: false,
+      });
+    }
+
     try {
       await speedTestMutation.mutateAsync({
         ...options,
@@ -256,7 +273,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     } catch (error) {
       console.error("Error running test:", error);
       setError(
-        error instanceof Error ? error.message : "An unknown error occurred"
+        error instanceof Error ? error.message : "An unknown error occurred",
       );
       setTestStatus("idle");
     } finally {
@@ -271,6 +288,22 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
           const update = await getSpeedTestStatus();
 
           if (update) {
+            // Debug log for test updates
+            if (
+              update.testType === "iperf3" ||
+              update.testType === "speedtest"
+            ) {
+              console.log(`${update.testType} update:`, {
+                type: update.type,
+                speed: update.speed,
+                progress: update.progress,
+                isComplete: update.isComplete,
+                testType: update.testType,
+                serverName: update.serverName,
+                timestamp: new Date().toISOString(),
+              });
+            }
+
             setProgress((prev) => {
               const baseProgress = {
                 currentServer: update.serverName || "",
@@ -285,18 +318,21 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                     : update.latency || 0,
                 isScheduled: update.isScheduled,
                 progress: update.progress || 0,
-                isIperf: testType === "iperf",
-                isLibrespeed: testType === "librespeed",
+                // Preserve isIperf/isLibrespeed state if testType is not provided
+                isIperf: update.testType
+                  ? update.testType === "iperf3"
+                  : prev?.isIperf || false,
+                isLibrespeed: update.testType
+                  ? update.testType === "librespeed"
+                  : prev?.isLibrespeed || false,
               };
 
               if (!prev) {
                 return baseProgress;
               }
 
-              const speedDiff = Math.abs(
-                (prev.currentSpeed || 0) - (update.speed || 0)
-              );
-              if (speedDiff < 2.0) return prev;
+              // For iperf3 and speedtest.net, always update to show live progress
+              // The backend already throttles updates to once per second
 
               return {
                 ...prev,
@@ -317,7 +353,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
         } catch (error) {
           console.error("Test status check error:", error);
         }
-      }, 1000);
+      }, 1000); // Poll every 1 second to match both speedtest.net and iperf3
 
       return () => clearInterval(pollInterval);
     }

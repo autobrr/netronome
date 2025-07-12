@@ -134,6 +134,7 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 			Progress:    100,
 			IsComplete:  true,
 			IsScheduled: opts.IsScheduled,
+			TestType:    "librespeed",
 		})
 	}
 

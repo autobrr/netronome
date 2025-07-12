@@ -96,7 +96,7 @@ func (s *Server) BroadcastUpdate(update types.SpeedUpdate) {
 	s.lastUpdate = &update
 	s.mu.Unlock()
 
-	log.Debug().
+	log.Trace().
 		Bool("isScheduled", update.IsScheduled).
 		Str("type", update.Type).
 		Str("server", update.ServerName).

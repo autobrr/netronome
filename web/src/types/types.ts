@@ -86,6 +86,7 @@ export interface SpeedUpdate {
   serverName: string;
   latency?: string;
   isScheduled: boolean;
+  testType?: string; // "speedtest", "iperf3", "librespeed"
 }
 
 export interface PaginatedResponse<T> {

@@ -13,11 +13,46 @@ interface TestProgressProps {
 }
 
 export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
-  if (progress.isIperf || progress.isLibrespeed) {
+  // Only show static message for librespeed (which doesn't have real-time progress)
+  if (progress.isLibrespeed) {
     return (
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center space-x-3">
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
         <span className="text-white font-bold text-sm">
-          Running {progress.isIperf ? "iperf3" : "Librespeed"} test...
+          Running LibreSpeed test...
+        </span>
+      </div>
+    );
+  }
+
+  // Show preparing message for iperf3 during the initial ping phase
+  // The backend sends speed:0, progress:0 initially, then nothing during ping (4-6 seconds)
+  // We show preparing until we get the first real speed update with progress > 0
+  if (
+    progress.isIperf &&
+    (progress.progress === 0 || !progress.progress) &&
+    (progress.speed === 0 || !progress.speed)
+  ) {
+    return (
+      <div className="flex items-center justify-center space-x-3">
+        <div className="animate-pulse">
+          <div className="flex space-x-1">
+            <div
+              className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce"
+              style={{ animationDelay: "0ms" }}
+            ></div>
+            <div
+              className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce"
+              style={{ animationDelay: "150ms" }}
+            ></div>
+            <div
+              className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce"
+              style={{ animationDelay: "300ms" }}
+            ></div>
+          </div>
+        </div>
+        <span className="text-white font-bold text-sm">
+          Preparing iperf3 test...
         </span>
       </div>
     );
@@ -78,9 +113,9 @@ export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
           <div className="flex items-center justify-center">
             {progress.type === "download" ? (
               <FaArrowDown className="text-blue-500" />
-            ) : (
+            ) : progress.type === "upload" ? (
               <FaArrowUp className="text-emerald-500" />
-            )}
+            ) : null}
             <span className="text-white font-bold text-sm mr-4">
               {getTestPhase()}
             </span>

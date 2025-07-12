@@ -28,6 +28,7 @@ type SpeedUpdate struct {
 	IsComplete  bool    `json:"isComplete"`
 	Latency     string  `json:"latency,omitempty"`
 	IsScheduled bool    `json:"isScheduled"`
+	TestType    string  `json:"testType,omitempty"` // "speedtest", "iperf3", "librespeed"
 }
 
 type Schedule struct {
