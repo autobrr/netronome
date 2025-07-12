@@ -67,7 +67,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const [selectedServers, setSelectedServers] = useState<Server[]>([]);
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
-    "idle"
+    "idle",
   );
   const [timeRange, setTimeRange] = useState<TimeRange>(() => {
     const saved = localStorage.getItem("speedtest-time-range");
@@ -78,6 +78,11 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     const saved = localStorage.getItem("netronome-active-tab");
+    // Migrate old 'packetloss' tab to 'dashboard' since it no longer exists
+    if (saved === "packetloss") {
+      localStorage.setItem("netronome-active-tab", "dashboard");
+      return "dashboard";
+    }
     return saved || "dashboard";
   });
 
@@ -118,7 +123,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
   const allServers = useMemo(
     () => [...speedtestServers, ...librespeedServers],
-    [speedtestServers, librespeedServers]
+    [speedtestServers, librespeedServers],
   );
 
   const servers = useMemo(() => {
@@ -135,7 +140,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
       return response as PaginatedResponse<SpeedTestResult>;
     },
     getNextPageParam: (
-      lastPage: PaginatedResponse<SpeedTestResult> | undefined
+      lastPage: PaginatedResponse<SpeedTestResult> | undefined,
     ) => {
       if (!lastPage?.data) return undefined;
       if (lastPage.data.length < lastPage.limit) return undefined;
@@ -149,7 +154,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const history = useMemo(() => {
     if (!historyData?.pages) return [];
     return historyData.pages.flatMap(
-      (page) => page?.data ?? []
+      (page) => page?.data ?? [],
     ) as SpeedTestResult[];
   }, [historyData]);
 
@@ -169,7 +174,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const allTimeHistory = useMemo(() => {
     if (!allTimeHistoryData?.pages) return [];
     return allTimeHistoryData.pages.flatMap(
-      (page) => page?.data ?? []
+      (page) => page?.data ?? [],
     ) as SpeedTestResult[];
   }, [allTimeHistoryData]);
 
@@ -182,8 +187,8 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     return history && history.length > 0
       ? history[0]
       : allTimeHistory.length > 0
-      ? allTimeHistory[0]
-      : null;
+        ? allTimeHistory[0]
+        : null;
   }, [history, allTimeHistory]);
 
   const { data: schedules = [] } = useQuery({
@@ -287,7 +292,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     } catch (error) {
       console.error("Error running test:", error);
       setError(
-        error instanceof Error ? error.message : "An unknown error occurred"
+        error instanceof Error ? error.message : "An unknown error occurred",
       );
       setTestStatus("idle");
     } finally {
