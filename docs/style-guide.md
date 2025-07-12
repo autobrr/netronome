@@ -293,6 +293,28 @@ className = "px-2 sm:px-6 py-2 sm:py-3";
 
 ## Color System
 
+### Primary Color Palette
+
+**Core -400 Variants (Charts, Data Visualization):**
+
+```typescript
+// Blue-400: #60a5fa - Primary actions, download metrics
+className = "text-blue-400";
+className = "stroke-blue-400";
+
+// Emerald-400: #34d399 - Success states, upload metrics
+className = "text-emerald-400";
+className = "stroke-emerald-400";
+
+// Amber-400: #fbbf24 - Warning states, latency metrics
+className = "text-amber-400";
+className = "stroke-amber-400";
+
+// Purple-400: #c084fc - Special actions, jitter metrics
+className = "text-purple-400";
+className = "stroke-purple-400";
+```
+
 ### Semantic Color Usage
 
 **Primary Actions (Blue):**
@@ -665,6 +687,17 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
 ```
 
 ### Color Quick Reference
+
+#### Primary -400 Color Palette
+
+| Color       | Hex Code  | Tailwind Class | Use Cases                 |
+| ----------- | --------- | -------------- | ------------------------- |
+| Blue-400    | `#60a5fa` | `blue-400`     | Download metrics, primary |
+| Emerald-400 | `#34d399` | `emerald-400`  | Upload metrics, success   |
+| Amber-400   | `#fbbf24` | `amber-400`    | Latency metrics, warnings |
+| Purple-400  | `#c084fc` | `purple-400`   | Jitter metrics, special   |
+
+#### Semantic Color Usage
 
 | Purpose        | Light              | Dark               |
 | -------------- | ------------------ | ------------------ |
