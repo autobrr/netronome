@@ -68,7 +68,22 @@ export const TestProgress: React.FC<TestProgressProps> = ({ progress }) => {
         animate={{ opacity: 1 }}
         className="flex items-center justify-center space-x-2 text-xs w-full max-w-[16rem]"
       >
-        <div className="animate-spin rounded-full h-3 w-3 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 dark:border-t-blue-400" />
+        <div className="flex space-x-1">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              className="w-1 h-1 bg-gray-600 dark:bg-gray-400 rounded-full"
+              animate={{
+                opacity: [0.3, 1, 0.3],
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                delay: i * 0.2,
+              }}
+            />
+          ))}
+        </div>
         <span className="text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">
           Running LibreSpeed test...
         </span>
