@@ -416,6 +416,29 @@ Netronome can display country flags and ASN information in traceroute results us
 
 **Note:** Both databases are optional. You can configure only one if you only want country flags or ASN information. The databases should be updated monthly for best accuracy.
 
+#### Understanding MTR Packet Loss Calculations
+
+MTR displays two types of packet loss measurements that serve different purposes:
+
+1. **Overall Packet Loss** - Measures end-to-end connectivity to the final destination
+2. **Hop-by-Hop Loss** - Shows packet loss at each intermediate router along the path
+
+**Why Overall Loss Can Be 0% Despite Intermediate Hop Timeouts:**
+
+It's common and normal to see 100% packet loss at intermediate hops (showing as timeouts) while overall packet loss remains 0%. This occurs because:
+
+- **Security Policies**: Many routers block or rate-limit ICMP responses for security reasons
+- **Router Configuration**: Routers prioritize data forwarding over responding to diagnostic packets
+- **Load Balancing**: Actual traffic may take different paths than probe packets
+- **Network Design**: Intermediate infrastructure may be "invisible" to traceroute but still functional
+
+**Practical Interpretation:**
+
+- **0% overall loss** = Your connection to the destination is working perfectly
+- **100% loss at intermediate hops** = Those routers don't respond to probes, but they're still forwarding your traffic
+
+This is why MTR shows both metrics - overall connectivity health (most important for users) and detailed path analysis (useful for network troubleshooting). The overall packet loss percentage is the primary indicator of your actual network performance to the destination.
+
 ### Notifications
 
 Netronome can send notifications to a webhook URL after each speed test. This is useful for integrating with services like Discord, Slack, or any other service that accepts webhooks.
