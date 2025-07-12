@@ -120,7 +120,7 @@ export const TracerouteTab: React.FC = () => {
   const monitorList = monitors || [];
   const monitorStatuses = usePacketLossMonitorStatus(
     monitorList,
-    selectedMonitor?.id
+    selectedMonitor?.id,
   );
 
   const createMutation = useMutation({
@@ -432,8 +432,8 @@ export const TracerouteTab: React.FC = () => {
                   startMutation.isPending
                     ? startMutation.variables
                     : stopMutation.isPending
-                    ? stopMutation.variables
-                    : null
+                      ? stopMutation.variables
+                      : null
                 }
               />
             </div>
@@ -446,8 +446,20 @@ export const TracerouteTab: React.FC = () => {
               monitorStatuses={monitorStatuses}
             />
           )}
-          {!selectedMonitor && monitorList.length > 0 && (
-            <EmptyStatePlaceholder mode="monitors" />
+          {!selectedMonitor && (
+            <EmptyStatePlaceholder
+              mode="monitors"
+              onHostSelect={(hostname) => {
+                setFormData({
+                  ...defaultFormData,
+                  host: hostname,
+                  name: "",
+                  enabled: true,
+                });
+                setShowForm(true);
+              }}
+              onSwitchToMonitors={() => setMode("monitors")}
+            />
           )}
         </div>
       )}
