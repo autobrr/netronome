@@ -47,10 +47,13 @@ func (n *Notifier) SendNotification(result *types.SpeedTestResult) {
 
 	alerts := n.checkThresholds(result)
 
-	payload := n.buildPayload(result, alerts)
+	// Only send notification if there are threshold breaches
+	if len(alerts) > 0 {
+		payload := n.buildPayload(result, alerts)
 
-	if err := n.sendWebhook(payload); err != nil {
-		log.Error().Err(err).Msg("Failed to send notification")
+		if err := n.sendWebhook(payload); err != nil {
+			log.Error().Err(err).Msg("Failed to send notification")
+		}
 	}
 }
 
