@@ -30,24 +30,33 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
   - Latency and jitter measurements
 
 - **Network Diagnostics**
-  - Traceroute with real-time hop discovery
-  - GeoIP integration for country flags and ASN information
-  - Packet loss monitoring with scheduled tests
-  - MTR (My TraceRoute) integration for hop-by-hop analysis (requires root/NET_RAW capability)
-  - Automatic fallback to ICMP ping when MTR is unavailable or lacks privileges
+  - **Unified Interface**: Seamless switching between single traceroute tests and continuous monitoring
+  - **Traceroute**: Real-time hop discovery with cross-platform support (Linux/macOS/Windows)
+  - **Packet Loss Monitoring**: Continuous ICMP ping monitoring with flexible scheduling options
+  - **MTR Integration**: Advanced hop-by-hop analysis with packet loss statistics per hop
+  - **Smart Fallback**: Automatic fallback from MTR to standard ping when privileges unavailable
+  - **GeoIP Integration**: Country flags and ASN information for network path visualization
+  - **Cross-tab Navigation**: Easy flow between traceroute results and monitor creation
 
-- **Monitoring**
-  - Interactive historical data charts
-  - Customizable time ranges (1d, 3d, 1w, 1m, all)
+- **Monitoring & Visualization**
+  - **Speed Test History**: Interactive charts with customizable time ranges (1d, 3d, 1w, 1m, all)
+  - **Packet Loss Trends**: Historical packet loss and RTT monitoring with performance charts
+  - **Real-time Status**: Live monitoring status with progress tracking and health indicators
+  - **Monitor Management**: Start/stop/edit monitors with schedule badge visualization
 
 - **Scheduling & Automation**
-  - Automated speed tests with flexible scheduling
+  - **Speed Tests**: Automated testing with flexible cron-like scheduling
+  - **Packet Loss Monitors**: Interval-based (10 seconds to 24 hours) or exact-time scheduling
+  - **Auto-start Option**: "Start monitoring immediately" for new monitors
+  - **Multiple Schedule Types**: Choose between regular intervals or daily exact times
 
 - **Modern Interface**
-  - Clean, responsive design
-  - Dark mode optimized
-  - Real-time updates
-  - Interactive charts and visualizations
+  - **Responsive Design**: Optimized for both desktop and mobile devices
+  - **Real-time Progress**: Live updates for iperf3 tests with animated progress indicators
+  - **Dark Mode**: Fully optimized dark theme with consistent styling
+  - **Interactive Visualizations**: Dynamic charts with smooth animations and transitions
+  - **Unified Navigation**: Seamless mode switching between different test types
+  - **Form Validation**: Real-time input validation with helpful error messages
 
 - **Flexible Authentication**
   - Built-in user authentication
@@ -329,12 +338,25 @@ Netronome supports two authentication methods:
 
 ### Packet Loss Monitoring
 
-Netronome includes continuous packet loss monitoring capabilities with the following features:
+Netronome features a comprehensive packet loss monitoring system integrated into the unified traceroute interface:
 
-- **Scheduled monitoring** using ICMP ping or MTR (if available)
-- **Multiple concurrent monitors** for different hosts
-- **Automatic MTR fallback** to ICMP ping when MTR is unavailable or lacks root privileges
-- **Historical data tracking** with charts and visualizations
+#### Key Features
+
+- **Unified Interface**: Switch between single traceroute tests and continuous monitoring in one tab
+- **Flexible Scheduling**: Choose between interval-based (10s to 24h) or exact daily times
+- **Auto-start Monitors**: Option to start monitoring immediately upon creation
+- **Real-time Progress**: Live test progress with animated indicators during active testing
+- **Multiple Test Types**: ICMP ping with automatic MTR fallback for detailed hop analysis
+- **Historical Tracking**: Performance trend charts showing packet loss and RTT over time
+- **Monitor Lifecycle**: Full start/stop/edit/delete capabilities with visual status indicators
+- **Schedule Visualization**: Color-coded badges showing monitoring schedules and states
+- **Cross-platform Support**: Works on Linux, macOS, and Windows with appropriate privileges
+
+#### Monitor States
+
+- **Active Monitoring**: Running on schedule with real-time status updates
+- **Stopped**: Manually stopped, schedule visible but monitoring disabled
+- **Testing**: Currently running a test with live progress indication
 
 #### Important Notes on Monitor Startup Behavior
 
