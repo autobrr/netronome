@@ -60,7 +60,7 @@ func (n *Notifier) SendNotification(result *types.SpeedTestResult) {
 func (n *Notifier) checkThresholds(result *types.SpeedTestResult) []string {
 	var alerts []string
 
-	latency, err := strconv.ParseFloat(strings.TrimSuffix(result.Latency, "ms"), 64)
+	latency, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimSuffix(result.Latency, "ms")), 64)
 	if err != nil {
 		log.Warn().Err(err).Msg("could not parse latency")
 	} else {
