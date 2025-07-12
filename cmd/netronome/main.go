@@ -170,27 +170,30 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	// create server handler with all services
 	speedtestSvc := speedtest.New(db, cfg.SpeedTest, notifier, cfg)
-	schedulerSvc := scheduler.New(db, speedtestSvc, notifier)
 
-	// create server handler first with nil packet loss service
-	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, nil)
+	// Create packet loss service variable
+	var packetLossService *speedtest.PacketLossService
+
+	// create packet loss service if enabled
+	if cfg.PacketLoss.Enabled {
+		// We'll set the actual broadcaster after creating the server
+		packetLossService = speedtest.NewPacketLossService(db, notifier, nil, cfg.PacketLoss.MaxConcurrentMonitors, cfg.PacketLoss.PrivilegedMode)
+	}
+
+	// Now create scheduler with packet loss service
+	schedulerSvc := scheduler.New(db, speedtestSvc, packetLossService, notifier)
+
+	// create server handler with packet loss service
+	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService)
 
 	speedtestSvc.SetBroadcastUpdate(serverHandler.BroadcastUpdate)
 	speedtestSvc.SetBroadcastTracerouteUpdate(serverHandler.BroadcastTracerouteUpdate)
 
-	// create packet loss service if enabled
-	if cfg.PacketLoss.Enabled {
-		packetLossService := speedtest.NewPacketLossService(db, notifier, serverHandler.BroadcastPacketLossUpdate, cfg.PacketLoss.MaxConcurrentMonitors, cfg.PacketLoss.PrivilegedMode)
+	// Set the broadcaster for packet loss service
+	if packetLossService != nil {
+		packetLossService.SetBroadcast(serverHandler.BroadcastPacketLossUpdate)
 
-		// Update server's packet loss service field
-		serverHandler.SetPacketLossService(packetLossService)
-
-		// Start all enabled monitors only if configured to do so
-		if cfg.PacketLoss.RestoreMonitorsOnStartup {
-			if err := packetLossService.StartAllEnabledMonitors(); err != nil {
-				log.Warn().Err(err).Msg("Failed to start enabled packet loss monitors")
-			}
-		}
+		// Don't start monitors here - let the scheduler handle them
 	}
 
 	// Initialize server (register routes and static files)

@@ -58,16 +58,14 @@ export const MonitorPerformanceChart: React.FC<
 
   return (
     <div className="mb-6">
-      <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Performance Trends
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
-              Last 30 tests • {chartData.length} data points
-            </p>
-          </div>
+      <div className="mb-4">
+        <h3 className="text-gray-700 dark:text-gray-300 font-medium mb-2">
+          Performance Trends
+        </h3>
+        <div className="flex items-center justify-between">
+          <p className="text-gray-600 dark:text-gray-400 text-xs">
+            Last 30 tests • {chartData.length} data points
+          </p>
           <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
             <div className="flex items-center gap-1">
               <div className="w-3 h-0.5 bg-red-500"></div>
@@ -87,148 +85,148 @@ export const MonitorPerformanceChart: React.FC<
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="h-80 bg-white/50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200/50 dark:border-gray-700/50">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={chartData}
-              key={`chart-${selectedMonitorId}-${historyList[0]?.id || 0}`}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="rgba(128, 128, 128, 0.15)"
-                strokeWidth={0.5}
-              />
-              <XAxis
-                dataKey="time"
-                stroke="rgb(156, 163, 175)"
-                fontSize={11}
-                axisLine={false}
-                tickLine={false}
-                dy={10}
-              />
-              <YAxis
-                yAxisId="left"
-                orientation="left"
-                stroke="rgb(156, 163, 175)"
-                fontSize={11}
-                axisLine={false}
-                tickLine={false}
-                label={{
-                  value: "RTT (ms)",
-                  angle: -90,
-                  position: "insideLeft",
-                  style: {
-                    fill: "rgb(156, 163, 175)",
-                    textAnchor: "middle",
-                  },
-                }}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                stroke="rgb(239, 68, 68)"
-                fontSize={11}
-                axisLine={false}
-                tickLine={false}
-                label={{
-                  value: "Packet Loss (%)",
-                  angle: 90,
-                  position: "insideRight",
-                  style: {
-                    fill: "rgb(239, 68, 68)",
-                    textAnchor: "middle",
-                  },
-                }}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "rgba(17, 24, 39, 0.95)",
-                  border: "1px solid rgba(75, 85, 99, 0.3)",
-                  borderRadius: "0.5rem",
-                  boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
-                }}
-                labelStyle={{
-                  color: "rgb(229, 231, 235)",
-                  fontSize: "12px",
-                  fontWeight: "medium",
-                }}
-                formatter={(value: number | string) => {
-                  if (typeof value === "number") {
-                    return value.toFixed(1);
-                  }
-                  return value;
-                }}
-              />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="packetLoss"
-                stroke="rgb(239, 68, 68)"
-                strokeWidth={2.5}
-                name="Packet Loss %"
-                dot={{
+      <div className="h-80 bg-white/50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200/50 dark:border-gray-700/50">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={chartData}
+            key={`chart-${selectedMonitorId}-${historyList[0]?.id || 0}`}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="rgba(128, 128, 128, 0.15)"
+              strokeWidth={0.5}
+            />
+            <XAxis
+              dataKey="time"
+              stroke="rgb(156, 163, 175)"
+              fontSize={11}
+              axisLine={false}
+              tickLine={false}
+              dy={10}
+            />
+            <YAxis
+              yAxisId="left"
+              orientation="left"
+              stroke="rgb(156, 163, 175)"
+              fontSize={11}
+              axisLine={false}
+              tickLine={false}
+              label={{
+                value: "RTT (ms)",
+                angle: -90,
+                position: "insideLeft",
+                style: {
+                  fill: "rgb(156, 163, 175)",
+                  textAnchor: "middle",
+                },
+              }}
+            />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              stroke="rgb(239, 68, 68)"
+              fontSize={11}
+              axisLine={false}
+              tickLine={false}
+              label={{
+                value: "Packet Loss (%)",
+                angle: 90,
+                position: "insideRight",
+                style: {
                   fill: "rgb(239, 68, 68)",
-                  strokeWidth: 0,
-                  r: 3,
-                }}
-                activeDot={{
-                  r: 5,
-                  stroke: "rgb(239, 68, 68)",
-                  strokeWidth: 2,
-                }}
-              />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="avgRtt"
-                stroke="rgb(59, 130, 246)"
-                strokeWidth={2.5}
-                name="Avg RTT"
-                dot={{
-                  fill: "rgb(59, 130, 246)",
-                  strokeWidth: 0,
-                  r: 3,
-                }}
-                activeDot={{
-                  r: 5,
-                  stroke: "rgb(59, 130, 246)",
-                  strokeWidth: 2,
-                }}
-              />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="minRtt"
-                stroke="rgb(16, 185, 129)"
-                strokeWidth={1.5}
-                strokeDasharray="4 4"
-                name="Min RTT"
-                dot={false}
-                activeDot={{
-                  r: 4,
-                  stroke: "rgb(16, 185, 129)",
-                  strokeWidth: 2,
-                }}
-              />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="maxRtt"
-                stroke="rgb(251, 191, 36)"
-                strokeWidth={1.5}
-                strokeDasharray="4 4"
-                name="Max RTT"
-                dot={false}
-                activeDot={{
-                  r: 4,
-                  stroke: "rgb(251, 191, 36)",
-                  strokeWidth: 2,
-                }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+                  textAnchor: "middle",
+                },
+              }}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "rgba(17, 24, 39, 0.95)",
+                border: "1px solid rgba(75, 85, 99, 0.3)",
+                borderRadius: "0.5rem",
+                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+              }}
+              labelStyle={{
+                color: "rgb(229, 231, 235)",
+                fontSize: "12px",
+                fontWeight: "medium",
+              }}
+              formatter={(value: number | string) => {
+                if (typeof value === "number") {
+                  return value.toFixed(1);
+                }
+                return value;
+              }}
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="packetLoss"
+              stroke="rgb(239, 68, 68)"
+              strokeWidth={2.5}
+              name="Packet Loss %"
+              dot={{
+                fill: "rgb(239, 68, 68)",
+                strokeWidth: 0,
+                r: 3,
+              }}
+              activeDot={{
+                r: 5,
+                stroke: "rgb(239, 68, 68)",
+                strokeWidth: 2,
+              }}
+            />
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="avgRtt"
+              stroke="rgb(59, 130, 246)"
+              strokeWidth={2.5}
+              name="Avg RTT"
+              dot={{
+                fill: "rgb(59, 130, 246)",
+                strokeWidth: 0,
+                r: 3,
+              }}
+              activeDot={{
+                r: 5,
+                stroke: "rgb(59, 130, 246)",
+                strokeWidth: 2,
+              }}
+            />
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="minRtt"
+              stroke="rgb(16, 185, 129)"
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
+              name="Min RTT"
+              dot={false}
+              activeDot={{
+                r: 4,
+                stroke: "rgb(16, 185, 129)",
+                strokeWidth: 2,
+              }}
+            />
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="maxRtt"
+              stroke="rgb(251, 191, 36)"
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
+              name="Max RTT"
+              dot={false}
+              activeDot={{
+                r: 4,
+                stroke: "rgb(251, 191, 36)",
+                strokeWidth: 2,
+              }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

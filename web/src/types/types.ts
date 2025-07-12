@@ -143,10 +143,12 @@ export interface PacketLossMonitor {
   id: number;
   host: string;
   name?: string;
-  interval: number;
+  interval: string; // Changed from number to string
   packetCount: number;
   enabled: boolean;
   threshold: number;
+  lastRun?: string; // New field
+  nextRun?: string; // New field
   createdAt: string;
   updatedAt: string;
 }

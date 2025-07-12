@@ -56,8 +56,8 @@ func (h *PacketLossHandler) CreateMonitor(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Host is required"})
 		return
 	}
-	if monitor.Interval <= 0 {
-		monitor.Interval = 60 // Default to 60 seconds
+	if monitor.Interval == "" {
+		monitor.Interval = "60s" // Default to 60 seconds
 	}
 	if monitor.PacketCount <= 0 {
 		monitor.PacketCount = 10 // Default to 10 packets
@@ -74,13 +74,7 @@ func (h *PacketLossHandler) CreateMonitor(c *gin.Context) {
 		return
 	}
 
-	// Start monitoring if enabled
-	if createdMonitor.Enabled {
-		if err := h.service.StartMonitor(createdMonitor.ID); err != nil {
-			log.Error().Err(err).Int64("monitorID", createdMonitor.ID).Msg("Failed to start monitor")
-			// Don't fail the creation, just log the error
-		}
-	}
+	// Note: The scheduler will handle starting the monitor based on its next_run time
 
 	c.JSON(http.StatusCreated, createdMonitor)
 }
@@ -104,8 +98,8 @@ func (h *PacketLossHandler) UpdateMonitor(c *gin.Context) {
 	// Validate and clean input
 	monitor.Host = strings.TrimSpace(monitor.Host)
 
-	// Get current monitor state
-	currentMonitor, err := h.db.GetPacketLossMonitor(id)
+	// Verify monitor exists
+	_, err = h.db.GetPacketLossMonitor(id)
 	if err != nil {
 		if err == database.ErrNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Monitor not found"})
@@ -122,26 +116,7 @@ func (h *PacketLossHandler) UpdateMonitor(c *gin.Context) {
 		return
 	}
 
-	// Handle enabled state change
-	if currentMonitor.Enabled && !monitor.Enabled {
-		// Stop monitoring
-		if err := h.service.StopMonitor(id); err != nil {
-			log.Error().Err(err).Int64("monitorID", id).Msg("Failed to stop monitor")
-		}
-	} else if !currentMonitor.Enabled && monitor.Enabled {
-		// Start monitoring
-		if err := h.service.StartMonitor(id); err != nil {
-			log.Error().Err(err).Int64("monitorID", id).Msg("Failed to start monitor")
-		}
-	} else if currentMonitor.Enabled && monitor.Enabled {
-		// Restart monitoring to apply new settings
-		if err := h.service.StopMonitor(id); err != nil {
-			log.Error().Err(err).Int64("monitorID", id).Msg("Failed to stop monitor for restart")
-		}
-		if err := h.service.StartMonitor(id); err != nil {
-			log.Error().Err(err).Int64("monitorID", id).Msg("Failed to restart monitor")
-		}
-	}
+	// Note: The scheduler will handle monitoring based on the enabled state and next_run time
 
 	c.JSON(http.StatusOK, monitor)
 }
@@ -252,16 +227,13 @@ func (h *PacketLossHandler) StartMonitor(c *gin.Context) {
 		}
 	}
 
-	if err := h.service.StartMonitor(id); err != nil {
-		log.Error().Err(err).Int64("monitorID", id).Msg("Failed to start monitor")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
+	// Run a test immediately
+	h.service.RunScheduledTest(monitor)
 
-	c.JSON(http.StatusOK, gin.H{"message": "Monitor started successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Test started successfully"})
 }
 
-// StopMonitor manually stops monitoring for a specific monitor
+// StopMonitor disables monitoring for a specific monitor
 func (h *PacketLossHandler) StopMonitor(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -270,24 +242,24 @@ func (h *PacketLossHandler) StopMonitor(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.StopMonitor(id); err != nil {
-		log.Error().Err(err).Int64("monitorID", id).Msg("Failed to stop monitor")
+	// Get the monitor
+	monitor, err := h.db.GetPacketLossMonitor(id)
+	if err != nil {
+		if err == database.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Monitor not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get monitor"})
+		}
+		return
+	}
+
+	// Disable the monitor
+	monitor.Enabled = false
+	if err := h.db.UpdatePacketLossMonitor(monitor); err != nil {
+		log.Error().Err(err).Int64("monitorID", id).Msg("Failed to disable monitor")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Get the monitor and disable it
-	monitor, err := h.db.GetPacketLossMonitor(id)
-	if err != nil {
-		log.Warn().Err(err).Int64("monitorID", id).Msg("Failed to get monitor for disabling")
-		// Don't fail the request since the monitor was already stopped
-	} else {
-		monitor.Enabled = false
-		if err := h.db.UpdatePacketLossMonitor(monitor); err != nil {
-			log.Warn().Err(err).Int64("monitorID", id).Msg("Failed to disable monitor")
-			// Don't fail the request since the monitor was already stopped
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Monitor stopped successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Monitor disabled successfully"})
 }

@@ -4,27 +4,61 @@
  */
 
 export interface IntervalOption {
-  value: number;
+  value: string; // Changed from number to string
   label: string;
 }
 
 export const intervalOptions: IntervalOption[] = [
-  { value: 10, label: "Every 10 seconds" },
-  { value: 30, label: "Every 30 seconds" },
-  { value: 60, label: "Every 1 minute" },
-  { value: 300, label: "Every 5 minutes" },
-  { value: 900, label: "Every 15 minutes" },
-  { value: 1800, label: "Every 30 minutes" },
-  { value: 3600, label: "Every 1 hour" },
-  { value: 21600, label: "Every 6 hours" },
-  { value: 43200, label: "Every 12 hours" },
-  { value: 86400, label: "Every 24 hours" },
+  { value: "10s", label: "Every 10 seconds" },
+  { value: "30s", label: "Every 30 seconds" },
+  { value: "1m", label: "Every 1 minute" },
+  { value: "5m", label: "Every 5 minutes" },
+  { value: "15m", label: "Every 15 minutes" },
+  { value: "30m", label: "Every 30 minutes" },
+  { value: "1h", label: "Every 1 hour" },
+  { value: "6h", label: "Every 6 hours" },
+  { value: "12h", label: "Every 12 hours" },
+  { value: "24h", label: "Every 24 hours" },
+];
+
+export interface TimeOption {
+  value: string;
+  label: string;
+}
+
+export const timeOptions: TimeOption[] = [
+  { value: "00:00", label: "12:00 AM" },
+  { value: "01:00", label: "1:00 AM" },
+  { value: "02:00", label: "2:00 AM" },
+  { value: "03:00", label: "3:00 AM" },
+  { value: "04:00", label: "4:00 AM" },
+  { value: "05:00", label: "5:00 AM" },
+  { value: "06:00", label: "6:00 AM" },
+  { value: "07:00", label: "7:00 AM" },
+  { value: "08:00", label: "8:00 AM" },
+  { value: "09:00", label: "9:00 AM" },
+  { value: "10:00", label: "10:00 AM" },
+  { value: "11:00", label: "11:00 AM" },
+  { value: "12:00", label: "12:00 PM" },
+  { value: "13:00", label: "1:00 PM" },
+  { value: "14:00", label: "2:00 PM" },
+  { value: "15:00", label: "3:00 PM" },
+  { value: "16:00", label: "4:00 PM" },
+  { value: "17:00", label: "5:00 PM" },
+  { value: "18:00", label: "6:00 PM" },
+  { value: "19:00", label: "7:00 PM" },
+  { value: "20:00", label: "8:00 PM" },
+  { value: "21:00", label: "9:00 PM" },
+  { value: "22:00", label: "10:00 PM" },
+  { value: "23:00", label: "11:00 PM" },
 ];
 
 export interface MonitorFormData {
   host: string;
   name: string;
-  interval: number;
+  interval: string; // Changed from number to string
+  scheduleType?: "interval" | "exact"; // New field
+  exactTimes?: string[]; // New field for exact times
   packetCount: number;
   threshold: number;
   enabled: boolean;
@@ -33,7 +67,9 @@ export interface MonitorFormData {
 export const defaultFormData: MonitorFormData = {
   host: "",
   name: "",
-  interval: 60,
+  interval: "1m", // Changed from 60 to "1m"
+  scheduleType: "interval",
+  exactTimes: [],
   packetCount: 10,
   threshold: 5.0,
   enabled: true,

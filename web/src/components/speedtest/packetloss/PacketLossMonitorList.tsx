@@ -4,14 +4,12 @@
  */
 
 import React, { useState } from "react";
-import { motion } from "motion/react";
 import {
   TrashIcon,
   PlayIcon,
   StopIcon,
   PencilIcon,
   SignalIcon,
-  ClockIcon,
   ChartBarIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
@@ -103,7 +101,7 @@ const MonitorStatusDisplay: React.FC<MonitorStatusDisplayProps> = ({
       <div className="flex items-center gap-2">
         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
         <span className="text-emerald-600 dark:text-emerald-400 text-sm">
-          Monitoring (every {formatInterval(monitor.interval)})
+          Monitoring ({formatInterval(monitor.interval)})
         </span>
       </div>
     </div>
@@ -119,7 +117,7 @@ interface PacketLossMonitorListProps {
   onDelete: (monitorId: number) => void;
   onToggle: (monitorId: number, enabled: boolean) => void;
   isLoading: boolean;
-  isToggling?: boolean;
+  togglingMonitorId?: number | null;
 }
 
 export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
@@ -131,7 +129,7 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
   onDelete,
   onToggle,
   isLoading,
-  isToggling = false,
+  togglingMonitorId = null,
 }) => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [monitorToDelete, setMonitorToDelete] =
@@ -165,11 +163,8 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
     <>
       <div className="space-y-3">
         {monitors.map((monitor) => (
-          <motion.div
+          <div
             key={monitor.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
             className={`p-4 rounded-lg border transition-all cursor-pointer ${
               selectedMonitor?.id === monitor.id
                 ? "bg-blue-500/10 border-blue-400/50 shadow-lg"
@@ -214,10 +209,6 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
 
                 <div className="flex flex-wrap mt-4 gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
                   <span className="flex items-center gap-1">
-                    <ClockIcon className="w-3.5 h-3.5 text-blue-500" />
-                    Every {formatInterval(monitor.interval)}
-                  </span>
-                  <span className="flex items-center gap-1">
                     <ChartBarIcon className="w-3.5 h-3.5 text-emerald-500" />
                     {monitor.packetCount} packets
                   </span>
@@ -235,7 +226,8 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
                     e.stopPropagation();
                     onToggle(monitor.id, !monitor.enabled);
                   }}
-                  disabled={isToggling}
+                  disabled={togglingMonitorId === monitor.id}
+                  isLoading={togglingMonitorId === monitor.id}
                   className={`px-1 py-1.5 min-w-8 ${
                     monitor.enabled
                       ? "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/20"
@@ -276,7 +268,7 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
               monitor={monitor}
               status={monitorStatuses.get(monitor.id)}
             />
-          </motion.div>
+          </div>
         ))}
       </div>
 

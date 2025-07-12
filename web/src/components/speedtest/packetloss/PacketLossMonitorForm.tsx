@@ -21,8 +21,14 @@ import { PacketLossMonitor } from "@/types/types";
 import {
   MonitorFormData,
   intervalOptions,
+  timeOptions,
 } from "./constants/packetLossConstants";
 import { formatInterval } from "./utils/packetLossUtils";
+import {
+  ClockIcon,
+  ArrowPathIcon,
+  XMarkIcon as XMarkIconMini,
+} from "@heroicons/react/20/solid";
 
 interface PacketLossMonitorFormProps {
   showForm: boolean;
@@ -130,7 +136,51 @@ export const PacketLossMonitorForm: React.FC<PacketLossMonitorFormProps> = ({
                         className="w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
                       />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Schedule Type Toggle */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Schedule Type
+                      </label>
+                      <div className="grid grid-cols-2 gap-2 p-1 bg-gray-200/50 dark:bg-gray-800/30 rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onFormDataChange({
+                              ...formData,
+                              scheduleType: "interval",
+                            })
+                          }
+                          className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-md font-medium transition-all duration-200 ${
+                            formData.scheduleType === "interval"
+                              ? "bg-gray-300 dark:bg-gray-700 text-gray-900 dark:text-gray-200 shadow-lg transform scale-105"
+                              : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:bg-gray-300/50 dark:hover:bg-gray-800/50"
+                          }`}
+                        >
+                          <ArrowPathIcon className="w-4 h-4" />
+                          <span>Interval</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onFormDataChange({
+                              ...formData,
+                              scheduleType: "exact",
+                            })
+                          }
+                          className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-md font-medium transition-all duration-200 ${
+                            formData.scheduleType === "exact"
+                              ? "bg-gray-300 dark:bg-gray-700 text-gray-900 dark:text-gray-200 shadow-lg transform scale-105"
+                              : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:bg-gray-300/50 dark:hover:bg-gray-800/50"
+                          }`}
+                        >
+                          <ClockIcon className="w-4 h-4" />
+                          <span>Exact Time</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Interval or Exact Time Selector */}
+                    {formData.scheduleType === "interval" ? (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Check Interval
@@ -185,24 +235,147 @@ export const PacketLossMonitorForm: React.FC<PacketLossMonitorFormProps> = ({
                           </div>
                         </Listbox>
                       </div>
+                    ) : (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Packets per Test
+                          Test Times
                         </label>
-                        <input
-                          type="number"
-                          value={formData.packetCount}
-                          onChange={(e) =>
-                            onFormDataChange({
-                              ...formData,
-                              packetCount: parseInt(e.target.value) || 10,
-                            })
-                          }
-                          min="1"
-                          max="100"
-                          className="w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
-                        />
+                        <div className="space-y-2">
+                          {(formData.exactTimes || []).map((time, index) => (
+                            <div key={index} className="flex gap-2">
+                              <Listbox
+                                value={time}
+                                onChange={(value) => {
+                                  const newTimes = [
+                                    ...(formData.exactTimes || []),
+                                  ];
+                                  newTimes[index] = value;
+                                  onFormDataChange({
+                                    ...formData,
+                                    exactTimes: newTimes,
+                                  });
+                                }}
+                              >
+                                <div className="relative flex-1">
+                                  <ListboxButton className="relative w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-left text-gray-700 dark:text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
+                                    <span className="block truncate">
+                                      {timeOptions.find(
+                                        (opt) => opt.value === time,
+                                      )?.label || time}
+                                    </span>
+                                    <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                                      <ChevronUpDownIcon
+                                        className="h-5 w-5 text-gray-600 dark:text-gray-400"
+                                        aria-hidden="true"
+                                      />
+                                    </span>
+                                  </ListboxButton>
+                                  <Transition
+                                    enter="transition duration-100 ease-out"
+                                    enterFrom="transform scale-95 opacity-0"
+                                    enterTo="transform scale-100 opacity-100"
+                                    leave="transition duration-75 ease-out"
+                                    leaveFrom="transform scale-100 opacity-100"
+                                    leaveTo="transform scale-95 opacity-0"
+                                  >
+                                    <ListboxOptions className="absolute z-10 mt-1 max-h-80 w-full overflow-auto rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-900 py-1 shadow-lg focus:outline-none">
+                                      {timeOptions.map((option) => {
+                                        const isAlreadySelected =
+                                          formData.exactTimes?.includes(
+                                            option.value,
+                                          ) && option.value !== time;
+                                        return (
+                                          <ListboxOption
+                                            key={option.value}
+                                            value={option.value}
+                                            disabled={isAlreadySelected}
+                                            className={({ focus, disabled }) =>
+                                              `relative cursor-pointer select-none py-2 px-4 flex items-center justify-between ${
+                                                disabled
+                                                  ? "opacity-50 cursor-not-allowed text-gray-500 dark:text-gray-500"
+                                                  : focus
+                                                    ? "bg-blue-500/10 text-blue-600 dark:text-blue-200"
+                                                    : "text-gray-700 dark:text-gray-300"
+                                              }`
+                                            }
+                                          >
+                                            <span>{option.label}</span>
+                                            {isAlreadySelected && (
+                                              <span className="text-xs text-gray-500 dark:text-gray-500">
+                                                Already selected
+                                              </span>
+                                            )}
+                                          </ListboxOption>
+                                        );
+                                      })}
+                                    </ListboxOptions>
+                                  </Transition>
+                                </div>
+                              </Listbox>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newTimes = (
+                                    formData.exactTimes || []
+                                  ).filter((_, i) => i !== index);
+                                  onFormDataChange({
+                                    ...formData,
+                                    exactTimes: newTimes,
+                                  });
+                                }}
+                                className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                              >
+                                <XMarkIconMini className="h-5 w-5" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Find the first time that's not already selected
+                              const availableTime =
+                                timeOptions.find(
+                                  (opt) =>
+                                    !formData.exactTimes?.includes(opt.value),
+                                )?.value || "09:00";
+
+                              const newTimes = [
+                                ...(formData.exactTimes || []),
+                                availableTime,
+                              ];
+                              onFormDataChange({
+                                ...formData,
+                                exactTimes: newTimes,
+                              });
+                            }}
+                            className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                            disabled={
+                              formData.exactTimes?.length === timeOptions.length
+                            }
+                          >
+                            + Add another time
+                          </button>
+                        </div>
                       </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Packets per Test
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.packetCount}
+                        onChange={(e) =>
+                          onFormDataChange({
+                            ...formData,
+                            packetCount: parseInt(e.target.value) || 10,
+                          })
+                        }
+                        min="1"
+                        max="100"
+                        className="w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

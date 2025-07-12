@@ -132,15 +132,17 @@ type PacketLossUpdate struct {
 }
 
 type PacketLossMonitor struct {
-	ID          int64     `db:"id" json:"id"`
-	Host        string    `db:"host" json:"host"`
-	Name        string    `db:"name" json:"name"`
-	Interval    int       `db:"interval" json:"interval"`
-	PacketCount int       `db:"packet_count" json:"packetCount"`
-	Enabled     bool      `db:"enabled" json:"enabled"`
-	Threshold   float64   `db:"threshold" json:"threshold"`
-	CreatedAt   time.Time `db:"created_at" json:"createdAt"`
-	UpdatedAt   time.Time `db:"updated_at" json:"updatedAt"`
+	ID          int64      `db:"id" json:"id"`
+	Host        string     `db:"host" json:"host"`
+	Name        string     `db:"name" json:"name"`
+	Interval    string     `db:"interval" json:"interval"` // Changed from int to string
+	PacketCount int        `db:"packet_count" json:"packetCount"`
+	Enabled     bool       `db:"enabled" json:"enabled"`
+	Threshold   float64    `db:"threshold" json:"threshold"`
+	LastRun     *time.Time `db:"last_run" json:"lastRun"` // New field
+	NextRun     *time.Time `db:"next_run" json:"nextRun"` // New field
+	CreatedAt   time.Time  `db:"created_at" json:"createdAt"`
+	UpdatedAt   time.Time  `db:"updated_at" json:"updatedAt"`
 }
 
 type PacketLossResult struct {

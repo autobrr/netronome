@@ -26,7 +26,6 @@ type PacketLossMonitor struct {
 	ID          int64
 	Host        string
 	Name        string
-	Interval    int
 	PacketCount int
 	Threshold   float64
 	Enabled     bool
@@ -68,6 +67,13 @@ func NewPacketLossService(db database.Service, notifier *notifications.Notifier,
 	}
 }
 
+// SetBroadcast sets the broadcast function for the service
+func (s *PacketLossService) SetBroadcast(broadcast func(types.PacketLossUpdate)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.broadcast = broadcast
+}
+
 // StartMonitor starts monitoring for a specific monitor configuration
 func (s *PacketLossService) StartMonitor(monitorID int64) error {
 	s.mu.Lock()
@@ -95,7 +101,6 @@ func (s *PacketLossService) StartMonitor(monitorID int64) error {
 		ID:          monitorConfig.ID,
 		Host:        monitorConfig.Host,
 		Name:        monitorConfig.Name,
-		Interval:    monitorConfig.Interval,
 		PacketCount: monitorConfig.PacketCount,
 		Threshold:   monitorConfig.Threshold,
 		Enabled:     true,
@@ -143,33 +148,27 @@ func (s *PacketLossService) StopMonitor(monitorID int64) error {
 	return nil
 }
 
-// runMonitor runs the continuous monitoring loop
+// runMonitor runs a single test for manual start
 func (s *PacketLossService) runMonitor(monitor *PacketLossMonitor) {
 	log.Info().
 		Int64("monitorID", monitor.ID).
 		Str("host", monitor.Host).
-		Int("interval", monitor.Interval).
 		Int("packetCount", monitor.PacketCount).
-		Msg("Starting continuous packet loss monitoring")
+		Msg("Running manual packet loss test")
 
-	ticker := time.NewTicker(time.Duration(monitor.Interval) * time.Second)
-	defer ticker.Stop()
-
-	// Don't run initial test immediately - wait for the first scheduled interval
+	// Run a single test when manually started
 	s.runSingleTest(monitor)
 
-	for {
-		select {
-		case <-monitor.ctx.Done():
-			log.Info().
-				Int64("monitorID", monitor.ID).
-				Str("host", monitor.Host).
-				Msg("Monitor context cancelled, stopping")
-			return
-		case <-ticker.C:
-			s.runSingleTest(monitor)
-		}
-	}
+	// Remove from active monitors after completion
+	s.mu.Lock()
+	delete(s.monitors, monitor.ID)
+	delete(s.progress, monitor.ID)
+	s.mu.Unlock()
+
+	log.Info().
+		Int64("monitorID", monitor.ID).
+		Str("host", monitor.Host).
+		Msg("Manual packet loss test completed")
 }
 
 // runSingleTest runs a single packet loss test
@@ -670,11 +669,13 @@ func (s *PacketLossService) processResults(monitor *PacketLossMonitor, stats *pr
 		s.mu.Unlock()
 	}
 
-	if err := s.db.SavePacketLossResult(result); err != nil {
-		log.Error().
-			Err(err).
-			Int64("monitorID", monitor.ID).
-			Msg("Failed to save packet loss result")
+	if s.db != nil {
+		if err := s.db.SavePacketLossResult(result); err != nil {
+			log.Error().
+				Err(err).
+				Int64("monitorID", monitor.ID).
+				Msg("Failed to save packet loss result")
+		}
 	}
 
 	// Broadcast complete update
@@ -1102,4 +1103,31 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 		Msg("MTR test completed successfully")
 
 	return stats, nil
+}
+
+// RunScheduledTest runs a single packet loss test for a monitor called by the scheduler
+func (s *PacketLossService) RunScheduledTest(monitor *types.PacketLossMonitor) {
+	log.Info().
+		Int64("monitorID", monitor.ID).
+		Str("host", monitor.Host).
+		Msg("Running scheduled packet loss test")
+
+	// Create a context for this test
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	// Convert types.PacketLossMonitor to local PacketLossMonitor
+	localMonitor := &PacketLossMonitor{
+		ID:          monitor.ID,
+		Host:        strings.TrimSpace(monitor.Host),
+		Name:        monitor.Name,
+		PacketCount: monitor.PacketCount,
+		Threshold:   monitor.Threshold,
+		Enabled:     monitor.Enabled,
+		ctx:         ctx,
+		Cancel:      cancel,
+	}
+
+	// Run the single test
+	s.runSingleTest(localMonitor)
 }
