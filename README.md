@@ -59,7 +59,7 @@ Netronome requires the following external tools for full functionality:
 
 ### Required for Speed Tests
 
-- **iperf3** - Required for iperf3 speed testing (automatically included in Docker)
+- **iperf3** - Required for iperf3 speed testing (automatically included in Docker). Note: Jitter measurement is not supported for iperf3 tests
 - **librespeed-cli** - Required for LibreSpeed testing (automatically included in Docker)
 - **traceroute** - Required for network diagnostics (automatically included in Docker, usually pre-installed on most systems)
 
@@ -185,8 +185,6 @@ timeout = 30
 test_duration = 10
 parallel_conns = 4
 timeout = 30
-enable_udp = false
-udp_bandwidth = "100M"
 
 [speedtest.iperf.ping]
 count = 5
@@ -254,8 +252,6 @@ Example `librespeed-servers.json`:
 | `NETRONOME__IPERF_TEST_DURATION`                    | Duration of iPerf tests in seconds                                | `10`                                         | No                     |
 | `NETRONOME__IPERF_PARALLEL_CONNS`                   | Number of parallel iPerf connections                              | `4`                                          | No                     |
 | `NETRONOME__IPERF_TIMEOUT`                          | Timeout for iperf3 tests in seconds                               | `60`                                         | No                     |
-| `NETRONOME__IPERF_ENABLE_UDP`                       | Enable UDP mode for jitter testing                                | `false`                                      | No                     |
-| `NETRONOME__IPERF_UDP_BANDWIDTH`                    | Bandwidth limit for UDP tests (e.g., "100M")                      | `100M`                                       | No                     |
 | `NETRONOME__IPERF_PING_COUNT`                       | Number of ping packets to send for iperf3 tests                   | `5`                                          | No                     |
 | `NETRONOME__IPERF_PING_INTERVAL`                    | Interval between ping packets in milliseconds for iperf3 tests    | `1000`                                       | No                     |
 | `NETRONOME__IPERF_PING_TIMEOUT`                     | Timeout for ping tests in seconds for iperf3 tests                | `10`                                         | No                     |

@@ -100,8 +100,8 @@ internal/
 
 - Requires `iperf3` binary installation
 - JSON output parsing for real-time progress
-- Combined with ping tests (`internal/speedtest/ping.go`) for comprehensive metrics
-- Supports UDP mode for jitter testing
+- Combined with ping tests (`internal/speedtest/ping.go`) for latency and packet loss metrics
+- Jitter measurement is not supported for iperf3 (use Speedtest.net for jitter measurements)
 - Cross-platform ping implementation (Linux/macOS/Windows)
 
 **3. LibreSpeed** (`internal/speedtest/librespeed.go`)

@@ -119,10 +119,10 @@ func (r *IperfRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Re
 			return nil, fmt.Errorf("upload test failed: %w", err)
 		}
 		uploadSpeed = uploadResult.UploadSpeed
-		if uploadResult.Jitter != nil {
-			jitterMs = uploadResult.Jitter
-		}
 	}
+
+	// Skip jitter test for iperf3 - it's unreliable and causes timeouts
+	// Users still get latency from ping which is more useful
 
 	var jitterFloat float64
 	if jitterMs != nil {
@@ -177,13 +177,8 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 		"--format", "m", // Force Mbps output
 	}
 
-	// Add UDP-specific arguments if jitter testing is enabled
-	if opts.EnableJitter && r.config.EnableUDP {
-		args = append(args, "-u") // UDP mode
-		if r.config.UDPBandwidth != "" {
-			args = append(args, "-b", r.config.UDPBandwidth) // Bandwidth limit
-		}
-	}
+	// Always use TCP mode for iperf3 speed tests
+	// UDP mode with bandwidth limits gives misleading results
 
 	if opts.EnableDownload {
 		args = append(args, "-R")
@@ -344,16 +339,11 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 
 	var speedMbps float64
 	var jitterMs *float64
+
 	if opts.EnableDownload {
 		speedMbps = finalResult.Data.SumReceived.BitsPerSecond / 1_000_000
-		if opts.EnableJitter && finalResult.Data.SumReceived.JitterMs > 0 {
-			jitterMs = &finalResult.Data.SumReceived.JitterMs
-		}
 	} else {
 		speedMbps = finalResult.Data.SumSent.BitsPerSecond / 1_000_000
-		if opts.EnableJitter && finalResult.Data.SumSent.JitterMs > 0 {
-			jitterMs = &finalResult.Data.SumSent.JitterMs
-		}
 	}
 
 	// Send final update
