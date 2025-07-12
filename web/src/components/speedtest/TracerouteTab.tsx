@@ -125,11 +125,17 @@ export const TracerouteTab: React.FC = () => {
 
   const createMutation = useMutation({
     mutationFn: createPacketLossMonitor,
-    onSuccess: async () => {
+    onSuccess: async (newMonitor, variables) => {
       queryClient.invalidateQueries({ queryKey: ["packetloss", "monitors"] });
       await queryClient.refetchQueries({
         queryKey: ["packetloss", "monitors"],
       });
+
+      // Auto-start monitor if requested and we have a valid monitor ID
+      if ((variables as any).shouldStartImmediately && newMonitor?.id) {
+        startMutation.mutate(newMonitor.id);
+      }
+
       handleCancelForm();
     },
   });
@@ -232,7 +238,10 @@ export const TracerouteTab: React.FC = () => {
     if (editingMonitor) {
       updateMutation.mutate({ ...editingMonitor, ...monitorData });
     } else {
-      createMutation.mutate(monitorData);
+      // Store the enabled state for auto-start functionality
+      const shouldStartImmediately = data.enabled;
+      // Add shouldStartImmediately as a property on monitorData for the mutation
+      createMutation.mutate({ ...monitorData, shouldStartImmediately } as any);
     }
   };
 
