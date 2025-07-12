@@ -120,7 +120,7 @@ export const TracerouteTab: React.FC = () => {
   const monitorList = monitors || [];
   const monitorStatuses = usePacketLossMonitorStatus(
     monitorList,
-    selectedMonitor?.id,
+    selectedMonitor?.id
   );
 
   const createMutation = useMutation({
@@ -204,7 +204,7 @@ export const TracerouteTab: React.FC = () => {
     setFormData({
       ...defaultFormData,
       host: hostname,
-      name: `Monitor for ${hostname}`,
+      name: "",
       enabled: true,
     });
     setMode("monitors");
@@ -281,7 +281,7 @@ export const TracerouteTab: React.FC = () => {
   return (
     <div className="flex flex-col gap-6">
       {/* Mode Selector Tabs */}
-      <div className="flex gap-2 p-1 bg-gray-50/95 dark:bg-gray-850 rounded-lg border border-gray-200 dark:border-gray-800 max-w-md mx-auto md:mx-0 md:max-w-none">
+      <div className="flex gap-2 p-1 bg-gray-50/95 dark:bg-gray-850 rounded-lg border border-gray-200 dark:border-gray-800">
         <button
           onClick={() => setMode("traceroute")}
           className={`relative flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${
@@ -395,9 +395,9 @@ export const TracerouteTab: React.FC = () => {
         <div className="flex flex-col md:flex-row gap-6 md:items-start">
           {/* Left Column - Monitor List */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.2 }}
             className="flex-1"
           >
             <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
@@ -432,8 +432,8 @@ export const TracerouteTab: React.FC = () => {
                   startMutation.isPending
                     ? startMutation.variables
                     : stopMutation.isPending
-                      ? stopMutation.variables
-                      : null
+                    ? stopMutation.variables
+                    : null
                 }
               />
             </div>

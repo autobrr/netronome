@@ -131,7 +131,12 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
                               ({result.privilegedMode ? "ICMP" : "UDP"})
                             </span>
                           )}
-                          {result.hopCount && ` - ${result.hopCount} hops`}
+                          {result.hopCount && (
+                            <span className="hidden 2xl:inline">
+                              {" "}
+                              - {result.hopCount} hops
+                            </span>
+                          )}
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">

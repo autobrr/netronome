@@ -28,7 +28,53 @@ const MonitorStatusDisplay: React.FC<MonitorStatusDisplayProps> = ({
   monitor,
   status,
 }) => {
-  if (!monitor.enabled) return null;
+  // If disabled, show the schedule with gray styling
+  if (!monitor.enabled) {
+    return (
+      <div className="mt-3 pt-3 border-t border-gray-300 dark:border-gray-700">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            {monitor.interval.startsWith("exact:") ? (
+              <div className="flex flex-col gap-1">
+                <div className="flex flex-wrap gap-1">
+                  {monitor.interval
+                    .substring(6)
+                    .split(",")
+                    .slice(0, 3) // Show max 3 times on first line
+                    .map((time, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-1.5 py-0.5 bg-gray-500/10 text-gray-600 dark:text-gray-400 rounded text-xs border border-gray-500/20"
+                      >
+                        {new Date(
+                          `2000-01-01T${time.trim()}:00`,
+                        ).toLocaleTimeString([], {
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </span>
+                    ))}
+                  {monitor.interval.substring(6).split(",").length > 3 && (
+                    <span className="text-xs text-gray-600 dark:text-gray-400 px-1">
+                      +{monitor.interval.substring(6).split(",").length - 3}{" "}
+                      more
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                <span className="inline-flex items-center px-1.5 py-0.5 bg-gray-500/10 text-gray-600 dark:text-gray-400 rounded text-xs border border-gray-500/20">
+                  Every {formatInterval(monitor.interval)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // State 1: Actively testing (IsRunning=true + Progress>0)
   if (
@@ -99,10 +145,59 @@ const MonitorStatusDisplay: React.FC<MonitorStatusDisplayProps> = ({
   return (
     <div className="mt-3 pt-3 border-t border-gray-300 dark:border-gray-700">
       <div className="flex items-center gap-2">
-        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-        <span className="text-emerald-600 dark:text-emerald-400 text-sm">
-          Monitoring ({formatInterval(monitor.interval)})
-        </span>
+        <div className="flex-1 min-w-0">
+          {monitor.interval.startsWith("exact:") ? (
+            <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap gap-1">
+                {monitor.interval
+                  .substring(6)
+                  .split(",")
+                  .slice(0, 3) // Show max 3 times on first line
+                  .map((time, index) => (
+                    <span
+                      key={index}
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs border ${
+                        monitor.enabled
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          : "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20"
+                      }`}
+                    >
+                      {new Date(
+                        `2000-01-01T${time.trim()}:00`,
+                      ).toLocaleTimeString([], {
+                        hour: "numeric",
+                        minute: "2-digit",
+                        hour12: true,
+                      })}
+                    </span>
+                  ))}
+                {monitor.interval.substring(6).split(",").length > 3 && (
+                  <span
+                    className={`text-xs px-1 ${
+                      monitor.enabled
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-gray-600 dark:text-gray-400"
+                    }`}
+                  >
+                    +{monitor.interval.substring(6).split(",").length - 3} more
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1">
+              <span
+                className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs border ${
+                  monitor.enabled
+                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                    : "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20"
+                }`}
+              >
+                Every {formatInterval(monitor.interval)}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

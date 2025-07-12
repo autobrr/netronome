@@ -67,7 +67,7 @@ export interface MonitorFormData {
 export const defaultFormData: MonitorFormData = {
   host: "",
   name: "",
-  interval: "1m", // Changed from 60 to "1m"
+  interval: "30m", // Default to 30 minutes for reasonable monitoring frequency
   scheduleType: "interval",
   exactTimes: [],
   packetCount: 10,
