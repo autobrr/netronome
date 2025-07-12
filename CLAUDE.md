@@ -128,14 +128,14 @@ internal/
 - Robust timeout handling with tri-state logic (testing/monitoring/disabled)
 - Supports both privileged (raw sockets) and unprivileged (UDP) modes
 - Database-backed monitor configurations and historical results
-- MTR integration with automatic fallback to standard ping
+- MTR integration (requires root/privileged mode) with automatic fallback to standard ICMP ping
 
 **6. MTR (My TraceRoute)** (`internal/speedtest/mtr.go`)
 
 - Advanced network diagnostic tool combining ping and traceroute
 - Per-hop packet loss and latency statistics
-- Automatic fallback to standard ping when MTR binary is unavailable
-- Supports both privileged (ICMP) and unprivileged (UDP) modes
+- Automatic fallback to standard ping when MTR binary is unavailable or lacks root privileges
+- MTR requires privileged mode (root/NET_RAW capability) for ICMP; falls back to UDP or ping otherwise
 - Real-time progress updates during execution
 
 ### Database Schema and Migrations
@@ -158,8 +158,7 @@ internal/
 - **Styling**: Tailwind CSS with dark theme optimization
 - **Charts**: Recharts for speed test visualizations
 - **Real-time Updates**: Polling-based progress tracking during tests
-- **Traceroute UI**: Responsive table/card views with real-time hop discovery (`web/src/components/speedtest/TracerouteTab.tsx`)
-- **Packet Loss UI**: Monitor management with real-time progress and historical visualizations (`web/src/components/speedtest/PacketLossTab.tsx`)
+- **Unified Traceroute UI**: Combined single-trace and monitoring interface with mode switching (`web/src/components/speedtest/TracerouteTab.tsx`)
 
 ### Chart Data Patterns
 
@@ -223,7 +222,8 @@ internal/
 - **Multi-path completion handling**: Supports normal completion, timeout, and fallback scenarios
 - **Input validation**: Automatically trims whitespace from hostnames to prevent DNS resolution failures
 - **Real-time progress tracking**: Uses OnSend callbacks since OnRecv may not fire for all hosts
-- **Cross-tab navigation**: Integrates with TracerouteTab for seamless workflow between network diagnostics
+- **Startup behavior**: Monitors DO NOT auto-start on program startup by default (prevents network congestion)
+- **Manual control**: Users must manually start monitors, which then run on their configured intervals
 
 ### Background Services
 
@@ -352,12 +352,13 @@ The following external tools are required for full functionality:
 - **Timeout Handling**: Uses multiple completion paths (OnFinish callback, context timeout, goroutine completion, fallback cleanup)
 - **Progress Tracking**: Uses OnSend callbacks instead of OnRecv since some hosts block ICMP responses
 - **Input Sanitization**: Automatically trims whitespace from hostnames to prevent DNS lookup failures
-- **MTR Integration**: Automatically attempts MTR first, falls back to standard ping if MTR is unavailable or fails
+- **MTR Integration**: Automatically attempts MTR first (if available and has root), falls back to standard ping otherwise
 
-### Frontend Integration (`web/src/components/speedtest/PacketLossTab.tsx`)
+### Frontend Integration (`web/src/components/speedtest/TracerouteTab.tsx`)
 
+- **Unified Interface**: Single tab with mode switching between "Single Trace" and "Monitors"
 - **Smart Polling**: Only polls enabled monitors every 2 seconds, stops when no monitors are active
-- **Cross-tab Navigation**: Supports navigation to/from TracerouteTab with host pre-population
+- **Seamless Navigation**: Easy flow between single traces and creating monitors from results
 - **Real-time Updates**: Shows progress during active tests, historical results during monitoring periods
 - **Responsive Design**: Table view on desktop, card view on mobile
 - **State Management**: Uses TanStack Query for server state, local state for UI interactions

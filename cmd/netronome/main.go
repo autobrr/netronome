@@ -185,9 +185,11 @@ func runServer(cmd *cobra.Command, args []string) error {
 		// Update server's packet loss service field
 		serverHandler.SetPacketLossService(packetLossService)
 
-		// Start all enabled monitors
-		if err := packetLossService.StartAllEnabledMonitors(); err != nil {
-			log.Warn().Err(err).Msg("Failed to start enabled packet loss monitors")
+		// Start all enabled monitors only if configured to do so
+		if cfg.PacketLoss.RestoreMonitorsOnStartup {
+			if err := packetLossService.StartAllEnabledMonitors(); err != nil {
+				log.Warn().Err(err).Msg("Failed to start enabled packet loss monitors")
+			}
 		}
 	}
 

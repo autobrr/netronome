@@ -134,11 +134,12 @@ type GeoIPConfig struct {
 }
 
 type PacketLossConfig struct {
-	Enabled               bool `toml:"enabled" env:"PACKETLOSS_ENABLED"`
-	DefaultInterval       int  `toml:"default_interval" env:"PACKETLOSS_DEFAULT_INTERVAL"`
-	DefaultPacketCount    int  `toml:"default_packet_count" env:"PACKETLOSS_DEFAULT_PACKET_COUNT"`
-	MaxConcurrentMonitors int  `toml:"max_concurrent_monitors" env:"PACKETLOSS_MAX_CONCURRENT_MONITORS"`
-	PrivilegedMode        bool `toml:"privileged_mode" env:"PACKETLOSS_PRIVILEGED_MODE"`
+	Enabled                  bool `toml:"enabled" env:"PACKETLOSS_ENABLED"`
+	DefaultInterval          int  `toml:"default_interval" env:"PACKETLOSS_DEFAULT_INTERVAL"`
+	DefaultPacketCount       int  `toml:"default_packet_count" env:"PACKETLOSS_DEFAULT_PACKET_COUNT"`
+	MaxConcurrentMonitors    int  `toml:"max_concurrent_monitors" env:"PACKETLOSS_MAX_CONCURRENT_MONITORS"`
+	PrivilegedMode           bool `toml:"privileged_mode" env:"PACKETLOSS_PRIVILEGED_MODE"`
+	RestoreMonitorsOnStartup bool `toml:"restore_monitors_on_startup" env:"PACKETLOSS_RESTORE_MONITORS_ON_STARTUP"`
 }
 
 func isRunningInContainer() bool {
@@ -232,11 +233,12 @@ func New() *Config {
 			DiscordMentionID:  "",
 		},
 		PacketLoss: PacketLossConfig{
-			Enabled:               true,
-			DefaultInterval:       3600,
-			DefaultPacketCount:    10,
-			MaxConcurrentMonitors: 10,
-			PrivilegedMode:        true,
+			Enabled:                  true,
+			DefaultInterval:          3600,
+			DefaultPacketCount:       10,
+			MaxConcurrentMonitors:    10,
+			PrivilegedMode:           true,
+			RestoreMonitorsOnStartup: false,
 		},
 	}
 }
@@ -544,6 +546,11 @@ func (c *Config) loadPacketLossFromEnv() {
 			c.PacketLoss.PrivilegedMode = privileged
 		}
 	}
+	if v := getEnv("PACKETLOSS_RESTORE_MONITORS_ON_STARTUP"); v != "" {
+		if restore, err := strconv.ParseBool(v); err == nil {
+			c.PacketLoss.RestoreMonitorsOnStartup = restore
+		}
+	}
 }
 
 func (c *Config) WriteToml(w io.Writer) error {
@@ -833,6 +840,9 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "privileged_mode = %v # Use privileged ICMP mode for better MTR support (requires root/sudo)\n", cfg.PacketLoss.PrivilegedMode); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "restore_monitors_on_startup = %v # WARNING: If true, immediately runs ALL enabled packet loss monitors on startup (may cause network congestion). Default: monitors run on their scheduled intervals only\n", cfg.PacketLoss.RestoreMonitorsOnStartup); err != nil {
 		return err
 	}
 
