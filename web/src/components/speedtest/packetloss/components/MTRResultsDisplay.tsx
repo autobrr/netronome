@@ -112,7 +112,7 @@ export const MTRResultsDisplay: React.FC<MTRResultsDisplayProps> = ({
                         Host
                       </th>
                       <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                        AS
+                        ASN
                       </th>
                       <th className="text-center py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">
                         Loss %

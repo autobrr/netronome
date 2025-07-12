@@ -45,10 +45,17 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
 
   return (
     <div>
-      <h3 className="text-gray-700 dark:text-gray-300 font-medium mb-3">
-        Recent Results{" "}
-        {historyList.length > 0 && `(${historyList.length} total)`}
-      </h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-gray-700 dark:text-gray-300 font-medium">
+          Recent Results{" "}
+          {historyList.length > 0 && `(${historyList.length} total)`}
+        </h3>
+        {historyList.some((result) => result.usedMtr) && (
+          <p className="text-xs text-gray-500 dark:text-gray-500 hidden md:block">
+            Click MTR rows to view hop-by-hop details
+          </p>
+        )}
+      </div>
 
       {/* Desktop Table View */}
       <div className="hidden md:block overflow-x-auto">
@@ -89,8 +96,10 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
-                    className={`border-b border-gray-300/50 dark:border-gray-800/50 hover:bg-gray-200/30 dark:hover:bg-gray-800/30 transition-colors ${
-                      result.usedMtr ? "cursor-pointer" : ""
+                    className={`border-b border-gray-300/50 dark:border-gray-800/50 transition-colors ${
+                      result.usedMtr
+                        ? "cursor-pointer hover:bg-purple-500/5 dark:hover:bg-purple-500/10 hover:border-purple-500/20 dark:hover:border-purple-500/30"
+                        : "hover:bg-gray-200/30 dark:hover:bg-gray-800/30"
                     }`}
                     onClick={() => {
                       if (result.usedMtr && mtrData) {
@@ -124,20 +133,31 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
                     </td>
                     <td className="py-2 px-3 text-center">
                       {result.usedMtr ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                          MTR
-                          {result.privilegedMode !== undefined && (
-                            <span className="ml-1">
-                              ({result.privilegedMode ? "ICMP" : "UDP"})
-                            </span>
-                          )}
-                          {result.hopCount && (
-                            <span className="hidden 2xl:inline">
-                              {" "}
-                              - {result.hopCount} hops
-                            </span>
-                          )}
-                        </span>
+                        <div className="inline-flex items-center gap-1">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors cursor-pointer">
+                            MTR
+                            {result.privilegedMode !== undefined && (
+                              <span className="ml-1">
+                                ({result.privilegedMode ? "ICMP" : "UDP"})
+                              </span>
+                            )}
+                            {result.hopCount && (
+                              <span className="hidden 2xl:inline">
+                                {" "}
+                                - {result.hopCount} hops
+                              </span>
+                            )}
+                          </span>
+                          <motion.div
+                            animate={{
+                              rotate: isExpanded ? 180 : 0,
+                            }}
+                            transition={{ duration: 0.2 }}
+                            className="text-purple-600 dark:text-purple-400"
+                          >
+                            <ChevronUpDownIcon className="w-3 h-3" />
+                          </motion.div>
+                        </div>
                       ) : (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                           ICMP
