@@ -148,17 +148,16 @@ export const VnstatTab: React.FC = () => {
       </div>
 
       {/* Agent Form Modal */}
-      {isFormOpen && (
-        <VnstatAgentForm
-          agent={editingAgent}
-          onSubmit={handleFormSubmit}
-          onCancel={() => {
-            setIsFormOpen(false);
-            setEditingAgent(null);
-          }}
-          isSubmitting={createMutation.isPending || updateMutation.isPending}
-        />
-      )}
+      <VnstatAgentForm
+        agent={editingAgent}
+        onSubmit={handleFormSubmit}
+        onCancel={() => {
+          setIsFormOpen(false);
+          setEditingAgent(null);
+        }}
+        isSubmitting={createMutation.isPending || updateMutation.isPending}
+        isOpen={isFormOpen}
+      />
     </div>
   );
 };
