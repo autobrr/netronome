@@ -39,6 +39,14 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
   - **GeoIP Integration**: Country flags and ASN information for network path visualization
   - **Cross-tab Navigation**: Easy flow between traceroute results and monitor creation
 
+- **Bandwidth Monitoring (vnstat)**
+  - **Distributed Agent Architecture**: Deploy lightweight agents on remote servers
+  - **Real-time SSE Streaming**: Live bandwidth data via Server-Sent Events
+  - **Multi-server Support**: Monitor bandwidth across multiple servers from one dashboard
+  - **Historical Tracking**: Store and visualize bandwidth usage over time
+  - **Auto-reconnection**: Agents automatically reconnect with exponential backoff
+  - **Per-agent Retention**: Configure data retention policies per agent
+
 - **Monitoring & Visualization**
   - **Speed Test History**: Interactive charts with customizable time ranges (1d, 3d, 1w, 1m, all)
   - **Packet Loss Trends**: Historical packet loss and RTT monitoring with performance charts
@@ -243,6 +251,97 @@ Example `librespeed-servers.json`:
 ```
 
 **Note:** When using Docker, the LibreSpeed CLI tool (`librespeed-cli`) is automatically included in the container.
+
+### Vnstat Bandwidth Monitoring
+
+Netronome includes a distributed bandwidth monitoring system using vnstat agents that can be deployed on remote servers.
+
+#### Agent Setup
+
+1. **Deploy the Agent on Remote Servers**
+
+   The same `netronome` binary can run as a lightweight agent:
+
+   ```bash
+   # Run agent on default port 8200
+   netronome agent
+
+   # Run agent on custom port with specific interface
+   netronome agent --port 8300 --interface eth0
+
+   # Run with config file
+   netronome agent --config /path/to/config.toml
+   ```
+
+2. **Agent Configuration**
+
+   Add to your `config.toml`:
+
+   ```toml
+   [agent]
+   port = 8200
+   interface = ""  # Empty for all interfaces, or specify like "eth0"
+
+   [vnstat]
+   enabled = true
+   ```
+
+3. **Add Agents in Netronome UI**
+   - Navigate to the "Bandwidth" tab
+   - Click "Add Agent"
+   - Enter agent details:
+     - Name: Friendly name for the server
+     - URL: `http://server-ip:8200` (agent URL)
+     - Retention Days: How long to keep historical data
+     - Enable monitoring: Start monitoring immediately
+
+#### Agent Systemd Service
+
+Create `/etc/systemd/system/netronome-agent.service`:
+
+```ini
+[Unit]
+Description=Netronome vnstat Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=netronome
+Group=netronome
+ExecStart=/usr/local/bin/netronome agent --config /etc/netronome/agent-config.toml
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+
+```bash
+systemctl enable netronome-agent
+systemctl start netronome-agent
+```
+
+#### Security Considerations
+
+- Agents expose bandwidth data via HTTP SSE endpoint
+- No authentication on agent endpoint (rely on network security)
+- Consider using reverse proxy with authentication if exposing to internet
+- Agents are read-only and don't accept commands
+
+#### Data Management
+
+Netronome automatically manages bandwidth data storage to prevent database bloat while maintaining accuracy:
+
+- **Automatic Aggregation**: Background processing every 10 minutes consolidates data into hourly buckets
+- **Storage Efficiency**: Raw data retained for 6 hours, then aggregated and cleaned up
+- **No Configuration Required**: Completely automatic and internally managed system
+- **Database Size Control**: Reduces storage by 95%+ compared to storing all SSE samples
+- **Live Data Accuracy**: Current hour uses real-time data, older periods use efficient aggregated data
+
+This ensures optimal performance for both real-time monitoring and historical analysis without manual intervention.
 
 ### Environment Variables
 

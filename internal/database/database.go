@@ -79,6 +79,22 @@ type Service interface {
 	DeletePacketLossMonitor(monitorID int64) error
 	GetPacketLossMonitors() ([]*types.PacketLossMonitor, error)
 	GetPacketLossResults(monitorID int64, limit int) ([]*types.PacketLossResult, error)
+
+	// Vnstat operations
+	CreateVnstatAgent(ctx context.Context, agent *types.VnstatAgent) (*types.VnstatAgent, error)
+	GetVnstatAgent(ctx context.Context, agentID int64) (*types.VnstatAgent, error)
+	GetVnstatAgents(ctx context.Context, enabledOnly bool) ([]*types.VnstatAgent, error)
+	UpdateVnstatAgent(ctx context.Context, agent *types.VnstatAgent) error
+	DeleteVnstatAgent(ctx context.Context, agentID int64) error
+	SaveVnstatBandwidth(ctx context.Context, bandwidth *types.VnstatBandwidth) error
+	GetVnstatBandwidthHistory(ctx context.Context, agentID int64, startTime, endTime time.Time, limit int) ([]*types.VnstatBandwidth, error)
+	CleanupOldVnstatData(ctx context.Context) error
+	AggregateVnstatBandwidthHourly(ctx context.Context) error
+	GetVnstatBandwidthUsage(ctx context.Context, agentID int64) (map[string]struct {
+		Download int64 `json:"download"`
+		Upload   int64 `json:"upload"`
+		Total    int64 `json:"total"`
+	}, error)
 }
 
 type service struct {

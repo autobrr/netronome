@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/autobrr/netronome/internal/agent"
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/logger"
@@ -27,6 +28,7 @@ import (
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/server"
 	"github.com/autobrr/netronome/internal/speedtest"
+	"github.com/autobrr/netronome/internal/vnstat"
 )
 
 var (
@@ -66,6 +68,14 @@ track and analyze your network performance over time.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  createUser,
 	}
+
+	agentCmd = &cobra.Command{
+		Use:   "agent",
+		Short: "Start the vnstat SSE agent",
+		Long: `Start a vnstat SSE agent that broadcasts bandwidth usage data.
+This agent can be monitored by a remote Netronome server.`,
+		RunE: runAgent,
+	}
 )
 
 func init() {
@@ -75,10 +85,14 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "path to config file")
 
+	agentCmd.Flags().IntP("port", "p", 8200, "port to listen on")
+	agentCmd.Flags().StringP("interface", "i", "", "network interface to monitor (empty for all)")
+
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(generateConfigCmd)
 	rootCmd.AddCommand(changePasswordCmd)
 	rootCmd.AddCommand(createUserCmd)
+	rootCmd.AddCommand(agentCmd)
 }
 
 func main() {
@@ -180,11 +194,14 @@ func runServer(cmd *cobra.Command, args []string) error {
 		packetLossService = speedtest.NewPacketLossService(db, notifier, nil, cfg.PacketLoss.MaxConcurrentMonitors, cfg.PacketLoss.PrivilegedMode)
 	}
 
+	// Create vnstat service variable
+	var vnstatService *vnstat.Service
+
 	// Now create scheduler with packet loss service
 	schedulerSvc := scheduler.New(db, speedtestSvc, packetLossService, notifier)
 
-	// create server handler with packet loss service
-	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService)
+	// create server handler with packet loss service and vnstat service
+	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService, vnstatService)
 
 	speedtestSvc.SetBroadcastUpdate(serverHandler.BroadcastUpdate)
 	speedtestSvc.SetBroadcastTracerouteUpdate(serverHandler.BroadcastTracerouteUpdate)
@@ -195,6 +212,17 @@ func runServer(cmd *cobra.Command, args []string) error {
 		packetLossService.SetScheduler(schedulerSvc)
 
 		// Don't start monitors here - let the scheduler handle them
+	}
+
+	// Create and set vnstat service if enabled
+	if cfg.Vnstat.Enabled {
+		vnstatService = vnstat.NewService(db, &cfg.Vnstat, serverHandler.BroadcastVnstatUpdate)
+		serverHandler.SetVnstatService(vnstatService)
+
+		// Start vnstat service
+		if err := vnstatService.Start(); err != nil {
+			log.Error().Err(err).Msg("Failed to start vnstat service")
+		}
 	}
 
 	// Initialize server (register routes and static files)
@@ -229,6 +257,11 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	if err := srv.Shutdown(ctx); err != nil {
 		return fmt.Errorf("server forced to shutdown: %w", err)
+	}
+
+	// Stop vnstat service if running
+	if vnstatService != nil {
+		vnstatService.Stop()
 	}
 
 	// Close database connection to ensure WAL is checkpointed
@@ -351,4 +384,52 @@ func createUser(cmd *cobra.Command, args []string) error {
 
 	log.Info().Str("username", username).Int64("id", user.ID).Msg("User created successfully")
 	return nil
+}
+
+func runAgent(cmd *cobra.Command, args []string) error {
+	// initialize logger
+	logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
+
+	port, _ := cmd.Flags().GetInt("port")
+	iface, _ := cmd.Flags().GetString("interface")
+
+	// Load config if provided
+	var cfg *config.Config
+	if configPath != "" {
+		var err error
+		cfg, err = config.Load(configPath)
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to load config, using defaults")
+			cfg = config.New()
+		}
+	} else {
+		cfg = config.New()
+	}
+
+	// Override with command line flags
+	if cmd.Flags().Changed("port") {
+		cfg.Agent.Port = port
+	}
+	if cmd.Flags().Changed("interface") {
+		cfg.Agent.Interface = iface
+	}
+
+	// Create agent service
+	agentService := agent.New(&cfg.Agent)
+
+	// Setup signal handling
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle interrupt signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		log.Info().Msg("Received interrupt signal")
+		cancel()
+	}()
+
+	// Start the agent
+	return agentService.Start(ctx)
 }

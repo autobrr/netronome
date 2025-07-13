@@ -1,0 +1,6 @@
+[agent]
+port = 8200
+interface = "" # Empty for all interfaces, or specify like "eth0"
+
+[vnstat]
+enabled = true

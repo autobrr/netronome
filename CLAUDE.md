@@ -73,7 +73,7 @@ cd web && pnpm lint     # Frontend linting
 
 ### Core Application Structure
 
-- **Entry Point**: `cmd/netronome/main.go` using Cobra CLI with commands: `serve`, `generate-config`, `create-user`, `change-password`
+- **Entry Point**: `cmd/netronome/main.go` using Cobra CLI with commands: `serve`, `generate-config`, `create-user`, `change-password`, `agent`
 - **Configuration**: TOML-based config with environment variable overrides (`NETRONOME__*` prefix)
 - **Database**: Supports SQLite (default) and PostgreSQL with embedded migrations
 - **Frontend**: React 18 + TypeScript with embedded serving via Go's `embed.FS`
@@ -89,6 +89,8 @@ internal/
 ├── scheduler/       # Background cron-like job scheduler
 ├── auth/           # Session + OIDC authentication
 ├── notifications/  # Webhook/Discord alert system
+├── agent/          # vnstat SSE agent server implementation
+├── vnstat/         # vnstat SSE client and database service
 └── types/          # Shared data structures
 ```
 
@@ -143,6 +145,17 @@ internal/
 - MTR requires privileged mode (root/NET_RAW capability) for ICMP; falls back to UDP or ping otherwise
 - Real-time progress updates during execution
 
+**7. vnstat Bandwidth Monitoring** (`internal/agent/agent.go`, `internal/vnstat/client.go`)
+
+- **Distributed Architecture**: Lightweight agents broadcast vnstat data via Server-Sent Events (SSE)
+- **Agent Implementation**: Uses Gin framework to serve SSE endpoint at `/events?stream=live-data`
+- **Client Implementation**: SSE client with automatic reconnection and exponential backoff
+- **Real-time Streaming**: Processes `vnstat --live --json` output and broadcasts to connected clients
+- **Multi-agent Support**: Central server can connect to multiple remote agents
+- **Data Persistence**: Stores bandwidth samples with configurable retention per agent
+- **URL Normalization**: Automatically formats agent URLs to ensure correct SSE endpoint
+- **Error Recovery**: Graceful handling of agent disconnections with automatic retry
+
 ### Database Schema and Migrations
 
 - **Migration system**: Embedded SQL files with version tracking (`internal/database/migrations/`)
@@ -153,6 +166,8 @@ internal/
   - `saved_iperf_servers` - Custom iperf3 server configs
   - `packet_loss_monitors` - Packet loss monitor configurations
   - `packet_loss_results` - Historical packet loss monitoring results
+  - `vnstat_agents` - vnstat agent configurations and connection settings
+  - `vnstat_bandwidth` - Historical bandwidth data from vnstat agents
 - **Query patterns**: Interface-based with Squirrel query builder for cross-database compatibility
 
 ### Frontend Architecture
@@ -164,6 +179,7 @@ internal/
 - **Charts**: Recharts for speed test visualizations
 - **Real-time Updates**: Polling-based progress tracking during tests
 - **Unified Traceroute UI**: Combined single-trace and monitoring interface with mode switching (`web/src/components/speedtest/TracerouteTab.tsx`)
+- **vnstat Bandwidth UI**: Real-time and historical bandwidth monitoring (`web/src/components/vnstat/VnstatTab.tsx`)
 
 ### Chart Data Patterns
 
@@ -182,7 +198,7 @@ internal/
 
 ### Configuration System
 
-- **Hierarchical TOML** with sections: `[database]`, `[server]`, `[speedtest]`, `[speedtest.iperf]`, `[speedtest.iperf.ping]`, `[speedtest.packetloss]`, `[geoip]`, etc.
+- **Hierarchical TOML** with sections: `[database]`, `[server]`, `[speedtest]`, `[speedtest.iperf]`, `[speedtest.iperf.ping]`, `[speedtest.packetloss]`, `[geoip]`, `[agent]`, `[vnstat]`, etc.
 - **Environment overrides**: Any config value can be overridden with `NETRONOME__SECTION_KEY` format
 - **Auto-generation**: Creates sensible defaults if no config exists
 - **Container detection**: Automatically binds to `0.0.0.0` in containerized environments
@@ -279,6 +295,7 @@ internal/
 - **ping**: System ping command (cross-platform support)
 - **traceroute/tracert**: System traceroute command (Unix/Linux/macOS) or tracert (Windows)
 - **mtr**: Binary for advanced network diagnostics (optional, falls back to ping)
+- **vnstat**: Network statistics monitor required for bandwidth monitoring agents
 
 ## Special Considerations
 
@@ -416,6 +433,157 @@ The scheduler runs every minute checking for due tests/monitors. It supports two
 - `calculateNextRun()` - Handles interval parsing and jitter
 - `initializePacketLossMonitors()` - Startup initialization for monitors
 - `initializeSchedules()` - Startup initialization for speed tests
+
+## vnstat Agent Architecture
+
+### Agent Mode (`netronome agent`)
+
+The vnstat agent is a lightweight SSE server that broadcasts network bandwidth data:
+
+- **Command**: `netronome agent [--port PORT] [--interface INTERFACE]`
+- **Default Port**: 8200
+- **SSE Endpoint**: `http://agent-host:port/events?stream=live-data`
+- **Data Source**: Executes `vnstat --live --json` and streams output
+- **CORS Support**: Enabled for cross-origin access from Netronome server
+- **Graceful Shutdown**: Properly closes connections on termination
+
+### Client Integration (`internal/vnstat/`)
+
+- **Service Management**: Manages multiple SSE client connections to remote agents
+- **Connection Lifecycle**:
+  1. Agent added via UI/API with base URL (e.g., `http://192.168.1.100:8200`)
+  2. URL automatically formatted to SSE endpoint
+  3. SSE client connects and starts receiving data
+  4. Data parsed and stored in database
+  5. Live data available via status endpoint
+- **Reconnection Strategy**: Exponential backoff from 5s to 5m on connection failure
+- **Data Retention**: Per-agent configurable retention with automatic cleanup
+
+### API Endpoints
+
+- `GET /api/vnstat/agents` - List all configured agents
+- `POST /api/vnstat/agents` - Add new agent
+- `PUT /api/vnstat/agents/:id` - Update agent configuration
+- `DELETE /api/vnstat/agents/:id` - Remove agent
+- `GET /api/vnstat/agents/:id/status` - Get live connection status and current bandwidth
+- `GET /api/vnstat/agents/:id/bandwidth` - Get historical bandwidth data
+- `POST /api/vnstat/agents/:id/start` - Start monitoring an agent
+- `POST /api/vnstat/agents/:id/stop` - Stop monitoring an agent
+
+### Frontend Components
+
+- **VnstatTab**: Main container component with agent list and details view
+- **VnstatAgentList**: Displays all agents with connection status indicators
+- **VnstatAgentForm**: Modal form for adding/editing agents
+- **VnstatAgentDetails**: Shows real-time and historical bandwidth charts
+- **VnstatBandwidthChart**: Recharts-based visualization of bandwidth data
+
+### Configuration
+
+```toml
+[agent]
+port = 8200          # Port for agent to listen on
+interface = ""       # Network interface to monitor (empty = all)
+
+[vnstat]
+enabled = true       # Enable vnstat client service in main server
+```
+
+### vnstat Data Aggregation System
+
+Netronome implements an efficient two-table data aggregation system to prevent database flooding from continuous SSE streams while maintaining accurate historical data.
+
+#### Architecture Overview
+
+**Two-Table Design:**
+
+- **`vnstat_bandwidth`**: Raw SSE data from agents (short-term storage)
+- **`vnstat_bandwidth_hourly`**: Aggregated hourly buckets (long-term storage)
+
+#### Background Processing
+
+**Automatic Aggregation Routine:**
+
+- **Frequency**: Runs every 10 minutes via background goroutine
+- **Trigger**: Processes data older than 6 hours from raw table
+- **Operation**: Aggregates raw bandwidth samples into hourly totals
+- **Cleanup**: Deletes processed raw data to maintain optimal database size
+- **Startup Behavior**: Runs aggregation once on service startup to catch pending data
+
+#### Data Flow and Retention
+
+**Live Data Path:**
+
+1. SSE agents stream bandwidth data → stored in `vnstat_bandwidth`
+2. Live UI updates use most recent raw data for real-time display
+3. Raw data retained for 6 hours to ensure accuracy for current-hour calculations
+
+**Aggregation Process:**
+
+1. Background routine identifies data older than 6 hours
+2. Groups raw samples by agent and hour boundaries
+3. Calculates total RX/TX bytes for each hour
+4. Inserts/updates corresponding `vnstat_bandwidth_hourly` records
+5. Deletes aggregated raw data to free storage space
+
+**Storage Efficiency:**
+
+- Reduces database size by 95%+ compared to storing all raw samples
+- Raw data: ~17,280 records per agent per day (1 sample/5s)
+- Aggregated data: 24 records per agent per day (1 hour buckets)
+
+#### Hybrid Data Querying
+
+Usage calculations intelligently combine raw and aggregated data:
+
+**Current Hour:** Uses raw data from `vnstat_bandwidth` for accuracy
+**Previous Hours:** Uses aggregated data from `vnstat_bandwidth_hourly` for efficiency
+**Daily/Monthly/All-time:** Combines aggregated hourly data + current hour raw data
+
+Example periods:
+
+- This Hour: Raw data (real-time accuracy)
+- Last Hour: Aggregated data (hour bucket)
+- Today: Sum of hourly aggregations + current raw data
+- This Month: Sum of hourly aggregations + current raw data
+- All Time: Sum of all hourly aggregations + current raw data
+
+#### Cross-restart Resilience
+
+- **Startup Aggregation**: Service automatically processes any pending aggregation on restart
+- **No Data Loss**: All data is preserved during service downtime
+- **Automatic Recovery**: Background routine resumes normal 10-minute cycles after startup
+- **Consistent State**: Database maintains integrity across service restarts and crashes
+
+#### Implementation Details
+
+**Key Files:**
+
+- `internal/database/migrations/sqlite/012_add_vnstat_hourly_aggregation.sql` - Creates aggregation table
+- `internal/vnstat/client.go` - Background aggregation routine (aggregationRoutine)
+- `internal/database/vnstat.go` - AggregateVnstatBandwidthHourly and usage calculation logic
+
+**Database Schema:**
+
+```sql
+CREATE TABLE vnstat_bandwidth_hourly (
+    agent_id INTEGER NOT NULL,
+    hour_start TIMESTAMP NOT NULL,
+    total_rx_bytes BIGINT DEFAULT 0,
+    total_tx_bytes BIGINT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (agent_id, hour_start),
+    FOREIGN KEY (agent_id) REFERENCES vnstat_agents(id) ON DELETE CASCADE
+);
+```
+
+**Performance Optimizations:**
+
+- Indexed on `(agent_id, hour_start)` for fast hourly lookups
+- Upsert operations handle duplicate hour boundaries gracefully
+- Batch processing minimizes database I/O during aggregation
+- Cross-database compatibility (SQLite RFC3339 vs PostgreSQL timestamp handling)
 
 # important-instruction-reminders
 

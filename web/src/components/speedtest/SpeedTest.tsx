@@ -13,10 +13,12 @@ import { TabNavigation } from "../common/TabNavigation";
 import { DashboardTab } from "./DashboardTab";
 import { SpeedTestTab } from "./SpeedTestTab";
 import { TracerouteTab } from "./TracerouteTab";
+import { VnstatTab } from "../vnstat/VnstatTab";
 import {
   ChartBarIcon,
   PlayIcon,
   GlobeAltIcon,
+  ServerIcon,
 } from "@heroicons/react/24/outline";
 import {
   Server,
@@ -102,6 +104,11 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
       id: "traceroute",
       label: "Traceroute",
       icon: <GlobeAltIcon className="w-5 h-5" />,
+    },
+    {
+      id: "vnstat",
+      label: "Bandwidth",
+      icon: <ServerIcon className="w-5 h-5" />,
     },
   ];
 
@@ -557,6 +564,18 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
               transition={{ duration: 0.3 }}
             >
               <TracerouteTab />
+            </motion.div>
+          )}
+
+          {!isPublic && activeTab === "vnstat" && (
+            <motion.div
+              key="vnstat"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <VnstatTab />
             </motion.div>
           )}
         </AnimatePresence>

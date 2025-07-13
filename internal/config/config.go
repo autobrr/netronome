@@ -46,6 +46,8 @@ type Config struct {
 	Session       SessionConfig      `toml:"session"`
 	Notifications NotificationConfig `toml:"notifications"`
 	PacketLoss    PacketLossConfig   `toml:"packetloss"`
+	Agent         AgentConfig        `toml:"agent"`
+	Vnstat        VnstatConfig       `toml:"vnstat"`
 }
 
 type DatabaseConfig struct {
@@ -138,6 +140,17 @@ type PacketLossConfig struct {
 	MaxConcurrentMonitors    int  `toml:"max_concurrent_monitors" env:"PACKETLOSS_MAX_CONCURRENT_MONITORS"`
 	PrivilegedMode           bool `toml:"privileged_mode" env:"PACKETLOSS_PRIVILEGED_MODE"`
 	RestoreMonitorsOnStartup bool `toml:"restore_monitors_on_startup" env:"PACKETLOSS_RESTORE_MONITORS_ON_STARTUP"`
+}
+
+type AgentConfig struct {
+	Port      int    `toml:"port" env:"AGENT_PORT"`
+	Interface string `toml:"interface" env:"AGENT_INTERFACE"`
+}
+
+type VnstatConfig struct {
+	Enabled              bool   `toml:"enabled" env:"VNSTAT_ENABLED"`
+	DefaultRetentionDays int    `toml:"default_retention_days" env:"VNSTAT_DEFAULT_RETENTION_DAYS"`
+	ReconnectInterval    string `toml:"reconnect_interval" env:"VNSTAT_RECONNECT_INTERVAL"`
 }
 
 func isRunningInContainer() bool {
@@ -236,6 +249,15 @@ func New() *Config {
 			PrivilegedMode:           true,
 			RestoreMonitorsOnStartup: false,
 		},
+		Agent: AgentConfig{
+			Port:      8200,
+			Interface: "",
+		},
+		Vnstat: VnstatConfig{
+			Enabled:              true,
+			DefaultRetentionDays: 30,
+			ReconnectInterval:    "30s",
+		},
 	}
 }
 
@@ -319,6 +341,8 @@ func (c *Config) loadFromEnv() error {
 	c.loadGeoIPFromEnv()
 	c.loadNotificationsFromEnv()
 	c.loadPacketLossFromEnv()
+	c.loadAgentFromEnv()
+	c.loadVnstatFromEnv()
 	return nil
 }
 
@@ -538,6 +562,33 @@ func (c *Config) loadPacketLossFromEnv() {
 		if restore, err := strconv.ParseBool(v); err == nil {
 			c.PacketLoss.RestoreMonitorsOnStartup = restore
 		}
+	}
+}
+
+func (c *Config) loadAgentFromEnv() {
+	if v := getEnv("AGENT_PORT"); v != "" {
+		if port, err := strconv.Atoi(v); err == nil {
+			c.Agent.Port = port
+		}
+	}
+	if v := getEnv("AGENT_INTERFACE"); v != "" {
+		c.Agent.Interface = v
+	}
+}
+
+func (c *Config) loadVnstatFromEnv() {
+	if v := getEnv("VNSTAT_ENABLED"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			c.Vnstat.Enabled = enabled
+		}
+	}
+	if v := getEnv("VNSTAT_DEFAULT_RETENTION_DAYS"); v != "" {
+		if days, err := strconv.Atoi(v); err == nil {
+			c.Vnstat.DefaultRetentionDays = days
+		}
+	}
+	if v := getEnv("VNSTAT_RECONNECT_INTERVAL"); v != "" {
+		c.Vnstat.ReconnectInterval = v
 	}
 }
 
@@ -825,6 +876,37 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "restore_monitors_on_startup = %v # WARNING: If true, immediately runs ALL enabled packet loss monitors on startup (may cause network congestion). Default: monitors run on their scheduled intervals only\n", cfg.PacketLoss.RestoreMonitorsOnStartup); err != nil {
+		return err
+	}
+
+	// Agent section
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "[agent]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "port = %d\n", cfg.Agent.Port); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "interface = \"%s\" # empty for all interfaces\n", cfg.Agent.Interface); err != nil {
+		return err
+	}
+
+	// Vnstat section
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "[vnstat]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.Vnstat.Enabled); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "default_retention_days = %d\n", cfg.Vnstat.DefaultRetentionDays); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "reconnect_interval = \"%s\"\n", cfg.Vnstat.ReconnectInterval); err != nil {
 		return err
 	}
 
