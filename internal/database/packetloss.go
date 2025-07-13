@@ -18,7 +18,7 @@ import (
 // GetPacketLossMonitor retrieves a packet loss monitor by ID
 func (s *service) GetPacketLossMonitor(monitorID int64) (*types.PacketLossMonitor, error) {
 	query := s.sqlBuilder.
-		Select("id", "host", "name", "interval", "packet_count", "enabled", "threshold", "created_at", "updated_at").
+		Select("id", "host", "name", "interval", "packet_count", "enabled", "threshold", "last_run", "next_run", "created_at", "updated_at").
 		From("packet_loss_monitors").
 		Where(sq.Eq{"id": monitorID})
 
@@ -31,6 +31,8 @@ func (s *service) GetPacketLossMonitor(monitorID int64) (*types.PacketLossMonito
 		&monitor.PacketCount,
 		&monitor.Enabled,
 		&monitor.Threshold,
+		&monitor.LastRun,
+		&monitor.NextRun,
 		&monitor.CreatedAt,
 		&monitor.UpdatedAt,
 	)
@@ -48,7 +50,7 @@ func (s *service) GetPacketLossMonitor(monitorID int64) (*types.PacketLossMonito
 // GetEnabledPacketLossMonitors retrieves all enabled packet loss monitors
 func (s *service) GetEnabledPacketLossMonitors() ([]*types.PacketLossMonitor, error) {
 	query := s.sqlBuilder.
-		Select("id", "host", "name", "interval", "packet_count", "enabled", "threshold", "created_at", "updated_at").
+		Select("id", "host", "name", "interval", "packet_count", "enabled", "threshold", "last_run", "next_run", "created_at", "updated_at").
 		From("packet_loss_monitors").
 		Where(sq.Eq{"enabled": true}).
 		OrderBy("created_at ASC")
@@ -70,6 +72,8 @@ func (s *service) GetEnabledPacketLossMonitors() ([]*types.PacketLossMonitor, er
 			&monitor.PacketCount,
 			&monitor.Enabled,
 			&monitor.Threshold,
+			&monitor.LastRun,
+			&monitor.NextRun,
 			&monitor.CreatedAt,
 			&monitor.UpdatedAt,
 		)
@@ -177,15 +181,21 @@ func (s *service) CreatePacketLossMonitor(monitor *types.PacketLossMonitor) (*ty
 func (s *service) UpdatePacketLossMonitor(monitor *types.PacketLossMonitor) error {
 	monitor.UpdatedAt = time.Now()
 
+	data := map[string]interface{}{
+		"host":         monitor.Host,
+		"name":         monitor.Name,
+		"interval":     monitor.Interval,
+		"packet_count": monitor.PacketCount,
+		"enabled":      monitor.Enabled,
+		"threshold":    monitor.Threshold,
+		"last_run":     monitor.LastRun,
+		"next_run":     monitor.NextRun,
+		"updated_at":   monitor.UpdatedAt,
+	}
+
 	query := s.sqlBuilder.
 		Update("packet_loss_monitors").
-		Set("host", monitor.Host).
-		Set("name", monitor.Name).
-		Set("interval", monitor.Interval).
-		Set("packet_count", monitor.PacketCount).
-		Set("enabled", monitor.Enabled).
-		Set("threshold", monitor.Threshold).
-		Set("updated_at", monitor.UpdatedAt).
+		SetMap(data).
 		Where(sq.Eq{"id": monitor.ID})
 
 	res, err := query.RunWith(s.db).Exec()
@@ -247,7 +257,7 @@ func (s *service) DeletePacketLossMonitor(monitorID int64) error {
 // GetPacketLossMonitors retrieves all packet loss monitors
 func (s *service) GetPacketLossMonitors() ([]*types.PacketLossMonitor, error) {
 	query := s.sqlBuilder.
-		Select("id", "host", "name", "interval", "packet_count", "enabled", "threshold", "created_at", "updated_at").
+		Select("id", "host", "name", "interval", "packet_count", "enabled", "threshold", "last_run", "next_run", "created_at", "updated_at").
 		From("packet_loss_monitors").
 		OrderBy("created_at DESC")
 
@@ -268,6 +278,8 @@ func (s *service) GetPacketLossMonitors() ([]*types.PacketLossMonitor, error) {
 			&monitor.PacketCount,
 			&monitor.Enabled,
 			&monitor.Threshold,
+			&monitor.LastRun,
+			&monitor.NextRun,
 			&monitor.CreatedAt,
 			&monitor.UpdatedAt,
 		)

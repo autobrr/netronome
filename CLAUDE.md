@@ -13,6 +13,9 @@ make build
 # Development mode with live reload (requires tmux)
 make dev
 
+# Backend live reload only (requires air)
+make watch
+
 # Clean build artifacts
 make clean
 
@@ -60,8 +63,10 @@ pnpm lint        # Run ESLint
 make watch
 
 # Test commands
-go test ./...     # Run Go tests
-cd web && pnpm lint  # Frontend linting
+go test ./...           # Run all Go tests
+go test ./internal/...  # Run internal package tests
+go test -v ./internal/speedtest -run TestPing  # Run specific test with verbose output
+cd web && pnpm lint     # Frontend linting
 ```
 
 ## Architecture Overview
@@ -386,3 +391,35 @@ The project includes a comprehensive style guide at `docs/style-guide.md` that c
 - Performance optimizations
 
 Always refer to this guide when implementing new frontend features or modifying existing components.
+
+## Scheduling System
+
+### How Scheduling Works
+
+The scheduler runs every minute checking for due tests/monitors. It supports two interval formats:
+
+1. **Duration-based**: Standard Go duration strings (e.g., "30s", "5m", "1h")
+   - Next run = current time + duration + random jitter (1-300 seconds)
+
+2. **Exact time**: "exact:HH:MM" or "exact:HH:MM,HH:MM" for multiple times
+   - Next run = next occurrence of specified time + random jitter (1-60 seconds)
+
+### Startup Behavior
+
+- **Missed runs are NOT executed** - prevents network flooding after downtime
+- **Next run times are recalculated** based on current time and interval
+- **No catch-up mechanism** - ensures fresh data, not stale results
+
+### Important Files
+
+- `internal/scheduler/scheduler.go` - Core scheduling logic
+- `calculateNextRun()` - Handles interval parsing and jitter
+- `initializePacketLossMonitors()` - Startup initialization for monitors
+- `initializeSchedules()` - Startup initialization for speed tests
+
+# important-instruction-reminders
+
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.

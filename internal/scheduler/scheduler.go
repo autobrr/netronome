@@ -77,7 +77,14 @@ func (s *service) Start(ctx context.Context) {
 	}()
 }
 
-// initializeSchedules prepares schedules on startup without running tests immediately
+// initializeSchedules prepares schedules on startup without running tests immediately.
+// This function recalculates next run times for all enabled schedules.
+//
+// Important behavior:
+// - Missed runs are NOT executed (no catch-up mechanism)
+// - For exact times (e.g., "exact:14:00"), finds the next occurrence
+// - For durations (e.g., "1h"), schedules from the current time
+// - This prevents network flooding after downtime and ensures fresh data
 func (s *service) initializeSchedules(ctx context.Context) {
 	schedules, err := s.db.GetSchedules(ctx)
 	if err != nil {
@@ -244,7 +251,15 @@ func (s *service) isValidScheduleInterval(interval string) bool {
 	}
 }
 
-// calculateNextRun calculates the next run time based on interval type
+// calculateNextRun calculates the next run time based on interval type.
+// Supports two interval formats:
+// 1. Duration-based: Standard Go duration strings (e.g., "30s", "5m", "1h")
+//   - Next run = current time + duration + random jitter (1-300 seconds)
+//
+// 2. Exact time: "exact:HH:MM" or "exact:HH:MM,HH:MM" for multiple times
+//   - Next run = next occurrence of specified time + random jitter (1-60 seconds)
+//
+// The jitter prevents thundering herd problem when multiple monitors have the same interval.
 func (s *service) calculateNextRun(interval string, from time.Time) time.Time {
 	if strings.HasPrefix(interval, "exact:") {
 		// Extract time part - supports multiple times separated by comma
@@ -310,7 +325,17 @@ func (s *service) calculateNextRun(interval string, from time.Time) time.Time {
 	}
 }
 
-// initializePacketLossMonitors prepares packet loss monitors on startup
+// initializePacketLossMonitors prepares packet loss monitors on startup.
+// This function recalculates next run times for all enabled monitors.
+//
+// Important behavior:
+// - Missed runs are NOT executed (no catch-up mechanism)
+// - For exact times (e.g., "exact:14:00"), finds the next occurrence
+// - For durations (e.g., "1h"), schedules from the current time
+// - This prevents network flooding after downtime and ensures fresh data
+//
+// Example: If a monitor scheduled for "exact:14:00" starts at 15:00,
+// it will be scheduled for 14:00 the next day, not run immediately.
 func (s *service) initializePacketLossMonitors(ctx context.Context) {
 	monitors, err := s.db.GetPacketLossMonitors()
 	if err != nil {

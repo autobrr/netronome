@@ -17,6 +17,7 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
   - [Environment Variables](#environment-variables)
   - [Database](#database)
   - [Authentication](#authentication)
+  - [Scheduling Intervals](#scheduling-intervals)
   - [Notifications](#notifications)
   - [CLI Commands](#cli-commands)
 - [Contributing](#-contributing)
@@ -335,6 +336,48 @@ Netronome supports two authentication methods:
      [auth]
      whitelist = ["127.0.0.1/32"]
      ```
+
+### Scheduling Intervals
+
+Netronome supports two types of scheduling intervals for both speed tests and packet loss monitors:
+
+#### 1. **Duration-based Intervals**
+
+- Format: Standard Go duration strings (e.g., `"30s"`, `"5m"`, `"1h"`, `"24h"`)
+- Example: `"1m"` runs the test every 1 minute
+- Next run calculation: Current time + interval duration + random jitter
+
+#### 2. **Exact Time Intervals**
+
+- Format: `"exact:HH:MM"` or `"exact:HH:MM,HH:MM"` for multiple times
+- Example: `"exact:14:30"` runs at 2:30 PM daily
+- Example: `"exact:00:00,12:00"` runs at midnight and noon daily
+- Next run calculation: Next occurrence of specified time(s) + random jitter
+
+#### Jitter (Randomization)
+
+To prevent the "thundering herd" problem where all tests run simultaneously:
+
+- **Duration-based**: Adds 1-300 seconds of random delay
+- **Exact time**: Adds 1-60 seconds of random delay
+
+This means if you have multiple monitors with the same interval, they won't all execute at exactly the same moment, preventing network congestion and ensuring more accurate results.
+
+#### Startup and Missed Runs
+
+When Netronome starts up, it recalculates the next run time for all scheduled tests:
+
+- **Missed runs are NOT executed** - If Netronome was offline and missed scheduled runs, those tests won't be run retroactively
+- **Next occurrence is calculated** - The scheduler finds the next valid time based on the interval
+- **No catch-up behavior** - This prevents network flooding and ensures test results reflect current conditions
+
+**Examples:**
+
+- Exact time "exact:14:00" starting at 10:00 → Next run: 14:00 today
+- Exact time "exact:14:00" starting at 15:00 → Next run: 14:00 tomorrow
+- Duration "1h" starting anytime → Next run: current time + 1 hour + jitter
+
+This design ensures predictable scheduling and prevents outdated tests from running after downtime.
 
 ### Packet Loss Monitoring
 

@@ -88,18 +88,17 @@ func (h *PacketLossHandler) UpdateMonitor(c *gin.Context) {
 		return
 	}
 
-	var monitor types.PacketLossMonitor
-	if err := c.ShouldBindJSON(&monitor); err != nil {
+	var updateData types.PacketLossMonitor
+	if err := c.ShouldBindJSON(&updateData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
-	monitor.ID = id
 
 	// Validate and clean input
-	monitor.Host = strings.TrimSpace(monitor.Host)
+	updateData.Host = strings.TrimSpace(updateData.Host)
 
-	// Verify monitor exists
-	_, err = h.db.GetPacketLossMonitor(id)
+	// Get existing monitor to preserve fields not updated by the user
+	existingMonitor, err := h.db.GetPacketLossMonitor(id)
 	if err != nil {
 		if err == database.ErrNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Monitor not found"})
@@ -109,8 +108,38 @@ func (h *PacketLossHandler) UpdateMonitor(c *gin.Context) {
 		return
 	}
 
+	// Log the current state for debugging
+	log.Debug().
+		Int64("id", existingMonitor.ID).
+		Interface("lastRun", existingMonitor.LastRun).
+		Interface("nextRun", existingMonitor.NextRun).
+		Msg("Retrieved existing monitor state")
+
+	// Update only the fields that should be changed by the user
+	existingMonitor.Host = updateData.Host
+	existingMonitor.Name = updateData.Name
+	existingMonitor.PacketCount = updateData.PacketCount
+	existingMonitor.Enabled = updateData.Enabled
+	existingMonitor.Threshold = updateData.Threshold
+
+	// If the interval changed, we should reset next_run so the scheduler recalculates it
+	if existingMonitor.Interval != updateData.Interval {
+		existingMonitor.Interval = updateData.Interval
+		// Clear next_run to force recalculation by the scheduler
+		existingMonitor.NextRun = nil
+	}
+
+	// Log what we're about to save
+	log.Debug().
+		Int64("id", existingMonitor.ID).
+		Interface("lastRun", existingMonitor.LastRun).
+		Interface("nextRun", existingMonitor.NextRun).
+		Str("interval", existingMonitor.Interval).
+		Bool("enabled", existingMonitor.Enabled).
+		Msg("Updating monitor with preserved scheduling fields")
+
 	// Update monitor in database
-	if err := h.db.UpdatePacketLossMonitor(&monitor); err != nil {
+	if err := h.db.UpdatePacketLossMonitor(existingMonitor); err != nil {
 		log.Error().Err(err).Msg("Failed to update packet loss monitor")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update monitor"})
 		return
@@ -118,7 +147,7 @@ func (h *PacketLossHandler) UpdateMonitor(c *gin.Context) {
 
 	// Note: The scheduler will handle monitoring based on the enabled state and next_run time
 
-	c.JSON(http.StatusOK, monitor)
+	c.JSON(http.StatusOK, existingMonitor)
 }
 
 // DeleteMonitor deletes a packet loss monitor
