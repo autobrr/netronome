@@ -6,10 +6,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import { PencilIcon, TrashIcon, StarIcon } from "@heroicons/react/24/outline";
-import {
-  StarIcon as StarIconSolid,
-  ServerStackIcon,
-} from "@heroicons/react/24/solid";
+import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import { VnstatAgent, VnstatStatus } from "@/api/vnstat";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -18,6 +15,7 @@ import {
   stopVnstatAgent,
 } from "@/api/vnstat";
 import { Button } from "@/components/ui/Button";
+import { AgentIcon } from "@/utils/agentIcons";
 
 interface VnstatAgentListProps {
   agents: VnstatAgent[];
@@ -53,7 +51,10 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
           </div>
         ) : !agents || agents.length === 0 ? (
           <div className="p-6 text-center">
-            <ServerStackIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <AgentIcon
+              name="Server"
+              className="mx-auto h-12 w-12 text-gray-400"
+            />
             <p className="mt-2 text-gray-500 dark:text-gray-400">
               No agents configured
             </p>
@@ -146,7 +147,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
   const setFeaturedAgentIds = (ids: number[]) => {
     localStorage.setItem(
       "netronome-featured-vnstat-agents",
-      JSON.stringify(ids)
+      JSON.stringify(ids),
     );
   };
 
@@ -189,7 +190,10 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
     >
       <div className="flex items-start justify-between">
         <div className="flex items-start space-x-4 flex-1">
-          <ServerStackIcon className="h-10 w-10 text-gray-400 mt-1" />
+          <AgentIcon
+            name={agent.name}
+            className="h-10 w-10 text-gray-400 mt-1"
+          />
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-3 mb-2">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
@@ -200,16 +204,16 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                   !agent.enabled
                     ? "bg-gray-400"
                     : status?.connected
-                    ? "bg-green-500"
-                    : "bg-red-500"
+                      ? "bg-green-500"
+                      : "bg-red-500"
                 }`}
               />
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 {!agent.enabled
                   ? "Disabled"
                   : status?.connected
-                  ? "Connected"
-                  : "Disconnected"}
+                    ? "Connected"
+                    : "Disconnected"}
               </span>
             </div>
 

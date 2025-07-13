@@ -5,11 +5,7 @@
 
 import React from "react";
 import { motion } from "motion/react";
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  ServerIcon,
-} from "@heroicons/react/24/outline";
+import { ArrowDownIcon, ArrowUpIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import {
   getVnstatAgents,
@@ -17,6 +13,7 @@ import {
   VnstatAgent,
   VnstatStatus,
 } from "@/api/vnstat";
+import { getAgentIcon } from "@/utils/agentIcons";
 
 interface FeaturedVnstatWidgetProps {
   onNavigateToVnstat: () => void;
@@ -45,7 +42,7 @@ export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = ({
 
   // Filter to only featured agents that exist and are enabled
   const featuredAgents = allAgents.filter(
-    (agent) => featuredAgentIds.includes(agent.id) && agent.enabled
+    (agent) => featuredAgentIds.includes(agent.id) && agent.enabled,
   );
 
   // If no featured agents, don't render the widget
@@ -114,7 +111,10 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
             {agent.name}
           </h3>
         </div>
-        <ServerIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+        {(() => {
+          const { icon: Icon } = getAgentIcon(agent.name);
+          return <Icon className="h-4 w-4 text-gray-400 flex-shrink-0" />;
+        })()}
       </div>
 
       {/* Bandwidth data */}
