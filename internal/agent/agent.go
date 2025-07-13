@@ -92,6 +92,7 @@ func (a *Agent) Start(ctx context.Context) error {
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"service":  "vnstat SSE agent",
+			"host":     a.config.Host,
 			"port":     a.config.Port,
 			"endpoint": "/events?stream=live-data",
 		})
@@ -101,7 +102,7 @@ func (a *Agent) Start(ctx context.Context) error {
 	router.GET("/events", a.handleSSE)
 
 	// Start HTTP server
-	addr := fmt.Sprintf(":%d", a.config.Port)
+	addr := fmt.Sprintf("%s:%d", a.config.Host, a.config.Port)
 	server := &http.Server{
 		Addr:    addr,
 		Handler: router,
@@ -219,7 +220,7 @@ func (a *Agent) runVnstat(ctx context.Context) {
 			// Channel full, skip
 		}
 
-		log.Debug().
+		log.Trace().
 			Str("rx", data.Rx.Ratestring).
 			Str("tx", data.Tx.Ratestring).
 			Msg("Broadcasting vnstat data")

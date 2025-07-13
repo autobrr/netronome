@@ -258,16 +258,22 @@ Netronome includes a distributed bandwidth monitoring system using vnstat agents
 
 #### Agent Setup
 
-1. **Deploy the Agent on Remote Servers**
+The same `netronome` binary can run as a lightweight agent that can be deployed:
 
-   The same `netronome` binary can run as a lightweight agent:
+- **Remote servers**: Monitor bandwidth across different servers/locations
+- **Same server**: Useful when Netronome runs in Docker but you want to monitor the host system
+
+1. **Deploy the Agent**
 
    ```bash
-   # Run agent on default port 8200
+   # Run agent on default settings (0.0.0.0:8200)
    netronome agent
 
-   # Run agent on custom port with specific interface
-   netronome agent --port 8300 --interface eth0
+   # Run agent on custom host and port
+   netronome agent --host 192.168.1.100 --port 8300
+
+   # Run agent with specific interface and localhost binding
+   netronome agent --host 127.0.0.1 --port 8200 --interface eth0
 
    # Run with config file
    netronome agent --config /path/to/config.toml
@@ -279,8 +285,9 @@ Netronome includes a distributed bandwidth monitoring system using vnstat agents
 
    ```toml
    [agent]
+   host = "0.0.0.0"  # IP address to bind to (0.0.0.0 for all interfaces)
    port = 8200
-   interface = ""  # Empty for all interfaces, or specify like "eth0"
+   interface = ""    # Empty for all interfaces, or specify like "eth0"
 
    [vnstat]
    enabled = true
@@ -389,6 +396,12 @@ This ensures optimal performance for both real-time monitoring and historical an
 | `NETRONOME__PACKETLOSS_MAX_CONCURRENT_MONITORS`     | Maximum number of monitors that can run simultaneously            | `10`                                         | No                     |
 | `NETRONOME__PACKETLOSS_PRIVILEGED_MODE`             | Use privileged ICMP mode for better accuracy                      | `false`                                      | No                     |
 | `NETRONOME__PACKETLOSS_RESTORE_MONITORS_ON_STARTUP` | **WARNING**: Immediately run ALL enabled monitors on startup      | `false`                                      | No                     |
+| `NETRONOME__AGENT_HOST`                             | Agent server bind address                                         | `0.0.0.0`                                    | No                     |
+| `NETRONOME__AGENT_PORT`                             | Agent server port                                                 | `8200`                                       | No                     |
+| `NETRONOME__AGENT_INTERFACE`                        | Network interface for agent to monitor (empty for all)            | ``                                           | No                     |
+| `NETRONOME__VNSTAT_ENABLED`                         | Enable vnstat client service in main server                       | `true`                                       | No                     |
+| `NETRONOME__VNSTAT_DEFAULT_RETENTION_DAYS`          | Default retention days for vnstat agent data                      | `365`                                        | No                     |
+| `NETRONOME__VNSTAT_RECONNECT_INTERVAL`              | Reconnection interval for vnstat client connections               | `30s`                                        | No                     |
 
 ### Database
 
@@ -610,6 +623,7 @@ Netronome provides several command-line commands:
 
 - `generate-config` - Generate a default configuration file to `~/.config/netronome/config.toml`
 - `serve` - Starts the Netronome server
+- `agent` - Starts a vnstat SSE agent for bandwidth monitoring
 - `create-user` - Create a new user
 - `change-password` - Change password for an existing user
 
@@ -617,6 +631,9 @@ Examples:
 
 ```bash
 netronome generate-config
+
+# Start vnstat agent with custom settings
+netronome agent --host 192.168.1.100 --port 8300 --interface eth0
 
 # Create a new user (interactive)
 netronome --config /home/username/.config/netronome/config.toml create-user username

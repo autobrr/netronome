@@ -1,4 +1,5 @@
 [agent]
+host = "0.0.0.0" # IP address to bind to (0.0.0.0 for all interfaces)
 port = 8200
 interface = "" # Empty for all interfaces, or specify like "eth0"
 

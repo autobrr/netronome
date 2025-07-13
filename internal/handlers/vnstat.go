@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
+	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/types"
 	"github.com/autobrr/netronome/internal/vnstat"
@@ -21,13 +22,15 @@ import (
 type VnstatHandler struct {
 	db      database.Service
 	service *vnstat.Service
+	config  *config.VnstatConfig
 }
 
 // NewVnstatHandler creates a new vnstat handler
-func NewVnstatHandler(db database.Service, service *vnstat.Service) *VnstatHandler {
+func NewVnstatHandler(db database.Service, service *vnstat.Service, cfg *config.VnstatConfig) *VnstatHandler {
 	return &VnstatHandler{
 		db:      db,
 		service: service,
+		config:  cfg,
 	}
 }
 
@@ -98,7 +101,7 @@ func (h *VnstatHandler) CreateAgent(c *gin.Context) {
 
 	// Set default retention if not provided
 	if agent.RetentionDays <= 0 {
-		agent.RetentionDays = 30
+		agent.RetentionDays = h.config.DefaultRetentionDays
 	}
 
 	// Create agent in database

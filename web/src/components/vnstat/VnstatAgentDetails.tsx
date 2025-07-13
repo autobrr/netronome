@@ -66,18 +66,57 @@ export const VnstatAgentDetails: React.FC<VnstatAgentDetailsProps> = ({
     <div className="space-y-6">
       {/* Agent Info Card */}
       <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <ServerStackIcon className="h-10 w-10 text-gray-400" />
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                {agent.name}
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {agent.url.replace(/\/events\?stream=live-data$/, "")}
-              </p>
+        <div className="flex items-start justify-between">
+          <div className="flex items-start space-x-4 flex-1">
+            <ServerStackIcon className="h-10 w-10 text-gray-400 mt-1" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center space-x-3 mb-2">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                  {agent.name}
+                </h3>
+                <div
+                  className={`h-2 w-2 rounded-full ${
+                    !agent.enabled
+                      ? "bg-gray-400"
+                      : status?.connected
+                        ? "bg-green-500"
+                        : "bg-red-500"
+                  }`}
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {!agent.enabled
+                    ? "Disabled"
+                    : status?.connected
+                      ? "Connected"
+                      : "Disconnected"}
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <span className="font-medium">URL:</span>{" "}
+                  {agent.url.replace(/\/events\?stream=live-data$/, "")}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <span className="font-medium">Retention:</span>{" "}
+                  {agent.retentionDays || 365} days
+                </p>
+                {agent.enabled && status?.liveData && (
+                  <div className="flex items-center space-x-4 mt-2">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      <span className="font-medium">↓</span>{" "}
+                      {status.liveData.rx.ratestring}
+                    </span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      <span className="font-medium">↑</span>{" "}
+                      {status.liveData.tx.ratestring}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+
           <Button
             onClick={handleToggleMonitoring}
             disabled={startMutation.isPending || stopMutation.isPending}
@@ -89,26 +128,6 @@ export const VnstatAgentDetails: React.FC<VnstatAgentDetailsProps> = ({
           >
             {agent.enabled && status?.connected ? "Stop" : "Start"}
           </Button>
-        </div>
-
-        {/* Connection Status */}
-        <div className="flex items-center space-x-2">
-          <div
-            className={`h-2 w-2 rounded-full ${
-              !agent.enabled
-                ? "bg-gray-400"
-                : status?.connected
-                ? "bg-green-500"
-                : "bg-red-500"
-            }`}
-          />
-          <span className="text-sm text-gray-600 dark:text-gray-400">
-            {!agent.enabled
-              ? "Disabled"
-              : status?.connected
-              ? "Connected"
-              : "Disconnected"}
-          </span>
         </div>
       </div>
 

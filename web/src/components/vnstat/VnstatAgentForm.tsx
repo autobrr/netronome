@@ -26,7 +26,7 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
     name: "",
     url: "",
     enabled: true,
-    retention_days: 30,
+    retentionDays: 365,
   });
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
         name: agent.name,
         url: agent.url.replace(/\/events\?stream=live-data$/, ""),
         enabled: agent.enabled,
-        retention_days: agent.retention_days,
+        retentionDays: agent.retentionDays,
       });
     }
   }, [agent]);
@@ -131,19 +131,19 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
 
             <div>
               <label
-                htmlFor="retention_days"
+                htmlFor="retentionDays"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
                 Data Retention (days)
               </label>
               <input
                 type="number"
-                id="retention_days"
-                value={formData.retention_days}
+                id="retentionDays"
+                value={formData.retentionDays}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    retention_days: parseInt(e.target.value) || 30,
+                    retentionDays: parseInt(e.target.value),
                   })
                 }
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"

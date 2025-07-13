@@ -143,6 +143,7 @@ type PacketLossConfig struct {
 }
 
 type AgentConfig struct {
+	Host      string `toml:"host" env:"AGENT_HOST"`
 	Port      int    `toml:"port" env:"AGENT_PORT"`
 	Interface string `toml:"interface" env:"AGENT_INTERFACE"`
 }
@@ -250,12 +251,13 @@ func New() *Config {
 			RestoreMonitorsOnStartup: false,
 		},
 		Agent: AgentConfig{
+			Host:      "0.0.0.0",
 			Port:      8200,
 			Interface: "",
 		},
 		Vnstat: VnstatConfig{
 			Enabled:              true,
-			DefaultRetentionDays: 30,
+			DefaultRetentionDays: 365,
 			ReconnectInterval:    "30s",
 		},
 	}
@@ -566,6 +568,9 @@ func (c *Config) loadPacketLossFromEnv() {
 }
 
 func (c *Config) loadAgentFromEnv() {
+	if v := getEnv("AGENT_HOST"); v != "" {
+		c.Agent.Host = v
+	}
 	if v := getEnv("AGENT_PORT"); v != "" {
 		if port, err := strconv.Atoi(v); err == nil {
 			c.Agent.Port = port
@@ -884,6 +889,9 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, "[agent]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "host = \"%s\" # IP address to bind to (0.0.0.0 for all interfaces)\n", cfg.Agent.Host); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "port = %d\n", cfg.Agent.Port); err != nil {

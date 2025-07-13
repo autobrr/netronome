@@ -142,7 +142,7 @@ func (s *Server) BroadcastVnstatUpdate(update types.VnstatUpdate) {
 	s.lastVnstatUpdate = &update
 	s.mu.Unlock()
 
-	log.Debug().
+	log.Trace().
 		Int64("agentID", update.AgentID).
 		Str("agentName", update.AgentName).
 		Bool("connected", update.Connected).
@@ -257,7 +257,7 @@ func (s *Server) RegisterRoutes() {
 
 			// Vnstat monitoring routes
 			if s.vnstatService != nil {
-				vnstatHandler := handlers.NewVnstatHandler(s.db, s.vnstatService)
+				vnstatHandler := handlers.NewVnstatHandler(s.db, s.vnstatService, &s.config.Vnstat)
 				protected.GET("/vnstat/agents", vnstatHandler.GetAgents)
 				protected.POST("/vnstat/agents", vnstatHandler.CreateAgent)
 				protected.GET("/vnstat/agents/:id", vnstatHandler.GetAgent)

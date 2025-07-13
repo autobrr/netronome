@@ -85,6 +85,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "path to config file")
 
+	agentCmd.Flags().StringP("host", "h", "0.0.0.0", "IP address to bind to")
 	agentCmd.Flags().IntP("port", "p", 8200, "port to listen on")
 	agentCmd.Flags().StringP("interface", "i", "", "network interface to monitor (empty for all)")
 
@@ -390,6 +391,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	// initialize logger
 	logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
 
+	host, _ := cmd.Flags().GetString("host")
 	port, _ := cmd.Flags().GetInt("port")
 	iface, _ := cmd.Flags().GetString("interface")
 
@@ -407,6 +409,9 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	}
 
 	// Override with command line flags
+	if cmd.Flags().Changed("host") {
+		cfg.Agent.Host = host
+	}
 	if cmd.Flags().Changed("port") {
 		cfg.Agent.Port = port
 	}

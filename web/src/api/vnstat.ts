@@ -5,9 +5,9 @@ export interface VnstatAgent {
   name: string;
   url: string;
   enabled: boolean;
-  retention_days: number;
-  created_at: string;
-  updated_at: string;
+  retentionDays: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface VnstatBandwidth {
@@ -42,7 +42,7 @@ export interface CreateAgentRequest {
   name: string;
   url: string;
   enabled: boolean;
-  retention_days: number;
+  retentionDays: number;
 }
 
 export interface UpdateAgentRequest extends CreateAgentRequest {
