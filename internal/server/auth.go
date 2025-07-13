@@ -56,12 +56,20 @@ func (h *AuthHandler) CheckRegistrationStatus(c *gin.Context) {
 	})
 }
 
+// isJWT checks if a token appears to be a JWT (has 3 base64-encoded parts separated by dots)
+func isJWT(token string) bool {
+	parts := strings.Split(token, ".")
+	return len(parts) == 3
+}
+
 // refreshSession updates the session cookie with a new expiry time
 func (h *AuthHandler) refreshSession(c *gin.Context, token string) {
 	isSecure := c.GetHeader("X-Forwarded-Proto") == "https" || strings.HasPrefix(c.Request.Proto, "HTTPS")
 
 	var signedToken string
-	if strings.Contains(token, ".") && h.sessionSecret != "" {
+	// For OIDC tokens (JWTs), always treat as raw tokens to be signed
+	// Only check for our signed tokens if they have our memory prefix or match our signing pattern
+	if strings.HasPrefix(token, auth.MemoryOnlyPrefix) || (strings.Contains(token, ".") && h.sessionSecret != "" && !isJWT(token)) {
 		// Token is already signed, verify and resign it
 		rawToken, err := auth.VerifyToken(token, h.sessionSecret)
 		if err != nil {
@@ -70,7 +78,7 @@ func (h *AuthHandler) refreshSession(c *gin.Context, token string) {
 		}
 		signedToken = auth.SignToken(rawToken, h.sessionSecret)
 	} else {
-		// Token is not signed yet, sign it
+		// Token is not signed yet (including OIDC JWTs), sign it
 		signedToken = auth.SignToken(token, h.sessionSecret)
 	}
 
