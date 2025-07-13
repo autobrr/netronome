@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -279,11 +280,18 @@ func (c *Client) monitor() {
 		// Connect to SSE endpoint
 		err := c.connectAndStream()
 		if err != nil {
-			log.Error().
-				Err(err).
-				Int64("agent_id", c.agent.ID).
-				Str("url", c.agent.URL).
-				Msg("Failed to connect to vnstat agent")
+			// Don't log error if context was cancelled (normal shutdown)
+			if errors.Is(err, context.Canceled) {
+				log.Debug().
+					Int64("agent_id", c.agent.ID).
+					Msg("Agent connection cancelled")
+			} else {
+				log.Error().
+					Err(err).
+					Int64("agent_id", c.agent.ID).
+					Str("url", c.agent.URL).
+					Msg("Failed to connect to vnstat agent")
+			}
 
 			// Update connection status
 			c.mu.Lock()
