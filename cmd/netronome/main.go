@@ -230,6 +230,11 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server forced to shutdown: %w", err)
 	}
 
+	// Close database connection to ensure WAL is checkpointed
+	if err := db.Close(); err != nil {
+		log.Error().Err(err).Msg("Failed to close database")
+	}
+
 	log.Info().Msg("Server exiting")
 	return nil
 }
