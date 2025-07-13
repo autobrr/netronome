@@ -220,7 +220,7 @@ func (s *Server) RegisterRoutes() {
 
 			// Packet Loss monitoring routes
 			if s.packetLossService != nil {
-				packetLossHandler := handlers.NewPacketLossHandler(s.db, s.packetLossService)
+				packetLossHandler := handlers.NewPacketLossHandler(s.db, s.packetLossService, s.scheduler)
 				protected.GET("/packetloss/monitors", packetLossHandler.GetMonitors)
 				protected.POST("/packetloss/monitors", packetLossHandler.CreateMonitor)
 				protected.PUT("/packetloss/monitors/:id", packetLossHandler.UpdateMonitor)

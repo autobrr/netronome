@@ -7,26 +7,30 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
 )
 
 // PacketLossHandler handles packet loss monitoring endpoints
 type PacketLossHandler struct {
-	db      database.Service
-	service *speedtest.PacketLossService
+	db        database.Service
+	service   *speedtest.PacketLossService
+	scheduler scheduler.Service
 }
 
 // NewPacketLossHandler creates a new packet loss handler
-func NewPacketLossHandler(db database.Service, service *speedtest.PacketLossService) *PacketLossHandler {
+func NewPacketLossHandler(db database.Service, service *speedtest.PacketLossService, scheduler scheduler.Service) *PacketLossHandler {
 	return &PacketLossHandler{
-		db:      db,
-		service: service,
+		db:        db,
+		service:   service,
+		scheduler: scheduler,
 	}
 }
 
@@ -64,6 +68,17 @@ func (h *PacketLossHandler) CreateMonitor(c *gin.Context) {
 	}
 	if monitor.Threshold <= 0 {
 		monitor.Threshold = 5.0 // Default to 5% packet loss threshold
+	}
+
+	// Calculate initial next_run time
+	now := time.Now()
+	nextRun := h.scheduler.CalculateNextRun(monitor.Interval, now)
+	if !nextRun.IsZero() {
+		monitor.NextRun = &nextRun
+		log.Debug().
+			Time("next_run", nextRun).
+			Str("interval", monitor.Interval).
+			Msg("Setting initial next_run for new monitor")
 	}
 
 	// Create monitor in database

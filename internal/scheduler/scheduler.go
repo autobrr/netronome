@@ -23,6 +23,8 @@ import (
 type Service interface {
 	Start(ctx context.Context)
 	Stop()
+	UpdateMonitorSchedule(monitorID int64, interval string) error
+	CalculateNextRun(interval string, from time.Time) time.Time
 }
 
 type service struct {
@@ -441,4 +443,43 @@ func (s *service) checkAndRunPacketLossMonitors(ctx context.Context) {
 			}
 		}(monitor, testCtx, cancel)
 	}
+}
+
+// UpdateMonitorSchedule updates a monitor's last_run and next_run times after a test completes
+func (s *service) UpdateMonitorSchedule(monitorID int64, interval string) error {
+	now := time.Now()
+
+	// Get the monitor to update
+	monitor, err := s.db.GetPacketLossMonitor(monitorID)
+	if err != nil {
+		return err
+	}
+
+	// Calculate next run time
+	nextRun := s.calculateNextRun(interval, now)
+	if nextRun.IsZero() {
+		log.Error().
+			Int64("monitor_id", monitorID).
+			Str("interval", interval).
+			Msg("Error calculating next run time for monitor")
+		return nil // Don't fail, just log
+	}
+
+	// Update the monitor
+	monitor.LastRun = &now
+	monitor.NextRun = &nextRun
+
+	log.Debug().
+		Int64("monitor_id", monitorID).
+		Time("last_run", now).
+		Time("next_run", nextRun).
+		Str("interval", interval).
+		Msg("Updating monitor schedule after test completion")
+
+	return s.db.UpdatePacketLossMonitor(monitor)
+}
+
+// CalculateNextRun is a public wrapper for calculateNextRun
+func (s *service) CalculateNextRun(interval string, from time.Time) time.Time {
+	return s.calculateNextRun(interval, from)
 }

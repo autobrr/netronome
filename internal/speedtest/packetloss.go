@@ -35,15 +35,18 @@ type PacketLossMonitor struct {
 
 // PacketLossService manages packet loss monitoring
 type PacketLossService struct {
-	monitors       map[int64]*PacketLossMonitor
-	progress       map[int64]float64   // Track current progress for each monitor
-	completed      map[int64]time.Time // Track recently completed tests
-	mtrData        map[int64]string    // Store MTR JSON data temporarily
-	mtrPrivileged  map[int64]bool      // Track if MTR ran in privileged mode
-	mu             sync.RWMutex
-	db             database.Service
-	notifier       *notifications.Notifier
-	broadcast      func(types.PacketLossUpdate)
+	monitors      map[int64]*PacketLossMonitor
+	progress      map[int64]float64   // Track current progress for each monitor
+	completed     map[int64]time.Time // Track recently completed tests
+	mtrData       map[int64]string    // Store MTR JSON data temporarily
+	mtrPrivileged map[int64]bool      // Track if MTR ran in privileged mode
+	mu            sync.RWMutex
+	db            database.Service
+	notifier      *notifications.Notifier
+	broadcast     func(types.PacketLossUpdate)
+	scheduler     interface {
+		UpdateMonitorSchedule(monitorID int64, interval string) error
+	}
 	maxConcurrent  int
 	privilegedMode bool
 }
@@ -72,6 +75,15 @@ func (s *PacketLossService) SetBroadcast(broadcast func(types.PacketLossUpdate))
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.broadcast = broadcast
+}
+
+// SetScheduler sets the scheduler for the service
+func (s *PacketLossService) SetScheduler(scheduler interface {
+	UpdateMonitorSchedule(monitorID int64, interval string) error
+}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.scheduler = scheduler
 }
 
 // StartMonitor starts monitoring for a specific monitor configuration
@@ -701,6 +713,25 @@ func (s *PacketLossService) processResults(monitor *PacketLossMonitor, stats *pr
 	// Check threshold and send notification if needed
 	if s.notifier != nil && stats.PacketLoss > monitor.Threshold {
 		s.sendPacketLossAlert(monitor, stats, usedMTR, hopCount)
+	}
+
+	// Update monitor schedule if scheduler is available
+	if s.scheduler != nil {
+		// Get the monitor config to get the interval
+		monitorConfig, err := s.db.GetPacketLossMonitor(monitor.ID)
+		if err == nil && monitorConfig.Enabled {
+			if err := s.scheduler.UpdateMonitorSchedule(monitor.ID, monitorConfig.Interval); err != nil {
+				log.Error().
+					Err(err).
+					Int64("monitorID", monitor.ID).
+					Msg("Failed to update monitor schedule after test completion")
+			} else {
+				log.Debug().
+					Int64("monitorID", monitor.ID).
+					Str("interval", monitorConfig.Interval).
+					Msg("Updated monitor schedule after test completion")
+			}
+		}
 	}
 }
 
