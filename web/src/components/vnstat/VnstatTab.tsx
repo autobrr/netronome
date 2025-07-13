@@ -98,7 +98,7 @@ export const VnstatTab: React.FC = () => {
             Bandwidth Monitoring
           </h2>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Monitor network bandwidth from remote vnstat agents
+            Monitor bandwidth from remote Netronome agents
           </p>
         </div>
         <Button

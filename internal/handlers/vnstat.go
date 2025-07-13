@@ -223,7 +223,7 @@ func (h *VnstatHandler) GetAgentStatus(c *gin.Context) {
 		status["liveData"] = liveData
 	}
 
-	log.Debug().
+	log.Trace().
 		Int64("agent_id", id).
 		Bool("connected", connected).
 		Bool("has_live_data", liveData != nil).

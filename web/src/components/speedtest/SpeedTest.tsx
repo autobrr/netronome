@@ -527,6 +527,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                 hasAnyTests={hasAnyTests}
                 onShareClick={() => setShareModalOpen(true)}
                 onNavigateToSpeedTest={() => handleTabChange("speedtest")}
+                onNavigateToVnstat={() => handleTabChange("vnstat")}
               />
             </motion.div>
           )}

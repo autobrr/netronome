@@ -8,6 +8,7 @@ import { motion } from "motion/react";
 import { SpeedTestResult, TimeRange } from "@/types/types";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import { MetricCard } from "@/components/common/MetricCard";
+import { FeaturedVnstatWidget } from "@/components/vnstat/FeaturedVnstatWidget";
 import { FaWaveSquare, FaShare, FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
 import { Disclosure, DisclosureButton } from "@headlessui/react";
@@ -22,6 +23,7 @@ interface DashboardTabProps {
   hasAnyTests?: boolean;
   onShareClick?: () => void;
   onNavigateToSpeedTest?: () => void;
+  onNavigateToVnstat?: () => void;
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({
@@ -33,6 +35,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   hasAnyTests = false,
   onShareClick,
   onNavigateToSpeedTest,
+  onNavigateToVnstat,
 }) => {
   const [displayCount, setDisplayCount] = useState(5);
   const [isRecentTestsOpen] = useState(() => {
@@ -181,6 +184,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             )}
           </div>
         </motion.div>
+      )}
+
+      {/* Featured Vnstat Widget - only show if callback is provided */}
+      {onNavigateToVnstat && (
+        <FeaturedVnstatWidget onNavigateToVnstat={onNavigateToVnstat} />
       )}
 
       {/* Speed History Chart */}
