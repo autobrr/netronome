@@ -46,6 +46,12 @@ func CheckPassword(password, hash string) bool {
 // MemoryOnlyPrefix is used to mark tokens that should only exist in memory
 const MemoryOnlyPrefix = "mem_"
 
+// isJWT checks if a token appears to be a JWT (has 3 base64-encoded parts separated by dots)
+func isJWT(token string) bool {
+	parts := strings.Split(token, ".")
+	return len(parts) == 3
+}
+
 func SignToken(token, secret string) string {
 	if secret == "" {
 		return MemoryOnlyPrefix + token
@@ -64,11 +70,24 @@ func VerifyToken(signedToken, secret string) (string, error) {
 
 	if secret != "" {
 		parts := strings.Split(signedToken, ".")
-		if len(parts) != 2 {
+		
+		var token, signature string
+		
+		// Handle different token formats
+		if len(parts) == 2 {
+			// Regular signed token: token.signature
+			token, signature = parts[0], parts[1]
+		} else if len(parts) == 4 {
+			// Signed JWT token: header.payload.signature.our_signature
+			jwtParts := strings.Join(parts[:3], ".")
+			if isJWT(jwtParts) {
+				token, signature = jwtParts, parts[3]
+			} else {
+				return "", fmt.Errorf("%w: malformed token", ErrInvalidSession)
+			}
+		} else {
 			return "", fmt.Errorf("%w: malformed token", ErrInvalidSession)
 		}
-
-		token, signature := parts[0], parts[1]
 
 		expectedSignature := hmac.New(sha256.New, []byte(secret))
 		expectedSignature.Write([]byte(token))
