@@ -92,18 +92,18 @@ export const VnstatTab: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
             Bandwidth Monitoring
           </h2>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Monitor bandwidth from remote Netronome agents
+          <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+            Monitor bandwidth from Netronome agents
           </p>
         </div>
         <Button
           onClick={handleCreateAgent}
-          className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white border-blue-600"
+          className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white border-blue-600 text-sm sm:text-base"
         >
           Add Agent
         </Button>
@@ -139,7 +139,7 @@ export const VnstatTab: React.FC = () => {
             <VnstatAgentDetails agent={selectedAgent} />
           ) : (
             <div className="rounded-lg bg-white p-6 text-center shadow-sm dark:bg-gray-800">
-              <p className="text-gray-500 dark:text-gray-400">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                 Select an agent to view bandwidth details
               </p>
             </div>

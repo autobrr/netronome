@@ -36,7 +36,7 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
 }) => {
   return (
     <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800">
-      <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+      <div className="border-b border-gray-200 px-4 sm:px-6 py-4 dark:border-gray-700">
         <h3 className="text-lg font-medium text-gray-900 dark:text-white">
           Netronome Agents
         </h3>
@@ -181,58 +181,60 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
 
   return (
     <motion.div
-      className={`cursor-pointer p-6 transition-colors ${
+      className={`cursor-pointer p-4 sm:p-6 transition-colors ${
         isSelected
           ? "bg-blue-50 dark:bg-gray-800"
           : "hover:bg-gray-50 dark:hover:bg-gray-800"
       }`}
       onClick={onSelect}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex items-start space-x-4 flex-1">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0">
           <AgentIcon
             name={agent.name}
-            className="h-10 w-10 text-gray-400 mt-1"
+            className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400 mt-0.5 sm:mt-1 flex-shrink-0"
           />
           <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-3 mb-2">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
+              <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white">
                 {agent.name}
               </h3>
-              <div
-                className={`h-2 w-2 rounded-full ${
-                  !agent.enabled
-                    ? "bg-gray-400"
+              <div className="flex items-center space-x-2">
+                <div
+                  className={`h-2 w-2 rounded-full ${
+                    !agent.enabled
+                      ? "bg-gray-400"
+                      : status?.connected
+                        ? "bg-green-500"
+                        : "bg-red-500"
+                  }`}
+                />
+                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                  {!agent.enabled
+                    ? "Disabled"
                     : status?.connected
-                      ? "bg-green-500"
-                      : "bg-red-500"
-                }`}
-              />
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {!agent.enabled
-                  ? "Disabled"
-                  : status?.connected
-                    ? "Connected"
-                    : "Disconnected"}
-              </span>
+                      ? "Connected"
+                      : "Disconnected"}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-1">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 break-all">
                 <span className="font-medium">URL:</span>{" "}
                 {agent.url.replace(/\/events\?stream=live-data$/, "")}
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                 <span className="font-medium">Retention:</span>{" "}
                 {agent.retentionDays || 365} days
               </p>
               {agent.enabled && status?.liveData && (
                 <div className="flex items-center space-x-4 mt-2">
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">
                     <span className="font-medium">↓</span>{" "}
                     {status.liveData.rx.ratestring}
                   </span>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">
                     <span className="font-medium">↑</span>{" "}
                     {status.liveData.tx.ratestring}
                   </span>
@@ -242,48 +244,50 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 ml-4">
-          <button
-            className={`p-2 rounded-md transition-colors ${
-              isFeatured
-                ? "text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
-                : "text-gray-500 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400"
-            } hover:bg-gray-100 dark:hover:bg-gray-700`}
-            onClick={handleToggleFeatured}
-            title={isFeatured ? "Remove from featured" : "Add to featured"}
-          >
-            {isFeatured ? (
-              <StarIconSolid className="h-5 w-5" />
-            ) : (
-              <StarIcon className="h-5 w-5" />
-            )}
-          </button>
-          <button
-            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit();
-            }}
-          >
-            <PencilIcon className="h-5 w-5" />
-          </button>
-          <button
-            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-          >
-            <TrashIcon className="h-5 w-5" />
-          </button>
+        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-2 mt-2 sm:mt-0">
+          <div className="flex items-center space-x-1 sm:space-x-2">
+            <button
+              className={`p-1.5 sm:p-2 rounded-md transition-colors ${
+                isFeatured
+                  ? "text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
+                  : "text-gray-500 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400"
+              } hover:bg-gray-100 dark:hover:bg-gray-700`}
+              onClick={handleToggleFeatured}
+              title={isFeatured ? "Remove from featured" : "Add to featured"}
+            >
+              {isFeatured ? (
+                <StarIconSolid className="h-4 w-4 sm:h-5 sm:w-5" />
+              ) : (
+                <StarIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+              )}
+            </button>
+            <button
+              className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+            >
+              <PencilIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
+            <button
+              className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+            >
+              <TrashIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
+          </div>
           <Button
             onClick={handleToggleMonitoring}
             disabled={startMutation.isPending || stopMutation.isPending}
-            className={
+            className={`text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2 ${
               agent.enabled && status?.connected
                 ? "bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/20"
                 : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-            }
+            }`}
           >
             {agent.enabled && status?.connected ? "Stop" : "Start"}
           </Button>
