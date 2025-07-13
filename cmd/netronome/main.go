@@ -192,6 +192,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Set the broadcaster for packet loss service
 	if packetLossService != nil {
 		packetLossService.SetBroadcast(serverHandler.BroadcastPacketLossUpdate)
+		packetLossService.SetScheduler(schedulerSvc)
 
 		// Don't start monitors here - let the scheduler handle them
 	}
