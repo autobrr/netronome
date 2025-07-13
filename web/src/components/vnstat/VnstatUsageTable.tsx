@@ -100,7 +100,7 @@ export const VnstatUsageTable: React.FC<VnstatUsageTableProps> = ({
     <div>
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-800">
+          <tr className="border-b border-gray-300 dark:border-gray-800">
             <th className="text-left py-3 px-2 text-gray-400 font-medium">
               Period
             </th>

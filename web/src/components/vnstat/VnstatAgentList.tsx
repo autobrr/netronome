@@ -5,18 +5,19 @@
 
 import React from "react";
 import { motion } from "motion/react";
+import { PencilIcon, TrashIcon, StarIcon } from "@heroicons/react/24/outline";
 import {
-  PencilIcon,
-  TrashIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ServerIcon,
-  StarIcon,
-} from "@heroicons/react/24/outline";
-import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
+  StarIcon as StarIconSolid,
+  ServerStackIcon,
+} from "@heroicons/react/24/solid";
 import { VnstatAgent, VnstatStatus } from "@/api/vnstat";
-import { useQuery } from "@tanstack/react-query";
-import { getVnstatAgentStatus } from "@/api/vnstat";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getVnstatAgentStatus,
+  startVnstatAgent,
+  stopVnstatAgent,
+} from "@/api/vnstat";
+import { Button } from "@/components/ui/Button";
 
 interface VnstatAgentListProps {
   agents: VnstatAgent[];
@@ -52,7 +53,7 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
           </div>
         ) : !agents || agents.length === 0 ? (
           <div className="p-6 text-center">
-            <ServerIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <ServerStackIcon className="mx-auto h-12 w-12 text-gray-400" />
             <p className="mt-2 text-gray-500 dark:text-gray-400">
               No agents configured
             </p>
@@ -92,6 +93,8 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
   onEdit,
   onDelete,
 }) => {
+  const queryClient = useQueryClient();
+
   // Fetch agent status
   const { data: status } = useQuery<VnstatStatus>({
     queryKey: ["vnstat-agent-status", agent.id],
@@ -100,7 +103,37 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
     enabled: agent.enabled,
   });
 
-  // Featured agents management
+  // Start/stop mutations
+  const startMutation = useMutation({
+    mutationFn: () => startVnstatAgent(agent.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vnstat-agents"] });
+      queryClient.invalidateQueries({
+        queryKey: ["vnstat-agent-status", agent.id],
+      });
+    },
+  });
+
+  const stopMutation = useMutation({
+    mutationFn: () => stopVnstatAgent(agent.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vnstat-agents"] });
+      queryClient.invalidateQueries({
+        queryKey: ["vnstat-agent-status", agent.id],
+      });
+    },
+  });
+
+  const handleToggleMonitoring = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (agent.enabled && status?.connected) {
+      stopMutation.mutate();
+    } else {
+      startMutation.mutate();
+    }
+  };
+
+  // Featured agents management with local state for instant feedback
   const getFeaturedAgentIds = (): number[] => {
     try {
       const stored = localStorage.getItem("netronome-featured-vnstat-agents");
@@ -117,8 +150,11 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
     );
   };
 
-  const featuredAgentIds = getFeaturedAgentIds();
-  const isFeatured = featuredAgentIds.includes(agent.id);
+  // Use local state for immediate UI feedback
+  const [isFeatured, setIsFeatured] = React.useState(() => {
+    const featuredIds = getFeaturedAgentIds();
+    return featuredIds.includes(agent.id);
+  });
 
   const handleToggleFeatured = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -129,6 +165,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       // Remove from featured
       const newFeatured = currentFeatured.filter((id) => id !== agent.id);
       setFeaturedAgentIds(newFeatured);
+      setIsFeatured(false); // Immediate UI update
     } else {
       // Add to featured (max 3)
       if (currentFeatured.length >= 3) {
@@ -137,51 +174,71 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       }
       const newFeatured = [...currentFeatured, agent.id];
       setFeaturedAgentIds(newFeatured);
+      setIsFeatured(true); // Immediate UI update
     }
   };
 
   return (
     <motion.div
-      className={`cursor-pointer p-4 transition-colors ${
+      className={`cursor-pointer p-6 transition-colors ${
         isSelected
-          ? "bg-blue-50 dark:bg-blue-900/20"
-          : "hover:bg-gray-50 dark:hover:bg-gray-700"
+          ? "bg-blue-50 dark:bg-gray-800"
+          : "hover:bg-gray-50 dark:hover:bg-gray-800"
       }`}
       onClick={onSelect}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div
-            className={`h-2 w-2 rounded-full ${
-              !agent.enabled
-                ? "bg-gray-400"
-                : status?.connected
-                ? "bg-green-500"
-                : "bg-red-500"
-            }`}
-          />
-          <div>
-            <h4 className="font-medium text-gray-900 dark:text-white">
-              {agent.name}
-            </h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {agent.url.replace(/\/events\?stream=live-data$/, "")}
-            </p>
-            {agent.enabled && status?.liveData && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                ↓ {status.liveData.rx.ratestring} | ↑{" "}
-                {status.liveData.tx.ratestring}
+      <div className="flex items-start justify-between">
+        <div className="flex items-start space-x-4 flex-1">
+          <ServerStackIcon className="h-10 w-10 text-gray-400 mt-1" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center space-x-3 mb-2">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                {agent.name}
+              </h3>
+              <div
+                className={`h-2 w-2 rounded-full ${
+                  !agent.enabled
+                    ? "bg-gray-400"
+                    : status?.connected
+                    ? "bg-green-500"
+                    : "bg-red-500"
+                }`}
+              />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                {!agent.enabled
+                  ? "Disabled"
+                  : status?.connected
+                  ? "Connected"
+                  : "Disconnected"}
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                <span className="font-medium">URL:</span>{" "}
+                {agent.url.replace(/\/events\?stream=live-data$/, "")}
               </p>
-            )}
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                <span className="font-medium">Retention:</span>{" "}
+                {agent.retentionDays || 365} days
+              </p>
+              {agent.enabled && status?.liveData && (
+                <div className="flex items-center space-x-4 mt-2">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">↓</span>{" "}
+                    {status.liveData.rx.ratestring}
+                  </span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">↑</span>{" "}
+                    {status.liveData.tx.ratestring}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
-          {agent.enabled ? (
-            <CheckCircleIcon className="h-5 w-5 text-green-500" />
-          ) : (
-            <XCircleIcon className="h-5 w-5 text-gray-400" />
-          )}
+        <div className="flex items-center space-x-2 ml-4">
           <button
             className={`p-2 rounded-md transition-colors ${
               isFeatured
@@ -192,9 +249,9 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
             title={isFeatured ? "Remove from featured" : "Add to featured"}
           >
             {isFeatured ? (
-              <StarIconSolid className="h-4 w-4" />
+              <StarIconSolid className="h-5 w-5" />
             ) : (
-              <StarIcon className="h-4 w-4" />
+              <StarIcon className="h-5 w-5" />
             )}
           </button>
           <button
@@ -204,7 +261,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
               onEdit();
             }}
           >
-            <PencilIcon className="h-4 w-4" />
+            <PencilIcon className="h-5 w-5" />
           </button>
           <button
             className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -213,8 +270,19 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
               onDelete();
             }}
           >
-            <TrashIcon className="h-4 w-4" />
+            <TrashIcon className="h-5 w-5" />
           </button>
+          <Button
+            onClick={handleToggleMonitoring}
+            disabled={startMutation.isPending || stopMutation.isPending}
+            className={
+              agent.enabled && status?.connected
+                ? "bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/20"
+                : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+            }
+          >
+            {agent.enabled && status?.connected ? "Stop" : "Start"}
+          </Button>
         </div>
       </div>
     </motion.div>

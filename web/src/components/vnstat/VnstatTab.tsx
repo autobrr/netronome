@@ -119,7 +119,10 @@ export const VnstatTab: React.FC = () => {
           <VnstatAgentList
             agents={agents}
             selectedAgent={selectedAgent}
-            onSelectAgent={setSelectedAgent}
+            onSelectAgent={(agent) => {
+              // Toggle selection - if clicking the same agent, deselect it
+              setSelectedAgent(selectedAgent?.id === agent.id ? null : agent);
+            }}
             onEditAgent={handleEditAgent}
             onDeleteAgent={handleDeleteAgent}
             isLoading={isLoading}
