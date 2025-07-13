@@ -268,6 +268,8 @@ func (s *Server) RegisterRoutes() {
 				protected.GET("/vnstat/agents/:id/usage", vnstatHandler.GetAgentUsage)
 				protected.POST("/vnstat/agents/:id/start", vnstatHandler.StartAgent)
 				protected.POST("/vnstat/agents/:id/stop", vnstatHandler.StopAgent)
+				protected.POST("/vnstat/agents/:id/import", vnstatHandler.ImportHistoricalData)
+				protected.GET("/vnstat/agents/:id/import/status", vnstatHandler.GetImportStatus)
 			}
 		}
 	}

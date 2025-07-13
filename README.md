@@ -301,6 +301,7 @@ The same `netronome` binary can run as a lightweight agent that can be deployed:
      - URL: `http://server-ip:8200` (agent URL)
      - Retention Days: How long to keep historical data
      - Enable monitoring: Start monitoring immediately
+     - Import historical data: Import existing vnstat data (one-time operation)
 
 #### Agent Systemd Service
 
@@ -349,6 +350,18 @@ Netronome automatically manages bandwidth data storage to prevent database bloat
 - **Live Data Accuracy**: Current hour uses real-time data, older periods use efficient aggregated data
 
 This ensures optimal performance for both real-time monitoring and historical analysis without manual intervention.
+
+#### Historical Data Import
+
+When adding a new vnstat agent, you can optionally import all historical data from the agent's vnstat database:
+
+- **Import Option**: Check "Import historical data" when adding a new agent
+- **One-time Operation**: Import only happens during agent creation
+- **Background Processing**: Import runs asynchronously and may take a few moments for large datasets
+- **Automatic Aggregation**: Imported data is automatically processed into hourly buckets
+- **Interface Awareness**: Ensure the agent is configured with the correct network interface (e.g., `--interface eth0`) to import the right data
+
+**Note**: The import will retrieve all available data from vnstat's database. The amount of historical data depends on vnstat's retention settings and how long it has been collecting data on the system.
 
 ### Environment Variables
 

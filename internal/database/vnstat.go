@@ -368,8 +368,11 @@ func (s *service) aggregateVnstatBandwidthHourly(ctx context.Context, force bool
 
 		// Group data by hour
 		hourlyData := make(map[string]*struct {
-			totalRx int64
-			totalTx int64
+			samples []struct {
+				rxRate int64
+				txRate int64
+				time   time.Time
+			}
 		})
 
 		for rows.Next() {
@@ -404,18 +407,29 @@ func (s *service) aggregateVnstatBandwidthHourly(ctx context.Context, force bool
 
 			if hourlyData[hourKey] == nil {
 				hourlyData[hourKey] = &struct {
-					totalRx int64
-					totalTx int64
+					samples []struct {
+						rxRate int64
+						txRate int64
+						time   time.Time
+					}
 				}{}
 			}
 
-			// Add to hourly totals (convert bytes/second to total bytes for this sample)
+			// Store the sample with its timestamp
+			sample := struct {
+				rxRate int64
+				txRate int64
+				time   time.Time
+			}{
+				time: createdAt,
+			}
 			if rxBytes != nil {
-				hourlyData[hourKey].totalRx += *rxBytes
+				sample.rxRate = *rxBytes
 			}
 			if txBytes != nil {
-				hourlyData[hourKey].totalTx += *txBytes
+				sample.txRate = *txBytes
 			}
+			hourlyData[hourKey].samples = append(hourlyData[hourKey].samples, sample)
 		}
 		rows.Close()
 
@@ -424,6 +438,29 @@ func (s *service) aggregateVnstatBandwidthHourly(ctx context.Context, force bool
 		// Insert/update hourly aggregations
 		for hourKey, data := range hourlyData {
 			hourStart, _ := time.Parse(time.RFC3339, hourKey)
+
+			// Calculate total bytes for this hour
+			var totalRx, totalTx int64
+
+			if len(data.samples) == 1 {
+				// Single sample in the hour - assume it represents the full hour at that rate
+				totalRx = data.samples[0].rxRate * 3600
+				totalTx = data.samples[0].txRate * 3600
+			} else if len(data.samples) > 1 {
+				// Multiple samples - calculate based on time intervals
+				for i := 0; i < len(data.samples); i++ {
+					var duration int64
+					if i < len(data.samples)-1 {
+						// Duration until next sample
+						duration = int64(data.samples[i+1].time.Sub(data.samples[i].time).Seconds())
+					} else {
+						// Last sample - assume 5 seconds for live data
+						duration = 5
+					}
+					totalRx += data.samples[i].rxRate * duration
+					totalTx += data.samples[i].txRate * duration
+				}
+			}
 
 			// Format hour start for database
 			var hourStartDB interface{}
@@ -437,8 +474,8 @@ func (s *service) aggregateVnstatBandwidthHourly(ctx context.Context, force bool
 			_, err := s.sqlBuilder.
 				Insert("vnstat_bandwidth_hourly").
 				Columns("agent_id", "hour_start", "total_rx_bytes", "total_tx_bytes", "updated_at").
-				Values(agent.ID, hourStartDB, data.totalRx, data.totalTx, time.Now()).
-				Suffix("ON CONFLICT (agent_id, hour_start) DO UPDATE SET total_rx_bytes = total_rx_bytes + ?, total_tx_bytes = total_tx_bytes + ?, updated_at = ?", data.totalRx, data.totalTx, time.Now()).
+				Values(agent.ID, hourStartDB, totalRx, totalTx, time.Now()).
+				Suffix("ON CONFLICT (agent_id, hour_start) DO UPDATE SET total_rx_bytes = total_rx_bytes + ?, total_tx_bytes = total_tx_bytes + ?, updated_at = ?", totalRx, totalTx, time.Now()).
 				RunWith(s.db).ExecContext(ctx)
 
 			if err != nil {
@@ -447,7 +484,7 @@ func (s *service) aggregateVnstatBandwidthHourly(ctx context.Context, force bool
 					_, err = s.sqlBuilder.
 						Insert("vnstat_bandwidth_hourly").
 						Columns("agent_id", "hour_start", "total_rx_bytes", "total_tx_bytes", "updated_at").
-						Values(agent.ID, hourStartDB, data.totalRx, data.totalTx, time.Now()).
+						Values(agent.ID, hourStartDB, totalRx, totalTx, time.Now()).
 						Suffix("ON CONFLICT (agent_id, hour_start) DO UPDATE SET total_rx_bytes = total_rx_bytes + excluded.total_rx_bytes, total_tx_bytes = total_tx_bytes + excluded.total_tx_bytes, updated_at = excluded.updated_at").
 						RunWith(s.db).ExecContext(ctx)
 				}
@@ -639,4 +676,68 @@ func (s *service) GetVnstatBandwidthUsage(ctx context.Context, agentID int64) (m
 	}{allTimeRx, allTimeTx, allTimeRx + allTimeTx}
 
 	return usage, nil
+}
+
+// BulkInsertVnstatBandwidth inserts multiple bandwidth records in a single transaction
+func (s *service) BulkInsertVnstatBandwidth(ctx context.Context, records []types.VnstatBandwidth) error {
+	if len(records) == 0 {
+		return nil
+	}
+
+	// Start transaction
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Process in batches to avoid memory issues
+	const batchSize = 1000
+	for i := 0; i < len(records); i += batchSize {
+		end := i + batchSize
+		if end > len(records) {
+			end = len(records)
+		}
+		batch := records[i:end]
+
+		// Build bulk insert query
+		query := s.sqlBuilder.
+			Insert("vnstat_bandwidth").
+			Columns("agent_id", "rx_bytes_per_second", "tx_bytes_per_second", "rx_packets_per_second", "tx_packets_per_second", "rx_rate_string", "tx_rate_string", "created_at")
+
+		for _, record := range batch {
+			var createdAt interface{}
+			if s.config.Type == config.SQLite {
+				createdAt = record.CreatedAt.Format(time.RFC3339)
+			} else {
+				createdAt = record.CreatedAt
+			}
+
+			query = query.Values(
+				record.AgentID,
+				record.RxBytesPerSecond,
+				record.TxBytesPerSecond,
+				record.RxPacketsPerSecond,
+				record.TxPacketsPerSecond,
+				record.RxRateString,
+				record.TxRateString,
+				createdAt,
+			)
+		}
+
+		// Execute batch insert
+		if _, err := query.RunWith(tx).ExecContext(ctx); err != nil {
+			return fmt.Errorf("failed to insert batch: %w", err)
+		}
+
+		log.Debug().Int("batch_size", len(batch)).Int("total_processed", end).Msg("Inserted vnstat bandwidth batch")
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	log.Info().Int("total_records", len(records)).Msg("Bulk inserted vnstat bandwidth records")
+	return nil
 }

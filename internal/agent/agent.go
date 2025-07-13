@@ -91,15 +91,21 @@ func (a *Agent) Start(ctx context.Context) error {
 	// Root endpoint
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"service":  "vnstat SSE agent",
-			"host":     a.config.Host,
-			"port":     a.config.Port,
-			"endpoint": "/events?stream=live-data",
+			"service": "vnstat SSE agent",
+			"host":    a.config.Host,
+			"port":    a.config.Port,
+			"endpoints": gin.H{
+				"live":       "/events?stream=live-data",
+				"historical": "/export/historical",
+			},
 		})
 	})
 
 	// SSE endpoint
 	router.GET("/events", a.handleSSE)
+
+	// Historical data export endpoint
+	router.GET("/export/historical", a.handleHistoricalExport)
 
 	// Start HTTP server
 	addr := fmt.Sprintf("%s:%d", a.config.Host, a.config.Port)
@@ -180,6 +186,40 @@ func (a *Agent) broadcaster(ctx context.Context) {
 			return
 		}
 	}
+}
+
+// handleHistoricalExport exports all historical vnstat data
+func (a *Agent) handleHistoricalExport(c *gin.Context) {
+	// Get optional interface parameter
+	iface := c.Query("interface")
+	if iface == "" {
+		iface = a.config.Interface
+	}
+
+	// Build vnstat command for all historical data
+	args := []string{"--json", "a"}
+	if iface != "" {
+		args = append(args, "--iface", iface)
+	}
+
+	// Execute vnstat command
+	cmd := exec.Command("vnstat", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to export historical data")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to export historical data",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Set appropriate headers for JSON response
+	c.Header("Content-Type", "application/json")
+	c.Header("Content-Disposition", "inline; filename=\"vnstat-historical.json\"")
+
+	// Return the raw JSON data
+	c.Data(http.StatusOK, "application/json", output)
 }
 
 // runVnstat runs vnstat and sends data to the broadcast channel

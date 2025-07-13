@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024-2025, s0up and the autobrr contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 import { getApiUrl } from "@/utils/baseUrl";
 
 export interface VnstatAgent {
@@ -176,6 +181,38 @@ export async function getVnstatAgentUsage(
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || "Failed to fetch agent usage");
+  }
+  return response.json();
+}
+
+// Historical data import
+export interface ImportStatus {
+  agentId: number;
+  inProgress: boolean;
+  startedAt: string;
+  completedAt?: string;
+  recordsImported: number;
+  totalRecords: number;
+  error?: string;
+}
+
+export async function importVnstatHistoricalData(id: number): Promise<void> {
+  const response = await fetch(getApiUrl(`/vnstat/agents/${id}/import`), {
+    method: "POST",
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.error || "Failed to start historical data import",
+    );
+  }
+}
+
+export async function getVnstatImportStatus(id: number): Promise<ImportStatus> {
+  const response = await fetch(getApiUrl(`/vnstat/agents/${id}/import/status`));
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to fetch import status");
   }
   return response.json();
 }

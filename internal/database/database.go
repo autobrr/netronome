@@ -87,6 +87,7 @@ type Service interface {
 	UpdateVnstatAgent(ctx context.Context, agent *types.VnstatAgent) error
 	DeleteVnstatAgent(ctx context.Context, agentID int64) error
 	SaveVnstatBandwidth(ctx context.Context, bandwidth *types.VnstatBandwidth) error
+	BulkInsertVnstatBandwidth(ctx context.Context, records []types.VnstatBandwidth) error
 	GetVnstatBandwidthHistory(ctx context.Context, agentID int64, startTime, endTime time.Time, limit int) ([]*types.VnstatBandwidth, error)
 	CleanupOldVnstatData(ctx context.Context) error
 	AggregateVnstatBandwidthHourly(ctx context.Context) error

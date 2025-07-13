@@ -212,6 +212,92 @@ type VnstatLiveData struct {
 	} `json:"tx"`
 }
 
+// VnstatFullData represents the complete vnstat JSON export structure
+type VnstatFullData struct {
+	Vnstatversion string `json:"vnstatversion"`
+	Jsonversion   string `json:"jsonversion"`
+	Interfaces    []struct {
+		Name    string `json:"name"`
+		Alias   string `json:"alias"`
+		Created struct {
+			Date struct {
+				Year  int `json:"year"`
+				Month int `json:"month"`
+				Day   int `json:"day"`
+			} `json:"date"`
+		} `json:"created"`
+		Updated struct {
+			Date struct {
+				Year  int `json:"year"`
+				Month int `json:"month"`
+				Day   int `json:"day"`
+			} `json:"date"`
+			Time struct {
+				Hour   int `json:"hour"`
+				Minute int `json:"minute"`
+			} `json:"time"`
+		} `json:"updated"`
+		Traffic struct {
+			Total struct {
+				Rx int64 `json:"rx"`
+				Tx int64 `json:"tx"`
+			} `json:"total"`
+			Fiveminute []struct {
+				ID   int `json:"id"`
+				Date struct {
+					Year  int `json:"year"`
+					Month int `json:"month"`
+					Day   int `json:"day"`
+				} `json:"date"`
+				Time struct {
+					Hour   int `json:"hour"`
+					Minute int `json:"minute"`
+				} `json:"time"`
+				Rx int64 `json:"rx"`
+				Tx int64 `json:"tx"`
+			} `json:"fiveminute"`
+			Hour []struct {
+				ID   int `json:"id"`
+				Date struct {
+					Year  int `json:"year"`
+					Month int `json:"month"`
+					Day   int `json:"day"`
+				} `json:"date"`
+				Hour int   `json:"hour"`
+				Rx   int64 `json:"rx"`
+				Tx   int64 `json:"tx"`
+			} `json:"hour"`
+			Day []struct {
+				ID   int `json:"id"`
+				Date struct {
+					Year  int `json:"year"`
+					Month int `json:"month"`
+					Day   int `json:"day"`
+				} `json:"date"`
+				Rx int64 `json:"rx"`
+				Tx int64 `json:"tx"`
+			} `json:"day"`
+			Month []struct {
+				ID   int `json:"id"`
+				Date struct {
+					Year  int `json:"year"`
+					Month int `json:"month"`
+				} `json:"date"`
+				Rx int64 `json:"rx"`
+				Tx int64 `json:"tx"`
+			} `json:"month"`
+			Year []struct {
+				ID   int `json:"id"`
+				Date struct {
+					Year int `json:"year"`
+				} `json:"date"`
+				Rx int64 `json:"rx"`
+				Tx int64 `json:"tx"`
+			} `json:"year"`
+		} `json:"traffic"`
+	} `json:"interfaces"`
+}
+
 // VnstatUpdate represents real-time vnstat updates
 type VnstatUpdate struct {
 	Type             string `json:"type"`

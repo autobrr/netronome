@@ -11,7 +11,7 @@ import { VnstatAgent, CreateAgentRequest } from "@/api/vnstat";
 
 interface VnstatAgentFormProps {
   agent?: VnstatAgent | null;
-  onSubmit: (data: CreateAgentRequest) => void;
+  onSubmit: (data: CreateAgentRequest, importHistorical?: boolean) => void;
   onCancel: () => void;
   isSubmitting: boolean;
   isOpen: boolean;
@@ -30,6 +30,7 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
     enabled: true,
     retentionDays: 365,
   });
+  const [importHistorical, setImportHistorical] = useState(false);
 
   useEffect(() => {
     if (agent) {
@@ -44,7 +45,7 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    onSubmit(formData, !agent ? importHistorical : undefined);
   };
 
   const handleUrlChange = (value: string) => {
@@ -163,22 +164,50 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
                     />
                   </div>
 
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="enabled"
-                      checked={formData.enabled}
-                      onChange={(e) =>
-                        setFormData({ ...formData, enabled: e.target.checked })
-                      }
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                    />
-                    <label
-                      htmlFor="enabled"
-                      className="ml-2 block text-sm text-gray-900 dark:text-gray-300"
-                    >
-                      Enable monitoring
-                    </label>
+                  <div className="space-y-3">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="enabled"
+                        checked={formData.enabled}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            enabled: e.target.checked,
+                          })
+                        }
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                      />
+                      <label
+                        htmlFor="enabled"
+                        className="ml-2 block text-sm text-gray-900 dark:text-gray-300"
+                      >
+                        Enable monitoring
+                      </label>
+                    </div>
+
+                    {!agent && (
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="importHistorical"
+                          checked={importHistorical}
+                          onChange={(e) =>
+                            setImportHistorical(e.target.checked)
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        <label
+                          htmlFor="importHistorical"
+                          className="ml-2 block text-sm text-gray-900 dark:text-gray-300"
+                        >
+                          Import historical data
+                        </label>
+                        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                          (one-time import)
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions */}

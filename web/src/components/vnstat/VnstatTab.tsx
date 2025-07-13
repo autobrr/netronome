@@ -15,6 +15,7 @@ import {
   createVnstatAgent,
   updateVnstatAgent,
   deleteVnstatAgent,
+  importVnstatHistoricalData,
   VnstatAgent,
   CreateAgentRequest,
   UpdateAgentRequest,
@@ -35,7 +36,22 @@ export const VnstatTab: React.FC = () => {
 
   // Create agent mutation
   const createMutation = useMutation({
-    mutationFn: createVnstatAgent,
+    mutationFn: async ({
+      data,
+      importHistorical,
+    }: {
+      data: CreateAgentRequest;
+      importHistorical?: boolean;
+    }) => {
+      const agent = await createVnstatAgent(data);
+      if (importHistorical) {
+        // Start import in background - we don't wait for it
+        importVnstatHistoricalData(agent.id).catch((err) => {
+          console.error("Failed to start historical import:", err);
+        });
+      }
+      return agent;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vnstat-agents"] });
       setIsFormOpen(false);
@@ -78,14 +94,17 @@ export const VnstatTab: React.FC = () => {
     }
   };
 
-  const handleFormSubmit = (data: CreateAgentRequest) => {
+  const handleFormSubmit = (
+    data: CreateAgentRequest,
+    importHistorical?: boolean,
+  ) => {
     if (editingAgent) {
       updateMutation.mutate({
         id: editingAgent.id,
         data: { ...data, id: editingAgent.id },
       });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate({ data, importHistorical });
     }
   };
 
