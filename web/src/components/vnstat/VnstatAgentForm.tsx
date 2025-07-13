@@ -26,7 +26,7 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
 }) => {
   const [formData, setFormData] = useState<CreateAgentRequest>({
     name: "",
-    url: "",
+    url: "http://",
     enabled: true,
     retentionDays: 365,
   });
@@ -40,8 +40,17 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
         enabled: agent.enabled,
         retentionDays: agent.retentionDays,
       });
+    } else if (isOpen) {
+      // Reset form for new agent
+      setFormData({
+        name: "",
+        url: "http://",
+        enabled: true,
+        retentionDays: 365,
+      });
+      setImportHistorical(false);
     }
-  }, [agent]);
+  }, [agent, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,6 +120,7 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
                       type="text"
                       id="name"
                       value={formData.name}
+                      data-1p-ignore
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
                       }
