@@ -90,6 +90,7 @@ type Service interface {
 	GetVnstatBandwidthHistory(ctx context.Context, agentID int64, startTime, endTime time.Time, limit int) ([]*types.VnstatBandwidth, error)
 	CleanupOldVnstatData(ctx context.Context) error
 	AggregateVnstatBandwidthHourly(ctx context.Context) error
+	ForceAggregateVnstatBandwidthHourly(ctx context.Context) error
 	GetVnstatBandwidthUsage(ctx context.Context, agentID int64) (map[string]struct {
 		Download int64 `json:"download"`
 		Upload   int64 `json:"upload"`

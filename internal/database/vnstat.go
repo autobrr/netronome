@@ -309,15 +309,33 @@ func (s *service) CleanupOldVnstatData(ctx context.Context) error {
 
 // AggregateVnstatBandwidthHourly aggregates bandwidth data into hourly buckets
 func (s *service) AggregateVnstatBandwidthHourly(ctx context.Context) error {
+	return s.aggregateVnstatBandwidthHourly(ctx, false)
+}
+
+// ForceAggregateVnstatBandwidthHourly aggregates all available bandwidth data regardless of age
+func (s *service) ForceAggregateVnstatBandwidthHourly(ctx context.Context) error {
+	return s.aggregateVnstatBandwidthHourly(ctx, true)
+}
+
+// aggregateVnstatBandwidthHourly is the internal implementation
+func (s *service) aggregateVnstatBandwidthHourly(ctx context.Context, force bool) error {
 	// Get all agents
 	agents, err := s.GetVnstatAgents(ctx, false)
 	if err != nil {
 		return fmt.Errorf("failed to get agents for aggregation: %w", err)
 	}
 
+	log.Info().Int("agent_count", len(agents)).Bool("force", force).Msg("Starting bandwidth aggregation")
+
 	for _, agent := range agents {
-		// Find the oldest unprocessed data (older than 6 hours)
-		cutoffTime := time.Now().Add(-6 * time.Hour)
+		var cutoffTime time.Time
+		if force {
+			// Force mode: process all data regardless of age
+			cutoffTime = time.Time{}
+		} else {
+			// Normal mode: only process data older than 2 hours
+			cutoffTime = time.Now().Add(-2 * time.Hour)
+		}
 
 		// Format cutoff time for comparison based on database type
 		var cutoffTimeStr interface{}
@@ -327,15 +345,20 @@ func (s *service) AggregateVnstatBandwidthHourly(ctx context.Context) error {
 			cutoffTimeStr = cutoffTime
 		}
 
-		// Get raw data that needs to be aggregated (older than 6 hours)
+		// Build query based on force mode
 		rawDataQuery := s.sqlBuilder.
 			Select("rx_bytes_per_second", "tx_bytes_per_second", "created_at").
 			From("vnstat_bandwidth").
-			Where(sq.And{
-				sq.Eq{"agent_id": agent.ID},
-				sq.Lt{"created_at": cutoffTimeStr},
-			}).
+			Where(sq.Eq{"agent_id": agent.ID}).
 			OrderBy("created_at ASC")
+
+		if !force {
+			// Normal mode: only process data older than 2 hours
+			rawDataQuery = rawDataQuery.Where(sq.Lt{"created_at": cutoffTimeStr})
+		}
+
+		sql, args, _ := rawDataQuery.ToSql()
+		log.Debug().Str("sql", sql).Interface("args", args).Int64("agent_id", agent.ID).Msg("Executing aggregation query")
 
 		rows, err := rawDataQuery.RunWith(s.db).QueryContext(ctx)
 		if err != nil {
@@ -395,6 +418,8 @@ func (s *service) AggregateVnstatBandwidthHourly(ctx context.Context) error {
 			}
 		}
 		rows.Close()
+
+		log.Info().Int64("agent_id", agent.ID).Int("hourly_buckets", len(hourlyData)).Msg("Processed raw data into hourly buckets")
 
 		// Insert/update hourly aggregations
 		for hourKey, data := range hourlyData {

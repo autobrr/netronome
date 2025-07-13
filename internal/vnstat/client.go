@@ -397,7 +397,7 @@ func (c *Client) processData(data string) {
 	c.lastData = &liveData
 	c.mu.Unlock()
 
-	log.Debug().
+	log.Trace().
 		Int64("agent_id", c.agent.ID).
 		Str("rx_rate", liveData.Rx.Ratestring).
 		Str("tx_rate", liveData.Tx.Ratestring).
