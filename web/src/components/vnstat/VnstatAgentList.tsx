@@ -250,18 +250,6 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                     : "Disconnected"}
                 </span>
               </div>
-              {agent.enabled && status?.liveData && (
-                <div className="flex items-center space-x-3 text-xs text-gray-700 dark:text-gray-300">
-                  <span>
-                    <span className="font-medium">↓</span>{" "}
-                    {status.liveData.rx.ratestring}
-                  </span>
-                  <span>
-                    <span className="font-medium">↑</span>{" "}
-                    {status.liveData.tx.ratestring}
-                  </span>
-                </div>
-              )}
             </div>
             <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
               <span className="truncate">
@@ -271,42 +259,44 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-0.5 flex-shrink-0">
-          <button
-            className={`p-1 rounded-md transition-colors ${
-              isFeatured
-                ? "text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
-                : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            } hover:bg-gray-100 dark:hover:bg-gray-700`}
-            onClick={handleToggleFeatured}
-            title={isFeatured ? "Remove from featured" : "Add to featured"}
-          >
-            {isFeatured ? (
-              <SparklesIconSolid className="w-3.5 h-3.5" />
-            ) : (
-              <SparklesIcon className="w-3.5 h-3.5" />
-            )}
-          </button>
-          <button
-            className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit();
-            }}
-            title="Edit Agent"
-          >
-            <PencilIcon className="w-3.5 h-3.5" />
-          </button>
-          <button
-            className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            title="Delete Agent"
-          >
-            <TrashIcon className="w-3.5 h-3.5" />
-          </button>
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <div className="flex items-center gap-0.5">
+            <button
+              className={`p-1 rounded-md transition-colors ${
+                isFeatured
+                  ? "text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              } hover:bg-gray-100 dark:hover:bg-gray-700`}
+              onClick={handleToggleFeatured}
+              title={isFeatured ? "Remove from featured" : "Add to featured"}
+            >
+              {isFeatured ? (
+                <SparklesIconSolid className="w-3.5 h-3.5" />
+              ) : (
+                <SparklesIcon className="w-3.5 h-3.5" />
+              )}
+            </button>
+            <button
+              className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              title="Edit Agent"
+            >
+              <PencilIcon className="w-3.5 h-3.5" />
+            </button>
+            <button
+              className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              title="Delete Agent"
+            >
+              <TrashIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     </motion.div>
