@@ -14,12 +14,30 @@ NC='\033[0m' # No Color
 # Default values
 DEFAULT_PORT=8200
 DEFAULT_HOST="0.0.0.0"
-INSTALL_DIR="/opt/netronome"
-CONFIG_DIR="/etc/netronome"
-SERVICE_NAME="netronome-agent"
 GITHUB_REPO="autobrr/netronome"
 USER_NAME="netronome"
 AUTO_UPDATE_FLAG=""  # empty means prompt, "true" means enable, "false" means disable
+
+# Detect OS
+OS_TYPE=$(uname -s)
+case "$OS_TYPE" in
+    Linux*)
+        OS="linux"
+        INSTALL_DIR="/opt/netronome"
+        CONFIG_DIR="/etc/netronome"
+        SERVICE_NAME="netronome-agent"
+        ;;
+    Darwin*)
+        OS="darwin"
+        INSTALL_DIR="/usr/local/opt/netronome"
+        CONFIG_DIR="/usr/local/etc/netronome"
+        SERVICE_NAME="com.netronome.agent"
+        ;;
+    *)
+        echo "Unsupported OS: $OS_TYPE"
+        exit 1
+        ;;
+esac
 
 # Function to print colored output
 print_color() {
@@ -30,13 +48,16 @@ print_color() {
 
 # Function to generate random API key
 generate_api_key() {
-    tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 32 | head -n 1
+    if command -v openssl &> /dev/null; then
+        openssl rand -hex 16
+    else
+        tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 32 | head -n 1
+    fi
 }
 
 # Function to get latest release URL
 get_latest_release_url() {
     local arch=$(uname -m)
-    local os="linux"
     
     # Map architecture names
     case "$arch" in
@@ -57,7 +78,7 @@ get_latest_release_url() {
     
     # Get latest release URL from GitHub API
     local api_url="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
-    local download_url=$(curl -s $api_url | grep "browser_download_url.*${os}_${arch}.tar.gz" | cut -d '"' -f 4)
+    local download_url=$(curl -s $api_url | grep "browser_download_url.*${OS}_${arch}.tar.gz" | cut -d '"' -f 4)
     
     if [ -z "$download_url" ]; then
         print_color $RED "Failed to get latest release URL"
@@ -69,14 +90,59 @@ get_latest_release_url() {
 
 # Function to detect network interfaces
 get_network_interfaces() {
-    ip -o link show | awk -F': ' '{print $2}' | grep -v lo
+    if [ "$OS" = "darwin" ]; then
+        # macOS: Use ifconfig to list interfaces
+        ifconfig -l | tr ' ' '\n' | grep -v -E '^(lo[0-9]*|bridge[0-9]*|p2p[0-9]*|awdl[0-9]*|llw[0-9]*|utun[0-9]*)$'
+    else
+        # Linux: Use ip command
+        ip -o link show | awk -F': ' '{print $2}' | grep -v lo
+    fi
 }
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then 
-    print_color $RED "This script must be run as root"
-    exit 1
-fi
+# Check if running as root (different for macOS)
+check_root() {
+    if [ "$OS" = "darwin" ]; then
+        if [ "$EUID" -ne 0 ] && ! sudo -n true 2>/dev/null; then 
+            print_color $RED "This script requires sudo privileges on macOS"
+            print_color $YELLOW "Please run: sudo $0 $@"
+            exit 1
+        fi
+    else
+        if [ "$EUID" -ne 0 ]; then 
+            print_color $RED "This script must be run as root on Linux"
+            exit 1
+        fi
+    fi
+}
+
+# Create user function for cross-platform
+create_user() {
+    local username=$1
+    
+    if [ "$OS" = "darwin" ]; then
+        # Check if user exists on macOS
+        if ! dscl . -read /Users/$username &>/dev/null; then
+            print_color $YELLOW "\nCreating user: $username"
+            # Get next available UID
+            local uid=$(dscl . -list /Users UniqueID | awk '{print $2}' | sort -n | tail -1)
+            uid=$((uid + 1))
+            
+            # Create user on macOS
+            sudo dscl . -create /Users/$username
+            sudo dscl . -create /Users/$username UniqueID $uid
+            sudo dscl . -create /Users/$username PrimaryGroupID 20
+            sudo dscl . -create /Users/$username UserShell /usr/bin/false
+            sudo dscl . -create /Users/$username RealName "Netronome Agent"
+            sudo dscl . -create /Users/$username NFSHomeDirectory /var/empty
+        fi
+    else
+        # Linux user creation
+        if ! id "$username" &>/dev/null; then
+            print_color $YELLOW "\nCreating user: $username"
+            useradd -r -s /bin/false -d /nonexistent -c "Netronome Agent" $username
+        fi
+    fi
+}
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -123,30 +189,44 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Check root/sudo
+check_root
+
 # Uninstall function
 if [ "$UNINSTALL" = true ]; then
     print_color $YELLOW "Uninstalling Netronome Agent..."
     
-    # Stop and disable service
-    systemctl stop $SERVICE_NAME 2>/dev/null || true
-    systemctl disable $SERVICE_NAME 2>/dev/null || true
-    
-    # Stop and disable auto-update timer if it exists
-    systemctl stop $SERVICE_NAME-update.timer 2>/dev/null || true
-    systemctl disable $SERVICE_NAME-update.timer 2>/dev/null || true
-    
-    # Remove service files
-    rm -f /etc/systemd/system/$SERVICE_NAME.service
-    rm -f /etc/systemd/system/$SERVICE_NAME-update.service
-    rm -f /etc/systemd/system/$SERVICE_NAME-update.timer
-    systemctl daemon-reload
+    if [ "$OS" = "darwin" ]; then
+        # macOS uninstall
+        if [ -f "/Library/LaunchDaemons/$SERVICE_NAME.plist" ]; then
+            sudo launchctl unload -w /Library/LaunchDaemons/$SERVICE_NAME.plist 2>/dev/null || true
+            sudo rm -f /Library/LaunchDaemons/$SERVICE_NAME.plist
+        fi
+        
+        # Remove auto-update launchd job if exists
+        if [ -f "/Library/LaunchDaemons/$SERVICE_NAME.update.plist" ]; then
+            sudo launchctl unload -w /Library/LaunchDaemons/$SERVICE_NAME.update.plist 2>/dev/null || true
+            sudo rm -f /Library/LaunchDaemons/$SERVICE_NAME.update.plist
+        fi
+    else
+        # Linux uninstall
+        systemctl stop $SERVICE_NAME 2>/dev/null || true
+        systemctl disable $SERVICE_NAME 2>/dev/null || true
+        
+        # Stop and disable auto-update timer if it exists
+        systemctl stop $SERVICE_NAME-update.timer 2>/dev/null || true
+        systemctl disable $SERVICE_NAME-update.timer 2>/dev/null || true
+        
+        # Remove service files
+        rm -f /etc/systemd/system/$SERVICE_NAME.service
+        rm -f /etc/systemd/system/$SERVICE_NAME-update.service
+        rm -f /etc/systemd/system/$SERVICE_NAME-update.timer
+        systemctl daemon-reload
+    fi
     
     # Remove files
-    rm -rf $INSTALL_DIR
-    rm -rf $CONFIG_DIR
-    
-    # Remove user (optional, commented out for safety)
-    # userdel -r $USER_NAME 2>/dev/null || true
+    sudo rm -rf $INSTALL_DIR
+    sudo rm -rf $CONFIG_DIR
     
     print_color $GREEN "Netronome Agent uninstalled successfully!"
     exit 0
@@ -163,14 +243,23 @@ if [ "$UPDATE" = true ]; then
     fi
     
     # Use the built-in update command
-    if $INSTALL_DIR/netronome update; then
+    if sudo $INSTALL_DIR/netronome update; then
         print_color $GREEN "Update completed successfully!"
         
-        # Restart service if it's running
-        if systemctl is-active --quiet $SERVICE_NAME; then
-            print_color $YELLOW "Restarting agent service..."
-            systemctl restart $SERVICE_NAME
-            print_color $GREEN "Service restarted"
+        # Restart service
+        if [ "$OS" = "darwin" ]; then
+            if sudo launchctl list | grep -q $SERVICE_NAME; then
+                print_color $YELLOW "Restarting agent service..."
+                sudo launchctl unload /Library/LaunchDaemons/$SERVICE_NAME.plist
+                sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.plist
+                print_color $GREEN "Service restarted"
+            fi
+        else
+            if systemctl is-active --quiet $SERVICE_NAME; then
+                print_color $YELLOW "Restarting agent service..."
+                systemctl restart $SERVICE_NAME
+                print_color $GREEN "Service restarted"
+            fi
         fi
     else
         print_color $RED "Update failed!"
@@ -190,8 +279,12 @@ echo ""
 print_color $YELLOW "Checking dependencies..."
 if ! command -v vnstat &> /dev/null; then
     print_color $RED "vnstat is not installed. Please install vnstat first."
-    print_color $YELLOW "On Ubuntu/Debian: apt-get install vnstat"
-    print_color $YELLOW "On CentOS/RHEL: yum install vnstat"
+    if [ "$OS" = "darwin" ]; then
+        print_color $YELLOW "On macOS: brew install vnstat"
+    else
+        print_color $YELLOW "On Ubuntu/Debian: apt-get install vnstat"
+        print_color $YELLOW "On CentOS/RHEL: yum install vnstat"
+    fi
     exit 1
 fi
 
@@ -201,7 +294,14 @@ interfaces=$(get_network_interfaces)
 echo "$interfaces" | nl -w2 -s'. '
 
 echo ""
-read -p "Enter the interface to monitor (leave empty for all): " INTERFACE
+if [ -t 0 ]; then
+    # Interactive mode
+    read -p "Enter the interface to monitor (leave empty for all): " INTERFACE
+else
+    # Non-interactive mode (e.g., piped input)
+    read INTERFACE
+    echo "Interface: ${INTERFACE:-all}"
+fi
 
 # Get API key
 echo ""
@@ -210,7 +310,14 @@ print_color $YELLOW "1. Generate a random API key"
 print_color $YELLOW "2. Enter your own API key"
 print_color $YELLOW "3. No authentication (not recommended)"
 echo ""
-read -p "Select an option [1-3]: " API_KEY_OPTION
+if [ -t 0 ]; then
+    # Interactive mode
+    read -p "Select an option [1-3]: " API_KEY_OPTION
+else
+    # Non-interactive mode
+    read API_KEY_OPTION
+    echo "Selected option: $API_KEY_OPTION"
+fi
 
 case $API_KEY_OPTION in
     1)
@@ -219,7 +326,12 @@ case $API_KEY_OPTION in
         print_color $YELLOW "⚠️  Save this key! You'll need it when adding the agent in Netronome."
         ;;
     2)
-        read -p "Enter your API key: " API_KEY
+        if [ -t 0 ]; then
+            read -p "Enter your API key: " API_KEY
+        else
+            read API_KEY
+            echo "Using provided API key"
+        fi
         ;;
     3)
         API_KEY=""
@@ -233,40 +345,76 @@ esac
 
 # Get host and port
 echo ""
-read -p "Enter the host/IP to listen on (default: $DEFAULT_HOST): " HOST
-HOST=${HOST:-$DEFAULT_HOST}
-
-read -p "Enter the port number (default: $DEFAULT_PORT): " PORT
-PORT=${PORT:-$DEFAULT_PORT}
+if [ -t 0 ]; then
+    # Interactive mode
+    read -p "Enter the host/IP to listen on (default: $DEFAULT_HOST): " HOST
+    HOST=${HOST:-$DEFAULT_HOST}
+    
+    read -p "Enter the port number (default: $DEFAULT_PORT): " PORT
+    PORT=${PORT:-$DEFAULT_PORT}
+else
+    # Non-interactive mode
+    read HOST
+    HOST=${HOST:-$DEFAULT_HOST}
+    echo "Host: $HOST"
+    
+    read PORT
+    PORT=${PORT:-$DEFAULT_PORT}
+    echo "Port: $PORT"
+fi
 
 # Create user if it doesn't exist
-if ! id "$USER_NAME" &>/dev/null; then
-    print_color $YELLOW "\nCreating user: $USER_NAME"
-    useradd -r -s /bin/false -d /nonexistent -c "Netronome Agent" $USER_NAME
-fi
+create_user $USER_NAME
 
 # Create directories
 print_color $YELLOW "\nCreating directories..."
-mkdir -p $INSTALL_DIR
-mkdir -p $CONFIG_DIR
-chown $USER_NAME:$USER_NAME $CONFIG_DIR
+sudo mkdir -p $INSTALL_DIR
+sudo mkdir -p $CONFIG_DIR
+
+if [ "$OS" = "darwin" ]; then
+    sudo chown $USER_NAME:staff $CONFIG_DIR
+else
+    sudo chown $USER_NAME:$USER_NAME $CONFIG_DIR
+fi
 
 # Download and install binary
-print_color $YELLOW "\nDownloading Netronome agent..."
-DOWNLOAD_URL=$(get_latest_release_url)
-print_color $BLUE "Downloading from: $DOWNLOAD_URL"
+print_color $YELLOW "\nInstalling Netronome agent..."
 
-cd /tmp
-curl -L -o netronome-agent.tar.gz "$DOWNLOAD_URL"
-tar -xzf netronome-agent.tar.gz
-cp netronome $INSTALL_DIR/
-chmod +x $INSTALL_DIR/netronome
-chown $USER_NAME:$USER_NAME $INSTALL_DIR/netronome
-rm -f netronome-agent.tar.gz netronome
+# Check if we're in test mode with a local binary
+if [ -f "$TEST_DIR/netronome" ]; then
+    print_color $BLUE "Using local test binary"
+    sudo cp "$TEST_DIR/netronome" $INSTALL_DIR/
+else
+    DOWNLOAD_URL=$(get_latest_release_url)
+    print_color $BLUE "Downloading from: $DOWNLOAD_URL"
+    
+    # Create temp directory for extraction
+    TEMP_EXTRACT_DIR="/tmp/netronome-extract-$$"
+    mkdir -p "$TEMP_EXTRACT_DIR"
+    cd "$TEMP_EXTRACT_DIR"
+    
+    curl -L -o netronome-agent.tar.gz "$DOWNLOAD_URL"
+    tar -xzf netronome-agent.tar.gz
+    sudo cp netronome $INSTALL_DIR/
+    
+    # Clean up temp directory
+    cd /tmp
+    rm -rf "$TEMP_EXTRACT_DIR"
+fi
+
+sudo chmod +x $INSTALL_DIR/netronome
+
+if [ "$OS" = "darwin" ]; then
+    sudo chown $USER_NAME:staff $INSTALL_DIR/netronome
+else
+    sudo chown $USER_NAME:$USER_NAME $INSTALL_DIR/netronome
+fi
+
+# No cleanup needed as we use temp directory
 
 # Create configuration file
 print_color $YELLOW "\nCreating configuration..."
-cat > $CONFIG_DIR/agent.toml << EOF
+sudo tee $CONFIG_DIR/agent.toml > /dev/null << EOF
 # Netronome Agent Configuration
 
 [agent]
@@ -279,12 +427,70 @@ api_key = "$API_KEY"
 level = "info"
 EOF
 
-chown $USER_NAME:$USER_NAME $CONFIG_DIR/agent.toml
-chmod 600 $CONFIG_DIR/agent.toml
+if [ "$OS" = "darwin" ]; then
+    sudo chown $USER_NAME:staff $CONFIG_DIR/agent.toml
+else
+    sudo chown $USER_NAME:$USER_NAME $CONFIG_DIR/agent.toml
+fi
+sudo chmod 600 $CONFIG_DIR/agent.toml
 
-# Create systemd service
-print_color $YELLOW "\nCreating systemd service..."
-cat > /etc/systemd/system/$SERVICE_NAME.service << EOF
+# Create service
+print_color $YELLOW "\nCreating service..."
+
+if [ "$OS" = "darwin" ]; then
+    # Create launchd plist for macOS
+    sudo tee /Library/LaunchDaemons/$SERVICE_NAME.plist > /dev/null << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>$SERVICE_NAME</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$INSTALL_DIR/netronome</string>
+        <string>agent</string>
+        <string>--config</string>
+        <string>$CONFIG_DIR/agent.toml</string>
+    </array>
+    <key>UserName</key>
+    <string>$USER_NAME</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>Crashed</key>
+        <true/>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/tmp/netronome-agent.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/netronome-agent.error.log</string>
+</dict>
+</plist>
+EOF
+    
+    # Load the service
+    print_color $YELLOW "\nStarting service..."
+    sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.plist
+    
+    # Check if service is running
+    sleep 2
+    if sudo launchctl list | grep -q $SERVICE_NAME; then
+        SERVICE_RUNNING=true
+    else
+        SERVICE_RUNNING=false
+    fi
+else
+    # Create systemd service for Linux
+    cat > /etc/systemd/system/$SERVICE_NAME.service << EOF
 [Unit]
 Description=Netronome vnstat Agent
 After=network-online.target
@@ -308,15 +514,23 @@ ReadWritePaths=$CONFIG_DIR
 [Install]
 WantedBy=multi-user.target
 EOF
+    
+    # Reload systemd and start service
+    print_color $YELLOW "\nStarting service..."
+    systemctl daemon-reload
+    systemctl enable $SERVICE_NAME
+    systemctl start $SERVICE_NAME
+    
+    # Check service status
+    if systemctl is-active --quiet $SERVICE_NAME; then
+        SERVICE_RUNNING=true
+    else
+        SERVICE_RUNNING=false
+    fi
+fi
 
-# Reload systemd and start service
-print_color $YELLOW "\nStarting service..."
-systemctl daemon-reload
-systemctl enable $SERVICE_NAME
-systemctl start $SERVICE_NAME
-
-# Check service status
-if systemctl is-active --quiet $SERVICE_NAME; then
+# Display results
+if [ "$SERVICE_RUNNING" = true ]; then
     print_color $GREEN "\n✅ Netronome Agent installed and started successfully!"
     
     # Display connection information
@@ -333,18 +547,34 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     print_color $BLUE "\n==================================="
     print_color $BLUE "Useful Commands:"
     print_color $BLUE "==================================="
-    echo "View logs:        journalctl -u $SERVICE_NAME -f"
-    echo "Check status:     systemctl status $SERVICE_NAME"
-    echo "Restart service:  systemctl restart $SERVICE_NAME"
-    echo "Stop service:     systemctl stop $SERVICE_NAME"
-    echo "Update agent:     $INSTALL_DIR/netronome update"
+    
+    if [ "$OS" = "darwin" ]; then
+        echo "View logs:        tail -f /tmp/netronome-agent.log"
+        echo "Check status:     sudo launchctl list | grep $SERVICE_NAME"
+        echo "Stop service:     sudo launchctl unload /Library/LaunchDaemons/$SERVICE_NAME.plist"
+        echo "Start service:    sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.plist"
+    else
+        echo "View logs:        journalctl -u $SERVICE_NAME -f"
+        echo "Check status:     systemctl status $SERVICE_NAME"
+        echo "Restart service:  systemctl restart $SERVICE_NAME"
+        echo "Stop service:     systemctl stop $SERVICE_NAME"
+    fi
+    
+    echo "Update agent:     sudo $INSTALL_DIR/netronome update"
     echo "Check version:    $INSTALL_DIR/netronome version"
     echo ""
     
     # Prompt for auto-update setup (unless flag was provided)
     if [ -z "$AUTO_UPDATE_FLAG" ]; then
         echo ""
-        read -p "Would you like to enable automatic daily updates? (y/n): " AUTO_UPDATE
+        if [ -t 0 ]; then
+            # Interactive mode
+            read -p "Would you like to enable automatic daily updates? (y/n): " AUTO_UPDATE
+        else
+            # Non-interactive mode
+            read AUTO_UPDATE
+            echo "Auto-update: $AUTO_UPDATE"
+        fi
     elif [ "$AUTO_UPDATE_FLAG" = "true" ]; then
         AUTO_UPDATE="y"
     else
@@ -354,8 +584,43 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     if [ "$AUTO_UPDATE" = "y" ] || [ "$AUTO_UPDATE" = "Y" ]; then
         print_color $YELLOW "\nSetting up automatic updates..."
         
-        # Create systemd timer for daily updates
-        cat > /etc/systemd/system/$SERVICE_NAME-update.timer << EOF
+        if [ "$OS" = "darwin" ]; then
+            # Create launchd plist for auto-update
+            sudo tee /Library/LaunchDaemons/$SERVICE_NAME.update.plist > /dev/null << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>$SERVICE_NAME.update</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --update</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/var/log/netronome-agent-update.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/netronome-agent-update.error.log</string>
+</dict>
+</plist>
+EOF
+            
+            sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.update.plist
+            print_color $GREEN "✅ Automatic daily updates enabled!"
+            print_color $YELLOW "Updates will run daily at 3:00 AM."
+            print_color $YELLOW "Check update logs: tail -f /var/log/netronome-agent-update.log"
+        else
+            # Create systemd timer for daily updates
+            cat > /etc/systemd/system/$SERVICE_NAME-update.timer << EOF
 [Unit]
 Description=Daily update check for netronome-agent
 
@@ -367,9 +632,9 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 EOF
-        
-        # Create update service
-        cat > /etc/systemd/system/$SERVICE_NAME-update.service << EOF
+            
+            # Create update service
+            cat > /etc/systemd/system/$SERVICE_NAME-update.service << EOF
 [Unit]
 Description=Update netronome-agent
 
@@ -380,17 +645,22 @@ User=root
 StandardOutput=journal
 StandardError=journal
 EOF
-        
-        systemctl daemon-reload
-        systemctl enable --now $SERVICE_NAME-update.timer
-        
-        print_color $GREEN "✅ Automatic daily updates enabled!"
-        print_color $YELLOW "Updates will run daily with a random delay of up to 4 hours."
-        print_color $YELLOW "Check update timer: systemctl status $SERVICE_NAME-update.timer"
-        print_color $YELLOW "Check last update: journalctl -u $SERVICE_NAME-update"
+            
+            systemctl daemon-reload
+            systemctl enable --now $SERVICE_NAME-update.timer
+            
+            print_color $GREEN "✅ Automatic daily updates enabled!"
+            print_color $YELLOW "Updates will run daily with a random delay of up to 4 hours."
+            print_color $YELLOW "Check update timer: systemctl status $SERVICE_NAME-update.timer"
+            print_color $YELLOW "Check last update: journalctl -u $SERVICE_NAME-update"
+        fi
     fi
 else
     print_color $RED "\n❌ Failed to start Netronome Agent"
-    print_color $YELLOW "Check logs with: journalctl -u $SERVICE_NAME -n 50"
+    if [ "$OS" = "darwin" ]; then
+        print_color $YELLOW "Check logs with: tail -50 /tmp/netronome-agent.error.log"
+    else
+        print_color $YELLOW "Check logs with: journalctl -u $SERVICE_NAME -n 50"
+    fi
     exit 1
 fi
