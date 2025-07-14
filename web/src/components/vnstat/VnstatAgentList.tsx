@@ -60,29 +60,29 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
 
   return (
     <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800">
-      <div className="border-b border-gray-200 px-4 sm:px-6 py-4 dark:border-gray-700">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+      <div className="border-b border-gray-200 px-4 sm:px-6 py-2.5 dark:border-gray-800">
+        <h3 className="text-base font-medium text-gray-900 dark:text-white">
           Netronome Agents
         </h3>
       </div>
 
-      <div className="divide-y divide-gray-200 dark:divide-gray-700">
+      <div className="divide-y divide-gray-200 dark:divide-gray-800">
         {isLoading ? (
-          <div className="p-6 text-center">
-            <p className="text-gray-500 dark:text-gray-400">
+          <div className="p-4 text-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Loading agents...
             </p>
           </div>
         ) : !agents || agents.length === 0 ? (
-          <div className="p-6 text-center">
+          <div className="p-4 text-center">
             <AgentIcon
               name="Server"
-              className="mx-auto h-12 w-12 text-gray-400"
+              className="mx-auto h-10 w-10 text-gray-400"
             />
-            <p className="mt-2 text-gray-500 dark:text-gray-400">
+            <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
               No agents configured
             </p>
-            <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-gray-400 dark:text-gray-500">
               Add an agent to start monitoring bandwidth
             </p>
           </div>
@@ -256,25 +256,25 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
 
   return (
     <motion.div
-      className={`cursor-pointer p-4 sm:p-6 transition-colors ${
+      className={`cursor-pointer p-3 sm:p-4 transition-colors ${
         isSelected
           ? "bg-blue-50 dark:bg-gray-800"
           : "hover:bg-gray-50 dark:hover:bg-gray-800"
       }`}
       onClick={onSelect}
     >
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center space-x-3 flex-1 min-w-0">
           <AgentIcon
             name={agent.name}
-            className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400 mt-0.5 sm:mt-1 flex-shrink-0"
+            className="h-7 w-7 sm:h-8 sm:w-8 text-gray-400 flex-shrink-0"
           />
           <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
-              <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white">
                 {agent.name}
               </h3>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5">
                 <div
                   className={`h-2 w-2 rounded-full ${
                     !agent.enabled
@@ -284,64 +284,61 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                       : "bg-red-500"
                   }`}
                 />
-                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                <span className="text-xs text-gray-600 dark:text-gray-400">
                   {!agent.enabled
                     ? "Disabled"
                     : status?.connected
                     ? "Connected"
                     : "Disconnected"}
                 </span>
-                <button
-                  onClick={handleToggleMonitoring}
-                  disabled={startMutation.isPending || stopMutation.isPending}
-                  className={`p-1 rounded-md transition-colors ${
-                    agent.enabled && status?.connected
-                      ? "text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200"
-                      : "text-emerald-500 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-200"
-                  } hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
-                  title={
-                    agent.enabled && status?.connected
-                      ? "Stop monitoring"
-                      : "Start monitoring"
-                  }
-                >
-                  {agent.enabled && status?.connected ? (
-                    <StopIcon className="w-3.5 h-3.5" />
-                  ) : (
-                    <PlayIcon className="w-3.5 h-3.5" />
-                  )}
-                </button>
               </div>
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 break-all">
-                <span className="font-medium">URL:</span>{" "}
-                {agent.url.replace(/\/events\?stream=live-data$/, "")}
-              </p>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                <span className="font-medium">Retention:</span>{" "}
-                {agent.retentionDays || 365} days
-              </p>
               {agent.enabled && status?.liveData && (
-                <div className="flex items-center space-x-4 mt-2">
-                  <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">
+                <div className="flex items-center space-x-3 text-xs text-gray-700 dark:text-gray-300">
+                  <span>
                     <span className="font-medium">↓</span>{" "}
                     {status.liveData.rx.ratestring}
                   </span>
-                  <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">
+                  <span>
                     <span className="font-medium">↑</span>{" "}
                     {status.liveData.tx.ratestring}
                   </span>
                 </div>
               )}
             </div>
+            <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+              <span className="truncate">
+                {agent.url.replace(/\/events\?stream=live-data$/, "")}
+              </span>
+              <span className="flex-shrink-0">
+                {agent.retentionDays || 365}d retention
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 flex-shrink-0">
           <button
-            className={`p-1.5 rounded-md transition-colors ${
+            onClick={handleToggleMonitoring}
+            disabled={startMutation.isPending || stopMutation.isPending}
+            className={`p-1 rounded-md transition-colors ${
+              agent.enabled && status?.connected
+                ? "text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200"
+                : "text-emerald-500 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-200"
+            } hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
+            title={
+              agent.enabled && status?.connected
+                ? "Stop monitoring"
+                : "Start monitoring"
+            }
+          >
+            {agent.enabled && status?.connected ? (
+              <StopIcon className="w-3.5 h-3.5" />
+            ) : (
+              <PlayIcon className="w-3.5 h-3.5" />
+            )}
+          </button>
+          <button
+            className={`p-1 rounded-md transition-colors ${
               isFeatured
                 ? "text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
                 : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -350,30 +347,30 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
             title={isFeatured ? "Remove from featured" : "Add to featured"}
           >
             {isFeatured ? (
-              <SparklesIconSolid className="w-4 h-4" />
+              <SparklesIconSolid className="w-3.5 h-3.5" />
             ) : (
-              <SparklesIcon className="w-4 h-4" />
+              <SparklesIcon className="w-3.5 h-3.5" />
             )}
           </button>
           <button
-            className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             onClick={(e) => {
               e.stopPropagation();
               onEdit();
             }}
             title="Edit Agent"
           >
-            <PencilIcon className="w-4 h-4" />
+            <PencilIcon className="w-3.5 h-3.5" />
           </button>
           <button
-            className="p-1.5 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             onClick={(e) => {
               e.stopPropagation();
               onDelete();
             }}
             title="Delete Agent"
           >
-            <TrashIcon className="w-4 h-4" />
+            <TrashIcon className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

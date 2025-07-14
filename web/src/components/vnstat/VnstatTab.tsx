@@ -96,7 +96,7 @@ export const VnstatTab: React.FC = () => {
 
   const handleFormSubmit = (
     data: CreateAgentRequest,
-    importHistorical?: boolean,
+    importHistorical?: boolean
   ) => {
     if (editingAgent) {
       updateMutation.mutate({
@@ -157,7 +157,7 @@ export const VnstatTab: React.FC = () => {
           {selectedAgent ? (
             <VnstatAgentDetails agent={selectedAgent} />
           ) : (
-            <div className="rounded-lg bg-white p-6 text-center shadow-sm dark:bg-gray-800">
+            <div className="rounded-xl bg-gray-50/95 dark:bg-gray-850/95 p-6 text-center shadow-lg border border-gray-200 dark:border-gray-800">
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                 Select an agent to view bandwidth details
               </p>
