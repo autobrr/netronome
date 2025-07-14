@@ -10,7 +10,6 @@ export interface VnstatAgent {
   name: string;
   url: string;
   enabled: boolean;
-  retentionDays: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,7 +34,6 @@ export interface CreateAgentRequest {
   name: string;
   url: string;
   enabled: boolean;
-  retentionDays: number;
 }
 
 export interface UpdateAgentRequest extends CreateAgentRequest {
@@ -131,38 +129,6 @@ export async function stopVnstatAgent(id: number): Promise<void> {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || "Failed to stop agent");
   }
-}
-
-// Historical data import
-export interface ImportStatus {
-  agentId: number;
-  inProgress: boolean;
-  startedAt: string;
-  completedAt?: string;
-  recordsImported: number;
-  totalRecords: number;
-  error?: string;
-}
-
-export async function importVnstatHistoricalData(id: number): Promise<void> {
-  const response = await fetch(getApiUrl(`/vnstat/agents/${id}/import`), {
-    method: "POST",
-  });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.error || "Failed to start historical data import",
-    );
-  }
-}
-
-export async function getVnstatImportStatus(id: number): Promise<ImportStatus> {
-  const response = await fetch(getApiUrl(`/vnstat/agents/${id}/import/status`));
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || "Failed to fetch import status");
-  }
-  return response.json();
 }
 
 // Native vnstat data types

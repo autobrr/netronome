@@ -7,7 +7,6 @@ CREATE TABLE vnstat_agents (
     url VARCHAR(500) NOT NULL,
     enabled BOOLEAN DEFAULT 1,
     interface VARCHAR(50),
-    retention_days INTEGER DEFAULT 365,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

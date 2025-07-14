@@ -53,7 +53,7 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener(
         "featured-agents-changed",
-        handleStorageChange
+        handleStorageChange,
       );
     };
   }, []);
@@ -179,7 +179,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       const validIds = Array.isArray(ids) ? ids : [];
       localStorage.setItem(
         "netronome-featured-vnstat-agents",
-        JSON.stringify(validIds)
+        JSON.stringify(validIds),
       );
     } catch {
       console.error("Error saving featured agents to localStorage");
@@ -223,7 +223,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       // Filter out agent IDs that no longer exist
       const existingAgentIds = agents.map((a) => a.id);
       const existingFeatured = validCurrentFeatured.filter((id) =>
-        existingAgentIds.includes(id)
+        existingAgentIds.includes(id),
       );
 
       // Clean up localStorage if we removed any non-existent agents
@@ -233,7 +233,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
 
       if (existingFeatured.length >= 3) {
         alert(
-          "You can only feature up to 3 agents at a time. Please unfeature an agent first."
+          "You can only feature up to 3 agents at a time. Please unfeature an agent first.",
         );
         return;
       }
@@ -280,16 +280,16 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                     !agent.enabled
                       ? "bg-gray-400"
                       : status?.connected
-                      ? "bg-green-500"
-                      : "bg-red-500"
+                        ? "bg-green-500"
+                        : "bg-red-500"
                   }`}
                 />
                 <span className="text-xs text-gray-600 dark:text-gray-400">
                   {!agent.enabled
                     ? "Disabled"
                     : status?.connected
-                    ? "Connected"
-                    : "Disconnected"}
+                      ? "Connected"
+                      : "Disconnected"}
                 </span>
               </div>
               {agent.enabled && status?.liveData && (
@@ -308,9 +308,6 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
             <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
               <span className="truncate">
                 {agent.url.replace(/\/events\?stream=live-data$/, "")}
-              </span>
-              <span className="flex-shrink-0">
-                {agent.retentionDays || 365}d retention
               </span>
             </div>
           </div>

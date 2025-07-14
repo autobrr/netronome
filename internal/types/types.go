@@ -165,14 +165,13 @@ type PacketLossResult struct {
 
 // VnstatAgent represents a vnstat agent configuration
 type VnstatAgent struct {
-	ID            int64     `db:"id" json:"id"`
-	Name          string    `db:"name" json:"name"`
-	URL           string    `db:"url" json:"url"`
-	Enabled       bool      `db:"enabled" json:"enabled"`
-	Interface     *string   `db:"interface" json:"interface,omitempty"`
-	RetentionDays int       `db:"retention_days" json:"retentionDays"`
-	CreatedAt     time.Time `db:"created_at" json:"createdAt"`
-	UpdatedAt     time.Time `db:"updated_at" json:"updatedAt"`
+	ID        int64     `db:"id" json:"id"`
+	Name      string    `db:"name" json:"name"`
+	URL       string    `db:"url" json:"url"`
+	Enabled   bool      `db:"enabled" json:"enabled"`
+	Interface *string   `db:"interface" json:"interface,omitempty"`
+	CreatedAt time.Time `db:"created_at" json:"createdAt"`
+	UpdatedAt time.Time `db:"updated_at" json:"updatedAt"`
 }
 
 // VnstatBandwidth represents bandwidth data from vnstat

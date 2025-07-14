@@ -34,17 +34,6 @@ type Client struct {
 	cancel    context.CancelFunc
 }
 
-// ImportStatus tracks the status of a historical data import
-type ImportStatus struct {
-	AgentID         int64      `json:"agentId"`
-	InProgress      bool       `json:"inProgress"`
-	StartedAt       time.Time  `json:"startedAt"`
-	CompletedAt     *time.Time `json:"completedAt,omitempty"`
-	RecordsImported int        `json:"recordsImported"`
-	TotalRecords    int        `json:"totalRecords"`
-	Error           string     `json:"error,omitempty"`
-}
-
 // Service manages all vnstat clients
 type Service struct {
 	db            database.Service
@@ -53,9 +42,6 @@ type Service struct {
 
 	clientsMu sync.RWMutex
 	clients   map[int64]*Client
-
-	importStatusMu sync.RWMutex
-	importStatus   map[int64]*ImportStatus
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -71,7 +57,6 @@ func NewService(db database.Service, cfg *config.VnstatConfig, broadcastFunc fun
 		config:        cfg,
 		broadcastFunc: broadcastFunc,
 		clients:       make(map[int64]*Client),
-		importStatus:  make(map[int64]*ImportStatus),
 		ctx:           ctx,
 		cancel:        cancel,
 	}
@@ -389,127 +374,4 @@ func (c *Client) processData(data string) {
 		TxRateString:     liveData.Tx.Ratestring,
 		Connected:        true,
 	})
-}
-
-// GetImportStatus returns the import status for an agent
-func (s *Service) GetImportStatus(agentID int64) *ImportStatus {
-	s.importStatusMu.RLock()
-	defer s.importStatusMu.RUnlock()
-
-	status := s.importStatus[agentID]
-	if status == nil {
-		return nil
-	}
-
-	// Return a copy to avoid race conditions
-	statusCopy := *status
-	return &statusCopy
-}
-
-// ImportHistoricalData imports historical vnstat data from an agent
-func (s *Service) ImportHistoricalData(agent *types.VnstatAgent) {
-	// Set initial status
-	s.importStatusMu.Lock()
-	s.importStatus[agent.ID] = &ImportStatus{
-		AgentID:    agent.ID,
-		InProgress: true,
-		StartedAt:  time.Now(),
-	}
-	s.importStatusMu.Unlock()
-
-	// Ensure we update status when done
-	defer func() {
-		s.importStatusMu.Lock()
-		if status := s.importStatus[agent.ID]; status != nil {
-			status.InProgress = false
-			now := time.Now()
-			status.CompletedAt = &now
-		}
-		s.importStatusMu.Unlock()
-	}()
-
-	// Extract base URL from the SSE endpoint
-	baseURL := strings.TrimSuffix(agent.URL, "/events?stream=live-data")
-	historicalURL := fmt.Sprintf("%s/export/historical", baseURL)
-
-	log.Info().
-		Int64("agent_id", agent.ID).
-		Str("url", historicalURL).
-		Msg("Starting historical data import")
-
-	// Fetch historical data from agent
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "GET", historicalURL, nil)
-	if err != nil {
-		s.updateImportError(agent.ID, fmt.Sprintf("Failed to create request: %v", err))
-		return
-	}
-
-	client := &http.Client{
-		Timeout: 5 * time.Minute,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		s.updateImportError(agent.ID, fmt.Sprintf("Failed to fetch data: %v", err))
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		s.updateImportError(agent.ID, fmt.Sprintf("Agent returned status %d", resp.StatusCode))
-		return
-	}
-
-	// Parse the vnstat JSON data
-	var vnstatData types.VnstatFullData
-	if err := json.NewDecoder(resp.Body).Decode(&vnstatData); err != nil {
-		s.updateImportError(agent.ID, fmt.Sprintf("Failed to parse JSON: %v", err))
-		return
-	}
-
-	// Process and import the data
-	if err := s.processVnstatData(agent.ID, &vnstatData); err != nil {
-		s.updateImportError(agent.ID, fmt.Sprintf("Failed to process data: %v", err))
-		return
-	}
-
-	log.Info().
-		Int64("agent_id", agent.ID).
-		Msg("Historical data import completed successfully")
-}
-
-// updateImportError updates the import status with an error
-func (s *Service) updateImportError(agentID int64, errMsg string) {
-	s.importStatusMu.Lock()
-	defer s.importStatusMu.Unlock()
-
-	if status := s.importStatus[agentID]; status != nil {
-		status.Error = errMsg
-		log.Error().
-			Int64("agent_id", agentID).
-			Str("error", errMsg).
-			Msg("Historical data import failed")
-	}
-}
-
-// processVnstatData processes vnstat historical data (no longer imports since we use native data)
-func (s *Service) processVnstatData(agentID int64, data *types.VnstatFullData) error {
-	// Since we're using native vnstat data, we don't need to import historical data anymore
-	// This function is kept for compatibility but doesn't do anything
-	log.Info().
-		Int64("agent_id", agentID).
-		Msg("Historical import requested but skipped - using native vnstat data")
-
-	// Update import status to show completion
-	s.importStatusMu.Lock()
-	if status := s.importStatus[agentID]; status != nil {
-		status.RecordsImported = 0
-		status.TotalRecords = 0
-	}
-	s.importStatusMu.Unlock()
-
-	return nil
 }

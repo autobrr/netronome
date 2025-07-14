@@ -509,40 +509,6 @@ Netronome uses proper binary units for bandwidth display:
 
 This ensures accurate representation of data sizes and bandwidth calculations.
 
-### vnstat Historical Data Import
-
-When adding a new vnstat agent, Netronome can optionally import all historical data from the agent's vnstat database:
-
-#### How It Works
-
-1. **Agent Export**: The agent exposes a `/export/historical` endpoint that runs `vnstat --json a`
-2. **Data Processing**: The import processes both daily and hourly data from vnstat
-3. **Intelligent Import Strategy**:
-   - Daily data is used as the primary source for historical days
-   - Hourly data is used only for today (most recent data)
-   - Daily totals are spread evenly across 24 hours for consistent visualization
-
-#### Import Behavior
-
-- **One-time Operation**: Historical import happens only when creating a new agent
-- **Checkbox in UI**: "Import historical data" option in the Add Agent modal
-- **Background Processing**: Import runs asynchronously after agent creation
-- **Data Aggregation**: Imported data is immediately aggregated into hourly buckets
-
-#### Technical Implementation Notes
-
-1. **Precision Handling**: Uses float64 for division to avoid integer truncation
-2. **Aggregation Logic**:
-   - Historical data (1 sample/hour): Multiplies bytes/second × 3600
-   - Live data (multiple samples): Calculates based on actual time intervals
-3. **"Last Hour" Behavior**: May show 0 initially as historical data is placed at hour boundaries
-
-#### Known Limitations
-
-- **vnstat Data Retention**: Import can only retrieve data that vnstat has stored
-- **Interface Selection**: Agent must be configured with correct interface (`--interface en0`)
-- **Initial Display**: "Last Hour" shows 0 until live monitoring runs for a full hour
-
 # important-instruction-reminders
 
 Do what has been asked; nothing more, nothing less.

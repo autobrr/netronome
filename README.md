@@ -45,7 +45,6 @@ Netronome (Network Metronome) is a modern network performance testing and monito
   - **Multi-server Support**: Monitor bandwidth across multiple servers from one dashboard
   - **Historical Tracking**: Store and visualize bandwidth usage over time
   - **Auto-reconnection**: Agents automatically reconnect with exponential backoff
-  - **Per-agent Retention**: Configure data retention policies per agent
 
 - **Monitoring & Visualization**
   - **Speed Test History**: Interactive charts with customizable time ranges (1d, 3d, 1w, 1m, all)
@@ -299,9 +298,7 @@ The same `netronome` binary can run as a lightweight agent that can be deployed:
    - Enter agent details:
      - Name: Friendly name for the server
      - URL: `http://server-ip:8200` (agent URL)
-     - Retention Days: How long to keep historical data
      - Enable monitoring: Start monitoring immediately
-     - Import historical data: Import existing vnstat data (one-time operation)
 
 #### Agent Systemd Service
 
@@ -350,18 +347,6 @@ Netronome fetches bandwidth data directly from vnstat's native JSON output, ensu
 - **Consistent with vnstat**: vnstat internally uses binary units
 
 This ensures accurate and unambiguous representation of bandwidth data.
-
-#### Historical Data Import
-
-When adding a new vnstat agent, you can optionally import all historical data from the agent's vnstat database:
-
-- **Import Option**: Check "Import historical data" when adding a new agent
-- **One-time Operation**: Import only happens during agent creation
-- **Background Processing**: Import runs asynchronously and may take a few moments for large datasets
-- **Automatic Aggregation**: Imported data is automatically processed into hourly buckets
-- **Interface Awareness**: Ensure the agent is configured with the correct network interface (e.g., `--interface eth0`) to import the right data
-
-**Note**: The import will retrieve all available data from vnstat's database. The amount of historical data depends on vnstat's retention settings and how long it has been collecting data on the system.
 
 ### Environment Variables
 
@@ -413,7 +398,6 @@ When adding a new vnstat agent, you can optionally import all historical data fr
 | `NETRONOME__AGENT_PORT`                             | Agent server port                                                 | `8200`                                       | No                     |
 | `NETRONOME__AGENT_INTERFACE`                        | Network interface for agent to monitor (empty for all)            | ``                                           | No                     |
 | `NETRONOME__VNSTAT_ENABLED`                         | Enable vnstat client service in main server                       | `true`                                       | No                     |
-| `NETRONOME__VNSTAT_DEFAULT_RETENTION_DAYS`          | Default retention days for vnstat agent data                      | `365`                                        | No                     |
 | `NETRONOME__VNSTAT_RECONNECT_INTERVAL`              | Reconnection interval for vnstat client connections               | `30s`                                        | No                     |
 
 ### Database

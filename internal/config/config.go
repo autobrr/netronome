@@ -149,9 +149,8 @@ type AgentConfig struct {
 }
 
 type VnstatConfig struct {
-	Enabled              bool   `toml:"enabled" env:"VNSTAT_ENABLED"`
-	DefaultRetentionDays int    `toml:"default_retention_days" env:"VNSTAT_DEFAULT_RETENTION_DAYS"`
-	ReconnectInterval    string `toml:"reconnect_interval" env:"VNSTAT_RECONNECT_INTERVAL"`
+	Enabled           bool   `toml:"enabled" env:"VNSTAT_ENABLED"`
+	ReconnectInterval string `toml:"reconnect_interval" env:"VNSTAT_RECONNECT_INTERVAL"`
 }
 
 func isRunningInContainer() bool {
@@ -256,9 +255,8 @@ func New() *Config {
 			Interface: "",
 		},
 		Vnstat: VnstatConfig{
-			Enabled:              true,
-			DefaultRetentionDays: 365,
-			ReconnectInterval:    "30s",
+			Enabled:           true,
+			ReconnectInterval: "30s",
 		},
 	}
 }
@@ -587,11 +585,6 @@ func (c *Config) loadVnstatFromEnv() {
 			c.Vnstat.Enabled = enabled
 		}
 	}
-	if v := getEnv("VNSTAT_DEFAULT_RETENTION_DAYS"); v != "" {
-		if days, err := strconv.Atoi(v); err == nil {
-			c.Vnstat.DefaultRetentionDays = days
-		}
-	}
 	if v := getEnv("VNSTAT_RECONNECT_INTERVAL"); v != "" {
 		c.Vnstat.ReconnectInterval = v
 	}
@@ -909,9 +902,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.Vnstat.Enabled); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "default_retention_days = %d\n", cfg.Vnstat.DefaultRetentionDays); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "reconnect_interval = \"%s\"\n", cfg.Vnstat.ReconnectInterval); err != nil {

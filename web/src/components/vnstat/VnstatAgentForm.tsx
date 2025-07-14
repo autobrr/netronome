@@ -11,7 +11,7 @@ import { VnstatAgent, CreateAgentRequest } from "@/api/vnstat";
 
 interface VnstatAgentFormProps {
   agent?: VnstatAgent | null;
-  onSubmit: (data: CreateAgentRequest, importHistorical?: boolean) => void;
+  onSubmit: (data: CreateAgentRequest) => void;
   onCancel: () => void;
   isSubmitting: boolean;
   isOpen: boolean;
@@ -28,9 +28,7 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
     name: "",
     url: "http://",
     enabled: true,
-    retentionDays: 365,
   });
-  const [importHistorical, setImportHistorical] = useState(false);
 
   useEffect(() => {
     if (agent) {
@@ -38,7 +36,6 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
         name: agent.name,
         url: agent.url.replace(/\/events\?stream=live-data$/, ""),
         enabled: agent.enabled,
-        retentionDays: agent.retentionDays,
       });
     } else if (isOpen) {
       // Reset form for new agent
@@ -46,15 +43,13 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
         name: "",
         url: "http://",
         enabled: true,
-        retentionDays: 365,
       });
-      setImportHistorical(false);
     }
   }, [agent, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData, !agent ? importHistorical : undefined);
+    onSubmit(formData);
   };
 
   const handleUrlChange = (value: string) => {
@@ -151,29 +146,6 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
                     </p>
                   </div>
 
-                  <div>
-                    <label
-                      htmlFor="retentionDays"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      Data Retention (days)
-                    </label>
-                    <input
-                      type="number"
-                      id="retentionDays"
-                      value={formData.retentionDays}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          retentionDays: parseInt(e.target.value),
-                        })
-                      }
-                      className="mt-1 block w-full px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"
-                      min="1"
-                      required
-                    />
-                  </div>
-
                   <div className="space-y-3">
                     <div className="flex items-center">
                       <input
@@ -195,29 +167,6 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
                         Enable monitoring
                       </label>
                     </div>
-
-                    {!agent && (
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="importHistorical"
-                          checked={importHistorical}
-                          onChange={(e) =>
-                            setImportHistorical(e.target.checked)
-                          }
-                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                        />
-                        <label
-                          htmlFor="importHistorical"
-                          className="ml-2 block text-sm text-gray-900 dark:text-gray-300"
-                        >
-                          Import historical data
-                        </label>
-                        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                          (one-time import)
-                        </span>
-                      </div>
-                    )}
                   </div>
 
                   {/* Actions */}

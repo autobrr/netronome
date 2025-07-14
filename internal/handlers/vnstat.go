@@ -101,11 +101,6 @@ func (h *VnstatHandler) CreateAgent(c *gin.Context) {
 		}
 	}
 
-	// Set default retention if not provided
-	if agent.RetentionDays <= 0 {
-		agent.RetentionDays = h.config.DefaultRetentionDays
-	}
-
 	// Create agent in database
 	createdAgent, err := h.db.CreateVnstatAgent(c.Request.Context(), &agent)
 	if err != nil {
@@ -263,64 +258,6 @@ func (h *VnstatHandler) StopAgent(c *gin.Context) {
 
 	h.service.StopAgent(id)
 	c.JSON(http.StatusOK, gin.H{"message": "Agent stopped successfully"})
-}
-
-// ImportHistoricalData imports historical vnstat data from an agent
-func (h *VnstatHandler) ImportHistoricalData(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID"})
-		return
-	}
-
-	// Get the agent to retrieve its URL
-	agent, err := h.db.GetVnstatAgent(c.Request.Context(), id)
-	if err != nil {
-		if err == database.ErrNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Agent not found"})
-			return
-		}
-		log.Error().Err(err).Msg("Failed to get vnstat agent")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get agent"})
-		return
-	}
-
-	// Check if import is already in progress
-	importStatus := h.service.GetImportStatus(id)
-	if importStatus != nil && importStatus.InProgress {
-		c.JSON(http.StatusConflict, gin.H{
-			"error":  "Import already in progress",
-			"status": importStatus,
-		})
-		return
-	}
-
-	// Start the import in background
-	go h.service.ImportHistoricalData(agent)
-
-	c.JSON(http.StatusAccepted, gin.H{
-		"message": "Historical data import started",
-		"agentId": id,
-	})
-}
-
-// GetImportStatus returns the status of a historical data import
-func (h *VnstatHandler) GetImportStatus(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID"})
-		return
-	}
-
-	status := h.service.GetImportStatus(id)
-	if status == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "No import status found"})
-		return
-	}
-
-	c.JSON(http.StatusOK, status)
 }
 
 // GetAgentNativeVnstat returns the native vnstat JSON output from an agent for validation
