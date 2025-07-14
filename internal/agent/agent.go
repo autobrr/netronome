@@ -214,12 +214,39 @@ func (a *Agent) handleHistoricalExport(c *gin.Context) {
 		return
 	}
 
+	// Parse the JSON to add timezone information
+	var vnstatData map[string]interface{}
+	if err := json.Unmarshal(output, &vnstatData); err != nil {
+		log.Error().Err(err).Msg("Failed to parse vnstat JSON")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to parse vnstat data",
+		})
+		return
+	}
+
+	// Add server time information for timezone handling
+	now := time.Now()
+	vnstatData["server_time"] = now.Format(time.RFC3339)
+	vnstatData["server_time_unix"] = now.Unix()
+	_, offset := now.Zone()
+	vnstatData["timezone_offset"] = offset // Offset in seconds from UTC
+
+	// Re-encode with timezone information
+	enrichedOutput, err := json.Marshal(vnstatData)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to encode vnstat data")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to encode data",
+		})
+		return
+	}
+
 	// Set appropriate headers for JSON response
 	c.Header("Content-Type", "application/json")
 	c.Header("Content-Disposition", "inline; filename=\"vnstat-historical.json\"")
 
-	// Return the raw JSON data
-	c.Data(http.StatusOK, "application/json", output)
+	// Return the enriched JSON data
+	c.Data(http.StatusOK, "application/json", enrichedOutput)
 }
 
 // runVnstat runs vnstat and sends data to the broadcast channel

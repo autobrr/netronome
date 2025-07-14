@@ -264,12 +264,11 @@ func (s *Server) RegisterRoutes() {
 				protected.PUT("/vnstat/agents/:id", vnstatHandler.UpdateAgent)
 				protected.DELETE("/vnstat/agents/:id", vnstatHandler.DeleteAgent)
 				protected.GET("/vnstat/agents/:id/status", vnstatHandler.GetAgentStatus)
-				protected.GET("/vnstat/agents/:id/bandwidth", vnstatHandler.GetAgentBandwidth)
-				protected.GET("/vnstat/agents/:id/usage", vnstatHandler.GetAgentUsage)
 				protected.POST("/vnstat/agents/:id/start", vnstatHandler.StartAgent)
 				protected.POST("/vnstat/agents/:id/stop", vnstatHandler.StopAgent)
 				protected.POST("/vnstat/agents/:id/import", vnstatHandler.ImportHistoricalData)
 				protected.GET("/vnstat/agents/:id/import/status", vnstatHandler.GetImportStatus)
+				protected.GET("/vnstat/agents/:id/native", vnstatHandler.GetAgentNativeVnstat)
 			}
 		}
 	}

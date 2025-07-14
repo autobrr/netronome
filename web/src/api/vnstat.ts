@@ -15,18 +15,6 @@ export interface VnstatAgent {
   updatedAt: string;
 }
 
-export interface VnstatBandwidth {
-  id: number;
-  agentId: number;
-  rxBytesPerSecond?: number;
-  txBytesPerSecond?: number;
-  rxPacketsPerSecond?: number;
-  txPacketsPerSecond?: number;
-  rxRateString?: string;
-  txRateString?: string;
-  createdAt: string;
-}
-
 export interface VnstatStatus {
   connected: boolean;
   liveData?: {
@@ -52,12 +40,6 @@ export interface CreateAgentRequest {
 
 export interface UpdateAgentRequest extends CreateAgentRequest {
   id: number;
-}
-
-export interface BandwidthQueryParams {
-  limit?: number;
-  start?: string;
-  end?: string;
 }
 
 // Agent management
@@ -131,27 +113,6 @@ export async function getVnstatAgentStatus(id: number): Promise<VnstatStatus> {
   return response.json();
 }
 
-export async function getVnstatAgentBandwidth(
-  id: number,
-  params?: BandwidthQueryParams,
-): Promise<VnstatBandwidth[]> {
-  const queryParams = new URLSearchParams();
-  if (params?.limit) queryParams.append("limit", params.limit.toString());
-  if (params?.start) queryParams.append("start", params.start);
-  if (params?.end) queryParams.append("end", params.end);
-
-  const url = queryParams.toString()
-    ? `${getApiUrl(`/vnstat/agents/${id}/bandwidth`)}?${queryParams}`
-    : getApiUrl(`/vnstat/agents/${id}/bandwidth`);
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || "Failed to fetch bandwidth history");
-  }
-  return response.json();
-}
-
 export async function startVnstatAgent(id: number): Promise<void> {
   const response = await fetch(getApiUrl(`/vnstat/agents/${id}/start`), {
     method: "POST",
@@ -170,19 +131,6 @@ export async function stopVnstatAgent(id: number): Promise<void> {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || "Failed to stop agent");
   }
-}
-
-export async function getVnstatAgentUsage(
-  id: number,
-): Promise<
-  Record<string, { download: number; upload: number; total: number }>
-> {
-  const response = await fetch(getApiUrl(`/vnstat/agents/${id}/usage`));
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || "Failed to fetch agent usage");
-  }
-  return response.json();
 }
 
 // Historical data import
@@ -213,6 +161,73 @@ export async function getVnstatImportStatus(id: number): Promise<ImportStatus> {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || "Failed to fetch import status");
+  }
+  return response.json();
+}
+
+// Native vnstat data types
+export interface VnstatNativeData {
+  vnstatversion: string;
+  jsonversion: string;
+  interfaces: VnstatInterface[];
+  server_time?: string; // RFC3339 formatted server time
+  server_time_unix?: number; // Unix timestamp
+  timezone_offset?: number; // Offset in seconds from UTC
+}
+
+export interface VnstatInterface {
+  name: string;
+  alias: string;
+  traffic: VnstatTraffic;
+}
+
+export interface VnstatTraffic {
+  total: {
+    rx: number;
+    tx: number;
+  };
+  hour: VnstatPeriod[];
+  day: VnstatPeriod[];
+  month: VnstatPeriod[];
+}
+
+export interface VnstatPeriod {
+  id: number;
+  date: {
+    year: number;
+    month: number;
+    day?: number;
+  };
+  time?: {
+    hour: number;
+    minute: number;
+  };
+  rx: number;
+  tx: number;
+}
+
+export interface VnstatUsageSummary {
+  download: number;
+  upload: number;
+  total: number;
+}
+
+// Native vnstat data fetching
+export async function getVnstatAgentNative(
+  id: number,
+  interfaceName?: string,
+): Promise<VnstatNativeData> {
+  const queryParams = new URLSearchParams();
+  if (interfaceName) queryParams.append("interface", interfaceName);
+
+  const url = queryParams.toString()
+    ? `${getApiUrl(`/vnstat/agents/${id}/native`)}?${queryParams}`
+    : getApiUrl(`/vnstat/agents/${id}/native`);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to fetch native vnstat data");
   }
   return response.json();
 }

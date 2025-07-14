@@ -5,7 +5,8 @@
 
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getVnstatAgentUsage } from "@/api/vnstat";
+import { getVnstatAgentNative } from "@/api/vnstat";
+import { parseVnstatUsagePeriods } from "@/utils/vnstatParser";
 
 interface VnstatUsageTableProps {
   agentId: number;
@@ -31,40 +32,31 @@ export const VnstatUsageTable: React.FC<VnstatUsageTableProps> = ({
     return `${(bytes / Math.pow(k, i)).toFixed(2)} ${units[i]}`;
   };
 
-  // Fetch usage data from API
+  // Fetch native vnstat data from agent
   const {
-    data: usageDataFromAPI,
+    data: nativeData,
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["vnstat-agent-usage", agentId],
-    queryFn: () => getVnstatAgentUsage(agentId),
+    queryKey: ["vnstat-agent-native", agentId],
+    queryFn: () => getVnstatAgentNative(agentId),
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
-  // Convert API data to table format
-  const usageData: UsagePeriod[] = usageDataFromAPI
-    ? Object.entries(usageDataFromAPI)
-        .map(([period, data]) => ({
-          period,
-          download: data.download,
-          upload: data.upload,
-          total: data.total,
-        }))
-        .sort((a, b) => {
-          // Define the desired order
-          const order = [
-            "This Hour",
-            "Last Hour",
-            "Today",
-            "This Month",
-            "All Time",
-          ];
-          const indexA = order.indexOf(a.period);
-          const indexB = order.indexOf(b.period);
-          return indexA - indexB;
-        })
-    : [];
+  // Parse vnstat native data into usage periods
+  const usageDataFromParser = nativeData
+    ? parseVnstatUsagePeriods(nativeData)
+    : {};
+
+  // Convert parsed data to table format
+  const usageData: UsagePeriod[] = Object.entries(usageDataFromParser).map(
+    ([period, data]) => ({
+      period,
+      download: data.download,
+      upload: data.upload,
+      total: data.total,
+    }),
+  );
 
   if (isLoading) {
     return (

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useMemo } from "react";
+import React from "react";
 import { motion } from "motion/react";
 import { ServerIcon } from "@heroicons/react/24/outline";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
@@ -11,14 +11,12 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getVnstatAgents,
   getVnstatAgentStatus,
-  getVnstatAgentBandwidth,
-  getVnstatAgentUsage,
+  getVnstatAgentNative,
   VnstatAgent,
   VnstatStatus,
-  VnstatBandwidth,
 } from "@/api/vnstat";
+import { parseVnstatUsagePeriods } from "@/utils/vnstatParser";
 import { getAgentIcon } from "@/utils/agentIcons";
-import { MiniSparkline } from "./MiniSparkline";
 import { formatBytes } from "@/utils/formatBytes";
 
 interface FeaturedVnstatWidgetProps {
@@ -98,38 +96,15 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
     enabled: agent.enabled,
   });
 
-  // Fetch bandwidth history for sparkline (last hour)
-  const { data: bandwidthHistory = [] } = useQuery<VnstatBandwidth[]>({
-    queryKey: ["vnstat-agent-bandwidth", agent.id, "1h"],
-    queryFn: () =>
-      getVnstatAgentBandwidth(agent.id, {
-        limit: 60, // 1 minute intervals for 1 hour
-      }),
-    refetchInterval: agent.enabled ? 30000 : false, // Poll every 30 seconds
-    enabled: agent.enabled,
-  });
-
-  // Fetch usage data
-  const { data: usage } = useQuery({
-    queryKey: ["vnstat-agent-usage", agent.id],
-    queryFn: () => getVnstatAgentUsage(agent.id),
+  // Fetch native vnstat data and parse usage
+  const { data: nativeData } = useQuery({
+    queryKey: ["vnstat-agent-native", agent.id],
+    queryFn: () => getVnstatAgentNative(agent.id),
     refetchInterval: agent.enabled ? 60000 : false, // Poll every minute
     enabled: agent.enabled,
   });
 
-  // Prepare sparkline data
-  const sparklineData = useMemo(() => {
-    if (!bandwidthHistory || bandwidthHistory.length === 0) {
-      return { download: [], upload: [] };
-    }
-
-    // Reverse to get chronological order and extract speeds
-    const reversed = [...bandwidthHistory].reverse();
-    return {
-      download: reversed.map((item) => item.rxBytesPerSecond || 0),
-      upload: reversed.map((item) => item.txBytesPerSecond || 0),
-    };
-  }, [bandwidthHistory]);
+  const usage = nativeData ? parseVnstatUsagePeriods(nativeData) : null;
 
   return (
     <motion.div
@@ -201,37 +176,6 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Sparkline charts */}
-          {sparklineData.download.length > 1 && (
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Last Hour Activity
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 flex items-center justify-center">
-                  <div className="w-full">
-                    <MiniSparkline
-                      data={sparklineData.download}
-                      color="blue"
-                      height={40}
-                    />
-                  </div>
-                </div>
-                <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 flex items-center justify-center">
-                  <div className="w-full">
-                    <MiniSparkline
-                      data={sparklineData.upload}
-                      color="green"
-                      height={40}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Today's usage */}
           {usage && (

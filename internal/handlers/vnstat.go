@@ -4,10 +4,12 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -232,60 +234,6 @@ func (h *VnstatHandler) GetAgentStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, status)
 }
 
-// GetAgentBandwidth returns bandwidth history for an agent
-func (h *VnstatHandler) GetAgentBandwidth(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID"})
-		return
-	}
-
-	// Parse query parameters
-	limitStr := c.DefaultQuery("limit", "1000")
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit <= 0 {
-		limit = 1000
-	}
-
-	// Parse time range
-	startStr := c.Query("start")
-	endStr := c.Query("end")
-
-	var startTime, endTime time.Time
-
-	if startStr != "" {
-		startTime, err = time.Parse(time.RFC3339, startStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid start time format"})
-			return
-		}
-	} else {
-		// Default to last 24 hours
-		startTime = time.Now().Add(-24 * time.Hour)
-	}
-
-	if endStr != "" {
-		endTime, err = time.Parse(time.RFC3339, endStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid end time format"})
-			return
-		}
-	} else {
-		endTime = time.Now()
-	}
-
-	// Get bandwidth history
-	history, err := h.db.GetVnstatBandwidthHistory(c.Request.Context(), id, startTime, endTime, limit)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to get vnstat bandwidth history")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get bandwidth history"})
-		return
-	}
-
-	c.JSON(http.StatusOK, history)
-}
-
 // StartAgent manually starts monitoring for an agent
 func (h *VnstatHandler) StartAgent(c *gin.Context) {
 	idStr := c.Param("id")
@@ -315,25 +263,6 @@ func (h *VnstatHandler) StopAgent(c *gin.Context) {
 
 	h.service.StopAgent(id)
 	c.JSON(http.StatusOK, gin.H{"message": "Agent stopped successfully"})
-}
-
-// GetAgentUsage returns bandwidth usage statistics for an agent
-func (h *VnstatHandler) GetAgentUsage(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID"})
-		return
-	}
-
-	usage, err := h.db.GetVnstatBandwidthUsage(c.Request.Context(), id)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to get vnstat bandwidth usage")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get bandwidth usage"})
-		return
-	}
-
-	c.JSON(http.StatusOK, usage)
 }
 
 // ImportHistoricalData imports historical vnstat data from an agent
@@ -392,4 +321,71 @@ func (h *VnstatHandler) GetImportStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, status)
+}
+
+// GetAgentNativeVnstat returns the native vnstat JSON output from an agent for validation
+func (h *VnstatHandler) GetAgentNativeVnstat(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID"})
+		return
+	}
+
+	// Get the agent to retrieve its URL
+	agent, err := h.db.GetVnstatAgent(c.Request.Context(), id)
+	if err != nil {
+		if err == database.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Agent not found"})
+			return
+		}
+		log.Error().Err(err).Msg("Failed to get vnstat agent")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get agent"})
+		return
+	}
+
+	// Build the historical export URL from the agent's base URL
+	baseURL := strings.TrimSuffix(agent.URL, "/events?stream=live-data")
+	exportURL := baseURL + "/export/historical"
+
+	// Get the interface parameter if provided
+	iface := c.Query("interface")
+	if iface != "" {
+		exportURL += "?interface=" + iface
+	}
+
+	// Make HTTP request to agent's export endpoint
+	resp, err := http.Get(exportURL)
+	if err != nil {
+		log.Error().Err(err).Str("url", exportURL).Msg("Failed to fetch native vnstat data")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch native vnstat data"})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Error().Int("status", resp.StatusCode).Str("url", exportURL).Msg("Agent returned error status")
+		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Agent returned status %d", resp.StatusCode)})
+		return
+	}
+
+	// Read and parse the JSON response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to read response body")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response"})
+		return
+	}
+
+	// Validate JSON
+	var vnstatData interface{}
+	if err := json.Unmarshal(body, &vnstatData); err != nil {
+		log.Error().Err(err).Msg("Invalid JSON response from agent")
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Invalid JSON response from agent"})
+		return
+	}
+
+	// Return the raw vnstat JSON data
+	c.Header("Content-Type", "application/json")
+	c.Data(http.StatusOK, "application/json", body)
 }

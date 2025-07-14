@@ -76,13 +76,6 @@ track and analyze your network performance over time.`,
 This agent can be monitored by a remote Netronome server.`,
 		RunE: runAgent,
 	}
-
-	aggregateCmd = &cobra.Command{
-		Use:    "aggregate-vnstat",
-		Short:  "Force vnstat bandwidth data aggregation",
-		Hidden: true,
-		RunE:   runAggregate,
-	}
 )
 
 func init() {
@@ -101,7 +94,6 @@ func init() {
 	rootCmd.AddCommand(changePasswordCmd)
 	rootCmd.AddCommand(createUserCmd)
 	rootCmd.AddCommand(agentCmd)
-	rootCmd.AddCommand(aggregateCmd)
 }
 
 func main() {
@@ -445,33 +437,4 @@ func runAgent(cmd *cobra.Command, args []string) error {
 
 	// Start the agent
 	return agentService.Start(ctx)
-}
-
-func runAggregate(cmd *cobra.Command, args []string) error {
-	logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
-
-	configPath, err := config.EnsureConfig(configPath)
-	if err != nil {
-		return fmt.Errorf("failed to ensure config exists: %w", err)
-	}
-
-	cfg, err := config.Load(configPath)
-	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
-	}
-
-	db := database.New(cfg.Database)
-	if err := db.InitializeTables(context.Background()); err != nil {
-		return fmt.Errorf("failed to initialize database tables: %w", err)
-	}
-	defer db.Close()
-
-	fmt.Println("Force aggregating vnstat bandwidth data...")
-
-	if err := db.ForceAggregateVnstatBandwidthHourly(context.Background()); err != nil {
-		return fmt.Errorf("failed to aggregate vnstat data: %w", err)
-	}
-
-	fmt.Println("Aggregation completed successfully")
-	return nil
 }

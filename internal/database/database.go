@@ -86,17 +86,6 @@ type Service interface {
 	GetVnstatAgents(ctx context.Context, enabledOnly bool) ([]*types.VnstatAgent, error)
 	UpdateVnstatAgent(ctx context.Context, agent *types.VnstatAgent) error
 	DeleteVnstatAgent(ctx context.Context, agentID int64) error
-	SaveVnstatBandwidth(ctx context.Context, bandwidth *types.VnstatBandwidth) error
-	BulkInsertVnstatBandwidth(ctx context.Context, records []types.VnstatBandwidth) error
-	GetVnstatBandwidthHistory(ctx context.Context, agentID int64, startTime, endTime time.Time, limit int) ([]*types.VnstatBandwidth, error)
-	CleanupOldVnstatData(ctx context.Context) error
-	AggregateVnstatBandwidthHourly(ctx context.Context) error
-	ForceAggregateVnstatBandwidthHourly(ctx context.Context) error
-	GetVnstatBandwidthUsage(ctx context.Context, agentID int64) (map[string]struct {
-		Download int64 `json:"download"`
-		Upload   int64 `json:"upload"`
-		Total    int64 `json:"total"`
-	}, error)
 }
 
 type service struct {

@@ -99,14 +99,6 @@ func (s *Service) Start() error {
 		}
 	}
 
-	// Start cleanup routine
-	s.wg.Add(1)
-	go s.cleanupRoutine()
-
-	// Start aggregation routine
-	s.wg.Add(1)
-	go s.aggregationRoutine()
-
 	log.Info().Int("agents", len(agents)).Msg("Vnstat service started")
 	return nil
 }
@@ -188,50 +180,6 @@ func (s *Service) GetAgentStatus(agentID int64) (bool, *types.VnstatLiveData) {
 	}
 
 	return client.IsConnected()
-}
-
-// cleanupRoutine periodically cleans up old bandwidth data
-func (s *Service) cleanupRoutine() {
-	defer s.wg.Done()
-
-	ticker := time.NewTicker(24 * time.Hour)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		case <-ticker.C:
-			if err := s.db.CleanupOldVnstatData(s.ctx); err != nil {
-				log.Error().Err(err).Msg("Failed to cleanup old vnstat data")
-			}
-		}
-	}
-}
-
-// aggregationRoutine periodically aggregates bandwidth data into hourly buckets
-func (s *Service) aggregationRoutine() {
-	defer s.wg.Done()
-
-	// Run aggregation every 10 minutes
-	ticker := time.NewTicker(10 * time.Minute)
-	defer ticker.Stop()
-
-	// Run once on startup to catch any data that needs aggregating
-	if err := s.db.AggregateVnstatBandwidthHourly(s.ctx); err != nil {
-		log.Error().Err(err).Msg("Failed to aggregate vnstat bandwidth data on startup")
-	}
-
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		case <-ticker.C:
-			if err := s.db.AggregateVnstatBandwidthHourly(s.ctx); err != nil {
-				log.Error().Err(err).Msg("Failed to aggregate vnstat bandwidth data")
-			}
-		}
-	}
 }
 
 // Client methods
@@ -426,29 +374,9 @@ func (c *Client) processData(data string) {
 		Str("tx_rate", liveData.Tx.Ratestring).
 		Msg("Updated live data")
 
-	// Convert to int64 for storage
+	// Convert to int64 for broadcast
 	rxBytes := int64(liveData.Rx.Bytespersecond)
 	txBytes := int64(liveData.Tx.Bytespersecond)
-	rxPackets := liveData.Rx.Packetspersecond
-	txPackets := liveData.Tx.Packetspersecond
-
-	// Store in database
-	bandwidth := &types.VnstatBandwidth{
-		AgentID:            c.agent.ID,
-		RxBytesPerSecond:   &rxBytes,
-		TxBytesPerSecond:   &txBytes,
-		RxPacketsPerSecond: &rxPackets,
-		TxPacketsPerSecond: &txPackets,
-		RxRateString:       &liveData.Rx.Ratestring,
-		TxRateString:       &liveData.Tx.Ratestring,
-	}
-
-	if err := c.db.SaveVnstatBandwidth(context.Background(), bandwidth); err != nil {
-		log.Error().
-			Err(err).
-			Int64("agent_id", c.agent.ID).
-			Msg("Failed to save vnstat bandwidth data")
-	}
 
 	// Broadcast update
 	c.broadcastFunc(types.VnstatUpdate{
@@ -567,291 +495,21 @@ func (s *Service) updateImportError(agentID int64, errMsg string) {
 	}
 }
 
-// isLeapYear returns true if the given year is a leap year
-func isLeapYear(year int) bool {
-	return year%4 == 0 && (year%100 != 0 || year%400 == 0)
-}
-
-// processVnstatData processes and imports vnstat historical data
+// processVnstatData processes vnstat historical data (no longer imports since we use native data)
 func (s *Service) processVnstatData(agentID int64, data *types.VnstatFullData) error {
-	var records []types.VnstatBandwidth
-	totalRecords := 0
-
-	// Track which days/months we've processed to avoid duplicates
-	processedDays := make(map[string]bool)
-	processedMonths := make(map[string]bool)
-
-	// Get current time for comparisons
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-	currentYear := now.Year()
-
-	// Process each interface
-	for _, iface := range data.Interfaces {
-		// First process yearly data for complete years (oldest data)
-		for _, year := range iface.Traffic.Year {
-			// Skip empty years
-			if year.Rx == 0 && year.Tx == 0 {
-				continue
-			}
-
-			// Skip current year (will be handled by monthly data)
-			if year.Date.Year >= currentYear {
-				continue
-			}
-
-			yearStart := time.Date(year.Date.Year, 1, 1, 0, 0, 0, 0, time.UTC)
-			yearEnd := time.Date(year.Date.Year, 12, 31, 23, 59, 59, 0, time.UTC)
-
-			// Skip if year is in the future
-			if yearStart.After(now) {
-				continue
-			}
-
-			// Calculate number of days in this year
-			daysInYear := 365
-			if isLeapYear(year.Date.Year) {
-				daysInYear = 366
-			}
-
-			// Spread yearly total evenly across all days
-			rxBytesPerSecond := int64(float64(year.Rx) / float64(daysInYear*24*3600))
-			txBytesPerSecond := int64(float64(year.Tx) / float64(daysInYear*24*3600))
-
-			// Create hourly records for each day of the year
-			for d := yearStart; !d.After(yearEnd) && !d.After(now); d = d.AddDate(0, 0, 1) {
-				monthKey := d.Format("2006-01")
-				processedMonths[monthKey] = true
-
-				dayKey := d.Format("2006-01-02")
-				processedDays[dayKey] = true
-
-				// Create hourly records for this day
-				for h := 0; h < 24; h++ {
-					hourTimestamp := d.Add(time.Duration(h) * time.Hour)
-
-					if hourTimestamp.After(now) {
-						break
-					}
-
-					record := types.VnstatBandwidth{
-						AgentID:          agentID,
-						RxBytesPerSecond: &rxBytesPerSecond,
-						TxBytesPerSecond: &txBytesPerSecond,
-						CreatedAt:        hourTimestamp,
-					}
-
-					records = append(records, record)
-					totalRecords++
-				}
-			}
-		}
-
-		// Then process monthly data (more granular than yearly)
-		for _, month := range iface.Traffic.Month {
-			// Skip empty months
-			if month.Rx == 0 && month.Tx == 0 {
-				continue
-			}
-
-			monthStart := time.Date(month.Date.Year, time.Month(month.Date.Month), 1, 0, 0, 0, 0, time.UTC)
-
-			// Skip future months
-			if monthStart.After(now) {
-				continue
-			}
-
-			// Skip current month (will use daily/hourly data)
-			if monthStart.Equal(currentMonth) {
-				continue
-			}
-
-			// Check if already processed from yearly data
-			monthKey := monthStart.Format("2006-01")
-			if processedMonths[monthKey] {
-				continue
-			}
-			processedMonths[monthKey] = true
-
-			// Calculate days in this month
-			nextMonth := monthStart.AddDate(0, 1, 0)
-			monthEnd := nextMonth.Add(-time.Second)
-			daysInMonth := monthEnd.Day()
-
-			// Spread monthly total evenly across all days
-			rxBytesPerSecond := int64(float64(month.Rx) / float64(daysInMonth*24*3600))
-			txBytesPerSecond := int64(float64(month.Tx) / float64(daysInMonth*24*3600))
-
-			// Create hourly records for each day of the month
-			for d := 1; d <= daysInMonth; d++ {
-				dayStart := time.Date(month.Date.Year, time.Month(month.Date.Month), d, 0, 0, 0, 0, time.UTC)
-
-				if dayStart.After(now) {
-					break
-				}
-
-				dayKey := dayStart.Format("2006-01-02")
-				processedDays[dayKey] = true
-
-				// Create hourly records for this day
-				for h := 0; h < 24; h++ {
-					hourTimestamp := dayStart.Add(time.Duration(h) * time.Hour)
-
-					if hourTimestamp.After(now) {
-						break
-					}
-
-					record := types.VnstatBandwidth{
-						AgentID:          agentID,
-						RxBytesPerSecond: &rxBytesPerSecond,
-						TxBytesPerSecond: &txBytesPerSecond,
-						CreatedAt:        hourTimestamp,
-					}
-
-					records = append(records, record)
-					totalRecords++
-				}
-			}
-		}
-
-		// Then process daily data (most granular for recent data)
-		for _, day := range iface.Traffic.Day {
-			// Skip days with no traffic
-			if day.Rx == 0 && day.Tx == 0 {
-				continue
-			}
-
-			// Create date from vnstat data
-			dayStart := time.Date(
-				day.Date.Year,
-				time.Month(day.Date.Month),
-				day.Date.Day,
-				0, 0, 0, 0,
-				time.UTC,
-			)
-
-			// Skip future dates
-			if dayStart.After(now) {
-				continue
-			}
-
-			// Skip today - we'll use hourly data for today if available
-			if dayStart.Equal(today) {
-				continue
-			}
-
-			// Check if already processed from monthly/yearly data
-			dayKey := dayStart.Format("2006-01-02")
-			if processedDays[dayKey] {
-				continue
-			}
-			processedDays[dayKey] = true
-
-			// Spread daily total evenly across 24 hours
-			// Convert to bytes per second for the entire day
-			// Use float64 to avoid integer division precision loss
-			rxBytesPerSecond := int64(float64(day.Rx) / float64(24*3600))
-			txBytesPerSecond := int64(float64(day.Tx) / float64(24*3600))
-
-			// Create hourly records for this day
-			for h := 0; h < 24; h++ {
-				hourTimestamp := dayStart.Add(time.Duration(h) * time.Hour)
-
-				// Skip future hours
-				if hourTimestamp.After(now) {
-					continue
-				}
-
-				record := types.VnstatBandwidth{
-					AgentID:          agentID,
-					RxBytesPerSecond: &rxBytesPerSecond,
-					TxBytesPerSecond: &txBytesPerSecond,
-					CreatedAt:        hourTimestamp,
-				}
-
-				records = append(records, record)
-				totalRecords++
-			}
-		}
-
-		// Finally process hourly data for recent/today's data
-		for _, hour := range iface.Traffic.Hour {
-			// Create timestamp from vnstat data
-			timestamp := time.Date(
-				hour.Date.Year,
-				time.Month(hour.Date.Month),
-				hour.Date.Day,
-				hour.Hour,
-				0, 0, 0,
-				time.UTC,
-			)
-
-			// Skip future timestamps
-			if timestamp.After(now) {
-				continue
-			}
-
-			// Check if we already processed this day from daily/monthly/yearly data
-			dayKey := timestamp.Format("2006-01-02")
-			if processedDays[dayKey] {
-				// Skip hourly data for days we already processed
-				continue
-			}
-
-			// Convert to bytes per second (vnstat stores total bytes for the hour)
-			// We'll store as if it was a steady rate throughout the hour
-			// Use float64 to avoid integer division precision loss
-			rxBytesPerSecond := int64(float64(hour.Rx) / 3600.0)
-			txBytesPerSecond := int64(float64(hour.Tx) / 3600.0)
-
-			record := types.VnstatBandwidth{
-				AgentID:          agentID,
-				RxBytesPerSecond: &rxBytesPerSecond,
-				TxBytesPerSecond: &txBytesPerSecond,
-				CreatedAt:        timestamp,
-			}
-
-			records = append(records, record)
-			totalRecords++
-		}
-
-		// Update import progress
-		s.importStatusMu.Lock()
-		if status := s.importStatus[agentID]; status != nil {
-			status.TotalRecords = totalRecords
-		}
-		s.importStatusMu.Unlock()
-	}
-
-	if len(records) == 0 {
-		log.Warn().Int64("agent_id", agentID).Msg("No historical data found to import")
-		return nil
-	}
-
+	// Since we're using native vnstat data, we don't need to import historical data anymore
+	// This function is kept for compatibility but doesn't do anything
 	log.Info().
 		Int64("agent_id", agentID).
-		Int("total_records", len(records)).
-		Msg("Processing historical vnstat data")
+		Msg("Historical import requested but skipped - using native vnstat data")
 
-	// Bulk insert the records
-	if err := s.db.BulkInsertVnstatBandwidth(context.Background(), records); err != nil {
-		return fmt.Errorf("failed to bulk insert records: %w", err)
-	}
-
-	// Update final import status
+	// Update import status to show completion
 	s.importStatusMu.Lock()
 	if status := s.importStatus[agentID]; status != nil {
-		status.RecordsImported = len(records)
+		status.RecordsImported = 0
+		status.TotalRecords = 0
 	}
 	s.importStatusMu.Unlock()
-
-	// Trigger aggregation for the imported data
-	log.Info().Int64("agent_id", agentID).Msg("Running aggregation on imported historical data")
-	if err := s.db.ForceAggregateVnstatBandwidthHourly(context.Background()); err != nil {
-		log.Error().Err(err).Msg("Failed to aggregate imported data")
-		// Don't fail the import, aggregation will run again later
-	}
 
 	return nil
 }
