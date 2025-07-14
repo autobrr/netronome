@@ -269,6 +269,11 @@ func (c *Client) connectAndStream() error {
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
 
+	// Add API key if configured
+	if c.agent.APIKey != nil && *c.agent.APIKey != "" {
+		req.Header.Set("X-API-Key", *c.agent.APIKey)
+	}
+
 	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 0, // No timeout for SSE connections

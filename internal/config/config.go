@@ -146,6 +146,7 @@ type AgentConfig struct {
 	Host      string `toml:"host" env:"AGENT_HOST"`
 	Port      int    `toml:"port" env:"AGENT_PORT"`
 	Interface string `toml:"interface" env:"AGENT_INTERFACE"`
+	APIKey    string `toml:"api_key" env:"AGENT_API_KEY"`
 }
 
 type VnstatConfig struct {
@@ -577,6 +578,9 @@ func (c *Config) loadAgentFromEnv() {
 	if v := getEnv("AGENT_INTERFACE"); v != "" {
 		c.Agent.Interface = v
 	}
+	if v := getEnv("AGENT_API_KEY"); v != "" {
+		c.Agent.APIKey = v
+	}
 }
 
 func (c *Config) loadVnstatFromEnv() {
@@ -891,6 +895,9 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "interface = \"%s\" # empty for all interfaces\n", cfg.Agent.Interface); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# api_key = \"\" # API key for agent authentication (optional)"); err != nil {
 		return err
 	}
 

@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon, EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/Button";
 import { VnstatAgent, CreateAgentRequest } from "@/api/vnstat";
 
@@ -27,14 +27,17 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
   const [formData, setFormData] = useState<CreateAgentRequest>({
     name: "",
     url: "http://",
+    apiKey: "",
     enabled: true,
   });
+  const [showApiKey, setShowApiKey] = useState(false);
 
   useEffect(() => {
     if (agent) {
       setFormData({
         name: agent.name,
         url: agent.url.replace(/\/events\?stream=live-data$/, ""),
+        apiKey: agent.apiKey || "",
         enabled: agent.enabled,
       });
     } else if (isOpen) {
@@ -42,9 +45,11 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
       setFormData({
         name: "",
         url: "http://",
+        apiKey: "",
         enabled: true,
       });
     }
+    setShowApiKey(false); // Reset visibility when dialog opens
   }, [agent, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -59,6 +64,18 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
       cleanUrl = cleanUrl.slice(0, -1);
     }
     setFormData({ ...formData, url: cleanUrl });
+  };
+
+  const generateApiKey = () => {
+    // Generate a random API key
+    const chars =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let key = "";
+    for (let i = 0; i < 32; i++) {
+      key += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setFormData({ ...formData, apiKey: key });
+    setShowApiKey(true); // Show the generated key
   };
 
   return (
@@ -144,6 +161,56 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       Enter the base URL of the vnstat agent
                     </p>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="apiKey"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      API Key (Optional)
+                    </label>
+                    <div className="mt-1 relative">
+                      <input
+                        type={showApiKey ? "text" : "password"}
+                        id="apiKey"
+                        value={formData.apiKey || ""}
+                        data-1p-ignore
+                        onChange={(e) =>
+                          setFormData({ ...formData, apiKey: e.target.value })
+                        }
+                        className="block w-full pr-10 px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"
+                        placeholder={
+                          agent?.apiKey === "configured"
+                            ? "API key is configured"
+                            : "Leave empty for no authentication"
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                      >
+                        {showApiKey ? (
+                          <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                        ) : (
+                          <EyeIcon className="h-5 w-5 text-gray-400" />
+                        )}
+                      </button>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        If set, the agent will require this API key for
+                        authentication
+                      </p>
+                      <button
+                        type="button"
+                        onClick={generateApiKey}
+                        className="text-xs text-blue-600 hover:text-blue-500 dark:text-blue-400"
+                      >
+                        Generate Random Key
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-3">

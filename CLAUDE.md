@@ -439,12 +439,39 @@ The scheduler runs every minute checking for due tests/monitors. It supports two
 
 The vnstat agent is a lightweight SSE server that broadcasts network bandwidth data:
 
-- **Command**: `netronome agent [--port PORT] [--interface INTERFACE]`
+- **Command**: `netronome agent [--host HOST] [--port PORT] [--interface INTERFACE] [--api-key KEY]`
 - **Default Port**: 8200
+- **Default Host**: 0.0.0.0
+- **Authentication**: Optional API key authentication via X-API-Key header or ?apikey= query param
 - **SSE Endpoint**: `http://agent-host:port/events?stream=live-data`
+- **Historical Export**: `http://agent-host:port/export/historical`
 - **Data Source**: Executes `vnstat --live --json` and streams output
 - **CORS Support**: Enabled for cross-origin access from Netronome server
 - **Graceful Shutdown**: Properly closes connections on termination
+
+### Installation Script
+
+A one-liner installation script is available for easy agent deployment:
+
+```bash
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash
+```
+
+Features:
+
+- Interactive configuration prompts
+- Automatic API key generation
+- Systemd service creation
+- Security hardening with dedicated user
+- Automatic daily updates (optional)
+- Self-update capability via `netronome update` command
+- Version checking via `netronome version` command
+
+Script options:
+
+- `--uninstall` - Remove the agent completely
+- `--update` - Update to latest version
+- `--auto-update [true|false]` - Enable/disable automatic updates without prompting
 
 ### Client Integration (`internal/vnstat/`)
 
@@ -456,7 +483,7 @@ The vnstat agent is a lightweight SSE server that broadcasts network bandwidth d
   4. Data parsed and stored in database
   5. Live data available via status endpoint
 - **Reconnection Strategy**: Exponential backoff from 5s to 5m on connection failure
-- **Data Retention**: Per-agent configurable retention with automatic cleanup
+- **Authentication**: Sends API key via X-API-Key header if configured
 
 ### API Endpoints
 
@@ -481,11 +508,14 @@ The vnstat agent is a lightweight SSE server that broadcasts network bandwidth d
 
 ```toml
 [agent]
+host = "0.0.0.0"     # IP address to bind to
 port = 8200          # Port for agent to listen on
 interface = ""       # Network interface to monitor (empty = all)
+api_key = ""         # API key for authentication (optional but recommended)
 
 [vnstat]
 enabled = true       # Enable vnstat client service in main server
+reconnect_interval = "30s"  # Reconnection interval for agent connections
 ```
 
 ### vnstat Native Data Architecture

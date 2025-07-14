@@ -23,8 +23,8 @@ func (s *service) CreateVnstatAgent(ctx context.Context, agent *types.VnstatAgen
 
 	query := s.sqlBuilder.
 		Insert("vnstat_agents").
-		Columns("name", "url", "enabled", "interface", "created_at", "updated_at").
-		Values(agent.Name, agent.URL, agent.Enabled, agent.Interface, agent.CreatedAt, agent.UpdatedAt)
+		Columns("name", "url", "api_key", "enabled", "interface", "created_at", "updated_at").
+		Values(agent.Name, agent.URL, agent.APIKey, agent.Enabled, agent.Interface, agent.CreatedAt, agent.UpdatedAt)
 
 	if s.config.Type == config.Postgres {
 		query = query.Suffix("RETURNING id")
@@ -50,7 +50,7 @@ func (s *service) CreateVnstatAgent(ctx context.Context, agent *types.VnstatAgen
 // GetVnstatAgent retrieves a vnstat agent by ID
 func (s *service) GetVnstatAgent(ctx context.Context, agentID int64) (*types.VnstatAgent, error) {
 	query := s.sqlBuilder.
-		Select("id", "name", "url", "enabled", "interface", "created_at", "updated_at").
+		Select("id", "name", "url", "api_key", "enabled", "interface", "created_at", "updated_at").
 		From("vnstat_agents").
 		Where(sq.Eq{"id": agentID})
 
@@ -59,6 +59,7 @@ func (s *service) GetVnstatAgent(ctx context.Context, agentID int64) (*types.Vns
 		&agent.ID,
 		&agent.Name,
 		&agent.URL,
+		&agent.APIKey,
 		&agent.Enabled,
 		&agent.Interface,
 		&agent.CreatedAt,
@@ -77,7 +78,7 @@ func (s *service) GetVnstatAgent(ctx context.Context, agentID int64) (*types.Vns
 // GetVnstatAgents retrieves all vnstat agents
 func (s *service) GetVnstatAgents(ctx context.Context, enabledOnly bool) ([]*types.VnstatAgent, error) {
 	query := s.sqlBuilder.
-		Select("id", "name", "url", "enabled", "interface", "created_at", "updated_at").
+		Select("id", "name", "url", "api_key", "enabled", "interface", "created_at", "updated_at").
 		From("vnstat_agents").
 		OrderBy("created_at DESC")
 
@@ -98,6 +99,7 @@ func (s *service) GetVnstatAgents(ctx context.Context, enabledOnly bool) ([]*typ
 			&agent.ID,
 			&agent.Name,
 			&agent.URL,
+			&agent.APIKey,
 			&agent.Enabled,
 			&agent.Interface,
 			&agent.CreatedAt,
@@ -120,6 +122,7 @@ func (s *service) UpdateVnstatAgent(ctx context.Context, agent *types.VnstatAgen
 		Update("vnstat_agents").
 		Set("name", agent.Name).
 		Set("url", agent.URL).
+		Set("api_key", agent.APIKey).
 		Set("enabled", agent.Enabled).
 		Set("interface", agent.Interface).
 		Set("updated_at", agent.UpdatedAt).

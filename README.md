@@ -262,17 +262,80 @@ The same `netronome` binary can run as a lightweight agent that can be deployed:
 - **Remote servers**: Monitor bandwidth across different servers/locations
 - **Same server**: Useful when Netronome runs in Docker but you want to monitor the host system
 
+##### Quick Installation (Recommended)
+
+Use our one-liner installation script for automatic setup with systemd:
+
+```bash
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash
+```
+
+The script will:
+
+- Check for vnstat dependency
+- Prompt for network interface selection
+- Generate or set an API key for authentication
+- Configure the listening address and port
+- Create a systemd service
+- Start the agent automatically
+- Optionally enable automatic daily updates
+
+##### Installation Options
+
+```bash
+# Interactive installation (prompts for all options)
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash
+
+# Enable auto-updates without prompting
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --auto-update true
+
+# Disable auto-updates without prompting
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --auto-update false
+
+# Update existing installation
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --update
+
+# Uninstall
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --uninstall
+```
+
+##### Automatic Updates
+
+When enabled, the agent will automatically check for updates daily at a random time (with up to 4 hours delay to prevent server overload). The update process:
+
+1. Checks GitHub releases for newer versions
+2. Downloads and verifies the new binary
+3. Automatically restarts the service
+
+You can check the update status with:
+
+```bash
+# Check update timer status
+systemctl status netronome-agent-update.timer
+
+# View last update attempt
+journalctl -u netronome-agent-update
+
+# Manually trigger update
+/opt/netronome/netronome update
+```
+
+##### Manual Installation
+
 1. **Deploy the Agent**
 
    ```bash
    # Run agent on default settings (0.0.0.0:8200)
    netronome agent
 
-   # Run agent on custom host and port
-   netronome agent --host 192.168.1.100 --port 8300
+   # Run agent with API key authentication (recommended)
+   netronome agent --api-key your-secret-key
 
-   # Run agent with specific interface and localhost binding
-   netronome agent --host 127.0.0.1 --port 8200 --interface eth0
+   # Run agent on custom host and port
+   netronome agent --host 192.168.1.100 --port 8300 --api-key your-secret-key
+
+   # Run agent with specific interface
+   netronome agent --interface eth0 --api-key your-secret-key
 
    # Run with config file
    netronome agent --config /path/to/config.toml
@@ -287,6 +350,7 @@ The same `netronome` binary can run as a lightweight agent that can be deployed:
    host = "0.0.0.0"  # IP address to bind to (0.0.0.0 for all interfaces)
    port = 8200
    interface = ""    # Empty for all interfaces, or specify like "eth0"
+   api_key = ""      # API key for authentication (recommended)
 
    [vnstat]
    enabled = true
@@ -298,6 +362,7 @@ The same `netronome` binary can run as a lightweight agent that can be deployed:
    - Enter agent details:
      - Name: Friendly name for the server
      - URL: `http://server-ip:8200` (agent URL)
+     - API Key: Enter the key configured on the agent (if authentication is enabled)
      - Enable monitoring: Start monitoring immediately
 
 #### Agent Systemd Service

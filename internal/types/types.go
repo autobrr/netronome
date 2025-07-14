@@ -168,6 +168,7 @@ type VnstatAgent struct {
 	ID        int64     `db:"id" json:"id"`
 	Name      string    `db:"name" json:"name"`
 	URL       string    `db:"url" json:"url"`
+	APIKey    *string   `db:"api_key" json:"apiKey,omitempty"`
 	Enabled   bool      `db:"enabled" json:"enabled"`
 	Interface *string   `db:"interface" json:"interface,omitempty"`
 	CreatedAt time.Time `db:"created_at" json:"createdAt"`

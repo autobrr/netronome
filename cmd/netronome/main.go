@@ -32,6 +32,11 @@ import (
 )
 
 var (
+	// Build-time variables (set via ldflags)
+	version   = "dev"
+	buildTime = "unknown"
+	commit    = "unknown"
+
 	configPath string
 	rootCmd    = &cobra.Command{
 		Use:   "netronome",
@@ -73,7 +78,20 @@ track and analyze your network performance over time.`,
 		Use:   "agent",
 		Short: "Start the vnstat SSE agent",
 		Long: `Start a vnstat SSE agent that broadcasts bandwidth usage data.
-This agent can be monitored by a remote Netronome server.`,
+This agent can be monitored by a remote Netronome server.
+
+Examples:
+  # Start agent with default settings
+  netronome agent
+
+  # Start agent with custom port and API key
+  netronome agent --port 8300 --api-key mysecretkey
+
+  # Start agent monitoring specific interface
+  netronome agent --interface eth0
+
+  # Use configuration file
+  netronome agent --config /etc/netronome/agent.toml`,
 		RunE: runAgent,
 	}
 )
@@ -88,15 +106,21 @@ func init() {
 	agentCmd.Flags().StringP("host", "H", "0.0.0.0", "IP address to bind to")
 	agentCmd.Flags().IntP("port", "p", 8200, "port to listen on")
 	agentCmd.Flags().StringP("interface", "i", "", "network interface to monitor (empty for all)")
+	agentCmd.Flags().StringP("api-key", "k", "", "API key for authentication")
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(generateConfigCmd)
 	rootCmd.AddCommand(changePasswordCmd)
 	rootCmd.AddCommand(createUserCmd)
 	rootCmd.AddCommand(agentCmd)
+	rootCmd.AddCommand(updateCmd)
+	rootCmd.AddCommand(versionCmd)
 }
 
 func main() {
+	// Initialize version information with build-time values
+	SetVersion(version, buildTime, commit)
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -394,6 +418,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	host, _ := cmd.Flags().GetString("host")
 	port, _ := cmd.Flags().GetInt("port")
 	iface, _ := cmd.Flags().GetString("interface")
+	apiKey, _ := cmd.Flags().GetString("api-key")
 
 	// Load config if provided
 	var cfg *config.Config
@@ -417,6 +442,9 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	}
 	if cmd.Flags().Changed("interface") {
 		cfg.Agent.Interface = iface
+	}
+	if cmd.Flags().Changed("api-key") {
+		cfg.Agent.APIKey = apiKey
 	}
 
 	// Create agent service

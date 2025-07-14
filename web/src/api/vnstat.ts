@@ -9,6 +9,7 @@ export interface VnstatAgent {
   id: number;
   name: string;
   url: string;
+  apiKey?: string;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -33,6 +34,7 @@ export interface VnstatStatus {
 export interface CreateAgentRequest {
   name: string;
   url: string;
+  apiKey?: string;
   enabled: boolean;
 }
 

@@ -45,6 +45,14 @@ func (h *VnstatHandler) GetAgents(c *gin.Context) {
 		return
 	}
 
+	// Don't expose API keys to frontend
+	for _, agent := range agents {
+		if agent.APIKey != nil && *agent.APIKey != "" {
+			masked := "configured"
+			agent.APIKey = &masked
+		}
+	}
+
 	c.JSON(http.StatusOK, agents)
 }
 
@@ -66,6 +74,12 @@ func (h *VnstatHandler) GetAgent(c *gin.Context) {
 		log.Error().Err(err).Msg("Failed to get vnstat agent")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get agent"})
 		return
+	}
+
+	// Don't expose API key to frontend
+	if agent.APIKey != nil && *agent.APIKey != "" {
+		masked := "configured"
+		agent.APIKey = &masked
 	}
 
 	c.JSON(http.StatusOK, agent)
@@ -117,6 +131,12 @@ func (h *VnstatHandler) CreateAgent(c *gin.Context) {
 		}
 	}
 
+	// Don't expose API key to frontend
+	if createdAgent.APIKey != nil && *createdAgent.APIKey != "" {
+		masked := "configured"
+		createdAgent.APIKey = &masked
+	}
+
 	c.JSON(http.StatusCreated, createdAgent)
 }
 
@@ -133,6 +153,14 @@ func (h *VnstatHandler) UpdateAgent(c *gin.Context) {
 	if err := c.ShouldBindJSON(&agent); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
+	}
+
+	// If API key is "configured", fetch the existing one
+	if agent.APIKey != nil && *agent.APIKey == "configured" {
+		existingAgent, err := h.db.GetVnstatAgent(c.Request.Context(), id)
+		if err == nil && existingAgent.APIKey != nil {
+			agent.APIKey = existingAgent.APIKey
+		}
 	}
 
 	// Set the ID from URL
@@ -174,6 +202,12 @@ func (h *VnstatHandler) UpdateAgent(c *gin.Context) {
 			log.Error().Err(err).Int64("agent_id", id).Msg("Failed to restart agent monitoring")
 			// Don't fail the request, agent was updated successfully
 		}
+	}
+
+	// Don't expose API key to frontend
+	if agent.APIKey != nil && *agent.APIKey != "" {
+		masked := "configured"
+		agent.APIKey = &masked
 	}
 
 	c.JSON(http.StatusOK, agent)
@@ -291,8 +325,22 @@ func (h *VnstatHandler) GetAgentNativeVnstat(c *gin.Context) {
 		exportURL += "?interface=" + iface
 	}
 
+	// Create HTTP request with API key if configured
+	req, err := http.NewRequest("GET", exportURL, nil)
+	if err != nil {
+		log.Error().Err(err).Str("url", exportURL).Msg("Failed to create request")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
+		return
+	}
+
+	// Add API key if configured
+	if agent.APIKey != nil && *agent.APIKey != "" {
+		req.Header.Set("X-API-Key", *agent.APIKey)
+	}
+
 	// Make HTTP request to agent's export endpoint
-	resp, err := http.Get(exportURL)
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Error().Err(err).Str("url", exportURL).Msg("Failed to fetch native vnstat data")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch native vnstat data"})

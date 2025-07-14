@@ -78,7 +78,7 @@ func (a *Agent) Start(ctx context.Context) error {
 	router.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusOK)
@@ -88,9 +88,9 @@ func (a *Agent) Start(ctx context.Context) error {
 		c.Next()
 	})
 
-	// Root endpoint
+	// Root endpoint (public, no auth required)
 	router.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
+		response := gin.H{
 			"service": "vnstat SSE agent",
 			"host":    a.config.Host,
 			"port":    a.config.Port,
@@ -98,14 +98,30 @@ func (a *Agent) Start(ctx context.Context) error {
 				"live":       "/events?stream=live-data",
 				"historical": "/export/historical",
 			},
-		})
+		}
+
+		// Indicate if authentication is required
+		if a.config.APIKey != "" {
+			response["authentication"] = "required"
+			response["auth_methods"] = []string{"X-API-Key header", "apikey query parameter"}
+		} else {
+			response["authentication"] = "none"
+		}
+
+		c.JSON(http.StatusOK, response)
 	})
 
-	// SSE endpoint
-	router.GET("/events", a.handleSSE)
+	// Create authenticated group for protected endpoints
+	protected := router.Group("/")
+	if a.config.APIKey != "" {
+		protected.Use(a.authMiddleware())
+	}
 
-	// Historical data export endpoint
-	router.GET("/export/historical", a.handleHistoricalExport)
+	// SSE endpoint (protected)
+	protected.GET("/events", a.handleSSE)
+
+	// Historical data export endpoint (protected)
+	protected.GET("/export/historical", a.handleHistoricalExport)
 
 	// Start HTTP server
 	addr := fmt.Sprintf("%s:%d", a.config.Host, a.config.Port)
@@ -125,12 +141,39 @@ func (a *Agent) Start(ctx context.Context) error {
 		}
 	}()
 
-	log.Info().Str("addr", addr).Msg("Starting vnstat SSE agent")
+	if a.config.APIKey != "" {
+		log.Info().Str("addr", addr).Msg("Starting vnstat SSE agent with API key authentication")
+	} else {
+		log.Info().Str("addr", addr).Msg("Starting vnstat SSE agent without authentication")
+	}
+
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
 
 	return nil
+}
+
+// authMiddleware validates API key from header or query parameter
+func (a *Agent) authMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Check header first
+		apiKey := c.GetHeader("X-API-Key")
+
+		// If not in header, check query parameter
+		if apiKey == "" {
+			apiKey = c.Query("apikey")
+		}
+
+		// Validate API key
+		if apiKey != a.config.APIKey {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or missing API key"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
 }
 
 // handleSSE handles SSE connections

@@ -9,8 +9,6 @@ import {
   PencilIcon,
   TrashIcon,
   SparklesIcon,
-  PlayIcon,
-  StopIcon,
 } from "@heroicons/react/24/outline";
 import { SparklesIcon as SparklesIconSolid } from "@heroicons/react/24/solid";
 import { VnstatAgent } from "@/api/vnstat";
@@ -116,16 +114,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const { status, startMutation, stopMutation } = useVnstatAgent({ agent });
-
-  const handleToggleMonitoring = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (agent.enabled && status?.connected) {
-      stopMutation.mutate();
-    } else {
-      startMutation.mutate();
-    }
-  };
+  const { status } = useVnstatAgent({ agent });
 
   // Featured agents management with local state for instant feedback
   const getFeaturedAgentIds = (): number[] => {
