@@ -567,21 +567,155 @@ func (s *Service) updateImportError(agentID int64, errMsg string) {
 	}
 }
 
+// isLeapYear returns true if the given year is a leap year
+func isLeapYear(year int) bool {
+	return year%4 == 0 && (year%100 != 0 || year%400 == 0)
+}
+
 // processVnstatData processes and imports vnstat historical data
 func (s *Service) processVnstatData(agentID int64, data *types.VnstatFullData) error {
 	var records []types.VnstatBandwidth
 	totalRecords := 0
 
-	// Track which days we've processed from daily data
+	// Track which days/months we've processed to avoid duplicates
 	processedDays := make(map[string]bool)
+	processedMonths := make(map[string]bool)
 
 	// Get current time for comparisons
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	currentYear := now.Year()
 
 	// Process each interface
 	for _, iface := range data.Interfaces {
-		// First process daily data (primary source for historical data)
+		// First process yearly data for complete years (oldest data)
+		for _, year := range iface.Traffic.Year {
+			// Skip empty years
+			if year.Rx == 0 && year.Tx == 0 {
+				continue
+			}
+
+			// Skip current year (will be handled by monthly data)
+			if year.Date.Year >= currentYear {
+				continue
+			}
+
+			yearStart := time.Date(year.Date.Year, 1, 1, 0, 0, 0, 0, time.UTC)
+			yearEnd := time.Date(year.Date.Year, 12, 31, 23, 59, 59, 0, time.UTC)
+
+			// Skip if year is in the future
+			if yearStart.After(now) {
+				continue
+			}
+
+			// Calculate number of days in this year
+			daysInYear := 365
+			if isLeapYear(year.Date.Year) {
+				daysInYear = 366
+			}
+
+			// Spread yearly total evenly across all days
+			rxBytesPerSecond := int64(float64(year.Rx) / float64(daysInYear*24*3600))
+			txBytesPerSecond := int64(float64(year.Tx) / float64(daysInYear*24*3600))
+
+			// Create hourly records for each day of the year
+			for d := yearStart; !d.After(yearEnd) && !d.After(now); d = d.AddDate(0, 0, 1) {
+				monthKey := d.Format("2006-01")
+				processedMonths[monthKey] = true
+
+				dayKey := d.Format("2006-01-02")
+				processedDays[dayKey] = true
+
+				// Create hourly records for this day
+				for h := 0; h < 24; h++ {
+					hourTimestamp := d.Add(time.Duration(h) * time.Hour)
+
+					if hourTimestamp.After(now) {
+						break
+					}
+
+					record := types.VnstatBandwidth{
+						AgentID:          agentID,
+						RxBytesPerSecond: &rxBytesPerSecond,
+						TxBytesPerSecond: &txBytesPerSecond,
+						CreatedAt:        hourTimestamp,
+					}
+
+					records = append(records, record)
+					totalRecords++
+				}
+			}
+		}
+
+		// Then process monthly data (more granular than yearly)
+		for _, month := range iface.Traffic.Month {
+			// Skip empty months
+			if month.Rx == 0 && month.Tx == 0 {
+				continue
+			}
+
+			monthStart := time.Date(month.Date.Year, time.Month(month.Date.Month), 1, 0, 0, 0, 0, time.UTC)
+
+			// Skip future months
+			if monthStart.After(now) {
+				continue
+			}
+
+			// Skip current month (will use daily/hourly data)
+			if monthStart.Equal(currentMonth) {
+				continue
+			}
+
+			// Check if already processed from yearly data
+			monthKey := monthStart.Format("2006-01")
+			if processedMonths[monthKey] {
+				continue
+			}
+			processedMonths[monthKey] = true
+
+			// Calculate days in this month
+			nextMonth := monthStart.AddDate(0, 1, 0)
+			monthEnd := nextMonth.Add(-time.Second)
+			daysInMonth := monthEnd.Day()
+
+			// Spread monthly total evenly across all days
+			rxBytesPerSecond := int64(float64(month.Rx) / float64(daysInMonth*24*3600))
+			txBytesPerSecond := int64(float64(month.Tx) / float64(daysInMonth*24*3600))
+
+			// Create hourly records for each day of the month
+			for d := 1; d <= daysInMonth; d++ {
+				dayStart := time.Date(month.Date.Year, time.Month(month.Date.Month), d, 0, 0, 0, 0, time.UTC)
+
+				if dayStart.After(now) {
+					break
+				}
+
+				dayKey := dayStart.Format("2006-01-02")
+				processedDays[dayKey] = true
+
+				// Create hourly records for this day
+				for h := 0; h < 24; h++ {
+					hourTimestamp := dayStart.Add(time.Duration(h) * time.Hour)
+
+					if hourTimestamp.After(now) {
+						break
+					}
+
+					record := types.VnstatBandwidth{
+						AgentID:          agentID,
+						RxBytesPerSecond: &rxBytesPerSecond,
+						TxBytesPerSecond: &txBytesPerSecond,
+						CreatedAt:        hourTimestamp,
+					}
+
+					records = append(records, record)
+					totalRecords++
+				}
+			}
+		}
+
+		// Then process daily data (most granular for recent data)
 		for _, day := range iface.Traffic.Day {
 			// Skip days with no traffic
 			if day.Rx == 0 && day.Tx == 0 {
@@ -607,8 +741,11 @@ func (s *Service) processVnstatData(agentID int64, data *types.VnstatFullData) e
 				continue
 			}
 
-			// Mark this day as processed
+			// Check if already processed from monthly/yearly data
 			dayKey := dayStart.Format("2006-01-02")
+			if processedDays[dayKey] {
+				continue
+			}
 			processedDays[dayKey] = true
 
 			// Spread daily total evenly across 24 hours
@@ -638,7 +775,7 @@ func (s *Service) processVnstatData(agentID int64, data *types.VnstatFullData) e
 			}
 		}
 
-		// Then process hourly data for recent/today's data
+		// Finally process hourly data for recent/today's data
 		for _, hour := range iface.Traffic.Hour {
 			// Create timestamp from vnstat data
 			timestamp := time.Date(
@@ -655,10 +792,10 @@ func (s *Service) processVnstatData(agentID int64, data *types.VnstatFullData) e
 				continue
 			}
 
-			// Check if we already processed this day from daily data
+			// Check if we already processed this day from daily/monthly/yearly data
 			dayKey := timestamp.Format("2006-01-02")
 			if processedDays[dayKey] {
-				// Skip hourly data for days we already processed from daily data
+				// Skip hourly data for days we already processed
 				continue
 			}
 
