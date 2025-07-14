@@ -26,13 +26,11 @@ Netronome (Network Metronome) is a modern network performance testing and monito
 ## ✨ Features
 
 - **Speed Testing**
-
   - Support for Speedtest.net, iperf3 servers, and LibreSpeed
   - Real-time test progress visualization
   - Latency and jitter measurements
 
 - **Network Diagnostics**
-
   - **Unified Interface**: Seamless switching between single traceroute tests and continuous monitoring
   - **Traceroute**: Real-time hop discovery with cross-platform support (Linux/macOS/Windows)
   - **Packet Loss Monitoring**: Continuous ICMP ping monitoring with flexible scheduling options
@@ -42,7 +40,6 @@ Netronome (Network Metronome) is a modern network performance testing and monito
   - **Cross-tab Navigation**: Easy flow between traceroute results and monitor creation
 
 - **Bandwidth Monitoring (vnstat)**
-
   - **Distributed Agent Architecture**: Deploy lightweight agents on remote servers
   - **Real-time SSE Streaming**: Live bandwidth data via Server-Sent Events
   - **Multi-server Support**: Monitor bandwidth across multiple servers from one dashboard
@@ -51,21 +48,18 @@ Netronome (Network Metronome) is a modern network performance testing and monito
   - **Per-agent Retention**: Configure data retention policies per agent
 
 - **Monitoring & Visualization**
-
   - **Speed Test History**: Interactive charts with customizable time ranges (1d, 3d, 1w, 1m, all)
   - **Packet Loss Trends**: Historical packet loss and RTT monitoring with performance charts
   - **Real-time Status**: Live monitoring status with progress tracking and health indicators
   - **Monitor Management**: Start/stop/edit monitors with schedule badge visualization
 
 - **Scheduling & Automation**
-
   - **Speed Tests**: Automated testing with flexible cron-like scheduling
   - **Packet Loss Monitors**: Interval-based (10 seconds to 24 hours) or exact-time scheduling
   - **Auto-start Option**: "Start monitoring immediately" for new monitors
   - **Multiple Schedule Types**: Choose between regular intervals or daily exact times
 
 - **Modern Interface**
-
   - **Responsive Design**: Optimized for both desktop and mobile devices
   - **Real-time Progress**: Live updates for iperf3 tests with animated progress indicators
   - **Dark Mode**: Fully optimized dark theme with consistent styling
@@ -345,17 +339,17 @@ systemctl start netronome-agent
 - Consider using reverse proxy with authentication if exposing to internet
 - Agents are read-only and don't accept commands
 
-#### Data Management
+#### Data Accuracy and Unit Display
 
-Netronome automatically manages bandwidth data storage to prevent database bloat while maintaining accuracy:
+Netronome fetches bandwidth data directly from vnstat's native JSON output, ensuring exact data parity with other vnstat-based tools like swizzin panel.
 
-- **Automatic Aggregation**: Background processing every 10 minutes consolidates data into hourly buckets
-- **Storage Efficiency**: Raw data retained for 6 hours, then aggregated and cleaned up
-- **No Configuration Required**: Completely automatic and internally managed system
-- **Database Size Control**: Reduces storage by 95%+ compared to storing all SSE samples
-- **Live Data Accuracy**: Current hour uses real-time data, older periods use efficient aggregated data
+**Unit Display**: Netronome uses proper binary units following IEC standards:
 
-This ensures optimal performance for both real-time monitoring and historical analysis without manual intervention.
+- **1 KiB = 1024 bytes** (binary kilobyte)
+- **Displayed as**: KiB, MiB, GiB, TiB, PiB
+- **Consistent with vnstat**: vnstat internally uses binary units
+
+This ensures accurate and unambiguous representation of bandwidth data.
 
 #### Historical Data Import
 
@@ -427,7 +421,6 @@ When adding a new vnstat agent, you can optionally import all historical data fr
 Netronome supports two database backends:
 
 1. **SQLite** (Default)
-
    - No additional setup required
 
 2. **PostgreSQL**
@@ -447,12 +440,10 @@ Netronome supports two database backends:
 Netronome supports two authentication methods:
 
 1. **Built-in Authentication**
-
    - Username/password authentication
    - Default option if no OIDC is configured
 
 2. **OpenID Connect (OIDC)**
-
    - Integration with identity providers (Google, Okta, Auth0, Keycloak, Pocket-ID, Authelia, Authentik etc.)
    - PKCE support
    - Configure via environment variables:
@@ -559,7 +550,6 @@ Netronome can display country flags and ASN information in traceroute results us
 #### Setup Instructions
 
 1. **Get a MaxMind License Key**
-
    - Sign up for a free account at [MaxMind](https://www.maxmind.com/en/geolite2/signup)
    - Generate a license key in your account dashboard
 

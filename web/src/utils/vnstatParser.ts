@@ -22,18 +22,44 @@ export function parseVnstatUsagePeriods(
   let agentNow: Date;
   if (data.server_time) {
     agentNow = new Date(data.server_time);
+    console.log("Using server_time:", data.server_time, "Parsed as:", agentNow);
   } else if (data.server_time_unix) {
     agentNow = new Date(data.server_time_unix * 1000);
+    console.log(
+      "Using server_time_unix:",
+      data.server_time_unix,
+      "Parsed as:",
+      agentNow,
+    );
   } else {
     // Fallback to local time
     agentNow = new Date();
+    console.log("No server time available, using local time:", agentNow);
   }
 
+  // If timezone offset is 0 (UTC), use UTC methods
+  const isUTC = data.timezone_offset === 0;
+  const currentHour = isUTC ? agentNow.getUTCHours() : agentNow.getHours();
+  const currentDay = isUTC ? agentNow.getUTCDate() : agentNow.getDate();
+  const currentMonth = isUTC
+    ? agentNow.getUTCMonth() + 1
+    : agentNow.getMonth() + 1;
+
+  console.log("Agent timezone offset:", data.timezone_offset, "isUTC:", isUTC);
+  console.log(
+    "Looking for hour:",
+    currentHour,
+    "day:",
+    currentDay,
+    "month:",
+    currentMonth,
+  );
+
   return {
-    "This Hour": getCurrentHour(traffic.hour, agentNow),
-    "Last Hour": getLastHour(traffic.hour, agentNow),
-    Today: getToday(traffic.day, agentNow),
-    "This Month": getCurrentMonth(traffic.month, agentNow),
+    "This Hour": getCurrentHour(traffic.hour, agentNow, isUTC),
+    "Last Hour": getLastHour(traffic.hour, agentNow, isUTC),
+    Today: getToday(traffic.day, agentNow, isUTC),
+    "This Month": getCurrentMonth(traffic.month, agentNow, isUTC),
     "All Time": {
       download: traffic.total.rx,
       upload: traffic.total.tx,
@@ -61,11 +87,12 @@ function getCurrentHour(
     tx: number;
   }>,
   now: Date,
+  isUTC: boolean = false,
 ): VnstatUsageSummary {
-  const currentHour = now.getHours();
-  const currentDay = now.getDate();
-  const currentMonth = now.getMonth() + 1; // vnstat months are 1-based
-  const currentYear = now.getFullYear();
+  const currentHour = isUTC ? now.getUTCHours() : now.getHours();
+  const currentDay = isUTC ? now.getUTCDate() : now.getDate();
+  const currentMonth = (isUTC ? now.getUTCMonth() : now.getMonth()) + 1; // vnstat months are 1-based
+  const currentYear = isUTC ? now.getUTCFullYear() : now.getFullYear();
 
   // Find the most recent hour entry that matches current time
   const hourEntry = hours.find(
@@ -95,11 +122,12 @@ function getLastHour(
     tx: number;
   }>,
   now: Date,
+  isUTC: boolean = false,
 ): VnstatUsageSummary {
-  let lastHour = now.getHours() - 1;
-  let targetDay = now.getDate();
-  let targetMonth = now.getMonth() + 1;
-  let targetYear = now.getFullYear();
+  let lastHour = (isUTC ? now.getUTCHours() : now.getHours()) - 1;
+  let targetDay = isUTC ? now.getUTCDate() : now.getDate();
+  let targetMonth = (isUTC ? now.getUTCMonth() : now.getMonth()) + 1;
+  let targetYear = isUTC ? now.getUTCFullYear() : now.getFullYear();
 
   // Handle hour wraparound
   if (lastHour < 0) {
@@ -147,10 +175,11 @@ function getToday(
     tx: number;
   }>,
   now: Date,
+  isUTC: boolean = false,
 ): VnstatUsageSummary {
-  const currentDay = now.getDate();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
+  const currentDay = isUTC ? now.getUTCDate() : now.getDate();
+  const currentMonth = (isUTC ? now.getUTCMonth() : now.getMonth()) + 1;
+  const currentYear = isUTC ? now.getUTCFullYear() : now.getFullYear();
 
   const dayEntry = days.find(
     (d) =>
@@ -177,9 +206,10 @@ function getCurrentMonth(
     tx: number;
   }>,
   now: Date,
+  isUTC: boolean = false,
 ): VnstatUsageSummary {
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
+  const currentMonth = (isUTC ? now.getUTCMonth() : now.getMonth()) + 1;
+  const currentYear = isUTC ? now.getUTCFullYear() : now.getFullYear();
 
   const monthEntry = months.find(
     (m) => m.date.year === currentYear && m.date.month === currentMonth,

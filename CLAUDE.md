@@ -148,11 +148,11 @@ internal/
 **7. vnstat Bandwidth Monitoring** (`internal/agent/agent.go`, `internal/vnstat/client.go`)
 
 - **Distributed Architecture**: Lightweight agents broadcast vnstat data via Server-Sent Events (SSE)
-- **Agent Implementation**: Uses Gin framework to serve SSE endpoint at `/events?stream=live-data`
+- **Agent Implementation**: Uses Gin framework to serve SSE endpoint at `/events?stream=live-data` and historical data endpoint at `/export/historical`
 - **Client Implementation**: SSE client with automatic reconnection and exponential backoff
 - **Real-time Streaming**: Processes `vnstat --live --json` output and broadcasts to connected clients
 - **Multi-agent Support**: Central server can connect to multiple remote agents
-- **Data Persistence**: Stores bandwidth samples with configurable retention per agent
+- **Native Data Usage**: Fetches and displays vnstat's native JSON calculations directly
 - **URL Normalization**: Automatically formats agent URLs to ensure correct SSE endpoint
 - **Error Recovery**: Graceful handling of agent disconnections with automatic retry
 
@@ -167,7 +167,6 @@ internal/
   - `packet_loss_monitors` - Packet loss monitor configurations
   - `packet_loss_results` - Historical packet loss monitoring results
   - `vnstat_agents` - vnstat agent configurations and connection settings
-  - `vnstat_bandwidth` - Historical bandwidth data from vnstat agents
 - **Query patterns**: Interface-based with Squirrel query builder for cross-database compatibility
 
 ### Frontend Architecture
@@ -489,101 +488,26 @@ interface = ""       # Network interface to monitor (empty = all)
 enabled = true       # Enable vnstat client service in main server
 ```
 
-### vnstat Data Aggregation System
+### vnstat Native Data Architecture
 
-Netronome implements an efficient two-table data aggregation system to prevent database flooding from continuous SSE streams while maintaining accurate historical data.
+Netronome directly uses vnstat's native JSON output for bandwidth calculations, ensuring exact parity with other vnstat-based tools like swizzin panel.
 
-#### Architecture Overview
+#### Direct vnstat Integration
 
-**Two-Table Design:**
+- **Native JSON Parsing**: Fetches data from agent's `/export/historical` endpoint
+- **No Database Aggregation**: All calculations performed by vnstat itself
+- **Real-time Updates**: SSE stream for live bandwidth monitoring
+- **Historical Accuracy**: Uses vnstat's own hour/day/month/year calculations
 
-- **`vnstat_bandwidth`**: Raw SSE data from agents (short-term storage)
-- **`vnstat_bandwidth_hourly`**: Aggregated hourly buckets (long-term storage)
+#### Unit Display
 
-#### Background Processing
+Netronome uses proper binary units for bandwidth display:
 
-**Automatic Aggregation Routine:**
+- **Binary Units**: 1 KiB = 1024 bytes, displayed as "KiB", "MiB", "GiB", "TiB", "PiB"
+- **Consistent with vnstat**: vnstat also uses binary units internally
+- **Industry Standard**: Follows IEC binary prefix standards for clarity
 
-- **Frequency**: Runs every 10 minutes via background goroutine
-- **Trigger**: Processes data older than 6 hours from raw table
-- **Operation**: Aggregates raw bandwidth samples into hourly totals
-- **Cleanup**: Deletes processed raw data to maintain optimal database size
-- **Startup Behavior**: Runs aggregation once on service startup to catch pending data
-
-#### Data Flow and Retention
-
-**Live Data Path:**
-
-1. SSE agents stream bandwidth data → stored in `vnstat_bandwidth`
-2. Live UI updates use most recent raw data for real-time display
-3. Raw data retained for 6 hours to ensure accuracy for current-hour calculations
-
-**Aggregation Process:**
-
-1. Background routine identifies data older than 6 hours
-2. Groups raw samples by agent and hour boundaries
-3. Calculates total RX/TX bytes for each hour
-4. Inserts/updates corresponding `vnstat_bandwidth_hourly` records
-5. Deletes aggregated raw data to free storage space
-
-**Storage Efficiency:**
-
-- Reduces database size by 95%+ compared to storing all raw samples
-- Raw data: ~17,280 records per agent per day (1 sample/5s)
-- Aggregated data: 24 records per agent per day (1 hour buckets)
-
-#### Hybrid Data Querying
-
-Usage calculations intelligently combine raw and aggregated data:
-
-**Current Hour:** Uses raw data from `vnstat_bandwidth` for accuracy
-**Previous Hours:** Uses aggregated data from `vnstat_bandwidth_hourly` for efficiency
-**Daily/Monthly/All-time:** Combines aggregated hourly data + current hour raw data
-
-Example periods:
-
-- This Hour: Raw data (real-time accuracy)
-- Last Hour: Aggregated data (hour bucket)
-- Today: Sum of hourly aggregations + current raw data
-- This Month: Sum of hourly aggregations + current raw data
-- All Time: Sum of all hourly aggregations + current raw data
-
-#### Cross-restart Resilience
-
-- **Startup Aggregation**: Service automatically processes any pending aggregation on restart
-- **No Data Loss**: All data is preserved during service downtime
-- **Automatic Recovery**: Background routine resumes normal 10-minute cycles after startup
-- **Consistent State**: Database maintains integrity across service restarts and crashes
-
-#### Implementation Details
-
-**Key Files:**
-
-- `internal/database/migrations/sqlite/012_add_vnstat_hourly_aggregation.sql` - Creates aggregation table
-- `internal/vnstat/client.go` - Background aggregation routine (aggregationRoutine)
-- `internal/database/vnstat.go` - AggregateVnstatBandwidthHourly and usage calculation logic
-
-**Database Schema:**
-
-```sql
-CREATE TABLE vnstat_bandwidth_hourly (
-    agent_id INTEGER NOT NULL,
-    hour_start TIMESTAMP NOT NULL,
-    total_rx_bytes BIGINT DEFAULT 0,
-    total_tx_bytes BIGINT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (agent_id, hour_start),
-    FOREIGN KEY (agent_id) REFERENCES vnstat_agents(id) ON DELETE CASCADE
-);
-```
-
-**Performance Optimizations:**
-
-- Indexed on `(agent_id, hour_start)` for fast hourly lookups
-- Upsert operations handle duplicate hour boundaries gracefully
-- Batch processing minimizes database I/O during aggregation
-- Cross-database compatibility (SQLite RFC3339 vs PostgreSQL timestamp handling)
+This ensures accurate representation of data sizes and bandwidth calculations.
 
 ### vnstat Historical Data Import
 

@@ -25,7 +25,7 @@ export const VnstatUsageTable: React.FC<VnstatUsageTableProps> = ({
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return "0 B";
 
-    const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+    const units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"];
     const k = 1024;
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
