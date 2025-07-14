@@ -86,6 +86,7 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
             <AgentListItem
               key={`${agent.id}-${updateKey}`}
               agent={agent}
+              agents={agents}
               isSelected={selectedAgent?.id === agent.id}
               onSelect={() => onSelectAgent(agent)}
               onEdit={() => onEditAgent(agent)}
@@ -100,6 +101,7 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
 
 interface AgentListItemProps {
   agent: VnstatAgent;
+  agents: VnstatAgent[];
   isSelected: boolean;
   onSelect: () => void;
   onEdit: () => void;
@@ -108,6 +110,7 @@ interface AgentListItemProps {
 
 const AgentListItem: React.FC<AgentListItemProps> = ({
   agent,
+  agents,
   isSelected,
   onSelect,
   onEdit,
@@ -160,7 +163,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       const parsed = stored ? JSON.parse(stored) : [];
       // Ensure it's always an array
       return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
+    } catch {
       return [];
     }
   };
@@ -173,8 +176,8 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
         "netronome-featured-vnstat-agents",
         JSON.stringify(validIds),
       );
-    } catch (e) {
-      console.error("Error saving featured agents to localStorage:", e);
+    } catch {
+      console.error("Error saving featured agents to localStorage");
     }
   };
 
@@ -212,7 +215,18 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
         ? currentFeatured.filter((id) => typeof id === "number")
         : [];
 
-      if (validCurrentFeatured.length >= 3) {
+      // Filter out agent IDs that no longer exist
+      const existingAgentIds = agents.map((a) => a.id);
+      const existingFeatured = validCurrentFeatured.filter((id) =>
+        existingAgentIds.includes(id),
+      );
+
+      // Clean up localStorage if we removed any non-existent agents
+      if (existingFeatured.length !== validCurrentFeatured.length) {
+        setFeaturedAgentIds(existingFeatured);
+      }
+
+      if (existingFeatured.length >= 3) {
         alert(
           "You can only feature up to 3 agents at a time. Please unfeature an agent first.",
         );
@@ -220,12 +234,12 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       }
 
       // Check if agent is already in the array (shouldn't happen but just in case)
-      if (validCurrentFeatured.includes(agent.id)) {
+      if (existingFeatured.includes(agent.id)) {
         setIsFeatured(true);
         return;
       }
 
-      const newFeatured = [...validCurrentFeatured, agent.id];
+      const newFeatured = [...existingFeatured, agent.id];
       setFeaturedAgentIds(newFeatured);
       setIsFeatured(true); // Immediate UI update
     }
