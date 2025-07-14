@@ -34,6 +34,25 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
   onDeleteAgent,
   isLoading,
 }) => {
+  // Force re-render all items when featured agents change
+  const [updateKey, setUpdateKey] = React.useState(0);
+
+  React.useEffect(() => {
+    const handleStorageChange = () => {
+      setUpdateKey((prev) => prev + 1);
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("featured-agents-changed", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener(
+        "featured-agents-changed",
+        handleStorageChange,
+      );
+    };
+  }, []);
+
   return (
     <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800">
       <div className="border-b border-gray-200 px-4 sm:px-6 py-4 dark:border-gray-700">
@@ -65,7 +84,7 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
         ) : (
           agents?.map((agent) => (
             <AgentListItem
-              key={agent.id}
+              key={`${agent.id}-${updateKey}`}
               agent={agent}
               isSelected={selectedAgent?.id === agent.id}
               onSelect={() => onSelectAgent(agent)}
@@ -138,17 +157,25 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
   const getFeaturedAgentIds = (): number[] => {
     try {
       const stored = localStorage.getItem("netronome-featured-vnstat-agents");
-      return stored ? JSON.parse(stored) : [];
-    } catch {
+      const parsed = stored ? JSON.parse(stored) : [];
+      // Ensure it's always an array
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
       return [];
     }
   };
 
   const setFeaturedAgentIds = (ids: number[]) => {
-    localStorage.setItem(
-      "netronome-featured-vnstat-agents",
-      JSON.stringify(ids),
-    );
+    try {
+      // Ensure we're storing a valid array
+      const validIds = Array.isArray(ids) ? ids : [];
+      localStorage.setItem(
+        "netronome-featured-vnstat-agents",
+        JSON.stringify(validIds),
+      );
+    } catch (e) {
+      console.error("Error saving featured agents to localStorage:", e);
+    }
   };
 
   // Use local state for immediate UI feedback
@@ -156,6 +183,17 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
     const featuredIds = getFeaturedAgentIds();
     return featuredIds.includes(agent.id);
   });
+
+  // Listen for changes to featured agents from other components or tabs
+  React.useEffect(() => {
+    const handleStorageChange = () => {
+      const featuredIds = getFeaturedAgentIds();
+      setIsFeatured(featuredIds.includes(agent.id));
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [agent.id]);
 
   const handleToggleFeatured = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -169,14 +207,32 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       setIsFeatured(false); // Immediate UI update
     } else {
       // Add to featured (max 3)
-      if (currentFeatured.length >= 3) {
-        // Could show a toast notification here, but for now just ignore
+      // Ensure currentFeatured is an array and filter out any non-numeric values
+      const validCurrentFeatured = Array.isArray(currentFeatured)
+        ? currentFeatured.filter((id) => typeof id === "number")
+        : [];
+
+      if (validCurrentFeatured.length >= 3) {
+        alert(
+          "You can only feature up to 3 agents at a time. Please unfeature an agent first.",
+        );
         return;
       }
-      const newFeatured = [...currentFeatured, agent.id];
+
+      // Check if agent is already in the array (shouldn't happen but just in case)
+      if (validCurrentFeatured.includes(agent.id)) {
+        setIsFeatured(true);
+        return;
+      }
+
+      const newFeatured = [...validCurrentFeatured, agent.id];
       setFeaturedAgentIds(newFeatured);
       setIsFeatured(true); // Immediate UI update
     }
+
+    // Force re-render of other agent items to update their star state
+    window.dispatchEvent(new Event("storage"));
+    window.dispatchEvent(new Event("featured-agents-changed"));
   };
 
   return (
