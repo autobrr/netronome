@@ -37,7 +37,7 @@ builds:
         goarch: arm
       - goos: freebsd
         goarch: arm64
-    main: ./cmd/netronome/main.go
+    main: ./cmd/netronome
     binary: netronome
 
 archives:
