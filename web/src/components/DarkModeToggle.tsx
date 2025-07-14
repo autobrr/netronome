@@ -56,7 +56,7 @@ export const DarkModeToggle: React.FC = () => {
     window.addEventListener("storage", handleStorageChange);
 
     // Listen for system theme changes
-    const handleThemeChange = (event: Event) => {
+    const handleThemeChange = () => {
       checkTheme();
     };
 
@@ -64,7 +64,7 @@ export const DarkModeToggle: React.FC = () => {
 
     // Also listen directly to media query changes for auto mode
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleMediaQueryChange = (e: MediaQueryListEvent) => {
+    const handleMediaQueryChange = () => {
       const storedTheme = localStorage.getItem("theme");
       // Check if auto mode
       if (!storedTheme || storedTheme === "auto") {
