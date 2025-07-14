@@ -402,7 +402,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                 Netronome
               </h1>
               <h2 className="text-sm font-medium text-gray-600 dark:text-gray-300 select-none">
-                Network Speed Testing
+                Network Performance Testing
               </h2>
             </div>
           </div>

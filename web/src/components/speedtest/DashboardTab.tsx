@@ -117,6 +117,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </div>
       )}
 
+      {/* Featured Vnstat Widget - only show if callback is provided */}
+      {onNavigateToVnstat && (
+        <FeaturedVnstatWidget onNavigateToVnstat={onNavigateToVnstat} />
+      )}
+
       {/* Latest Results */}
       {hasAnyTests && latestTest && (
         <motion.div
@@ -184,11 +189,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             )}
           </div>
         </motion.div>
-      )}
-
-      {/* Featured Vnstat Widget - only show if callback is provided */}
-      {onNavigateToVnstat && (
-        <FeaturedVnstatWidget onNavigateToVnstat={onNavigateToVnstat} />
       )}
 
       {/* Speed History Chart */}

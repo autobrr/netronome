@@ -35,8 +35,8 @@ var (
 	configPath string
 	rootCmd    = &cobra.Command{
 		Use:   "netronome",
-		Short: "Netronome is a network speed testing and monitoring tool",
-		Long: `Netronome is a network speed testing and monitoring tool that helps you 
+		Short: "Netronome is a network performance testing and monitoring tool",
+		Long: `Netronome is a network performance testing and monitoring tool that helps you 
 track and analyze your network performance over time.`,
 		CompletionOptions: cobra.CompletionOptions{
 			DisableDefaultCmd: true,
