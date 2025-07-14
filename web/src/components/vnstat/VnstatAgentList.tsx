@@ -13,14 +13,9 @@ import {
   StopIcon,
 } from "@heroicons/react/24/outline";
 import { SparklesIcon as SparklesIconSolid } from "@heroicons/react/24/solid";
-import { VnstatAgent, VnstatStatus } from "@/api/vnstat";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  getVnstatAgentStatus,
-  startVnstatAgent,
-  stopVnstatAgent,
-} from "@/api/vnstat";
+import { VnstatAgent } from "@/api/vnstat";
 import { AgentIcon } from "@/utils/agentIcons";
+import { useVnstatAgent } from "@/hooks/useVnstatAgent";
 
 interface VnstatAgentListProps {
   agents: VnstatAgent[];
@@ -53,7 +48,7 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener(
         "featured-agents-changed",
-        handleStorageChange,
+        handleStorageChange
       );
     };
   }, []);
@@ -121,36 +116,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const queryClient = useQueryClient();
-
-  // Fetch agent status
-  const { data: status } = useQuery<VnstatStatus>({
-    queryKey: ["vnstat-agent-status", agent.id],
-    queryFn: () => getVnstatAgentStatus(agent.id),
-    refetchInterval: agent.enabled ? 5000 : false, // Poll every 5 seconds if enabled
-    enabled: agent.enabled,
-  });
-
-  // Start/stop mutations
-  const startMutation = useMutation({
-    mutationFn: () => startVnstatAgent(agent.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vnstat-agents"] });
-      queryClient.invalidateQueries({
-        queryKey: ["vnstat-agent-status", agent.id],
-      });
-    },
-  });
-
-  const stopMutation = useMutation({
-    mutationFn: () => stopVnstatAgent(agent.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vnstat-agents"] });
-      queryClient.invalidateQueries({
-        queryKey: ["vnstat-agent-status", agent.id],
-      });
-    },
-  });
+  const { status, startMutation, stopMutation } = useVnstatAgent({ agent });
 
   const handleToggleMonitoring = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -179,7 +145,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       const validIds = Array.isArray(ids) ? ids : [];
       localStorage.setItem(
         "netronome-featured-vnstat-agents",
-        JSON.stringify(validIds),
+        JSON.stringify(validIds)
       );
     } catch {
       console.error("Error saving featured agents to localStorage");
@@ -223,7 +189,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       // Filter out agent IDs that no longer exist
       const existingAgentIds = agents.map((a) => a.id);
       const existingFeatured = validCurrentFeatured.filter((id) =>
-        existingAgentIds.includes(id),
+        existingAgentIds.includes(id)
       );
 
       // Clean up localStorage if we removed any non-existent agents
@@ -233,7 +199,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
 
       if (existingFeatured.length >= 3) {
         alert(
-          "You can only feature up to 3 agents at a time. Please unfeature an agent first.",
+          "You can only feature up to 3 agents at a time. Please unfeature an agent first."
         );
         return;
       }
@@ -275,21 +241,24 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                 {agent.name}
               </h3>
               <div className="flex items-center space-x-1.5">
-                <div
-                  className={`h-2 w-2 rounded-full ${
-                    !agent.enabled
-                      ? "bg-gray-400"
-                      : status?.connected
-                        ? "bg-green-500"
-                        : "bg-red-500"
-                  }`}
-                />
+                {agent.enabled && status?.connected ? (
+                  <span className="relative inline-flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                  </span>
+                ) : (
+                  <div
+                    className={`h-2 w-2 rounded-full ${
+                      !agent.enabled ? "bg-gray-400" : "bg-red-500"
+                    }`}
+                  />
+                )}
                 <span className="text-xs text-gray-600 dark:text-gray-400">
                   {!agent.enabled
                     ? "Disabled"
                     : status?.connected
-                      ? "Connected"
-                      : "Disconnected"}
+                    ? "Connected"
+                    : "Disconnected"}
                 </span>
               </div>
               {agent.enabled && status?.liveData && (
@@ -314,26 +283,6 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
         </div>
 
         <div className="flex items-center gap-0.5 flex-shrink-0">
-          <button
-            onClick={handleToggleMonitoring}
-            disabled={startMutation.isPending || stopMutation.isPending}
-            className={`p-1 rounded-md transition-colors ${
-              agent.enabled && status?.connected
-                ? "text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200"
-                : "text-emerald-500 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-200"
-            } hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
-            title={
-              agent.enabled && status?.connected
-                ? "Stop monitoring"
-                : "Start monitoring"
-            }
-          >
-            {agent.enabled && status?.connected ? (
-              <StopIcon className="w-3.5 h-3.5" />
-            ) : (
-              <PlayIcon className="w-3.5 h-3.5" />
-            )}
-          </button>
           <button
             className={`p-1 rounded-md transition-colors ${
               isFeatured

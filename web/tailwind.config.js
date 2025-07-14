@@ -36,6 +36,7 @@ export default {
         fadeIn: "fadeIn 0.5s ease-in-out",
         bounce: "bounce 1s infinite",
         shimmer: "shimmer 2s infinite linear",
+        ping: "ping 2s cubic-bezier(0, 0, 0.2, 1) infinite",
       },
       keyframes: {
         fadeIn: {
@@ -54,6 +55,12 @@ export default {
         },
         shimmer: {
           "100%": { transform: "translateX(100%)" },
+        },
+        ping: {
+          "75%, 100%": {
+            transform: "scale(2)",
+            opacity: "0",
+          },
         },
       },
     },

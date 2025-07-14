@@ -4,10 +4,10 @@
  */
 
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
 import { VnstatUsageTable } from "./VnstatUsageTable";
 import { VnstatLiveMonitor } from "./VnstatLiveMonitor";
-import { VnstatAgent, VnstatStatus, getVnstatAgentStatus } from "@/api/vnstat";
+import { VnstatAgent } from "@/api/vnstat";
+import { useVnstatAgent } from "@/hooks/useVnstatAgent";
 
 interface VnstatAgentDetailsProps {
   agent: VnstatAgent;
@@ -16,12 +16,8 @@ interface VnstatAgentDetailsProps {
 export const VnstatAgentDetails: React.FC<VnstatAgentDetailsProps> = ({
   agent,
 }) => {
-  // Fetch agent status
-  const { data: status } = useQuery<VnstatStatus>({
-    queryKey: ["vnstat-agent-status", agent.id],
-    queryFn: () => getVnstatAgentStatus(agent.id),
-    refetchInterval: agent.enabled ? 2000 : false, // Poll every 2 seconds if enabled
-  });
+  // Use the shared hook for agent status
+  const { status } = useVnstatAgent({ agent });
 
   return (
     <div className="space-y-6">

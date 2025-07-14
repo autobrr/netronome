@@ -35,30 +35,34 @@ export const MonitorStatusCard: React.FC<MonitorStatusCardProps> = ({
           Current Status
         </h3>
         <div className="text-center py-4">
-          <div className="animate-pulse">
-            <p className="text-blue-600 dark:text-blue-400 text-lg font-medium">
-              {status.usedMtr
-                ? "Running MTR analysis..."
-                : "Testing in progress..."}
-            </p>
-            {status.usedMtr ? (
-              <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm">
-                Analyzing network path with hop-by-hop statistics
-              </p>
-            ) : (
-              <>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">
-                  {Math.round(status.progress || 0)}% complete
-                </p>
-                {status.packetsSent && (
-                  <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
-                    Packets: {status.packetsRecv || 0} / {status.packetsSent}{" "}
-                    received
-                  </p>
-                )}
-              </>
-            )}
+          <div className="flex justify-center items-center mb-3">
+            <span className="relative inline-flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+            </span>
           </div>
+          <p className="text-blue-600 dark:text-blue-400 text-lg font-medium">
+            {status.usedMtr
+              ? "Running MTR analysis..."
+              : "Testing in progress..."}
+          </p>
+          {status.usedMtr ? (
+            <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm">
+              Analyzing network path with hop-by-hop statistics
+            </p>
+          ) : (
+            <>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
+                {Math.round(status.progress || 0)}% complete
+              </p>
+              {status.packetsSent && (
+                <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                  Packets: {status.packetsRecv || 0} / {status.packetsSent}{" "}
+                  received
+                </p>
+              )}
+            </>
+          )}
         </div>
       </div>
     );

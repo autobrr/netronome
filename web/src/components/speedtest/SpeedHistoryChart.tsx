@@ -49,7 +49,7 @@ const ChartSkeleton: React.FC = () => (
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    className="animate-pulse h-full w-full"
+    className="animate-ping h-full w-full"
   >
     <div className="h-full w-full bg-gray-200/50 dark:bg-gray-800/50 rounded-lg" />
   </motion.div>

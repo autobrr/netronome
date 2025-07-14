@@ -8,16 +8,11 @@ import { motion } from "motion/react";
 import { ServerIcon } from "@heroicons/react/24/outline";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { useQuery } from "@tanstack/react-query";
-import {
-  getVnstatAgents,
-  getVnstatAgentStatus,
-  getVnstatAgentNative,
-  VnstatAgent,
-  VnstatStatus,
-} from "@/api/vnstat";
+import { getVnstatAgents, VnstatAgent } from "@/api/vnstat";
 import { parseVnstatUsagePeriods } from "@/utils/vnstatParser";
 import { getAgentIcon } from "@/utils/agentIcons";
 import { formatBytes } from "@/utils/formatBytes";
+import { useVnstatAgent } from "@/hooks/useVnstatAgent";
 
 interface FeaturedVnstatWidgetProps {
   onNavigateToVnstat: () => void;
@@ -46,7 +41,7 @@ export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = ({
 
   // Filter to only featured agents that exist and are enabled
   const featuredAgents = allAgents.filter(
-    (agent) => featuredAgentIds.includes(agent.id) && agent.enabled,
+    (agent) => featuredAgentIds.includes(agent.id) && agent.enabled
   );
 
   // If no featured agents, don't render the widget
@@ -88,20 +83,10 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
   agent,
   onNavigateToVnstat,
 }) => {
-  // Fetch agent status with polling
-  const { data: status } = useQuery<VnstatStatus>({
-    queryKey: ["vnstat-agent-status", agent.id],
-    queryFn: () => getVnstatAgentStatus(agent.id),
-    refetchInterval: agent.enabled ? 5000 : false, // Poll every 5 seconds if enabled
-    enabled: agent.enabled,
-  });
-
-  // Fetch native vnstat data and parse usage
-  const { data: nativeData } = useQuery({
-    queryKey: ["vnstat-agent-native", agent.id],
-    queryFn: () => getVnstatAgentNative(agent.id),
-    refetchInterval: agent.enabled ? 60000 : false, // Poll every minute
-    enabled: agent.enabled,
+  // Use the shared hook for agent data
+  const { status, nativeData } = useVnstatAgent({
+    agent,
+    includeNativeData: true,
   });
 
   const usage = nativeData ? parseVnstatUsagePeriods(nativeData) : null;
@@ -116,21 +101,14 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
       {/* Header with agent name, status and icon */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2 min-w-0 flex-1">
-          <motion.div
-            animate={{
-              scale: status?.connected ? [1, 1.2, 1] : 1,
-            }}
-            transition={{
-              duration: 2,
-              repeat: status?.connected ? Infinity : 0,
-              ease: "easeInOut",
-            }}
-            className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${
-              status?.connected
-                ? "bg-green-500 shadow-green-500/50 shadow-sm"
-                : "bg-red-500"
-            }`}
-          />
+          {status?.connected ? (
+            <span className="relative inline-flex h-2.5 w-2.5 flex-shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+            </span>
+          ) : (
+            <div className="h-2.5 w-2.5 rounded-full flex-shrink-0 bg-red-500" />
+          )}
           <h3 className="font-semibold text-gray-900 dark:text-white truncate text-base">
             {agent.name}
           </h3>
