@@ -5,8 +5,14 @@
 
 import React from "react";
 import { motion } from "motion/react";
-import { PencilIcon, TrashIcon, StarIcon } from "@heroicons/react/24/outline";
-import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
+import {
+  PencilIcon,
+  TrashIcon,
+  SparklesIcon,
+  PlayIcon,
+  StopIcon,
+} from "@heroicons/react/24/outline";
+import { SparklesIcon as SparklesIconSolid } from "@heroicons/react/24/solid";
 import { VnstatAgent, VnstatStatus } from "@/api/vnstat";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -14,7 +20,6 @@ import {
   startVnstatAgent,
   stopVnstatAgent,
 } from "@/api/vnstat";
-import { Button } from "@/components/ui/Button";
 import { AgentIcon } from "@/utils/agentIcons";
 
 interface VnstatAgentListProps {
@@ -48,7 +53,7 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener(
         "featured-agents-changed",
-        handleStorageChange,
+        handleStorageChange
       );
     };
   }, []);
@@ -174,7 +179,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       const validIds = Array.isArray(ids) ? ids : [];
       localStorage.setItem(
         "netronome-featured-vnstat-agents",
-        JSON.stringify(validIds),
+        JSON.stringify(validIds)
       );
     } catch {
       console.error("Error saving featured agents to localStorage");
@@ -218,7 +223,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       // Filter out agent IDs that no longer exist
       const existingAgentIds = agents.map((a) => a.id);
       const existingFeatured = validCurrentFeatured.filter((id) =>
-        existingAgentIds.includes(id),
+        existingAgentIds.includes(id)
       );
 
       // Clean up localStorage if we removed any non-existent agents
@@ -228,7 +233,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
 
       if (existingFeatured.length >= 3) {
         alert(
-          "You can only feature up to 3 agents at a time. Please unfeature an agent first.",
+          "You can only feature up to 3 agents at a time. Please unfeature an agent first."
         );
         return;
       }
@@ -275,17 +280,37 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                     !agent.enabled
                       ? "bg-gray-400"
                       : status?.connected
-                        ? "bg-green-500"
-                        : "bg-red-500"
+                      ? "bg-green-500"
+                      : "bg-red-500"
                   }`}
                 />
                 <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   {!agent.enabled
                     ? "Disabled"
                     : status?.connected
-                      ? "Connected"
-                      : "Disconnected"}
+                    ? "Connected"
+                    : "Disconnected"}
                 </span>
+                <button
+                  onClick={handleToggleMonitoring}
+                  disabled={startMutation.isPending || stopMutation.isPending}
+                  className={`p-1 rounded-md transition-colors ${
+                    agent.enabled && status?.connected
+                      ? "text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200"
+                      : "text-emerald-500 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-200"
+                  } hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
+                  title={
+                    agent.enabled && status?.connected
+                      ? "Stop monitoring"
+                      : "Start monitoring"
+                  }
+                >
+                  {agent.enabled && status?.connected ? (
+                    <StopIcon className="w-3.5 h-3.5" />
+                  ) : (
+                    <PlayIcon className="w-3.5 h-3.5" />
+                  )}
+                </button>
               </div>
             </div>
 
@@ -314,53 +339,42 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-2 mt-2 sm:mt-0">
-          <div className="flex items-center space-x-1 sm:space-x-2">
-            <button
-              className={`p-1.5 sm:p-2 rounded-md transition-colors ${
-                isFeatured
-                  ? "text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
-                  : "text-gray-500 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400"
-              } hover:bg-gray-100 dark:hover:bg-gray-700`}
-              onClick={handleToggleFeatured}
-              title={isFeatured ? "Remove from featured" : "Add to featured"}
-            >
-              {isFeatured ? (
-                <StarIconSolid className="h-4 w-4 sm:h-5 sm:w-5" />
-              ) : (
-                <StarIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-              )}
-            </button>
-            <button
-              className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit();
-              }}
-            >
-              <PencilIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-            </button>
-            <button
-              className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-            >
-              <TrashIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-            </button>
-          </div>
-          <Button
-            onClick={handleToggleMonitoring}
-            disabled={startMutation.isPending || stopMutation.isPending}
-            className={`text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2 ${
-              agent.enabled && status?.connected
-                ? "bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/20"
-                : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-            }`}
+        <div className="flex items-center gap-1">
+          <button
+            className={`p-1.5 rounded-md transition-colors ${
+              isFeatured
+                ? "text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
+                : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            } hover:bg-gray-100 dark:hover:bg-gray-700`}
+            onClick={handleToggleFeatured}
+            title={isFeatured ? "Remove from featured" : "Add to featured"}
           >
-            {agent.enabled && status?.connected ? "Stop" : "Start"}
-          </Button>
+            {isFeatured ? (
+              <SparklesIconSolid className="w-4 h-4" />
+            ) : (
+              <SparklesIcon className="w-4 h-4" />
+            )}
+          </button>
+          <button
+            className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            title="Edit Agent"
+          >
+            <PencilIcon className="w-4 h-4" />
+          </button>
+          <button
+            className="p-1.5 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            title="Delete Agent"
+          >
+            <TrashIcon className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </motion.div>
