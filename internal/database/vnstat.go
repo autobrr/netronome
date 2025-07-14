@@ -475,7 +475,7 @@ func (s *service) aggregateVnstatBandwidthHourly(ctx context.Context, force bool
 				Insert("vnstat_bandwidth_hourly").
 				Columns("agent_id", "hour_start", "total_rx_bytes", "total_tx_bytes", "updated_at").
 				Values(agent.ID, hourStartDB, totalRx, totalTx, time.Now()).
-				Suffix("ON CONFLICT (agent_id, hour_start) DO UPDATE SET total_rx_bytes = total_rx_bytes + ?, total_tx_bytes = total_tx_bytes + ?, updated_at = ?", totalRx, totalTx, time.Now()).
+				Suffix("ON CONFLICT (agent_id, hour_start) DO UPDATE SET total_rx_bytes = ?, total_tx_bytes = ?, updated_at = ?", totalRx, totalTx, time.Now()).
 				RunWith(s.db).ExecContext(ctx)
 
 			if err != nil {
@@ -485,7 +485,7 @@ func (s *service) aggregateVnstatBandwidthHourly(ctx context.Context, force bool
 						Insert("vnstat_bandwidth_hourly").
 						Columns("agent_id", "hour_start", "total_rx_bytes", "total_tx_bytes", "updated_at").
 						Values(agent.ID, hourStartDB, totalRx, totalTx, time.Now()).
-						Suffix("ON CONFLICT (agent_id, hour_start) DO UPDATE SET total_rx_bytes = total_rx_bytes + excluded.total_rx_bytes, total_tx_bytes = total_tx_bytes + excluded.total_tx_bytes, updated_at = excluded.updated_at").
+						Suffix("ON CONFLICT (agent_id, hour_start) DO UPDATE SET total_rx_bytes = excluded.total_rx_bytes, total_tx_bytes = excluded.total_tx_bytes, updated_at = excluded.updated_at").
 						RunWith(s.db).ExecContext(ctx)
 				}
 
@@ -587,13 +587,15 @@ func (s *service) GetVnstatBandwidthUsage(ctx context.Context, agentID int64) (m
 		}{lastHourRx, lastHourTx, lastHourRx + lastHourTx}
 	}
 
-	// Today - sum hourly aggregations + current hour raw data
+	// Today - sum hourly aggregations (excluding current hour) + current hour raw data
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	var todayStartDB interface{}
 	if s.config.Type == config.SQLite {
 		todayStartDB = todayStart.Format(time.RFC3339)
+		currentHourStart = currentHour.Format(time.RFC3339)
 	} else {
 		todayStartDB = todayStart
+		currentHourStart = currentHour
 	}
 
 	var todayRx, todayTx int64
@@ -603,6 +605,7 @@ func (s *service) GetVnstatBandwidthUsage(ctx context.Context, agentID int64) (m
 		Where(sq.And{
 			sq.Eq{"agent_id": agentID},
 			sq.GtOrEq{"hour_start": todayStartDB},
+			sq.Lt{"hour_start": currentHourStart}, // Exclude current hour to avoid double counting
 		}).
 		RunWith(s.db).QueryRowContext(ctx).Scan(&todayRx, &todayTx)
 
@@ -620,7 +623,7 @@ func (s *service) GetVnstatBandwidthUsage(ctx context.Context, agentID int64) (m
 		Total    int64 `json:"total"`
 	}{todayRx, todayTx, todayRx + todayTx}
 
-	// This Month - sum all hourly aggregations for current month + current hour
+	// This Month - sum all hourly aggregations for current month (excluding current hour) + current hour
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	var monthStartDB interface{}
 	if s.config.Type == config.SQLite {
@@ -636,6 +639,7 @@ func (s *service) GetVnstatBandwidthUsage(ctx context.Context, agentID int64) (m
 		Where(sq.And{
 			sq.Eq{"agent_id": agentID},
 			sq.GtOrEq{"hour_start": monthStartDB},
+			sq.Lt{"hour_start": currentHourStart}, // Exclude current hour to avoid double counting
 		}).
 		RunWith(s.db).QueryRowContext(ctx).Scan(&monthRx, &monthTx)
 
@@ -653,12 +657,15 @@ func (s *service) GetVnstatBandwidthUsage(ctx context.Context, agentID int64) (m
 		Total    int64 `json:"total"`
 	}{monthRx, monthTx, monthRx + monthTx}
 
-	// All Time - sum all hourly aggregations + current hour
+	// All Time - sum all hourly aggregations (excluding current hour) + current hour
 	var allTimeRx, allTimeTx int64
 	err = s.sqlBuilder.
 		Select("COALESCE(SUM(total_rx_bytes), 0)", "COALESCE(SUM(total_tx_bytes), 0)").
 		From("vnstat_bandwidth_hourly").
-		Where(sq.Eq{"agent_id": agentID}).
+		Where(sq.And{
+			sq.Eq{"agent_id": agentID},
+			sq.Lt{"hour_start": currentHourStart}, // Exclude current hour to avoid double counting
+		}).
 		RunWith(s.db).QueryRowContext(ctx).Scan(&allTimeRx, &allTimeTx)
 
 	if err != nil {
