@@ -156,10 +156,15 @@ export default function ScheduleManager({
   const [enabled] = useState(true);
   const [, setError] = useState<string | null>(null);
   const [updateTrigger, setUpdateTrigger] = useState(0);
-  const [isOpen] = useState(() => {
+  const [isOpen, setIsOpen] = useState(() => {
     const saved = localStorage.getItem("schedule-manager-open");
     return saved === null ? true : saved === "true";
   });
+
+  // Persist schedule manager open state to localStorage
+  useEffect(() => {
+    localStorage.setItem("schedule-manager-open", isOpen.toString());
+  }, [isOpen]);
 
   // Use TanStack Query for schedules with automatic refetching
   const {
@@ -413,7 +418,13 @@ export default function ScheduleManager({
   return (
     <div className="h-full">
       <Disclosure defaultOpen={isOpen}>
-        {({ open }) => (
+        {({ open }) => {
+          // Update isOpen when disclosure state changes
+          useEffect(() => {
+            setIsOpen(open);
+          }, [open]);
+
+          return (
             <div className="flex flex-col h-full">
               <DisclosureButton
                 className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
@@ -873,7 +884,8 @@ export default function ScheduleManager({
                 </div>
               )}
             </div>
-        )}
+          );
+        }}
       </Disclosure>
     </div>
   );

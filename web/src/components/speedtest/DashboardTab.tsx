@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { SpeedTestResult, TimeRange } from "@/types/types";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
@@ -38,10 +38,15 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   onNavigateToVnstat,
 }) => {
   const [displayCount, setDisplayCount] = useState(5);
-  const [isRecentTestsOpen] = useState(() => {
+  const [isRecentTestsOpen, setIsRecentTestsOpen] = useState(() => {
     const saved = localStorage.getItem("recent-tests-open");
     return saved === null ? true : saved === "true";
   });
+
+  // Persist recent tests open state to localStorage
+  useEffect(() => {
+    localStorage.setItem("recent-tests-open", isRecentTestsOpen.toString());
+  }, [isRecentTestsOpen]);
 
   const displayedTests = tests.slice(0, displayCount);
   const formatSpeed = (speed: number) => {
@@ -212,7 +217,13 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       {/* Recent Tests Summary */}
       {tests.length > 0 && (
         <Disclosure defaultOpen={isRecentTestsOpen}>
-          {({ open }) => (
+          {({ open }) => {
+            // Update isRecentTestsOpen when disclosure state changes
+            useEffect(() => {
+              setIsRecentTestsOpen(open);
+            }, [open]);
+
+            return (
               <div className="flex flex-col h-full">
                 <DisclosureButton
                   className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
@@ -455,7 +466,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   </motion.div>
                 )}
               </div>
-          )}
+            );
+          }}
         </Disclosure>
       )}
     </div>

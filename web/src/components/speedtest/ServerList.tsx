@@ -75,10 +75,15 @@ export const ServerList: React.FC<ServerListProps> = ({
     host: string;
     port: string;
   }>({ host: "", port: "5201" });
-  const [isOpen] = useState(() => {
+  const [isOpen, setIsOpen] = useState(() => {
     const saved = localStorage.getItem("server-list-open");
     return saved === null ? true : saved === "true";
   });
+
+  // Persist server list open state to localStorage
+  useEffect(() => {
+    localStorage.setItem("server-list-open", isOpen.toString());
+  }, [isOpen]);
 
   // Handle window resize for responsive display counts
   useEffect(() => {
@@ -217,7 +222,13 @@ export const ServerList: React.FC<ServerListProps> = ({
 
   return (
     <Disclosure defaultOpen={isOpen}>
-      {({ open }) => (
+      {({ open }) => {
+        // Update isOpen when disclosure state changes
+        useEffect(() => {
+          setIsOpen(open);
+        }, [open]);
+
+        return (
           <div className="flex flex-col h-full">
             <DisclosureButton
               className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
@@ -689,7 +700,8 @@ export const ServerList: React.FC<ServerListProps> = ({
               }}
             />
           </div>
-      )}
+        );
+      }}
     </Disclosure>
   );
 };
