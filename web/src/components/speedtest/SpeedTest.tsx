@@ -107,7 +107,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     },
     {
       id: "vnstat",
-      label: "Bandwidth",
+      label: "Agents",
       icon: <ServerIcon className="w-5 h-5" />,
     },
   ];

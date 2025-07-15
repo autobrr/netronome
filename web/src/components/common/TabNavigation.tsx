@@ -61,7 +61,7 @@ const SMART_ABBREVIATIONS: Record<string, string> = {
   dashboard: "Dash",
   "speed test": "Tests",
   traceroute: "Traces",
-  bandwidth: "Vnstat",
+  agents: "Agents",
   "packet loss": "Packet",
   settings: "Set",
   monitoring: "Monitor",
