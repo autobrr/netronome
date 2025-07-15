@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024-2025, s0up and the autobrr contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 export function getBaseUrl(): string {
     // Get from window.__BASE_URL__ which will be set in index.html
     const baseUrl = window.__BASE_URL__;

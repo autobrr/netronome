@@ -8,6 +8,7 @@ import { motion } from "motion/react";
 import { SpeedTestResult, TimeRange } from "@/types/types";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import { MetricCard } from "@/components/common/MetricCard";
+import { FeaturedVnstatWidget } from "@/components/vnstat/FeaturedVnstatWidget";
 import { FaWaveSquare, FaShare, FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
 import { Disclosure, DisclosureButton } from "@headlessui/react";
@@ -22,6 +23,7 @@ interface DashboardTabProps {
   hasAnyTests?: boolean;
   onShareClick?: () => void;
   onNavigateToSpeedTest?: () => void;
+  onNavigateToVnstat?: () => void;
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({
@@ -33,6 +35,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   hasAnyTests = false,
   onShareClick,
   onNavigateToSpeedTest,
+  onNavigateToVnstat,
 }) => {
   const [displayCount, setDisplayCount] = useState(5);
   const [isRecentTestsOpen] = useState(() => {
@@ -112,6 +115,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Featured Vnstat Widget - only show if callback is provided */}
+      {onNavigateToVnstat && (
+        <FeaturedVnstatWidget onNavigateToVnstat={onNavigateToVnstat} />
       )}
 
       {/* Latest Results */}
@@ -285,7 +293,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                                     day: "numeric",
                                     hour: "2-digit",
                                     minute: "2-digit",
-                                  },
+                                  }
                                 )}
                               </td>
                               <td
@@ -300,15 +308,15 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                                     test.testType === "iperf3"
                                       ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
                                       : test.testType === "librespeed"
-                                        ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                                        : "bg-emerald-200/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                                      : "bg-emerald-200/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                                   }`}
                                 >
                                   {test.testType === "iperf3"
                                     ? "iperf3"
                                     : test.testType === "librespeed"
-                                      ? "LibreSpeed"
-                                      : "Speedtest.net"}
+                                    ? "LibreSpeed"
+                                    : "Speedtest.net"}
                                 </span>
                               </td>
                               <td className="py-3 px-2 text-right text-amber-600 dark:text-amber-400 font-mono">
@@ -350,15 +358,15 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                                 test.testType === "iperf3"
                                   ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
                                   : test.testType === "librespeed"
-                                    ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                                    : "bg-emerald-200/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                  ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                                  : "bg-emerald-200/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                               }`}
                             >
                               {test.testType === "iperf3"
                                 ? "iperf3"
                                 : test.testType === "librespeed"
-                                  ? "LibreSpeed"
-                                  : "Speedtest.net"}
+                                ? "LibreSpeed"
+                                : "Speedtest.net"}
                             </span>
                           </div>
                           <div className="text-gray-500 dark:text-gray-500 text-xs mb-3">
@@ -369,7 +377,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                                 day: "numeric",
                                 hour: "2-digit",
                                 minute: "2-digit",
-                              },
+                              }
                             )}
                           </div>
                           <div className="grid grid-cols-2 gap-3 text-sm">

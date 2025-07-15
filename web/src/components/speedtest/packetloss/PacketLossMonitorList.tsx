@@ -47,7 +47,7 @@ const MonitorStatusDisplay: React.FC<MonitorStatusDisplayProps> = ({
                         className="inline-flex items-center px-1.5 py-0.5 bg-gray-500/10 text-gray-600 dark:text-gray-400 rounded text-xs border border-gray-500/20"
                       >
                         {new Date(
-                          `2000-01-01T${time.trim()}:00`,
+                          `2000-01-01T${time.trim()}:00`
                         ).toLocaleTimeString([], {
                           hour: "numeric",
                           minute: "2-digit",
@@ -94,7 +94,10 @@ const MonitorStatusDisplay: React.FC<MonitorStatusDisplayProps> = ({
       <div className="mt-3 pt-3 border-t border-gray-300 dark:border-gray-700">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+            <span className="relative inline-flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+            </span>
             <span className="text-blue-600 dark:text-blue-400 text-sm font-medium">
               {status.usedMtr
                 ? "Running MTR..."
@@ -163,7 +166,7 @@ const MonitorStatusDisplay: React.FC<MonitorStatusDisplayProps> = ({
                       }`}
                     >
                       {new Date(
-                        `2000-01-01T${time.trim()}:00`,
+                        `2000-01-01T${time.trim()}:00`
                       ).toLocaleTimeString([], {
                         hour: "numeric",
                         minute: "2-digit",
@@ -267,7 +270,7 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
             }`}
             onClick={() =>
               onMonitorSelect(
-                selectedMonitor?.id === monitor.id ? null : monitor,
+                selectedMonitor?.id === monitor.id ? null : monitor
               )
             }
           >
@@ -286,11 +289,14 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
                           : "bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-500/20"
                       }`}
                     >
-                      <div
-                        className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                          monitor.enabled ? "bg-emerald-500" : "bg-gray-400"
-                        }`}
-                      />
+                      {monitor.enabled ? (
+                        <span className="relative inline-flex h-1.5 w-1.5 mr-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                        </span>
+                      ) : (
+                        <div className="w-1.5 h-1.5 rounded-full mr-1.5 bg-gray-400" />
+                      )}
                       {monitor.enabled ? "Active" : "Stopped"}
                     </span>
                   </div>

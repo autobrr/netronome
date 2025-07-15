@@ -73,7 +73,7 @@ cd web && pnpm lint     # Frontend linting
 
 ### Core Application Structure
 
-- **Entry Point**: `cmd/netronome/main.go` using Cobra CLI with commands: `serve`, `generate-config`, `create-user`, `change-password`
+- **Entry Point**: `cmd/netronome/main.go` using Cobra CLI with commands: `serve`, `generate-config`, `create-user`, `change-password`, `agent`
 - **Configuration**: TOML-based config with environment variable overrides (`NETRONOME__*` prefix)
 - **Database**: Supports SQLite (default) and PostgreSQL with embedded migrations
 - **Frontend**: React 18 + TypeScript with embedded serving via Go's `embed.FS`
@@ -89,6 +89,8 @@ internal/
 ├── scheduler/       # Background cron-like job scheduler
 ├── auth/           # Session + OIDC authentication
 ├── notifications/  # Webhook/Discord alert system
+├── agent/          # vnstat SSE agent server implementation
+├── vnstat/         # vnstat SSE client and database service
 └── types/          # Shared data structures
 ```
 
@@ -143,6 +145,17 @@ internal/
 - MTR requires privileged mode (root/NET_RAW capability) for ICMP; falls back to UDP or ping otherwise
 - Real-time progress updates during execution
 
+**7. vnstat Bandwidth Monitoring** (`internal/agent/agent.go`, `internal/vnstat/client.go`)
+
+- **Distributed Architecture**: Lightweight agents broadcast vnstat data via Server-Sent Events (SSE)
+- **Agent Implementation**: Uses Gin framework to serve SSE endpoint at `/events?stream=live-data` and historical data endpoint at `/export/historical`
+- **Client Implementation**: SSE client with automatic reconnection and exponential backoff
+- **Real-time Streaming**: Processes `vnstat --live --json` output and broadcasts to connected clients
+- **Multi-agent Support**: Central server can connect to multiple remote agents
+- **Native Data Usage**: Fetches and displays vnstat's native JSON calculations directly
+- **URL Normalization**: Automatically formats agent URLs to ensure correct SSE endpoint
+- **Error Recovery**: Graceful handling of agent disconnections with automatic retry
+
 ### Database Schema and Migrations
 
 - **Migration system**: Embedded SQL files with version tracking (`internal/database/migrations/`)
@@ -153,6 +166,7 @@ internal/
   - `saved_iperf_servers` - Custom iperf3 server configs
   - `packet_loss_monitors` - Packet loss monitor configurations
   - `packet_loss_results` - Historical packet loss monitoring results
+  - `vnstat_agents` - vnstat agent configurations and connection settings
 - **Query patterns**: Interface-based with Squirrel query builder for cross-database compatibility
 
 ### Frontend Architecture
@@ -164,6 +178,7 @@ internal/
 - **Charts**: Recharts for speed test visualizations
 - **Real-time Updates**: Polling-based progress tracking during tests
 - **Unified Traceroute UI**: Combined single-trace and monitoring interface with mode switching (`web/src/components/speedtest/TracerouteTab.tsx`)
+- **vnstat Bandwidth UI**: Real-time and historical bandwidth monitoring (`web/src/components/vnstat/VnstatTab.tsx`)
 
 ### Chart Data Patterns
 
@@ -182,7 +197,7 @@ internal/
 
 ### Configuration System
 
-- **Hierarchical TOML** with sections: `[database]`, `[server]`, `[speedtest]`, `[speedtest.iperf]`, `[speedtest.iperf.ping]`, `[speedtest.packetloss]`, `[geoip]`, etc.
+- **Hierarchical TOML** with sections: `[database]`, `[server]`, `[speedtest]`, `[speedtest.iperf]`, `[speedtest.iperf.ping]`, `[speedtest.packetloss]`, `[geoip]`, `[agent]`, `[vnstat]`, etc.
 - **Environment overrides**: Any config value can be overridden with `NETRONOME__SECTION_KEY` format
 - **Auto-generation**: Creates sensible defaults if no config exists
 - **Container detection**: Automatically binds to `0.0.0.0` in containerized environments
@@ -279,6 +294,7 @@ internal/
 - **ping**: System ping command (cross-platform support)
 - **traceroute/tracert**: System traceroute command (Unix/Linux/macOS) or tracert (Windows)
 - **mtr**: Binary for advanced network diagnostics (optional, falls back to ping)
+- **vnstat**: Network statistics monitor required for bandwidth monitoring agents
 
 ## Special Considerations
 
@@ -416,6 +432,112 @@ The scheduler runs every minute checking for due tests/monitors. It supports two
 - `calculateNextRun()` - Handles interval parsing and jitter
 - `initializePacketLossMonitors()` - Startup initialization for monitors
 - `initializeSchedules()` - Startup initialization for speed tests
+
+## vnstat Agent Architecture
+
+### Agent Mode (`netronome agent`)
+
+The vnstat agent is a lightweight SSE server that broadcasts network bandwidth data:
+
+- **Command**: `netronome agent [--host HOST] [--port PORT] [--interface INTERFACE] [--api-key KEY]`
+- **Default Port**: 8200
+- **Default Host**: 0.0.0.0
+- **Authentication**: Optional API key authentication via X-API-Key header or ?apikey= query param
+- **SSE Endpoint**: `http://agent-host:port/events?stream=live-data`
+- **Historical Export**: `http://agent-host:port/export/historical`
+- **Data Source**: Executes `vnstat --live --json` and streams output
+- **CORS Support**: Enabled for cross-origin access from Netronome server
+- **Graceful Shutdown**: Properly closes connections on termination
+
+### Installation Script
+
+A one-liner installation script is available for easy agent deployment:
+
+```bash
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash
+```
+
+Features:
+
+- Interactive configuration prompts
+- Automatic API key generation
+- Systemd service creation
+- Security hardening with dedicated user
+- Automatic daily updates (optional)
+- Self-update capability via `netronome update` command
+- Version checking via `netronome version` command
+
+Script options:
+
+- `--uninstall` - Remove the agent completely
+- `--update` - Update to latest version
+- `--auto-update [true|false]` - Enable/disable automatic updates without prompting
+
+### Client Integration (`internal/vnstat/`)
+
+- **Service Management**: Manages multiple SSE client connections to remote agents
+- **Connection Lifecycle**:
+  1. Agent added via UI/API with base URL (e.g., `http://192.168.1.100:8200`)
+  2. URL automatically formatted to SSE endpoint
+  3. SSE client connects and starts receiving data
+  4. Data parsed and stored in database
+  5. Live data available via status endpoint
+- **Reconnection Strategy**: Exponential backoff from 5s to 5m on connection failure
+- **Authentication**: Sends API key via X-API-Key header if configured
+
+### API Endpoints
+
+- `GET /api/vnstat/agents` - List all configured agents
+- `POST /api/vnstat/agents` - Add new agent
+- `PUT /api/vnstat/agents/:id` - Update agent configuration
+- `DELETE /api/vnstat/agents/:id` - Remove agent
+- `GET /api/vnstat/agents/:id/status` - Get live connection status and current bandwidth
+- `GET /api/vnstat/agents/:id/bandwidth` - Get historical bandwidth data
+- `POST /api/vnstat/agents/:id/start` - Start monitoring an agent
+- `POST /api/vnstat/agents/:id/stop` - Stop monitoring an agent
+
+### Frontend Components
+
+- **VnstatTab**: Main container component with agent list and details view
+- **VnstatAgentList**: Displays all agents with connection status indicators
+- **VnstatAgentForm**: Modal form for adding/editing agents
+- **VnstatAgentDetails**: Shows real-time and historical bandwidth charts
+- **VnstatBandwidthChart**: Recharts-based visualization of bandwidth data
+
+### Configuration
+
+```toml
+[agent]
+host = "0.0.0.0"     # IP address to bind to
+port = 8200          # Port for agent to listen on
+interface = ""       # Network interface to monitor (empty = all)
+api_key = ""         # API key for authentication (optional but recommended)
+
+[vnstat]
+enabled = true       # Enable vnstat client service in main server
+reconnect_interval = "30s"  # Reconnection interval for agent connections
+```
+
+### vnstat Native Data Architecture
+
+Netronome directly uses vnstat's native JSON output for bandwidth calculations, ensuring exact parity with other vnstat-based tools like swizzin panel.
+
+#### Direct vnstat Integration
+
+- **Native JSON Parsing**: Fetches data from agent's `/export/historical` endpoint
+- **No Database Aggregation**: All calculations performed by vnstat itself
+- **Real-time Updates**: SSE stream for live bandwidth monitoring
+- **Historical Accuracy**: Uses vnstat's own hour/day/month/year calculations
+
+#### Unit Display
+
+Netronome uses proper binary units for bandwidth display:
+
+- **Binary Units**: 1 KiB = 1024 bytes, displayed as "KiB", "MiB", "GiB", "TiB", "PiB"
+- **Consistent with vnstat**: vnstat also uses binary units internally
+- **Industry Standard**: Follows IEC binary prefix standards for clarity
+
+This ensures accurate representation of data sizes and bandwidth calculations.
 
 # important-instruction-reminders
 

@@ -104,7 +104,7 @@ export default function Login() {
             Netronome
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-500 pointer-events-none select-none mb-0">
-            network speed testing
+            network performance testing
           </p>
         </div>
 

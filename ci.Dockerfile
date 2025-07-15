@@ -73,10 +73,10 @@ RUN --network=none --mount=target=. \
     [[ "$GOARCH" == "arm" ]] && [[ "$TARGETVARIANT" == "v7" ]] && export GOARM=7; \
     echo "Building for: $GOARCH $GOOS $GOARM$GOAMD64"; \
     go build -ldflags "-s -w \
-    -X netronome/internal/buildinfo.Version=${VERSION} \
-    -X netronome/internal/buildinfo.Commit=${REVISION} \
-    -X netronome/internal/buildinfo.Date=${BUILDTIME}" \
-    -o /app/netronome cmd/netronome/main.go
+    -X 'main.version=${VERSION}' \
+    -X 'main.commit=${REVISION}' \
+    -X 'main.buildTime=${BUILDTIME}'" \
+    -o /app/netronome ./cmd/netronome
 
 FROM alpine:latest
 

@@ -10,6 +10,11 @@ builds:
       - CGO_ENABLED=0
     flags:
       - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.buildTime={{.Date}}
+      - -X main.commit={{.Commit}}
     goos:
       - linux
       - windows
@@ -32,7 +37,7 @@ builds:
         goarch: arm
       - goos: freebsd
         goarch: arm64
-    main: ./cmd/netronome/main.go
+    main: ./cmd/netronome
     binary: netronome
 
 archives:
@@ -41,7 +46,7 @@ archives:
       - netronome
     format_overrides:
       - goos: windows
-        formats: ['zip']
+        formats: ["zip"]
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
@@ -86,25 +91,25 @@ changelog:
       - Merge remote-tracking branch
       - Merge branch
   groups:
-    - title: '🚀 New Features'
+    - title: "🚀 New Features"
       regexp: "^.*feat[(\\w)]*:+.*$"
       order: 0
-    - title: '🐛 Bug Fixes'
+    - title: "🐛 Bug Fixes"
       regexp: "^.*fix[(\\w)]*:+.*$"
       order: 10
-    - title: '🔧 Maintenance'
+    - title: "🔧 Maintenance"
       regexp: "^.*chore[(\\w)]*:+.*$"
       order: 20
-    - title: '🔒 Security'
+    - title: "🔒 Security"
       regexp: "^.*security[(\\w)]*:+.*$"
       order: 30
-    - title: '⚡ Performance'
+    - title: "⚡ Performance"
       regexp: "^.*perf[(\\w)]*:+.*$"
       order: 40
-    - title: '📝 Documentation'
+    - title: "📝 Documentation"
       regexp: "^.*docs[(\\w)]*:+.*$"
       order: 50
-    - title: '🔄 Other Changes'
+    - title: "🔄 Other Changes"
       order: 999
 
 nfpms:

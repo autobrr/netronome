@@ -21,6 +21,7 @@ import (
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
+	"github.com/autobrr/netronome/internal/vnstat"
 	"github.com/autobrr/netronome/web"
 )
 
@@ -30,6 +31,7 @@ type Server struct {
 	Router               *gin.Engine
 	speedtest            speedtest.Service
 	packetLossService    *speedtest.PacketLossService
+	vnstatService        *vnstat.Service
 	db                   database.Service
 	scheduler            scheduler.Service
 	auth                 *AuthHandler
@@ -37,10 +39,11 @@ type Server struct {
 	lastUpdate           *types.SpeedUpdate
 	lastTracerouteUpdate *types.TracerouteUpdate
 	lastPacketLossUpdate *types.PacketLossUpdate
+	lastVnstatUpdate     *types.VnstatUpdate
 	config               *config.Config
 }
 
-func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config, packetLossService *speedtest.PacketLossService) *Server {
+func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config, packetLossService *speedtest.PacketLossService, vnstatService *vnstat.Service) *Server {
 	// Set Gin mode from config
 	if cfg.Server.GinMode != "" {
 		gin.SetMode(cfg.Server.GinMode)
@@ -80,6 +83,7 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 		Router:            router,
 		speedtest:         speedtest,
 		packetLossService: packetLossService,
+		vnstatService:     vnstatService,
 		db:                db,
 		scheduler:         scheduler,
 		auth:              NewAuthHandler(db, oidcConfig, cfg.Session.Secret, cfg.Auth.Whitelist),
@@ -133,9 +137,29 @@ func (s *Server) BroadcastPacketLossUpdate(update types.PacketLossUpdate) {
 		Msg("Broadcasting packet loss update")
 }
 
+func (s *Server) BroadcastVnstatUpdate(update types.VnstatUpdate) {
+	s.mu.Lock()
+	s.lastVnstatUpdate = &update
+	s.mu.Unlock()
+
+	log.Trace().
+		Int64("agentID", update.AgentID).
+		Str("agentName", update.AgentName).
+		Bool("connected", update.Connected).
+		Int64("rxBytesPerSecond", update.RxBytesPerSecond).
+		Int64("txBytesPerSecond", update.TxBytesPerSecond).
+		Msg("Broadcasting vnstat update")
+}
+
 func (s *Server) SetPacketLossService(service *speedtest.PacketLossService) {
 	s.mu.Lock()
 	s.packetLossService = service
+	s.mu.Unlock()
+}
+
+func (s *Server) SetVnstatService(service *vnstat.Service) {
+	s.mu.Lock()
+	s.vnstatService = service
 	s.mu.Unlock()
 }
 
@@ -229,6 +253,20 @@ func (s *Server) RegisterRoutes() {
 				protected.GET("/packetloss/monitors/:id/history", packetLossHandler.GetMonitorHistory)
 				protected.POST("/packetloss/monitors/:id/start", packetLossHandler.StartMonitor)
 				protected.POST("/packetloss/monitors/:id/stop", packetLossHandler.StopMonitor)
+			}
+
+			// Vnstat monitoring routes
+			if s.vnstatService != nil {
+				vnstatHandler := handlers.NewVnstatHandler(s.db, s.vnstatService, &s.config.Vnstat)
+				protected.GET("/vnstat/agents", vnstatHandler.GetAgents)
+				protected.POST("/vnstat/agents", vnstatHandler.CreateAgent)
+				protected.GET("/vnstat/agents/:id", vnstatHandler.GetAgent)
+				protected.PUT("/vnstat/agents/:id", vnstatHandler.UpdateAgent)
+				protected.DELETE("/vnstat/agents/:id", vnstatHandler.DeleteAgent)
+				protected.GET("/vnstat/agents/:id/status", vnstatHandler.GetAgentStatus)
+				protected.POST("/vnstat/agents/:id/start", vnstatHandler.StartAgent)
+				protected.POST("/vnstat/agents/:id/stop", vnstatHandler.StopAgent)
+				protected.GET("/vnstat/agents/:id/native", vnstatHandler.GetAgentNativeVnstat)
 			}
 		}
 	}

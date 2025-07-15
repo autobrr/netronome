@@ -79,6 +79,13 @@ type Service interface {
 	DeletePacketLossMonitor(monitorID int64) error
 	GetPacketLossMonitors() ([]*types.PacketLossMonitor, error)
 	GetPacketLossResults(monitorID int64, limit int) ([]*types.PacketLossResult, error)
+
+	// Vnstat operations
+	CreateVnstatAgent(ctx context.Context, agent *types.VnstatAgent) (*types.VnstatAgent, error)
+	GetVnstatAgent(ctx context.Context, agentID int64) (*types.VnstatAgent, error)
+	GetVnstatAgents(ctx context.Context, enabledOnly bool) ([]*types.VnstatAgent, error)
+	UpdateVnstatAgent(ctx context.Context, agent *types.VnstatAgent) error
+	DeleteVnstatAgent(ctx context.Context, agentID int64) error
 }
 
 type service struct {
@@ -184,7 +191,7 @@ func New(cfg config.DatabaseConfig) Service {
 			log.Fatal().Err(err).Msg("Failed to set database directory permissions")
 		}
 
-		db, err = sql.Open("sqlite", fmt.Sprintf("file:%s?cache=shared&mode=rwc", cfg.Path))
+		db, err = sql.Open("sqlite", fmt.Sprintf("file:%s?cache=shared&mode=rwc&_foreign_keys=on", cfg.Path))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to open SQLite database")
 		}

@@ -18,7 +18,7 @@ port = 7575
 #base_url = "/netronome"
 
 [logging]
-level = "trace" # trace, debug, info, warn, error, fatal, panic
+level = "debug" # trace, debug, info, warn, error, fatal, panic
 
 [auth]
 whitelist = ["127.0.0.1/32", "::1/128"]

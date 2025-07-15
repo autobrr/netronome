@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark bg-[#18181b]">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
@@ -9,19 +9,35 @@
       // Handle empty base URL and template variable cases
       const rawBaseUrl = '{{.BaseURL}}';
       window.__BASE_URL__ = rawBaseUrl.startsWith('{{') || !rawBaseUrl ? '/' : rawBaseUrl;
+      
+      // Initialize theme before page render to prevent flash
+      (function() {
+        const storedTheme = localStorage.getItem('theme');
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        // Apply theme based on stored preference or system theme
+        if (storedTheme === 'dark' || (!storedTheme && systemTheme) || (storedTheme === 'auto' && systemTheme)) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
     </script>
     <style>
+      /* Default light mode background */
       html, body {
-        background-color: #18181b;
+        background-color: #ffffff;
         margin: 0;
         padding: 0;
+      }
+      /* Dark mode background */
+      html.dark, html.dark body {
+        background-color: #18181b;
       }
       #root {
         min-height: 100vh;
       }
     </style>
   </head>
-  <body class="bg-[#18181b]">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

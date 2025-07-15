@@ -4,7 +4,7 @@
   <img src=".github/assets/netronome_dashboard.png" alt="Netronome">
 </p>
 
-Netronome (Network Metronome) is a modern network speed testing and monitoring tool with a clean, intuitive web interface. It offers both scheduled and on-demand speed tests with detailed visualizations and historical tracking.
+Netronome (Network Metronome) is a modern network performance testing and monitoring tool with a clean, intuitive web interface. It offers both scheduled and on-demand speed tests with detailed visualizations and historical tracking.
 
 ## 📑 Table of Contents
 
@@ -38,6 +38,13 @@ Netronome (Network Metronome) is a modern network speed testing and monitoring t
   - **Smart Fallback**: Automatic fallback from MTR to standard ping when privileges unavailable
   - **GeoIP Integration**: Country flags and ASN information for network path visualization
   - **Cross-tab Navigation**: Easy flow between traceroute results and monitor creation
+
+- **Bandwidth Monitoring (vnstat)**
+  - **Distributed Agent Architecture**: Deploy lightweight agents on remote servers
+  - **Real-time SSE Streaming**: Live bandwidth data via Server-Sent Events
+  - **Multi-server Support**: Monitor bandwidth across multiple servers from one dashboard
+  - **Historical Tracking**: Store and visualize bandwidth usage over time
+  - **Auto-reconnection**: Agents automatically reconnect with exponential backoff
 
 - **Monitoring & Visualization**
   - **Speed Test History**: Interactive charts with customizable time ranges (1d, 3d, 1w, 1m, all)
@@ -244,6 +251,168 @@ Example `librespeed-servers.json`:
 
 **Note:** When using Docker, the LibreSpeed CLI tool (`librespeed-cli`) is automatically included in the container.
 
+### Vnstat Bandwidth Monitoring
+
+Netronome includes a distributed bandwidth monitoring system using vnstat agents that can be deployed on remote servers.
+
+#### Agent Setup
+
+The same `netronome` binary can run as a lightweight agent that can be deployed:
+
+- **Remote servers**: Monitor bandwidth across different servers/locations
+- **Same server**: Useful when Netronome runs in Docker but you want to monitor the host system
+
+##### Quick Installation (Recommended)
+
+Use our one-liner installation script for automatic setup with systemd:
+
+```bash
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash
+```
+
+The script will:
+
+- Check for vnstat dependency
+- Prompt for network interface selection
+- Generate or set an API key for authentication
+- Configure the listening address and port
+- Create a systemd service
+- Start the agent automatically
+- Optionally enable automatic daily updates
+
+##### Installation Options
+
+```bash
+# Interactive installation (prompts for all options)
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash
+
+# Enable auto-updates without prompting
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --auto-update true
+
+# Disable auto-updates without prompting
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --auto-update false
+
+# Update existing installation
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --update
+
+# Uninstall
+curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --uninstall
+```
+
+##### Automatic Updates
+
+When enabled, the agent will automatically check for updates daily at a random time (with up to 4 hours delay to prevent server overload). The update process:
+
+1. Checks GitHub releases for newer versions
+2. Downloads and verifies the new binary
+3. Automatically restarts the service
+
+You can check the update status with:
+
+```bash
+# Check update timer status
+systemctl status netronome-agent-update.timer
+
+# View last update attempt
+journalctl -u netronome-agent-update
+
+# Manually trigger update
+/opt/netronome/netronome update
+```
+
+##### Manual Installation
+
+1. **Deploy the Agent**
+
+   ```bash
+   # Run agent on default settings (0.0.0.0:8200)
+   netronome agent
+
+   # Run agent with API key authentication (recommended)
+   netronome agent --api-key your-secret-key
+
+   # Run agent on custom host and port
+   netronome agent --host 192.168.1.100 --port 8300 --api-key your-secret-key
+
+   # Run agent with specific interface
+   netronome agent --interface eth0 --api-key your-secret-key
+
+   # Run with config file
+   netronome agent --config /path/to/config.toml
+   ```
+
+2. **Agent Configuration**
+
+   Add to your `config.toml`:
+
+   ```toml
+   [agent]
+   host = "0.0.0.0"  # IP address to bind to (0.0.0.0 for all interfaces)
+   port = 8200
+   interface = ""    # Empty for all interfaces, or specify like "eth0"
+   api_key = ""      # API key for authentication (recommended)
+
+   [vnstat]
+   enabled = true
+   ```
+
+3. **Add Agents in Netronome UI**
+   - Navigate to the "Bandwidth" tab
+   - Click "Add Agent"
+   - Enter agent details:
+     - Name: Friendly name for the server
+     - URL: `http://server-ip:8200` (agent URL)
+     - API Key: Enter the key configured on the agent (if authentication is enabled)
+     - Enable monitoring: Start monitoring immediately
+
+#### Agent Systemd Service
+
+Create `/etc/systemd/system/netronome-agent.service`:
+
+```ini
+[Unit]
+Description=Netronome vnstat Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=netronome
+Group=netronome
+ExecStart=/usr/local/bin/netronome agent --config /etc/netronome/agent-config.toml
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+
+```bash
+systemctl enable netronome-agent
+systemctl start netronome-agent
+```
+
+#### Security Considerations
+
+- Agents expose bandwidth data via HTTP SSE endpoint
+- No authentication on agent endpoint (rely on network security)
+- Consider using reverse proxy with authentication if exposing to internet
+- Agents are read-only and don't accept commands
+
+#### Data Accuracy and Unit Display
+
+Netronome fetches bandwidth data directly from vnstat's native JSON output, ensuring exact data parity with other vnstat-based tools like swizzin panel.
+
+**Unit Display**: Netronome uses proper binary units following IEC standards:
+
+- **1 KiB = 1024 bytes** (binary kilobyte)
+- **Displayed as**: KiB, MiB, GiB, TiB, PiB
+- **Consistent with vnstat**: vnstat internally uses binary units
+
+This ensures accurate and unambiguous representation of bandwidth data.
+
 ### Environment Variables
 
 | Variable                                            | Description                                                       | Default                                      | Required               |
@@ -290,6 +459,11 @@ Example `librespeed-servers.json`:
 | `NETRONOME__PACKETLOSS_MAX_CONCURRENT_MONITORS`     | Maximum number of monitors that can run simultaneously            | `10`                                         | No                     |
 | `NETRONOME__PACKETLOSS_PRIVILEGED_MODE`             | Use privileged ICMP mode for better accuracy                      | `false`                                      | No                     |
 | `NETRONOME__PACKETLOSS_RESTORE_MONITORS_ON_STARTUP` | **WARNING**: Immediately run ALL enabled monitors on startup      | `false`                                      | No                     |
+| `NETRONOME__AGENT_HOST`                             | Agent server bind address                                         | `0.0.0.0`                                    | No                     |
+| `NETRONOME__AGENT_PORT`                             | Agent server port                                                 | `8200`                                       | No                     |
+| `NETRONOME__AGENT_INTERFACE`                        | Network interface for agent to monitor (empty for all)            | ``                                           | No                     |
+| `NETRONOME__VNSTAT_ENABLED`                         | Enable vnstat client service in main server                       | `true`                                       | No                     |
+| `NETRONOME__VNSTAT_RECONNECT_INTERVAL`              | Reconnection interval for vnstat client connections               | `30s`                                        | No                     |
 
 ### Database
 
@@ -511,6 +685,7 @@ Netronome provides several command-line commands:
 
 - `generate-config` - Generate a default configuration file to `~/.config/netronome/config.toml`
 - `serve` - Starts the Netronome server
+- `agent` - Starts a vnstat SSE agent for bandwidth monitoring
 - `create-user` - Create a new user
 - `change-password` - Change password for an existing user
 
@@ -518,6 +693,9 @@ Examples:
 
 ```bash
 netronome generate-config
+
+# Start vnstat agent with custom settings
+netronome agent --host 192.168.1.100 --port 8300 --interface eth0
 
 # Create a new user (interactive)
 netronome --config /home/username/.config/netronome/config.toml create-user username

@@ -162,3 +162,150 @@ type PacketLossResult struct {
 	PrivilegedMode bool      `db:"privileged_mode" json:"privilegedMode"`
 	CreatedAt      time.Time `db:"created_at" json:"createdAt"`
 }
+
+// VnstatAgent represents a vnstat agent configuration
+type VnstatAgent struct {
+	ID        int64     `db:"id" json:"id"`
+	Name      string    `db:"name" json:"name"`
+	URL       string    `db:"url" json:"url"`
+	APIKey    *string   `db:"api_key" json:"apiKey,omitempty"`
+	Enabled   bool      `db:"enabled" json:"enabled"`
+	Interface *string   `db:"interface" json:"interface,omitempty"`
+	CreatedAt time.Time `db:"created_at" json:"createdAt"`
+	UpdatedAt time.Time `db:"updated_at" json:"updatedAt"`
+}
+
+// VnstatBandwidth represents bandwidth data from vnstat
+type VnstatBandwidth struct {
+	ID                 int64     `db:"id" json:"id"`
+	AgentID            int64     `db:"agent_id" json:"agentId"`
+	RxBytesPerSecond   *int64    `db:"rx_bytes_per_second" json:"rxBytesPerSecond"`
+	TxBytesPerSecond   *int64    `db:"tx_bytes_per_second" json:"txBytesPerSecond"`
+	RxPacketsPerSecond *int      `db:"rx_packets_per_second" json:"rxPacketsPerSecond"`
+	TxPacketsPerSecond *int      `db:"tx_packets_per_second" json:"txPacketsPerSecond"`
+	RxRateString       *string   `db:"rx_rate_string" json:"rxRateString"`
+	TxRateString       *string   `db:"tx_rate_string" json:"txRateString"`
+	CreatedAt          time.Time `db:"created_at" json:"createdAt"`
+}
+
+// VnstatLiveData represents live data from vnstat agent
+type VnstatLiveData struct {
+	Index   int `json:"index"`
+	Seconds int `json:"seconds"`
+	Rx      struct {
+		Ratestring       string `json:"ratestring"`
+		Bytespersecond   int    `json:"bytespersecond"`
+		Packetspersecond int    `json:"packetspersecond"`
+		Bytes            int    `json:"bytes"`
+		Packets          int    `json:"packets"`
+		Totalbytes       int    `json:"totalbytes"`
+		Totalpackets     int    `json:"totalpackets"`
+	} `json:"rx"`
+	Tx struct {
+		Ratestring       string `json:"ratestring"`
+		Bytespersecond   int    `json:"bytespersecond"`
+		Packetspersecond int    `json:"packetspersecond"`
+		Bytes            int    `json:"bytes"`
+		Packets          int    `json:"packets"`
+		Totalbytes       int    `json:"totalbytes"`
+		Totalpackets     int    `json:"totalpackets"`
+	} `json:"tx"`
+}
+
+// VnstatFullData represents the complete vnstat JSON export structure
+type VnstatFullData struct {
+	Vnstatversion string `json:"vnstatversion"`
+	Jsonversion   string `json:"jsonversion"`
+	Interfaces    []struct {
+		Name    string `json:"name"`
+		Alias   string `json:"alias"`
+		Created struct {
+			Date struct {
+				Year  int `json:"year"`
+				Month int `json:"month"`
+				Day   int `json:"day"`
+			} `json:"date"`
+		} `json:"created"`
+		Updated struct {
+			Date struct {
+				Year  int `json:"year"`
+				Month int `json:"month"`
+				Day   int `json:"day"`
+			} `json:"date"`
+			Time struct {
+				Hour   int `json:"hour"`
+				Minute int `json:"minute"`
+			} `json:"time"`
+		} `json:"updated"`
+		Traffic struct {
+			Total struct {
+				Rx int64 `json:"rx"`
+				Tx int64 `json:"tx"`
+			} `json:"total"`
+			Fiveminute []struct {
+				ID   int `json:"id"`
+				Date struct {
+					Year  int `json:"year"`
+					Month int `json:"month"`
+					Day   int `json:"day"`
+				} `json:"date"`
+				Time struct {
+					Hour   int `json:"hour"`
+					Minute int `json:"minute"`
+				} `json:"time"`
+				Rx int64 `json:"rx"`
+				Tx int64 `json:"tx"`
+			} `json:"fiveminute"`
+			Hour []struct {
+				ID   int `json:"id"`
+				Date struct {
+					Year  int `json:"year"`
+					Month int `json:"month"`
+					Day   int `json:"day"`
+				} `json:"date"`
+				Hour int   `json:"hour"`
+				Rx   int64 `json:"rx"`
+				Tx   int64 `json:"tx"`
+			} `json:"hour"`
+			Day []struct {
+				ID   int `json:"id"`
+				Date struct {
+					Year  int `json:"year"`
+					Month int `json:"month"`
+					Day   int `json:"day"`
+				} `json:"date"`
+				Rx int64 `json:"rx"`
+				Tx int64 `json:"tx"`
+			} `json:"day"`
+			Month []struct {
+				ID   int `json:"id"`
+				Date struct {
+					Year  int `json:"year"`
+					Month int `json:"month"`
+				} `json:"date"`
+				Rx int64 `json:"rx"`
+				Tx int64 `json:"tx"`
+			} `json:"month"`
+			Year []struct {
+				ID   int `json:"id"`
+				Date struct {
+					Year int `json:"year"`
+				} `json:"date"`
+				Rx int64 `json:"rx"`
+				Tx int64 `json:"tx"`
+			} `json:"year"`
+		} `json:"traffic"`
+	} `json:"interfaces"`
+}
+
+// VnstatUpdate represents real-time vnstat updates
+type VnstatUpdate struct {
+	Type             string `json:"type"`
+	AgentID          int64  `json:"agentId"`
+	AgentName        string `json:"agentName"`
+	RxBytesPerSecond int64  `json:"rxBytesPerSecond"`
+	TxBytesPerSecond int64  `json:"txBytesPerSecond"`
+	RxRateString     string `json:"rxRateString"`
+	TxRateString     string `json:"txRateString"`
+	Connected        bool   `json:"connected"`
+}
