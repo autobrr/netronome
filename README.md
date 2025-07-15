@@ -269,39 +269,39 @@ The same `netronome` binary can run as a lightweight agent that can be deployed:
 
 ##### Quick Installation (Recommended)
 
-Use our one-liner installation script for automatic setup with systemd:
+Use our interactive one-liner installation script for automatic setup:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash
+curl -sL https://netrono.me/install-agent | bash
 ```
 
-The script will:
+The script provides a **fully interactive installation** experience and will:
 
 - Check for vnstat dependency
-- Prompt for network interface selection
-- Generate or set an API key for authentication
-- Configure the listening address and port
-- Create a systemd service
+- **Interactively prompt** for network interface selection
+- **Interactively choose** API key configuration (generate, custom, or none)
+- **Interactively configure** listening address and port
+- Create a systemd/launchd service
 - Start the agent automatically
-- Optionally enable automatic daily updates
+- **Interactively enable** automatic daily updates
 
 ##### Installation Options
 
 ```bash
-# Interactive installation (prompts for all options)
-curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash
+# Interactive installation (prompts for all options) - RECOMMENDED
+curl -sL https://netrono.me/install-agent | bash
 
-# Enable auto-updates without prompting
-curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --auto-update true
+# Enable auto-updates without prompting (non-interactive)
+curl -sL https://netrono.me/install-agent | bash -s -- --auto-update true
 
-# Disable auto-updates without prompting
-curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --auto-update false
+# Disable auto-updates without prompting (non-interactive)
+curl -sL https://netrono.me/install-agent | bash -s -- --auto-update false
 
 # Update existing installation
-curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --update
+curl -sL https://netrono.me/install-agent | bash -s -- --update
 
 # Uninstall
-curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --uninstall
+curl -sL https://netrono.me/install-agent | bash -s -- --uninstall
 ```
 
 ##### Automatic Updates
