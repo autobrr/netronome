@@ -17,17 +17,17 @@
     "deny": []
   },
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "uv run .claude/hooks/pre_tool_use.py"
-          }
-        ]
-      }
-    ],
+    //"PreToolUse": [
+    //  {
+    //    "matcher": "",
+    //    "hooks": [
+    //      {
+    //        "type": "command",
+    //        "command": "uv run .claude/hooks/pre_tool_use.py"
+    //      }
+    //    ]
+    //  }
+    //],
     "PostToolUse": [
       {
         "matcher": "",
