@@ -103,13 +103,18 @@ get_network_interfaces() {
 check_root() {
     if [ "$OS" = "darwin" ]; then
         if [ "$EUID" -ne 0 ] && ! sudo -n true 2>/dev/null; then 
-            print_color $RED "This script requires sudo privileges on macOS"
-            print_color $YELLOW "Please run: sudo $0 $@"
-            exit 1
+            print_color $YELLOW "This script requires sudo privileges for installation."
+            print_color $YELLOW "You will be prompted for your password when needed."
+            # Test sudo access early but don't exit if it fails
+            if ! sudo -v 2>/dev/null; then
+                print_color $RED "Failed to obtain sudo privileges"
+                exit 1
+            fi
         fi
     else
         if [ "$EUID" -ne 0 ]; then 
             print_color $RED "This script must be run as root on Linux"
+            print_color $YELLOW "Please run: sudo $0"
             exit 1
         fi
     fi
@@ -189,8 +194,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Check root/sudo
-check_root
+# Check root/sudo privileges for uninstall and update operations
+if [ "$UNINSTALL" = true ] || [ "$UPDATE" = true ]; then
+    check_root
+fi
 
 # Uninstall function
 if [ "$UNINSTALL" = true ]; then
@@ -275,6 +282,9 @@ print_color $BLUE "Netronome Agent Installation Script"
 print_color $BLUE "==================================="
 echo ""
 
+# Check root/sudo privileges
+check_root
+
 # Check for required dependencies
 print_color $YELLOW "Checking dependencies..."
 if ! command -v vnstat &> /dev/null; then
@@ -298,9 +308,9 @@ if [ -t 0 ]; then
     # Interactive mode
     read -p "Enter the interface to monitor (leave empty for all): " INTERFACE
 else
-    # Non-interactive mode (e.g., piped input)
-    read INTERFACE
-    echo "Interface: ${INTERFACE:-all}"
+    # Non-interactive mode - default to all interfaces
+    INTERFACE=""
+    echo "Interface: ${INTERFACE:-all} (auto-selected)"
 fi
 
 # Get API key
@@ -314,9 +324,9 @@ if [ -t 0 ]; then
     # Interactive mode
     read -p "Select an option [1-3]: " API_KEY_OPTION
 else
-    # Non-interactive mode
-    read API_KEY_OPTION
-    echo "Selected option: $API_KEY_OPTION"
+    # Non-interactive mode - default to generating a random API key
+    API_KEY_OPTION="1"
+    echo "Selected option: $API_KEY_OPTION (auto-selected: Generate random API key)"
 fi
 
 case $API_KEY_OPTION in
@@ -353,14 +363,11 @@ if [ -t 0 ]; then
     read -p "Enter the port number (default: $DEFAULT_PORT): " PORT
     PORT=${PORT:-$DEFAULT_PORT}
 else
-    # Non-interactive mode
-    read HOST
-    HOST=${HOST:-$DEFAULT_HOST}
-    echo "Host: $HOST"
-    
-    read PORT
-    PORT=${PORT:-$DEFAULT_PORT}
-    echo "Port: $PORT"
+    # Non-interactive mode - use defaults
+    HOST=$DEFAULT_HOST
+    PORT=$DEFAULT_PORT
+    echo "Host: $HOST (auto-selected)"
+    echo "Port: $PORT (auto-selected)"
 fi
 
 # Create user if it doesn't exist
@@ -571,9 +578,9 @@ if [ "$SERVICE_RUNNING" = true ]; then
             # Interactive mode
             read -p "Would you like to enable automatic daily updates? (y/n): " AUTO_UPDATE
         else
-            # Non-interactive mode
-            read AUTO_UPDATE
-            echo "Auto-update: $AUTO_UPDATE"
+            # Non-interactive mode - default to yes for auto-updates
+            AUTO_UPDATE="y"
+            echo "Auto-update: $AUTO_UPDATE (auto-selected: yes)"
         fi
     elif [ "$AUTO_UPDATE_FLAG" = "true" ]; then
         AUTO_UPDATE="y"
