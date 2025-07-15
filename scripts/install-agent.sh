@@ -282,6 +282,15 @@ print_color $BLUE "Netronome Agent Installation Script"
 print_color $BLUE "==================================="
 echo ""
 
+# Check if running interactively and inform user
+if [ ! -t 0 ]; then
+    print_color $YELLOW "Running in non-interactive mode with auto-selected defaults."
+    print_color $YELLOW "For interactive installation, download and run the script directly:"
+    print_color $BLUE "  curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh -o install-agent.sh"
+    print_color $BLUE "  chmod +x install-agent.sh && ./install-agent.sh"
+    echo ""
+fi
+
 # Check root/sudo privileges
 check_root
 
@@ -569,6 +578,7 @@ if [ "$SERVICE_RUNNING" = true ]; then
     
     echo "Update agent:     sudo $INSTALL_DIR/netronome update"
     echo "Check version:    $INSTALL_DIR/netronome version"
+    echo "Uninstall agent:  curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --uninstall"
     echo ""
     
     # Prompt for auto-update setup (unless flag was provided)
