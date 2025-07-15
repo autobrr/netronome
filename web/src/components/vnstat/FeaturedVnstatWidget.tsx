@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "motion/react";
 import { ServerIcon } from "@heroicons/react/24/outline";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
@@ -13,6 +13,7 @@ import { parseVnstatUsagePeriods } from "@/utils/vnstatParser";
 import { getAgentIcon } from "@/utils/agentIcons";
 import { formatBytes } from "@/utils/formatBytes";
 import { useVnstatAgent } from "@/hooks/useVnstatAgent";
+import { VnstatUsageModal } from "./VnstatUsageModal";
 
 interface FeaturedVnstatWidgetProps {
   onNavigateToVnstat: () => void;
@@ -21,6 +22,8 @@ interface FeaturedVnstatWidgetProps {
 export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = ({
   onNavigateToVnstat,
 }) => {
+  const [selectedAgent, setSelectedAgent] = useState<VnstatAgent | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   // Get featured agent IDs from localStorage
   const getFeaturedAgentIds = (): number[] => {
     try {
@@ -67,9 +70,26 @@ export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = ({
             key={agent.id}
             agent={agent}
             onNavigateToVnstat={onNavigateToVnstat}
+            onOpenModal={() => {
+              setSelectedAgent(agent);
+              setIsModalOpen(true);
+            }}
           />
         ))}
       </div>
+
+      {/* Usage Modal */}
+      {selectedAgent && (
+        <VnstatUsageModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            // Clear selected agent after animation completes
+            setTimeout(() => setSelectedAgent(null), 200);
+          }}
+          agent={selectedAgent}
+        />
+      )}
     </motion.div>
   );
 };
@@ -77,11 +97,13 @@ export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = ({
 interface FeaturedAgentCardProps {
   agent: VnstatAgent;
   onNavigateToVnstat: () => void;
+  onOpenModal: () => void;
 }
 
 const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
   agent,
   onNavigateToVnstat,
+  onOpenModal,
 }) => {
   // Use the shared hook for agent data
   const { status, nativeData } = useVnstatAgent({
@@ -95,7 +117,7 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
     <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      onClick={onNavigateToVnstat}
+      onClick={onOpenModal}
       className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-4 shadow-lg border border-gray-200 dark:border-gray-800 cursor-pointer transition-all duration-200 hover:shadow-xl hover:border-gray-300 dark:hover:border-gray-700"
     >
       {/* Header with agent name, status and icon */}
