@@ -29,8 +29,8 @@ port = 7576
 [logging]
 level = "debug" # trace, debug, info, warn, error, fatal, panic
 
-#[auth]
-#whitelist = ["127.0.0.1/32", "::1/128"]
+[auth]
+whitelist = ["127.0.0.1/32", "::1/128"]
 
 [oidc]
 issuer = ""
@@ -43,10 +43,8 @@ timeout = 30
 
 [speedtest.iperf]
 test_duration = 10
-parallel_conns = 4
+parallel_conns = 10
 timeout = 30
-enable_udp = true
-udp_bandwidth = "100M"
 
 [speedtest.iperf.ping]
 count = 5
@@ -76,3 +74,10 @@ ping_threshold = 2
 upload_threshold = 2000
 download_threshold = 2000
 discord_mention_id = ""
+
+[packetloss]
+enabled = true
+default_interval = 3600
+default_packet_count = 10
+max_concurrent_monitors = 10
+privileged_mode = true

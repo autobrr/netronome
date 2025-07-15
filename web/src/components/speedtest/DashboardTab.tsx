@@ -7,6 +7,8 @@ import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { SpeedTestResult, TimeRange } from "@/types/types";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
+import { MetricCard } from "@/components/common/MetricCard";
+import { FeaturedVnstatWidget } from "@/components/vnstat/FeaturedVnstatWidget";
 import { FaWaveSquare, FaShare, FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
 import { Disclosure, DisclosureButton } from "@headlessui/react";
@@ -20,33 +22,9 @@ interface DashboardTabProps {
   isPublic?: boolean;
   hasAnyTests?: boolean;
   onShareClick?: () => void;
+  onNavigateToSpeedTest?: () => void;
+  onNavigateToVnstat?: () => void;
 }
-
-const MetricCard: React.FC<{
-  icon: React.ReactNode;
-  title: string;
-  value: string;
-  unit: string;
-  average?: string;
-}> = ({ icon, title, value, unit, average }) => (
-  <div className="bg-gray-50/95 dark:bg-gray-850/95 p-4 rounded-xl border border-gray-200 dark:border-gray-900 shadow-lg">
-    <div className="flex items-center gap-3 mb-2">
-      <div className="text-gray-600 dark:text-gray-400">{icon}</div>
-      <h3 className="text-gray-700 dark:text-gray-300 font-medium">{title}</h3>
-    </div>
-    <div className="flex items-baseline gap-2">
-      <span className="text-2xl font-bold text-gray-900 dark:text-white">
-        {value}
-      </span>
-      <span className="text-gray-600 dark:text-gray-400">{unit}</span>
-    </div>
-    {average && (
-      <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-        Average: {average} {unit}
-      </div>
-    )}
-  </div>
-);
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({
   latestTest,
@@ -56,6 +34,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   isPublic = false,
   hasAnyTests = false,
   onShareClick,
+  onNavigateToSpeedTest,
+  onNavigateToVnstat,
 }) => {
   const [displayCount, setDisplayCount] = useState(5);
   const [isRecentTestsOpen] = useState(() => {
@@ -93,6 +73,55 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* No History Available message */}
+      {!hasAnyTests && (
+        <div className="max-w-xl mx-auto bg-gray-50/95 dark:bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900">
+          <div className="text-center space-y-4">
+            <div>
+              <h2 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">
+                No History Available
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Start monitoring your network performance
+              </p>
+            </div>
+
+            {/* Empty Chart Visualization */}
+            <div className="my-6">
+              <div className="flex items-end justify-center gap-2 h-24">
+                {[40, 60, 35, 70, 45, 55, 65].map((height, i) => (
+                  <div
+                    key={i}
+                    className="w-8 bg-gray-300/50 dark:bg-gray-700/50 rounded-t-sm transition-all duration-500"
+                    style={{ height: `${height}%`, opacity: 0.3 + i * 0.1 }}
+                  />
+                ))}
+              </div>
+              <div className="border-t border-gray-300/50 dark:border-gray-700/50 mt-2" />
+            </div>
+
+            <div className="max-w-md mx-auto">
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                Go to the{" "}
+                <button
+                  onClick={onNavigateToSpeedTest}
+                  className="inline-flex items-center mx-1 px-2 py-1 rounded-lg transition-colors text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20"
+                  disabled={!onNavigateToSpeedTest}
+                >
+                  Speed Test tab
+                </button>{" "}
+                to run manual tests or set up automated schedules
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Featured Vnstat Widget - only show if callback is provided */}
+      {onNavigateToVnstat && (
+        <FeaturedVnstatWidget onNavigateToVnstat={onNavigateToVnstat} />
+      )}
+
       {/* Latest Results */}
       {hasAnyTests && latestTest && (
         <motion.div
@@ -298,10 +327,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                                   ? `${test.jitter.toFixed(1)}ms`
                                   : "—"}
                               </td>
-                              <td className="py-3 px-2 text-right text-green-600 dark:text-green-400 font-mono">
+                              <td className="py-3 px-2 text-right text-blue-600 dark:text-blue-400 font-mono">
                                 {formatSpeed(test.downloadSpeed)}
                               </td>
-                              <td className="py-3 px-2 text-right text-blue-600 dark:text-blue-400 font-mono">
+                              <td className="py-3 px-2 text-right text-emerald-600 dark:text-emerald-400 font-mono">
                                 {formatSpeed(test.uploadSpeed)}
                               </td>
                             </motion.tr>
@@ -374,7 +403,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                               <span className="text-gray-600 dark:text-gray-400">
                                 Download:
                               </span>
-                              <span className="text-green-600 dark:text-green-400 font-mono">
+                              <span className="text-blue-600 dark:text-blue-400 font-mono">
                                 {formatSpeed(test.downloadSpeed)}
                               </span>
                             </div>
@@ -382,7 +411,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                               <span className="text-gray-600 dark:text-gray-400">
                                 Upload:
                               </span>
-                              <span className="text-blue-600 dark:text-blue-400 font-mono">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-mono">
                                 {formatSpeed(test.uploadSpeed)}
                               </span>
                             </div>

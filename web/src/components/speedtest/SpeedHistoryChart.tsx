@@ -49,7 +49,7 @@ const ChartSkeleton: React.FC = () => (
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    className="animate-pulse h-full w-full"
+    className="animate-ping h-full w-full"
   >
     <div className="h-full w-full bg-gray-200/50 dark:bg-gray-800/50 rounded-lg" />
   </motion.div>
@@ -197,20 +197,20 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         >
           <defs>
             <linearGradient id="downloadGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+              <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="uploadGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+              <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="latencyGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+              <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="jitterGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#9333EA" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#9333EA" stopOpacity={0} />
+              <stop offset="5%" stopColor="#c084fc" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#c084fc" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid
@@ -227,7 +227,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
             tick={{ fontSize: isMobile ? 11 : 12, fill: "var(--chart-text)" }}
             tickFormatter={(value) => {
               const date = new Date(value);
-              
+
               // Dynamic formatting based on time range
               switch (timeRange) {
                 case "1d":
@@ -243,7 +243,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     hour: "numeric",
                     minute: "2-digit",
                   });
-                  
+
                 case "3d":
                   // 3 days: show day and time
                   if (isMobile) {
@@ -257,7 +257,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     hour: "numeric",
                     minute: "2-digit",
                   });
-                  
+
                 case "1w":
                   // 1 week: show date with optional time on desktop
                   if (isMobile) {
@@ -271,7 +271,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     month: "short",
                     day: "numeric",
                   });
-                  
+
                 case "1m":
                   // 1 month: show date
                   if (isMobile) {
@@ -284,12 +284,12 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     month: "short",
                     day: "numeric",
                   });
-                  
+
                 case "all":
                   // All time: show date with year if needed
                   const now = new Date();
                   const showYear = date.getFullYear() !== now.getFullYear();
-                  
+
                   if (isMobile) {
                     return date.toLocaleString(undefined, {
                       month: "short",
@@ -302,7 +302,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     day: "numeric",
                     year: showYear ? "numeric" : undefined,
                   });
-                  
+
                 default:
                   // Fallback to time-based format
                   return date.toLocaleTimeString(undefined, {
@@ -406,13 +406,15 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   isPublic &&
                   (data.testType === "iperf3" ||
                     data.testType === "librespeed");
-                
-                const formattedDate = data.timestamp || new Date(label).toLocaleString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "numeric",
-                });
+
+                const formattedDate =
+                  data.timestamp ||
+                  new Date(label).toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "numeric",
+                  });
 
                 return (
                   <>
@@ -458,12 +460,12 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               type="monotone"
               dataKey="download"
               name="Download"
-              stroke="#3B82F6"
+              stroke="#60a5fa"
               strokeWidth={3}
               dot={false}
               activeDot={{ r: 6 }}
               fill="url(#downloadGradient)"
-              className="!stroke-blue-500"
+              className="!stroke-blue-400"
               animationDuration={1750}
               animationBegin={0}
               isAnimationActive={true}
@@ -477,12 +479,12 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               type="monotone"
               dataKey="upload"
               name="Upload"
-              stroke="#10B981"
+              stroke="#34d399"
               strokeWidth={3}
               dot={false}
               activeDot={{ r: 6 }}
               fill="url(#uploadGradient)"
-              className="!stroke-emerald-500"
+              className="!stroke-emerald-400"
               animationDuration={1750}
               animationBegin={0}
               isAnimationActive={true}
@@ -496,12 +498,12 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               type="monotone"
               dataKey="latency"
               name="Latency"
-              stroke="#F59E0B"
+              stroke="#fbbf24"
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 6 }}
               fill="url(#latencyGradient)"
-              className="!stroke-amber-500"
+              className="!stroke-amber-400"
               strokeDasharray="3 3"
               animationDuration={1750}
               animationBegin={0}
@@ -515,7 +517,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               type="monotone"
               dataKey="jitter"
               name="Jitter"
-              stroke="#9333EA"
+              stroke="#c084fc"
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 6 }}
@@ -596,13 +598,13 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                         },
                         {
                           key: "latency",
-                          color: "#f59e0b",
+                          color: "#fbbf24",
                           label: "Latency",
                           icon: <FaClock size={14} />,
                         },
                         {
                           key: "jitter",
-                          color: "#a855f7",
+                          color: "#c084fc",
                           label: "Jitter",
                           icon: <FaWaveSquare size={14} />,
                         },
@@ -647,7 +649,9 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                               layout
                               className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
                               style={{
-                                backgroundColor: isActive ? color : "var(--chart-text)",
+                                backgroundColor: isActive
+                                  ? color
+                                  : "var(--chart-text)",
                               }}
                             />
                             <span className="hidden sm:inline">{label}</span>

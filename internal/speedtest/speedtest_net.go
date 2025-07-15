@@ -103,6 +103,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 				Progress:    100,
 				IsComplete:  false,
 				IsScheduled: opts.IsScheduled,
+				TestType:    "speedtest",
 			})
 		}
 	}); err != nil {
@@ -119,6 +120,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 			Progress:    100,
 			IsComplete:  false,
 			IsScheduled: opts.IsScheduled,
+			TestType:    "speedtest",
 		})
 	}
 
@@ -147,6 +149,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 						Progress:    progress,
 						IsComplete:  progress >= 100,
 						IsScheduled: opts.IsScheduled,
+						TestType:    "speedtest",
 					})
 					lastUpdate.Store(now)
 				}
@@ -174,6 +177,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 				Progress:    100,
 				IsComplete:  true,
 				IsScheduled: opts.IsScheduled,
+				TestType:    "speedtest",
 			})
 		}
 	}
@@ -203,6 +207,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 						Progress:    progress,
 						IsComplete:  progress >= 100,
 						IsScheduled: opts.IsScheduled,
+						TestType:    "speedtest",
 					})
 					lastUpdate.Store(now)
 				}
@@ -230,6 +235,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 				Progress:    100,
 				IsComplete:  true,
 				IsScheduled: opts.IsScheduled,
+				TestType:    "speedtest",
 			})
 		}
 
@@ -241,6 +247,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 				Progress:    100,
 				IsComplete:  true,
 				IsScheduled: opts.IsScheduled,
+				TestType:    "speedtest",
 			})
 		}
 	}

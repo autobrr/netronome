@@ -25,6 +25,21 @@ func NewNotifier(cfg *config.NotificationConfig) *Notifier {
 	return &Notifier{Cfg: cfg}
 }
 
+// PacketLossNotification represents packet loss monitoring data for notifications
+type PacketLossNotification struct {
+	MonitorName string
+	Host        string
+	PacketLoss  float64
+	Threshold   float64
+	AvgRTT      float64 // in milliseconds
+	MinRTT      float64 // in milliseconds
+	MaxRTT      float64 // in milliseconds
+	PacketsSent int
+	PacketsRecv int
+	UsedMTR     bool
+	HopCount    int
+}
+
 func (n *Notifier) SendNotification(result *types.SpeedTestResult) {
 	if !n.Cfg.Enabled || n.Cfg.WebhookURL == "" {
 		return
@@ -32,17 +47,20 @@ func (n *Notifier) SendNotification(result *types.SpeedTestResult) {
 
 	alerts := n.checkThresholds(result)
 
-	payload := n.buildPayload(result, alerts)
+	// Only send notification if there are threshold breaches
+	if len(alerts) > 0 {
+		payload := n.buildPayload(result, alerts)
 
-	if err := n.sendWebhook(payload); err != nil {
-		log.Error().Err(err).Msg("Failed to send notification")
+		if err := n.sendWebhook(payload); err != nil {
+			log.Error().Err(err).Msg("Failed to send notification")
+		}
 	}
 }
 
 func (n *Notifier) checkThresholds(result *types.SpeedTestResult) []string {
 	var alerts []string
 
-	latency, err := strconv.ParseFloat(strings.TrimSuffix(result.Latency, "ms"), 64)
+	latency, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimSuffix(result.Latency, "ms")), 64)
 	if err != nil {
 		log.Warn().Err(err).Msg("could not parse latency")
 	} else {
@@ -124,4 +142,56 @@ func (n *Notifier) sendWebhook(payload map[string]interface{}) error {
 
 	log.Info().Msg("Notification sent successfully")
 	return nil
+}
+
+// SendPacketLossNotification sends a notification specifically for packet loss monitoring
+func (n *Notifier) SendPacketLossNotification(data *PacketLossNotification) {
+	if !n.Cfg.Enabled || n.Cfg.WebhookURL == "" {
+		return
+	}
+
+	// Build packet loss specific payload
+	payload := n.buildPacketLossPayload(data)
+
+	if err := n.sendWebhook(payload); err != nil {
+		log.Error().Err(err).Msg("Failed to send packet loss notification")
+	}
+}
+
+// buildPacketLossPayload creates a Discord/webhook payload for packet loss alerts
+func (n *Notifier) buildPacketLossPayload(data *PacketLossNotification) map[string]interface{} {
+	// Determine test mode string
+	testMode := "Ping"
+	if data.UsedMTR {
+		testMode = fmt.Sprintf("MTR (%d hops)", data.HopCount)
+	}
+
+	// Create embed fields
+	fields := []map[string]interface{}{
+		{"name": "Monitor", "value": data.MonitorName, "inline": false},
+		{"name": "Host", "value": data.Host, "inline": false},
+		{"name": "Packet Loss", "value": fmt.Sprintf("%.1f%% (threshold: %.1f%%)", data.PacketLoss, data.Threshold), "inline": false},
+		{"name": "Average RTT", "value": fmt.Sprintf("%.1fms", data.AvgRTT), "inline": true},
+		{"name": "Min/Max RTT", "value": fmt.Sprintf("%.1fms / %.1fms", data.MinRTT, data.MaxRTT), "inline": true},
+		{"name": "Packets", "value": fmt.Sprintf("%d/%d received", data.PacketsRecv, data.PacketsSent), "inline": false},
+		{"name": "Test Mode", "value": testMode, "inline": true},
+	}
+
+	embed := map[string]interface{}{
+		"title":       "Packet Loss Alert",
+		"description": fmt.Sprintf("Monitor \"%s\" has exceeded the packet loss threshold", data.MonitorName),
+		"color":       0xff0000, // Red for alert
+		"fields":      fields,
+	}
+
+	// Add mention if configured
+	content := ""
+	if n.Cfg.DiscordMentionID != "" {
+		content = fmt.Sprintf("<@%s>", n.Cfg.DiscordMentionID)
+	}
+
+	return map[string]interface{}{
+		"content": content,
+		"embeds":  []map[string]interface{}{embed},
+	}
 }

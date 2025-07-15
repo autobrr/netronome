@@ -62,3 +62,11 @@ GeoLite2-Country-CSV.zip
 GeoLite2-ASN-CSV.zip
 GeoLite2-City-CSV.zip
 GeoLite2-Country-CSV.zip
+
+# Log files
+logs/
+test.py
+scripts/debug-agent.sh
+scripts/test-macos-agent.sh
+scripts/test-agent-manual.sh
+future_plans.md

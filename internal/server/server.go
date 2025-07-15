@@ -21,24 +21,29 @@ import (
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
+	"github.com/autobrr/netronome/internal/vnstat"
 	"github.com/autobrr/netronome/web"
 )
 
 var _ broadcaster.Broadcaster = &Server{}
 
 type Server struct {
-	Router              *gin.Engine
-	speedtest           speedtest.Service
-	db                  database.Service
-	scheduler           scheduler.Service
-	auth                *AuthHandler
-	mu                  sync.RWMutex
-	lastUpdate          *types.SpeedUpdate
+	Router               *gin.Engine
+	speedtest            speedtest.Service
+	packetLossService    *speedtest.PacketLossService
+	vnstatService        *vnstat.Service
+	db                   database.Service
+	scheduler            scheduler.Service
+	auth                 *AuthHandler
+	mu                   sync.RWMutex
+	lastUpdate           *types.SpeedUpdate
 	lastTracerouteUpdate *types.TracerouteUpdate
-	config              *config.Config
+	lastPacketLossUpdate *types.PacketLossUpdate
+	lastVnstatUpdate     *types.VnstatUpdate
+	config               *config.Config
 }
 
-func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config) *Server {
+func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config, packetLossService *speedtest.PacketLossService, vnstatService *vnstat.Service) *Server {
 	// Set Gin mode from config
 	if cfg.Server.GinMode != "" {
 		gin.SetMode(cfg.Server.GinMode)
@@ -75,21 +80,18 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 	})
 
 	s := &Server{
-		Router:     router,
-		speedtest:  speedtest,
-		db:         db,
-		scheduler:  scheduler,
-		auth:       NewAuthHandler(db, oidcConfig, cfg.Session.Secret, cfg.Auth.Whitelist),
-		lastUpdate: &types.SpeedUpdate{},
-		config:     cfg,
+		Router:            router,
+		speedtest:         speedtest,
+		packetLossService: packetLossService,
+		vnstatService:     vnstatService,
+		db:                db,
+		scheduler:         scheduler,
+		auth:              NewAuthHandler(db, oidcConfig, cfg.Session.Secret, cfg.Auth.Whitelist),
+		lastUpdate:        &types.SpeedUpdate{},
+		config:            cfg,
 	}
 
-	// Register API routes first
-	s.RegisterRoutes()
-
-	// Use build.go for static file serving with embedded filesystem
-	web.ServeStatic(router)
-
+	// Don't register routes here - let the caller do it after setting up packet loss service
 	return s
 }
 
@@ -98,7 +100,7 @@ func (s *Server) BroadcastUpdate(update types.SpeedUpdate) {
 	s.lastUpdate = &update
 	s.mu.Unlock()
 
-	log.Debug().
+	log.Trace().
 		Bool("isScheduled", update.IsScheduled).
 		Str("type", update.Type).
 		Str("server", update.ServerName).
@@ -118,6 +120,55 @@ func (s *Server) BroadcastTracerouteUpdate(update types.TracerouteUpdate) {
 		Int("totalHops", update.TotalHops).
 		Float64("progress", update.Progress).
 		Msg("Broadcasting traceroute update")
+}
+
+func (s *Server) BroadcastPacketLossUpdate(update types.PacketLossUpdate) {
+	s.mu.Lock()
+	s.lastPacketLossUpdate = &update
+	s.mu.Unlock()
+
+	log.Debug().
+		Int64("monitorID", update.MonitorID).
+		Str("type", update.Type).
+		Str("host", update.Host).
+		Bool("isRunning", update.IsRunning).
+		Bool("isComplete", update.IsComplete).
+		Float64("packetLoss", update.PacketLoss).
+		Msg("Broadcasting packet loss update")
+}
+
+func (s *Server) BroadcastVnstatUpdate(update types.VnstatUpdate) {
+	s.mu.Lock()
+	s.lastVnstatUpdate = &update
+	s.mu.Unlock()
+
+	log.Trace().
+		Int64("agentID", update.AgentID).
+		Str("agentName", update.AgentName).
+		Bool("connected", update.Connected).
+		Int64("rxBytesPerSecond", update.RxBytesPerSecond).
+		Int64("txBytesPerSecond", update.TxBytesPerSecond).
+		Msg("Broadcasting vnstat update")
+}
+
+func (s *Server) SetPacketLossService(service *speedtest.PacketLossService) {
+	s.mu.Lock()
+	s.packetLossService = service
+	s.mu.Unlock()
+}
+
+func (s *Server) SetVnstatService(service *vnstat.Service) {
+	s.mu.Lock()
+	s.vnstatService = service
+	s.mu.Unlock()
+}
+
+func (s *Server) Initialize() {
+	// Register API routes
+	s.RegisterRoutes()
+
+	// Use build.go for static file serving with embedded filesystem
+	web.ServeStatic(s.Router)
 }
 
 func (s *Server) StartScheduler(ctx context.Context) {
@@ -190,6 +241,33 @@ func (s *Server) RegisterRoutes() {
 			protected.POST("/iperf/servers", iperfHandler.SaveServer)
 			protected.GET("/iperf/servers", iperfHandler.GetServers)
 			protected.DELETE("/iperf/servers/:id", iperfHandler.DeleteServer)
+
+			// Packet Loss monitoring routes
+			if s.packetLossService != nil {
+				packetLossHandler := handlers.NewPacketLossHandler(s.db, s.packetLossService, s.scheduler)
+				protected.GET("/packetloss/monitors", packetLossHandler.GetMonitors)
+				protected.POST("/packetloss/monitors", packetLossHandler.CreateMonitor)
+				protected.PUT("/packetloss/monitors/:id", packetLossHandler.UpdateMonitor)
+				protected.DELETE("/packetloss/monitors/:id", packetLossHandler.DeleteMonitor)
+				protected.GET("/packetloss/monitors/:id/status", packetLossHandler.GetMonitorStatus)
+				protected.GET("/packetloss/monitors/:id/history", packetLossHandler.GetMonitorHistory)
+				protected.POST("/packetloss/monitors/:id/start", packetLossHandler.StartMonitor)
+				protected.POST("/packetloss/monitors/:id/stop", packetLossHandler.StopMonitor)
+			}
+
+			// Vnstat monitoring routes
+			if s.vnstatService != nil {
+				vnstatHandler := handlers.NewVnstatHandler(s.db, s.vnstatService, &s.config.Vnstat)
+				protected.GET("/vnstat/agents", vnstatHandler.GetAgents)
+				protected.POST("/vnstat/agents", vnstatHandler.CreateAgent)
+				protected.GET("/vnstat/agents/:id", vnstatHandler.GetAgent)
+				protected.PUT("/vnstat/agents/:id", vnstatHandler.UpdateAgent)
+				protected.DELETE("/vnstat/agents/:id", vnstatHandler.DeleteAgent)
+				protected.GET("/vnstat/agents/:id/status", vnstatHandler.GetAgentStatus)
+				protected.POST("/vnstat/agents/:id/start", vnstatHandler.StartAgent)
+				protected.POST("/vnstat/agents/:id/stop", vnstatHandler.StopAgent)
+				protected.GET("/vnstat/agents/:id/native", vnstatHandler.GetAgentNativeVnstat)
+			}
 		}
 	}
 
@@ -246,6 +324,6 @@ func LoggerMiddleware() gin.HandlerFunc {
 			event.Str("request_id", requestID)
 		}
 
-		event.Msg("HTTP Request")
+		//event.Msg("HTTP Request")
 	}
 }

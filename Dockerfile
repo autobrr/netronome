@@ -74,17 +74,17 @@ RUN export GOOS=$TARGETOS; \
     [[ "$GOARCH" == "arm" ]] && [[ "$TARGETVARIANT" == "v7" ]] && export GOARM=7; \
     echo "Building for: $GOARCH $GOOS $GOARM$GOAMD64"; \
     go build -ldflags "-s -w \
-    -X netronome/internal/buildinfo.Version=${VERSION} \
-    -X netronome/internal/buildinfo.Commit=${REVISION} \
-    -X netronome/internal/buildinfo.Date=${BUILDTIME}" \
-    -o /app/netronome cmd/netronome/main.go
+    -X 'main.version=${VERSION}' \
+    -X 'main.commit=${REVISION}' \
+    -X 'main.buildTime=${BUILDTIME}'" \
+    -o /app/netronome cmd/netronome
 
 # build runner
 FROM alpine:latest
 
 
 # Install dependencies
-RUN apk add --no-cache sqlite iperf3 traceroute tzdata
+RUN apk add --no-cache sqlite iperf3 traceroute mtr tzdata
 
 ENV HOME="/data" \
     XDG_CONFIG_HOME="/data" \

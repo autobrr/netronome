@@ -7,13 +7,24 @@ export const toggleDarkMode = () => {
   // Add transition class before changing theme
   document.documentElement.classList.add('theme-transition');
   
+  let newTheme: 'light' | 'dark';
   if (document.documentElement.classList.contains('dark')) {
     document.documentElement.classList.remove('dark')
     localStorage.setItem('theme', 'light')
+    newTheme = 'light';
   } else {
     document.documentElement.classList.add('dark')
     localStorage.setItem('theme', 'dark')
+    newTheme = 'dark';
   }
+  
+  // Dispatch event to notify components
+  window.dispatchEvent(new CustomEvent('themechange', { 
+    detail: { 
+      theme: newTheme,
+      isSystemChange: false 
+    } 
+  }));
   
   // Remove transition class after animation completes
   setTimeout(() => {
@@ -40,73 +51,108 @@ const applyTheme = (isDark: boolean, withTransition = false) => {
 };
 
 const handleSystemThemeChange = (e: MediaQueryListEvent) => {
-  // Only auto-switch if user hasn't manually set a preference
-  if (!('theme' in localStorage)) {
-    console.log('System theme changed to:', e.matches ? 'dark' : 'light');
+  const storedTheme = localStorage.getItem('theme');
+  
+  // If theme is set to 'auto' or not set at all, follow system preference
+  if (!storedTheme || storedTheme === 'auto') {
     applyTheme(e.matches, true);
-  } else {
-    console.log('Ignoring system theme change - user has manual preference');
+    
+    // Dispatch a custom event to notify React components
+    window.dispatchEvent(new CustomEvent('themechange', { 
+      detail: { 
+        theme: e.matches ? 'dark' : 'light',
+        isSystemChange: true 
+      } 
+    }));
   }
 };
 
 export const initializeDarkMode = () => {
-  console.log('Initializing dark mode');
   
   // Add CSS for smooth transitions
   if (!document.getElementById('theme-transitions')) {
     const style = document.createElement('style');
     style.id = 'theme-transitions';
     style.textContent = `
-      .theme-transition,
-      .theme-transition *,
-      .theme-transition *:before,
-      .theme-transition *:after {
-        transition: background-color 0.3s ease-in-out,
-                    border-color 0.3s ease-in-out,
-                    color 0.3s ease-in-out,
-                    fill 0.3s ease-in-out,
-                    box-shadow 0.3s ease-in-out !important;
+      /* Main transition for theme switching */
+      .theme-transition :not(::-webkit-scrollbar):not(::-webkit-scrollbar-track):not(::-webkit-scrollbar-thumb) {
+        transition-property: background-color, border-color, color, fill, box-shadow;
+        transition-duration: 0.3s;
+        transition-timing-function: ease-in-out;
+      }
+      
+      /* Prevent scrollbar transitions */
+      .theme-transition ::-webkit-scrollbar,
+      .theme-transition ::-webkit-scrollbar-track,
+      .theme-transition ::-webkit-scrollbar-thumb,
+      ::-webkit-scrollbar,
+      ::-webkit-scrollbar-track,
+      ::-webkit-scrollbar-thumb {
+        transition: none !important;
+      }
+      
+      /* Prevent scrollbar color from animating */
+      html.theme-transition {
+        scrollbar-color: initial !important;
       }
     `;
     document.head.appendChild(style);
   }
   
-  // Check if user has a saved preference
-  const hasStoredTheme = 'theme' in localStorage;
+  // Get stored theme preference
+  const storedTheme = localStorage.getItem('theme');
   
   // Set up system theme detection
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   
   // Apply initial theme
-  if (hasStoredTheme) {
-    const isDark = localStorage.theme === 'dark';
+  if (storedTheme === 'dark' || storedTheme === 'light') {
+    // User has explicit preference
+    const isDark = storedTheme === 'dark';
     applyTheme(isDark);
-    console.log('Applied stored theme:', isDark ? 'dark' : 'light');
+    // Applied stored theme preference
   } else {
+    // No preference or 'auto' - follow system
     const isDark = mediaQuery.matches;
     applyTheme(isDark);
-    console.log('Applied system theme:', isDark ? 'dark' : 'light');
+    if (!storedTheme) {
+      // Set to auto if nothing stored
+      localStorage.setItem('theme', 'auto');
+    }
+    // Applied system theme
   }
   
-  // Listen for system theme changes
-  if (mediaQuery.addEventListener) {
-    // Modern browsers
+  // Always listen for system theme changes
+  try {
     mediaQuery.addEventListener('change', handleSystemThemeChange);
-  } else if (mediaQuery.addListener) {
-    // Fallback for older browsers (deprecated but still needed for some)
-    // @ts-ignore - suppress deprecation warning for necessary fallback
-    mediaQuery.addListener(handleSystemThemeChange);
+    // System theme listener registered
+  } catch (e1) {
+    try {
+      // @ts-ignore - fallback for older browsers
+      mediaQuery.addListener(handleSystemThemeChange);
+      // System theme listener registered (legacy)
+    } catch (e2) {
+      // Failed to register system theme listener
+    }
   }
   
-  console.log('System theme listener registered. Current system preference:', mediaQuery.matches ? 'dark' : 'light');
+  // System theme listener registered
 };
 
 // Export function to reset to system preference
 export const resetToSystemTheme = () => {
-  localStorage.removeItem('theme');
+  localStorage.setItem('theme', 'auto');
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   applyTheme(mediaQuery.matches, true);
-  console.log('Reset to system theme:', mediaQuery.matches ? 'dark' : 'light');
+  // Reset to system theme
+};
+
+// Export function to set theme to auto (follow system)
+export const setAutoTheme = () => {
+  localStorage.setItem('theme', 'auto');
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  applyTheme(mediaQuery.matches, true);
+  // Set to auto theme
 };
 
 // Export function to check current system preference (useful for debugging)
@@ -116,5 +162,15 @@ export const getSystemTheme = () => {
 
 // Export function to check if user has manual preference
 export const hasManualPreference = () => {
-  return 'theme' in localStorage;
+  const theme = localStorage.getItem('theme');
+  return theme === 'dark' || theme === 'light';
+};
+
+// Get current theme mode
+export const getCurrentThemeMode = (): 'dark' | 'light' | 'auto' => {
+  const theme = localStorage.getItem('theme');
+  if (theme === 'dark' || theme === 'light') {
+    return theme;
+  }
+  return 'auto';
 }; 
