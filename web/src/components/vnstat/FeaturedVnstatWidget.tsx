@@ -19,9 +19,7 @@ interface FeaturedVnstatWidgetProps {
   onNavigateToVnstat: () => void;
 }
 
-export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = ({
-  onNavigateToVnstat,
-}) => {
+export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = () => {
   const [selectedAgent, setSelectedAgent] = useState<VnstatAgent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Get featured agent IDs from localStorage
@@ -69,7 +67,6 @@ export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = ({
           <FeaturedAgentCard
             key={agent.id}
             agent={agent}
-            onNavigateToVnstat={onNavigateToVnstat}
             onOpenModal={() => {
               setSelectedAgent(agent);
               setIsModalOpen(true);
@@ -96,13 +93,11 @@ export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = ({
 
 interface FeaturedAgentCardProps {
   agent: VnstatAgent;
-  onNavigateToVnstat: () => void;
   onOpenModal: () => void;
 }
 
 const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
   agent,
-  onNavigateToVnstat,
   onOpenModal,
 }) => {
   // Use the shared hook for agent data
