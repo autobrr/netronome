@@ -282,13 +282,19 @@ print_color $BLUE "Netronome Agent Installation Script"
 print_color $BLUE "==================================="
 echo ""
 
-# Check if running interactively and inform user
-if [ ! -t 0 ]; then
+# Check if we have a controlling terminal for interactive input
+if [ -t 1 ] && [ -t 2 ] && [ -e /dev/tty ]; then
+    # We can be interactive by reading from /dev/tty
+    INTERACTIVE_MODE=true
+    INPUT_SOURCE="/dev/tty"
+else
+    # Fallback to non-interactive mode
     print_color $YELLOW "Running in non-interactive mode with auto-selected defaults."
-    print_color $YELLOW "For interactive installation, download and run the script directly:"
-    print_color $BLUE "  curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh -o install-agent.sh"
-    print_color $BLUE "  chmod +x install-agent.sh && ./install-agent.sh"
+    print_color $YELLOW "For interactive installation:"
+    print_color $BLUE "  curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh -o install.sh && bash install.sh"
     echo ""
+    INTERACTIVE_MODE=false
+    INPUT_SOURCE="/dev/stdin"
 fi
 
 # Check root/sudo privileges
@@ -313,9 +319,9 @@ interfaces=$(get_network_interfaces)
 echo "$interfaces" | nl -w2 -s'. '
 
 echo ""
-if [ -t 0 ]; then
-    # Interactive mode
-    read -p "Enter the interface to monitor (leave empty for all): " INTERFACE
+if [ "$INTERACTIVE_MODE" = true ]; then
+    # Interactive mode - read from terminal
+    read -p "Enter the interface to monitor (leave empty for all): " INTERFACE < "$INPUT_SOURCE"
 else
     # Non-interactive mode - default to all interfaces
     INTERFACE=""
@@ -329,9 +335,9 @@ print_color $YELLOW "1. Generate a random API key"
 print_color $YELLOW "2. Enter your own API key"
 print_color $YELLOW "3. No authentication (not recommended)"
 echo ""
-if [ -t 0 ]; then
-    # Interactive mode
-    read -p "Select an option [1-3]: " API_KEY_OPTION
+if [ "$INTERACTIVE_MODE" = true ]; then
+    # Interactive mode - read from terminal
+    read -p "Select an option [1-3]: " API_KEY_OPTION < "$INPUT_SOURCE"
 else
     # Non-interactive mode - default to generating a random API key
     API_KEY_OPTION="1"
@@ -345,11 +351,12 @@ case $API_KEY_OPTION in
         print_color $YELLOW "⚠️  Save this key! You'll need it when adding the agent in Netronome."
         ;;
     2)
-        if [ -t 0 ]; then
-            read -p "Enter your API key: " API_KEY
+        if [ "$INTERACTIVE_MODE" = true ]; then
+            read -p "Enter your API key: " API_KEY < "$INPUT_SOURCE"
         else
-            read API_KEY
-            echo "Using provided API key"
+            # In non-interactive mode, we can't get custom API key, fall back to generated
+            API_KEY=$(generate_api_key)
+            print_color $YELLOW "Cannot input custom API key in non-interactive mode, generated: $API_KEY"
         fi
         ;;
     3)
@@ -364,12 +371,12 @@ esac
 
 # Get host and port
 echo ""
-if [ -t 0 ]; then
-    # Interactive mode
-    read -p "Enter the host/IP to listen on (default: $DEFAULT_HOST): " HOST
+if [ "$INTERACTIVE_MODE" = true ]; then
+    # Interactive mode - read from terminal
+    read -p "Enter the host/IP to listen on (default: $DEFAULT_HOST): " HOST < "$INPUT_SOURCE"
     HOST=${HOST:-$DEFAULT_HOST}
     
-    read -p "Enter the port number (default: $DEFAULT_PORT): " PORT
+    read -p "Enter the port number (default: $DEFAULT_PORT): " PORT < "$INPUT_SOURCE"
     PORT=${PORT:-$DEFAULT_PORT}
 else
     # Non-interactive mode - use defaults
@@ -584,9 +591,9 @@ if [ "$SERVICE_RUNNING" = true ]; then
     # Prompt for auto-update setup (unless flag was provided)
     if [ -z "$AUTO_UPDATE_FLAG" ]; then
         echo ""
-        if [ -t 0 ]; then
-            # Interactive mode
-            read -p "Would you like to enable automatic daily updates? (y/n): " AUTO_UPDATE
+        if [ "$INTERACTIVE_MODE" = true ]; then
+            # Interactive mode - read from terminal
+            read -p "Would you like to enable automatic daily updates? (y/n): " AUTO_UPDATE < "$INPUT_SOURCE"
         else
             # Non-interactive mode - default to yes for auto-updates
             AUTO_UPDATE="y"
