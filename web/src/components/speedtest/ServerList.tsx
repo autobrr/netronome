@@ -217,12 +217,7 @@ export const ServerList: React.FC<ServerListProps> = ({
 
   return (
     <Disclosure defaultOpen={isOpen}>
-      {({ open }) => {
-        useEffect(() => {
-          localStorage.setItem("server-list-open", open.toString());
-        }, [open]);
-
-        return (
+      {({ open }) => (
           <div className="flex flex-col h-full">
             <DisclosureButton
               className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
@@ -694,8 +689,7 @@ export const ServerList: React.FC<ServerListProps> = ({
               }}
             />
           </div>
-        );
-      }}
+      )}
     </Disclosure>
   );
 };

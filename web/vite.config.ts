@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 // Get API details from Netronome env vars
@@ -9,7 +10,7 @@ const baseUrl = process.env.NETRONOME__BASE_URL || ''
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   base: baseUrl,
   build: {
     outDir: 'dist',

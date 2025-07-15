@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion } from "motion/react";
 import { SpeedTestResult, TimeRange } from "@/types/types";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
@@ -212,12 +212,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       {/* Recent Tests Summary */}
       {tests.length > 0 && (
         <Disclosure defaultOpen={isRecentTestsOpen}>
-          {({ open }) => {
-            useEffect(() => {
-              localStorage.setItem("recent-tests-open", open.toString());
-            }, [open]);
-
-            return (
+          {({ open }) => (
               <div className="flex flex-col h-full">
                 <DisclosureButton
                   className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
@@ -460,8 +455,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   </motion.div>
                 )}
               </div>
-            );
-          }}
+          )}
         </Disclosure>
       )}
     </div>

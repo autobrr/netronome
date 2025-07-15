@@ -36,7 +36,7 @@ const TAB_COLORS = {
     inactive:
       "text-gray-500 dark:text-gray-400 hover:text-amber-500 dark:hover:text-amber-300",
   },
-  packetloss: {
+  vnstat: {
     active: "text-purple-600 dark:text-purple-400",
     inactive:
       "text-gray-500 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-300",
@@ -156,16 +156,9 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
                 <span className="flex-shrink-0">{tab.icon}</span>
                 {/* Desktop: show full label */}
                 <span className="hidden sm:inline">{tab.label}</span>
-                {/* Mobile: smart display based on screen size and active state */}
-                <span className="sm:hidden">
-                  <span className="hidden xs:inline">
-                    {/* On xs screens: show short label or smart abbreviation */}
-                    {tab.shortLabel || getSmartAbbreviation(tab.label)}
-                  </span>
-                  {/* On very small screens: show text only for active tab */}
-                  <span className={`xs:hidden ${!isActive ? "hidden" : ""}`}>
-                    {tab.shortLabel || getSmartAbbreviation(tab.label)}
-                  </span>
+                {/* Mobile: show abbreviated label */}
+                <span className="inline sm:hidden">
+                  {tab.shortLabel || getSmartAbbreviation(tab.label)}
                 </span>
               </span>
             </button>

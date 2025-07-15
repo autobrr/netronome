@@ -542,12 +542,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
   return (
     <Disclosure defaultOpen={isOpen}>
-      {({ open }) => {
-        useEffect(() => {
-          localStorage.setItem("speedtest-chart-open", open.toString());
-        }, [open]);
-
-        return (
+      {({ open }) => (
           <div className="flex flex-col h-full mb-6">
             <DisclosureButton
               className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
@@ -770,8 +765,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               </div>
             )}
           </div>
-        );
-      }}
+      )}
     </Disclosure>
   );
 };

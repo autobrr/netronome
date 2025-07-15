@@ -76,6 +76,7 @@ export const TABLE_COLUMNS = {
 /**
  * CSS class constants for consistent styling
  */
+// TODO: GET RID OF THIS SHIT
 export const STYLES = {
   card: "bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800",
   input:

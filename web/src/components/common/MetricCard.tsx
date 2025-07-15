@@ -40,7 +40,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 
   return (
     <div
-      className={`bg-gray-50/95 dark:bg-gray-850/95 p-4 rounded-xl border border-gray-200 dark:border-gray-900 shadow-lg ${statusColors[status]} ${className}`}
+      className={`bg-gray-50/95 dark:bg-gray-850/95 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-lg ${statusColors[status]} ${className}`}
     >
       <div className="flex items-center gap-3 mb-2">
         <div className="text-gray-600 dark:text-gray-400">{icon}</div>

@@ -413,12 +413,7 @@ export default function ScheduleManager({
   return (
     <div className="h-full">
       <Disclosure defaultOpen={isOpen}>
-        {({ open }) => {
-          useEffect(() => {
-            localStorage.setItem("schedule-manager-open", open.toString());
-          }, [open]);
-
-          return (
+        {({ open }) => (
             <div className="flex flex-col h-full">
               <DisclosureButton
                 className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
@@ -878,8 +873,7 @@ export default function ScheduleManager({
                 </div>
               )}
             </div>
-          );
-        }}
+        )}
       </Disclosure>
     </div>
   );

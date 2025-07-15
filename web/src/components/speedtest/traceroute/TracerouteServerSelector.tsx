@@ -153,7 +153,7 @@ export const TracerouteServerSelector: React.FC<
           <div className="flex justify-center mb-4">
             <button
               onClick={loadMoreServers}
-              className={STYLES.button.secondary}
+              className="px-4 py-2 bg-gray-200/30 dark:bg-gray-800/30 border border-gray-300/50 dark:border-gray-900/50 text-gray-600/50 dark:text-gray-300/50 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-300/50 dark:hover:bg-gray-800/50 transition-colors"
             >
               Load More
             </button>
