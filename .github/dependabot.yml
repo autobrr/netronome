@@ -19,3 +19,12 @@ updates:
       golang:
         patterns:
           - "*"
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: monthly
+    groups:
+      npm:
+        patterns:
+          - "*"
