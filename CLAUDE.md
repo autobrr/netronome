@@ -69,6 +69,28 @@ go test -v ./internal/speedtest -run TestPing  # Run specific test with verbose 
 cd web && pnpm lint     # Frontend linting
 ```
 
+### Testing
+
+```bash
+# Run all Go tests
+go test ./...
+
+# Run tests for a specific package
+go test ./internal/server/...
+
+# Run tests with coverage
+go test -cover ./...
+
+# Run a specific test with verbose output
+go test -v -run TestIsWhitelisted ./internal/server
+
+# Frontend linting
+cd web && pnpm lint
+
+# Frontend type checking
+cd web && pnpm tsc --noEmit
+```
+
 ## Architecture Overview
 
 ### Core Application Structure
@@ -333,6 +355,13 @@ Example: `NETRONOME__IPERF_TEST_DURATION=30` overrides `[speedtest.iperf] test_d
 - **Commit Attribution**: Never add yourself as co-author to commits
 - **Frontend Development**: Before writing any frontend-code, make sure to read through the docs/style-guide.md first, so you familiarize yourself with our style. This is a crucial step.
 
+### Testing Standards
+
+- **Go Testing**: Use table-driven tests with descriptive test names
+- **Test Location**: Place tests in the same package as the code being tested
+- **Test Data**: Use minimal, focused test data that clearly shows the expected behavior
+- **Gin Context**: For HTTP handler tests, use `gin.TestMode` and `httptest` package
+
 ### Technical Notes
 
 - **Frontend Build**: Frontend is embedded into the Go binary using `embed.FS` during build
@@ -538,6 +567,40 @@ Netronome uses proper binary units for bandwidth display:
 - **Industry Standard**: Follows IEC binary prefix standards for clarity
 
 This ensures accurate representation of data sizes and bandwidth calculations.
+
+## Common Development Workflows
+
+### Adding a New Speed Test Type
+
+1. Create implementation in `internal/speedtest/your_test.go`
+2. Add to `internal/speedtest/types.go` if new types needed
+3. Update frontend in `web/src/types/speedtest.ts`
+4. Add UI components in `web/src/components/speedtest/`
+5. Update API handlers in `internal/server/handlers.go`
+
+### Adding a New API Endpoint
+
+1. Define handler in `internal/server/handlers.go`
+2. Add route in `internal/server/server.go`
+3. Create database methods if needed in `internal/database/`
+4. Add TypeScript types in `web/src/types/`
+5. Create API client function in `web/src/api/`
+
+### Working with Database Migrations
+
+1. Create new migration files in `internal/database/migrations/sqlite/` and `internal/database/migrations/postgres/`
+2. Use sequential numbering (e.g., `014_your_migration.sql`)
+3. Always provide both up and down migrations
+4. Test with both SQLite and PostgreSQL
+
+### Frontend Component Development
+
+1. Read `docs/style-guide.md` first
+2. Use existing components as reference
+3. Follow the established Tailwind patterns
+4. Use -400 color variants for charts
+5. Include dark mode styles
+6. Test responsiveness at all breakpoints
 
 # important-instruction-reminders
 

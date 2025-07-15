@@ -69,3 +69,4 @@ test.py
 scripts/debug-agent.sh
 scripts/test-macos-agent.sh
 scripts/test-agent-manual.sh
+future_plans.md
