@@ -453,8 +453,8 @@ func (c *Client) updatePeakStats(rxBytes, txBytes int64) {
 func (s *Service) startBackgroundCollectors() {
 	// Bandwidth samples are collected in real-time via SSE, no separate ticker needed
 	
-	// Resource stats collection every 5 minutes
-	s.resourceTicker = time.NewTicker(5 * time.Minute)
+	// Resource stats collection every 30 seconds
+	s.resourceTicker = time.NewTicker(30 * time.Second)
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
