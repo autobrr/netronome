@@ -219,49 +219,117 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {hardwareStats.temperature.map((temp, index) => {
-              const percentage = temp.critical 
-                ? Math.min((temp.temperature / temp.critical) * 100, 100)
-                : (temp.temperature / 100) * 100; // Assume 100°C max if no critical temp
-              
-              const isWarm = percentage > 60;
-              const isHot = percentage > 80;
-              
-              const getTemperatureColor = () => {
-                if (isHot) return "#EF4444"; // red
-                if (isWarm) return "#F59E0B"; // amber
-                return "#10B981"; // green
-              };
+            {hardwareStats.temperature
+              .filter(temp => {
+                // Filter out sensors with absurd max temperatures (65262°C is likely uninitialized data)
+                return !temp.critical || (temp.critical > 0 && temp.critical < 1000);
+              })
+              .sort((a, b) => {
+                // Sort by category: CPU cores first, then package, then storage, then other
+                const getCategory = (temp: typeof a) => {
+                  const key = temp.sensor_key.toLowerCase();
+                  const label = (temp.label || "").toLowerCase();
+                  
+                  if (key.includes("coretemp_core_") || label.includes("core ")) return 0;
+                  if (key.includes("coretemp_package") || label.includes("package")) return 1;
+                  if (key.includes("nvme") || label.includes("nvme")) return 2;
+                  if (key.includes("smart_") || label.includes("hdd") || label.includes("ssd")) return 3;
+                  if (key.includes("acpitz")) return 4;
+                  return 5;
+                };
+                
+                const catA = getCategory(a);
+                const catB = getCategory(b);
+                
+                if (catA !== catB) return catA - catB;
+                
+                // Within same category, sort by sensor key
+                return a.sensor_key.localeCompare(b.sensor_key);
+              })
+              .map((temp, index) => {
+                const percentage = temp.critical && temp.critical > 0
+                  ? Math.min((temp.temperature / temp.critical) * 100, 100)
+                  : (temp.temperature / 100) * 100; // Assume 100°C max if no critical temp
+                
+                const isWarm = percentage > 60;
+                const isHot = percentage > 80;
+                
+                const getTemperatureColor = () => {
+                  if (isHot) return "#EF4444"; // red
+                  if (isWarm) return "#F59E0B"; // amber
+                  return "#10B981"; // green
+                };
 
-              return (
-                <div key={index} className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
-                  <p className="text-xs text-gray-600 dark:text-gray-400 truncate mb-1">
-                    {temp.label || temp.sensor_key}
-                  </p>
-                  <p className={`text-xl font-bold mb-2 ${
-                    isHot ? "text-red-600 dark:text-red-400" :
-                    isWarm ? "text-amber-600 dark:text-amber-400" :
-                    "text-green-600 dark:text-green-400"
-                  }`}>
-                    {temp.temperature.toFixed(1)}°C
-                  </p>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                    <div
-                      className="h-1.5 rounded-full transition-all duration-300"
-                      style={{
-                        width: `${Math.min(percentage, 100)}%`,
-                        backgroundColor: getTemperatureColor(),
-                      }}
-                    />
-                  </div>
-                  {temp.critical && (
-                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      / {temp.critical.toFixed(0)}°C
+                // Improve display name
+                const getDisplayName = () => {
+                  if (temp.label) return temp.label;
+                  
+                  const key = temp.sensor_key;
+                  
+                  // CPU core temps
+                  if (key.includes("coretemp_core_")) {
+                    const coreNum = key.replace("coretemp_core_", "");
+                    return `CPU Core ${coreNum}`;
+                  }
+                  if (key.includes("coretemp_package")) {
+                    return "CPU Package";
+                  }
+                  
+                  // Storage temps
+                  if (key.includes("nvme")) {
+                    const parts = key.split("_");
+                    if (parts.includes("composite")) {
+                      return `NVMe ${parts[0].replace("nvme", "Drive ")} (Overall)`;
+                    }
+                    if (parts.includes("sensor")) {
+                      const sensorNum = parts[parts.length - 1];
+                      return `NVMe ${parts[0].replace("nvme", "Drive ")} Sensor ${sensorNum}`;
+                    }
+                  }
+                  
+                  // ACPI thermal zone
+                  if (key === "acpitz") {
+                    return "System Thermal Zone";
+                  }
+                  
+                  // HDD/SSD temperatures from SMART
+                  if (key.includes("smart_")) {
+                    // Already has a good label from backend
+                    return temp.label || key.replace("smart_", "").toUpperCase();
+                  }
+                  
+                  return key;
+                };
+
+                return (
+                  <div key={index} className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 truncate mb-1" title={temp.sensor_key}>
+                      {getDisplayName()}
                     </p>
-                  )}
-                </div>
-              );
-            })}
+                    <p className={`text-xl font-bold mb-2 ${
+                      isHot ? "text-red-600 dark:text-red-400" :
+                      isWarm ? "text-amber-600 dark:text-amber-400" :
+                      "text-green-600 dark:text-green-400"
+                    }`}>
+                      {temp.temperature.toFixed(1)}°C
+                    </p>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                      <div
+                        className="h-1.5 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${Math.min(percentage, 100)}%`,
+                          backgroundColor: getTemperatureColor(),
+                        }}
+                      />
+                    </div>
+                    {temp.critical && temp.critical > 0 && temp.critical < 1000 && (
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                        Max: {temp.critical.toFixed(0)}°C
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}
