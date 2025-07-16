@@ -527,7 +527,12 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                 hasAnyTests={hasAnyTests}
                 onShareClick={() => setShareModalOpen(true)}
                 onNavigateToSpeedTest={() => handleTabChange("speedtest")}
-                onNavigateToVnstat={() => handleTabChange("monitor")}
+                onNavigateToVnstat={(agentId?: number) => {
+                  handleTabChange("monitor");
+                  if (agentId) {
+                    sessionStorage.setItem("netronome-preselect-agent", agentId.toString());
+                  }
+                }}
               />
             </motion.div>
           )}

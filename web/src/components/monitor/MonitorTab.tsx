@@ -33,6 +33,19 @@ export const MonitorTab: React.FC = () => {
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
+  // Handle pre-selected agent from navigation
+  React.useEffect(() => {
+    const preselectedId = sessionStorage.getItem("netronome-preselect-agent");
+    if (preselectedId && agents.length > 0 && !selectedAgent) {
+      const agentId = parseInt(preselectedId, 10);
+      const agent = agents.find(a => a.id === agentId);
+      if (agent) {
+        setSelectedAgent(agent);
+        sessionStorage.removeItem("netronome-preselect-agent");
+      }
+    }
+  }, [agents, selectedAgent]);
+
   // Create agent mutation
   const createMutation = useMutation({
     mutationFn: createMonitorAgent,
@@ -112,7 +125,7 @@ export const MonitorTab: React.FC = () => {
                   Bandwidth Monitoring
                 </h2>
                 <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                  Monitor bandwidth from Netronome agents
+                  Monitor bandwidth from Netronome agents • Click an agent to view detailed stats
                 </p>
               </div>
               <motion.button

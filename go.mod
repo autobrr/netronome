@@ -4,6 +4,7 @@ go 1.23.4
 
 require (
 	github.com/BurntSushi/toml v1.5.0
+	github.com/anatol/smart.go v0.0.0-20241126061019-f03d79b340d2
 	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/creativeprojects/go-selfupdate v1.5.0
 	github.com/gin-gonic/gin v1.10.1
@@ -14,6 +15,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-community/pro-bing v0.7.0
 	github.com/rs/zerolog v1.34.0
+	github.com/shirou/gopsutil/v4 v4.25.6
 	github.com/showwin/speedtest-go v1.7.10
 	github.com/spf13/cobra v1.9.1
 	golang.org/x/oauth2 v0.30.0
@@ -27,6 +29,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/go-fed/httpsig v1.1.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
@@ -43,8 +46,6 @@ require (
 	github.com/oschwald/maxminddb-golang v1.13.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/shirou/gopsutil/v3 v3.24.5 // indirect
-	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect

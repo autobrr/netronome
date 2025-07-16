@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState } from "react";
+import React from "react";
 import {
   AreaChart,
   Area,
@@ -30,6 +30,8 @@ interface MonitorBandwidthChartProps {
   title: string;
   timeFormat?: "hour" | "day" | "month";
   showPeaks?: boolean;
+  selectedTimeRange?: "6h" | "12h" | "24h" | "48h" | "7d" | "30d";
+  onTimeRangeChange?: (range: "6h" | "12h" | "24h" | "48h" | "7d" | "30d") => void;
 }
 
 export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
@@ -37,8 +39,9 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
   title,
   timeFormat = "hour",
   showPeaks = false,
+  selectedTimeRange = "24h",
+  onTimeRangeChange,
 }) => {
-  const [selectedTimeRange, setSelectedTimeRange] = useState<"24h" | "7d" | "30d" | "1y">("24h");
 
   const formatTooltipValue = (value: number) => {
     return formatBytes(value);
@@ -77,15 +80,13 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
                             timeFormat === "day" ? 86400 : 
                             timeFormat === "month" ? 2592000 : 3600; // default to hour
     
-    // Calculate average rate (bytes per second) from total bytes per period
-    const avgRxBytes = rxValues.reduce((a, b) => a + b, 0) / rxValues.length;
-    const avgTxBytes = txValues.reduce((a, b) => a + b, 0) / txValues.length;
+    // Convert each period's total bytes to average rate during that period
+    const rxRates = rxValues.map(bytes => bytes / secondsPerPeriod);
+    const txRates = txValues.map(bytes => bytes / secondsPerPeriod);
     
     return {
-      avgRx: avgRxBytes / secondsPerPeriod, // Convert to bytes per second
-      avgTx: avgTxBytes / secondsPerPeriod, // Convert to bytes per second
-      maxRx: Math.max(...rxValues) / secondsPerPeriod, // Peak rate in bytes per second
-      maxTx: Math.max(...txValues) / secondsPerPeriod, // Peak rate in bytes per second
+      avgRx: rxRates.reduce((a, b) => a + b, 0) / rxRates.length, // Average of period rates
+      avgTx: txRates.reduce((a, b) => a + b, 0) / txRates.length, // Average of period rates
       totalRx: rxValues.reduce((a, b) => a + b, 0),
       totalTx: txValues.reduce((a, b) => a + b, 0),
     };
@@ -102,12 +103,12 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
         <h3 className="text-lg font-medium text-gray-900 dark:text-white">
           {title}
         </h3>
-        <div className="flex items-center space-x-2">
-          {["24h", "7d", "30d", "1y"].map((range) => (
+        <div className="flex items-center space-x-1">
+          {["6h", "12h", "24h", "48h", "7d", "30d"].map((range) => (
             <button
               key={range}
-              onClick={() => setSelectedTimeRange(range as any)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+              onClick={() => onTimeRangeChange?.(range as any)}
+              className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
                 selectedTimeRange === range
                   ? "bg-blue-600 text-white"
                   : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -119,35 +120,6 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
         </div>
       </div>
 
-      {/* Statistics Summary */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
-            <p className="text-xs text-gray-600 dark:text-gray-400">Avg Download</p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">
-              {formatBytes(stats.avgRx)}/s
-            </p>
-          </div>
-          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
-            <p className="text-xs text-gray-600 dark:text-gray-400">Avg Upload</p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">
-              {formatBytes(stats.avgTx)}/s
-            </p>
-          </div>
-          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
-            <p className="text-xs text-gray-600 dark:text-gray-400">Peak Download</p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">
-              {formatBytes(stats.maxRx)}/s
-            </p>
-          </div>
-          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
-            <p className="text-xs text-gray-600 dark:text-gray-400">Peak Upload</p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">
-              {formatBytes(stats.maxTx)}/s
-            </p>
-          </div>
-        </div>
-      )}
 
       <div className="h-64 sm:h-80">
         <ResponsiveContainer width="100%" height="100%">
@@ -189,7 +161,7 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
                 border: "1px solid rgba(75, 85, 99, 0.3)",
                 borderRadius: "0.5rem",
               }}
-              itemStyle={{ color: "#E5E7EB" }}
+              labelStyle={{ color: "#E5E7EB" }}
               formatter={formatTooltipValue}
               labelFormatter={(label) => new Date(label).toLocaleString()}
             />

@@ -779,6 +779,60 @@ netronome --config /home/username/.config/netronome/config.toml change-password 
 echo "newpassword123" | netronome --config /home/username/.config/netronome/config.toml change-password username
 ```
 
+## ❓ FAQ
+
+### Temperature Monitoring
+
+**Q: What temperature sensors are supported?**
+
+Netronome supports comprehensive temperature monitoring across multiple platforms:
+
+- **Linux**: CPU cores/package, NVMe drives, SATA drives (via SMART), ACPI thermal zones
+- **macOS**: CPU dies, thermal devices, calibration sensors, NVMe drives, NAND storage, battery
+- **Windows**: CPU cores/package, NVMe drives, ACPI thermal zones
+
+**Q: Why don't I see disk temperatures in the monitoring interface?**
+
+A: Disk temperature monitoring has several requirements:
+
+1. **Platform Support**: 
+   - **Linux**: Full SMART support for SATA and NVMe drives
+   - **macOS**: NVMe drives only (SATA drives not supported)
+   - **Windows**: Limited SMART support
+
+2. **Privileges Required**: The agent must run with elevated privileges (root/sudo) to access SMART data from disk devices. Without proper permissions, HDD temperatures cannot be read.
+
+3. **SMART Support**: The drive must support SMART (Self-Monitoring, Analysis and Reporting Technology) and have it enabled. Most modern drives support this, but some older or specialized drives may not.
+
+4. **Temperature Sensor**: Not all drives report temperature via SMART. Some drives, particularly older models, may not have temperature sensors.
+
+**Q: Why do I see multiple temperature entries for NVMe drives?**
+
+A: This is a limitation of the gopsutil library used for temperature monitoring. NVMe drives often have multiple temperature sensors (composite and individual sensors), but the library doesn't always provide enough context to distinguish which physical drive each sensor belongs to. You may see duplicate "nvme_composite" entries without clear identification of which drive they represent.
+
+**Q: What do the different temperature sensor categories mean?**
+
+Temperature sensors are organized into user-friendly categories:
+
+- **CPU**: All processor-related sensors (cores, dies, thermal devices, packages)
+- **Storage**: NVMe drives, NAND storage, SATA drives (where supported)
+- **Power & Battery**: Battery temperature sensors (mainly on laptops)
+- **System**: Calibration sensors, ACPI thermal zones, and other system sensors
+
+**Q: How can I enable disk temperature monitoring?**
+
+Run the agent with elevated privileges:
+
+```bash
+# Using sudo
+sudo netronome agent --config /path/to/config.toml
+
+# Or in the systemd service file, run as root
+User=root
+```
+
+**Note**: Running with elevated privileges has security implications. Only do this in trusted environments.
+
 ## 🤝 Contributing
 
 We welcome contributions! Please follow these steps:

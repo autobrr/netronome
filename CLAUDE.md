@@ -299,6 +299,7 @@ internal/
 - **zerolog**: Structured logging
 - **showwin/speedtest-go**: Speedtest.net integration
 - **prometheus-community/pro-bing**: Packet loss monitoring via ICMP ping
+- **gopsutil/v4**: System metrics and temperature monitoring with improved Apple Silicon support
 - **TOML**: Configuration parsing
 - **OIDC**: Authentication provider integration
 
@@ -544,7 +545,7 @@ Script options:
 - **MonitorAgentDetailsTabs**: Tabbed interface for agent details (Overview, Bandwidth, System & Hardware)
 - **MonitorBandwidthChart**: Recharts-based visualization of bandwidth data
 - **MonitorSystemInfo**: Displays system information and network interfaces
-- **MonitorHardwareStats**: Shows CPU, memory, disk, and temperature information
+- **MonitorHardwareStats**: Shows CPU, memory, disk, and temperature information with categorized sensor display
 
 ### Configuration
 
@@ -582,6 +583,83 @@ Netronome uses proper binary units for bandwidth display:
 - **Industry Standard**: Follows IEC binary prefix standards for clarity
 
 This ensures accurate representation of data sizes and bandwidth calculations.
+
+## Temperature Monitoring Architecture
+
+### Cross-Platform Support
+
+Temperature monitoring has been significantly enhanced with cross-platform support:
+
+#### Platform Capabilities
+
+- **Linux**: Full support for CPU cores/package (coretemp), NVMe drives, SATA drives (via SMART), ACPI thermal zones
+- **macOS**: Apple Silicon sensors (PMU dies, thermal devices, calibration), NVMe drives, NAND storage, battery
+- **Windows**: CPU cores/package, NVMe drives, ACPI thermal zones
+
+#### gopsutil v4 Integration
+
+- **Upgraded from v3 to v4**: Significantly improved Apple Silicon temperature sensor support
+- **API Changes**: Temperature functions moved from `host` package to `sensors` package
+- **Enhanced Detection**: 40+ temperature sensors detected on Apple Silicon vs 0 working sensors in v3
+- **Real Temperature Values**: Proper readings (29°C-52°C) instead of 0.0°C placeholders
+
+#### SMART Disk Temperature Support
+
+Cross-platform disk temperature monitoring via `anatol/smart.go`:
+
+- **Linux**: Full SATA and NVMe SMART support with `/dev/sd*`, `/dev/nvme*` device paths
+- **macOS**: NVMe-only support with `/dev/rdisk*` device paths (SATA not supported by smart.go on macOS)
+- **Automatic Fallback**: Graceful handling of unsupported device types per platform
+- **Privilege Requirements**: Requires root/sudo for SMART data access on all platforms
+
+#### Temperature Sensor Categorization
+
+Frontend displays sensors in user-friendly categories:
+
+```typescript
+// Simplified categorization for better UX
+const categories = {
+  "cpu": "CPU",                    // All processor-related sensors
+  "storage": "Storage",            // NVMe, NAND, SMART drives  
+  "power": "Power & Battery",      // Battery temperatures
+  "system": "System"               // Calibration, ACPI, misc
+};
+```
+
+**Category Mapping**:
+- **CPU**: `coretemp_core_*`, `coretemp_package`, `PMU tdie*`, `PMU tdev*`
+- **Storage**: `nvme_*`, `NAND*`, `smart_*`
+- **Power**: `gas gauge battery`, `*battery*`
+- **System**: `PMU tcal`, `acpitz`, other sensors
+
+#### Device Discovery Implementation
+
+Platform-specific device path discovery in `getDevicePaths()`:
+
+```go
+// Linux: Traditional device naming
+"/dev/sda", "/dev/nvme0n1"
+
+// macOS: Raw disk devices for SMART access  
+"/dev/rdisk0", "/dev/rdisk1" (skips partitions like rdisk0s1)
+```
+
+#### Technical Implementation Notes
+
+- **Error Handling**: `ErrOSUnsupported` gracefully handled for unsupported device types
+- **API Consistency**: Same `ReadGenericAttributes()` interface across platforms
+- **Sensor Filtering**: Invalid readings (≤0°C, >200°C) automatically filtered
+- **Original Names**: Temperature sensors display original names (e.g., "PMU tdie1") with categorization
+- **Real-time Updates**: Live temperature monitoring with 30-second intervals
+
+### Frontend Temperature Display
+
+Temperature sensors are organized into collapsible categories with:
+- **Section Headers**: "CPU (35)", "Storage (1)", etc. with sensor counts
+- **Original Sensor Names**: Technical accuracy preserved (PMU tdie1, gas gauge battery)
+- **Visual Indicators**: Color-coded temperature bars (green/amber/red)
+- **Critical Temperatures**: Max temperature display when available
+- **Responsive Layout**: Grid layout adapts to screen size
 
 ## Common Development Workflows
 

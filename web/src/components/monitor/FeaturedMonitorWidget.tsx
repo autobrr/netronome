@@ -5,7 +5,11 @@
 
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { ServerIcon } from "@heroicons/react/24/outline";
+import {
+  ServerIcon,
+  CpuChipIcon,
+  ArrowTopRightOnSquareIcon,
+} from "@heroicons/react/24/outline";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { useQuery } from "@tanstack/react-query";
 import { getMonitorAgents, MonitorAgent } from "@/api/monitor";
@@ -14,13 +18,14 @@ import { getAgentIcon } from "@/utils/agentIcons";
 import { formatBytes } from "@/utils/formatBytes";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { MonitorUsageModal } from "./MonitorUsageModal";
-import { MiniSparkline } from "./MiniSparkline";
 
 interface FeaturedMonitorWidgetProps {
-  onNavigateToMonitor: () => void;
+  onNavigateToMonitor: (agentId?: number) => void;
 }
 
-export const FeaturedMonitorWidget: React.FC<FeaturedMonitorWidgetProps> = () => {
+export const FeaturedMonitorWidget: React.FC<FeaturedMonitorWidgetProps> = ({
+  onNavigateToMonitor,
+}) => {
   const [selectedAgent, setSelectedAgent] = useState<MonitorAgent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Get featured agent IDs from localStorage
@@ -72,6 +77,7 @@ export const FeaturedMonitorWidget: React.FC<FeaturedMonitorWidgetProps> = () =>
               setSelectedAgent(agent);
               setIsModalOpen(true);
             }}
+            onNavigateToAgent={() => onNavigateToMonitor(agent.id)}
           />
         ))}
       </div>
@@ -95,41 +101,29 @@ export const FeaturedMonitorWidget: React.FC<FeaturedMonitorWidgetProps> = () =>
 interface FeaturedAgentCardProps {
   agent: MonitorAgent;
   onOpenModal: () => void;
+  onNavigateToAgent: () => void;
 }
 
 const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
   agent,
   onOpenModal,
+  onNavigateToAgent,
 }) => {
   // Use the shared hook for agent data
-  const { status, nativeData, peakStats } = useMonitorAgent({
+  const { status, nativeData, hardwareStats } = useMonitorAgent({
     agent,
     includeNativeData: true,
-    includePeakStats: true,
+    includeHardwareStats: true, // Pre-fetch hardware stats for instant modal loading
   });
 
   const usage = nativeData ? parseMonitorUsagePeriods(nativeData) : null;
-
-  // Extract hourly data for sparklines (last 24 hours)
-  const sparklineData = React.useMemo(() => {
-    if (!nativeData?.interfaces?.[0]?.traffic?.hour) {
-      return { rx: [], tx: [] };
-    }
-
-    const hourData = nativeData.interfaces[0].traffic.hour.slice(0, 24);
-    
-    return {
-      rx: hourData.map(h => h.rx).reverse(),
-      tx: hourData.map(h => h.tx).reverse(),
-    };
-  }, [nativeData]);
 
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={onOpenModal}
-      className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl px-4 pb-2 pt-4 shadow-lg border border-gray-200 dark:border-gray-800 cursor-pointer transition-all duration-200 hover:shadow-xl hover:border-gray-300 dark:hover:border-gray-700"
+      className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl px-4 pb-2 pt-4 shadow-lg border border-gray-200 dark:border-gray-800 cursor-pointer transition-all duration-200 hover:shadow-xl hover:border-gray-300 dark:hover:border-gray-700/60 relative group"
     >
       {/* Header with agent name, status and icon */}
       <div className="flex items-center justify-between mb-4">
@@ -142,14 +136,39 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
           ) : (
             <div className="h-2.5 w-2.5 rounded-full flex-shrink-0 bg-red-500" />
           )}
-          <h3 className="font-semibold text-gray-900 dark:text-white truncate text-base">
-            {agent.name}
-          </h3>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900 dark:text-white truncate text-base">
+              {agent.name}
+            </h3>
+            {/* System Stats */}
+            {hardwareStats && (
+              <div className="flex items-center gap-1">
+                <CpuChipIcon className="h-3 w-3 text-gray-400" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">
+                  CPU: {hardwareStats.cpu.usage_percent.toFixed(0)}% RAM:{" "}
+                  {hardwareStats.memory.used_percent.toFixed(0)}%
+                </span>
+              </div>
+            )}
+          </div>
         </div>
-        {(() => {
-          const { icon: Icon } = getAgentIcon(agent.name);
-          return <Icon className="h-5 w-5 text-gray-400 flex-shrink-0" />;
-        })()}
+        <div className="flex items-center gap-2">
+          {(() => {
+            const { icon: Icon } = getAgentIcon(agent.name);
+            return <Icon className="h-5 w-5 text-gray-400 flex-shrink-0" />;
+          })()}
+          {/* Navigate to agent button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigateToAgent();
+            }}
+            className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200"
+            title="View detailed stats"
+          >
+            <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Bandwidth data */}
@@ -188,50 +207,9 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
             </div>
           </div>
 
-          {/* Sparklines */}
-          {sparklineData.rx.length > 0 && (
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  24h Download
-                </p>
-                <MiniSparkline data={sparklineData.rx} color="blue" height={24} />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  24h Upload
-                </p>
-                <MiniSparkline data={sparklineData.tx} color="green" height={24} />
-              </div>
-            </div>
-          )}
-
-          {/* Peak speeds */}
-          {peakStats && (peakStats.peak_rx > 0 || peakStats.peak_tx > 0) && (
-            <div className="border-t border-gray-200 dark:border-gray-800 pt-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                Peak Speeds
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex items-center space-x-1">
-                  <FaArrowDown className="h-3 w-3 text-blue-500" />
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {peakStats.peak_rx_string}
-                  </span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <FaArrowUp className="h-3 w-3 text-green-500" />
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {peakStats.peak_tx_string}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Today's usage */}
           {usage && (
-            <div className={`${peakStats && (peakStats.peak_rx > 0 || peakStats.peak_tx > 0) ? 'mt-3' : 'border-t border-gray-200 dark:border-gray-800'} pt-3`}>
+            <div className="border-t border-gray-200 dark:border-gray-800 pt-3">
               <div className="flex items-center justify-between mb-1">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   Today's Usage

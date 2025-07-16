@@ -31,11 +31,12 @@ interface MonitorOverviewTabProps {
   agent: MonitorAgent;
 }
 
-export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent }) => {
-  const { status, nativeData, peakStats, hardwareStats } = useMonitorAgent({
+export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
+  agent,
+}) => {
+  const { status, nativeData, hardwareStats } = useMonitorAgent({
     agent,
     includeNativeData: true,
-    includePeakStats: true,
     includeSystemInfo: true,
     includeHardwareStats: true,
   });
@@ -52,7 +53,12 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
       .slice(0, 24)
       .reverse()
       .map((h) => ({
-        time: new Date(h.date.year, h.date.month - 1, h.date.day || 1, h.time?.hour || 0).toISOString(),
+        time: new Date(
+          h.date.year,
+          h.date.month - 1,
+          h.date.day || 1,
+          h.time?.hour || 0
+        ).toISOString(),
         rx: h.rx,
         tx: h.tx,
       }));
@@ -65,10 +71,10 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
     }
 
     const hourData = nativeData.interfaces[0].traffic.hour.slice(0, 24);
-    
+
     return {
-      rx: hourData.map(h => h.rx).reverse(),
-      tx: hourData.map(h => h.tx).reverse(),
+      rx: hourData.map((h) => h.rx).reverse(),
+      tx: hourData.map((h) => h.tx).reverse(),
     };
   }, [nativeData]);
 
@@ -76,7 +82,9 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
     return (
       <div className="text-center py-12">
         <ServerIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-lg text-gray-500 dark:text-gray-400">Agent Disconnected</p>
+        <p className="text-lg text-gray-500 dark:text-gray-400">
+          Agent Disconnected
+        </p>
         <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
           Unable to connect to {agent.url}
         </p>
@@ -87,7 +95,7 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
   return (
     <div className="space-y-6">
       {/* Key Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Current Speed */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -159,44 +167,12 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
           )}
         </motion.div>
 
-        {/* Peak Speeds */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-          className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              Peak Speeds
-            </h3>
-            <ChartBarIcon className="h-5 w-5 text-gray-400" />
-          </div>
-          {peakStats && (peakStats.peak_rx > 0 || peakStats.peak_tx > 0) ? (
-            <>
-              <div className="flex items-center space-x-2 mb-2">
-                <ArrowDownIcon className="h-4 w-4 text-blue-500" />
-                <span className="text-lg font-bold text-gray-900 dark:text-white">
-                  {peakStats.peak_rx_string}
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <ArrowUpIcon className="h-4 w-4 text-green-500" />
-                <span className="text-lg font-bold text-gray-900 dark:text-white">
-                  {peakStats.peak_tx_string}
-                </span>
-              </div>
-            </>
-          ) : (
-            <p className="text-gray-500 dark:text-gray-400">No peaks recorded</p>
-          )}
-        </motion.div>
 
         {/* System Health */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
           className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
         >
           <div className="flex items-center justify-between mb-4">
@@ -209,7 +185,9 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
             <>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">CPU</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    CPU
+                  </span>
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {hardwareStats.cpu.usage_percent.toFixed(1)}%
                   </span>
@@ -219,13 +197,19 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
                     className="h-2 rounded-full transition-all duration-300"
                     style={{
                       width: `${hardwareStats.cpu.usage_percent}%`,
-                      backgroundColor: hardwareStats.cpu.usage_percent < 70 ? "#10B981" : 
-                                      hardwareStats.cpu.usage_percent < 85 ? "#F59E0B" : "#EF4444",
+                      backgroundColor:
+                        hardwareStats.cpu.usage_percent < 70
+                          ? "#10B981"
+                          : hardwareStats.cpu.usage_percent < 85
+                          ? "#F59E0B"
+                          : "#EF4444",
                     }}
                   />
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Memory</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    Memory
+                  </span>
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {hardwareStats.memory.used_percent.toFixed(1)}%
                   </span>
@@ -235,11 +219,55 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
                     className="h-2 rounded-full transition-all duration-300"
                     style={{
                       width: `${hardwareStats.memory.used_percent}%`,
-                      backgroundColor: hardwareStats.memory.used_percent < 70 ? "#10B981" : 
-                                      hardwareStats.memory.used_percent < 85 ? "#F59E0B" : "#EF4444",
+                      backgroundColor:
+                        hardwareStats.memory.used_percent < 70
+                          ? "#10B981"
+                          : hardwareStats.memory.used_percent < 85
+                          ? "#F59E0B"
+                          : "#EF4444",
                     }}
                   />
                 </div>
+                {/* Temperature Alert */}
+                {hardwareStats.temperature && hardwareStats.temperature.length > 0 && (() => {
+                  const hotSensors = hardwareStats.temperature.filter(t => t.temperature > 80);
+                  const warmSensors = hardwareStats.temperature.filter(t => t.temperature > 60 && t.temperature <= 80);
+                  
+                  if (hotSensors.length > 0) {
+                    return (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          Temperature
+                        </span>
+                        <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                          {hotSensors.length} Hot
+                        </span>
+                      </div>
+                    );
+                  } else if (warmSensors.length > 0) {
+                    return (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          Temperature
+                        </span>
+                        <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                          {warmSensors.length} Warm
+                        </span>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          Temperature
+                        </span>
+                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                          Normal
+                        </span>
+                      </div>
+                    );
+                  }
+                })()}
               </div>
             </>
           ) : (
@@ -277,10 +305,18 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
                       <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-gray-300 dark:stroke-gray-700" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-gray-300 dark:stroke-gray-700"
+                  />
                   <XAxis
                     dataKey="time"
-                    tickFormatter={(tick) => new Date(tick).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    tickFormatter={(tick) =>
+                      new Date(tick).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    }
                     className="text-xs text-gray-600 dark:text-gray-400"
                   />
                   <YAxis
@@ -298,6 +334,7 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
                       border: "1px solid rgba(75, 85, 99, 0.3)",
                       borderRadius: "0.5rem",
                     }}
+                    labelStyle={{ color: "#E5E7EB" }}
                     formatter={(value: number) => formatBytes(value)}
                     labelFormatter={(label) => new Date(label).toLocaleString()}
                   />
@@ -324,7 +361,9 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
             </div>
           ) : (
             <div className="h-64 flex items-center justify-center">
-              <p className="text-gray-500 dark:text-gray-400">No data available</p>
+              <p className="text-gray-500 dark:text-gray-400">
+                No data available
+              </p>
             </div>
           )}
         </motion.div>
@@ -342,9 +381,14 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
           {usage ? (
             <div className="space-y-3">
               {Object.entries(usage).map(([period, data]) => (
-                <div key={period} className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                <div
+                  key={period}
+                  className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-900"
+                >
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900 dark:text-white">{period}</p>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {period}
+                    </p>
                     <div className="flex items-center space-x-3 mt-1">
                       <div className="flex items-center space-x-1">
                         <ArrowDownIcon className="h-3 w-3 text-blue-500" />
@@ -369,7 +413,9 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 dark:text-gray-400">No usage data available</p>
+            <p className="text-gray-500 dark:text-gray-400">
+              No usage data available
+            </p>
           )}
         </motion.div>
       </div>
@@ -387,12 +433,20 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({ agent })
           </h3>
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Download</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                Download
+              </p>
               <MiniSparkline data={sparklineData.rx} color="blue" height={40} />
             </div>
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Upload</p>
-              <MiniSparkline data={sparklineData.tx} color="green" height={40} />
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                Upload
+              </p>
+              <MiniSparkline
+                data={sparklineData.tx}
+                color="green"
+                height={40}
+              />
             </div>
           </div>
         </motion.div>

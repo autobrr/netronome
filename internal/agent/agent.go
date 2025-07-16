@@ -20,13 +20,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/anatol/smart.go"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
-	"github.com/shirou/gopsutil/v3/cpu"
-	"github.com/shirou/gopsutil/v3/disk"
-	"github.com/shirou/gopsutil/v3/host"
-	"github.com/shirou/gopsutil/v3/load"
-	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/disk"
+	"github.com/shirou/gopsutil/v4/load"
+	"github.com/shirou/gopsutil/v4/mem"
+	"github.com/shirou/gopsutil/v4/sensors"
 
 	"github.com/autobrr/netronome/internal/config"
 )
@@ -499,7 +500,8 @@ func (a *Agent) getSystemInfo() (*SystemInfo, error) {
 	info.Kernel = runtime.GOOS + " " + runtime.GOARCH
 	log.Debug().Str("default_kernel", info.Kernel).Msg("Default kernel info")
 
-	if runtime.GOOS == "linux" {
+	switch runtime.GOOS {
+	case "linux":
 		cmd := exec.Command("uname", "-r")
 		output, err := cmd.Output()
 		if err == nil {
@@ -509,7 +511,7 @@ func (a *Agent) getSystemInfo() (*SystemInfo, error) {
 		} else {
 			log.Error().Err(err).Msg("Failed to run uname -r")
 		}
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		if uname, err := exec.Command("uname", "-r").Output(); err == nil {
 			info.Kernel = "Darwin " + strings.TrimSpace(string(uname))
 			log.Debug().Str("kernel", info.Kernel).Msg("Got Darwin kernel version")
@@ -517,7 +519,8 @@ func (a *Agent) getSystemInfo() (*SystemInfo, error) {
 	}
 
 	// Get uptime
-	if runtime.GOOS == "linux" {
+	switch runtime.GOOS {
+	case "linux":
 		log.Debug().Msg("Getting Linux uptime from /proc/uptime")
 		data, err := os.ReadFile("/proc/uptime")
 		if err == nil {
@@ -538,7 +541,7 @@ func (a *Agent) getSystemInfo() (*SystemInfo, error) {
 		} else {
 			log.Error().Err(err).Msg("Failed to read /proc/uptime")
 		}
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		// macOS: use sysctl
 		if output, err := exec.Command("sysctl", "-n", "kern.boottime").Output(); err == nil {
 			// Parse: { sec = 1234567890, usec = 123456 }
@@ -803,8 +806,8 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 		log.Debug().Err(err).Msg("Failed to get swap stats (may be normal if no swap)")
 	}
 
-	// Get disk stats
-	partitions, err := disk.Partitions(false)
+	// Get disk stats (include all filesystems, including fuse/virtual ones)
+	partitions, err := disk.Partitions(true)
 	if err == nil {
 		log.Debug().Int("partition_count", len(partitions)).Msg("Got disk partitions")
 		for _, partition := range partitions {
@@ -856,7 +859,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 	}
 
 	// Get temperature sensors
-	temps, err := host.SensorsTemperatures()
+	temps, err := sensors.TemperaturesWithContext(context.Background())
 	if err == nil {
 		log.Debug().Int("sensor_count", len(temps)).Msg("Got temperature sensors")
 		for _, temp := range temps {
@@ -869,9 +872,24 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 				continue
 			}
 
+			// Filter out redundant PMU sensors - only keep the most important ones
+			sensorKey := temp.SensorKey
+			if strings.Contains(sensorKey, "PMU") {
+				// For PMU sensors, only keep a representative sample
+				if strings.Contains(sensorKey, "tdev") && !strings.HasSuffix(sensorKey, "tdev1") {
+					// Skip most tdev sensors, only keep tdev1 from each PMU
+					continue
+				}
+				if strings.Contains(sensorKey, "tdie") && !strings.HasSuffix(sensorKey, "tdie1") {
+					// Skip most tdie sensors, only keep tdie1 from each PMU
+					continue
+				}
+			}
+
 			stats.Temperature = append(stats.Temperature, TemperatureStats{
 				SensorKey:   temp.SensorKey,
 				Temperature: temp.Temperature,
+				Label:       "", // gopsutil doesn't provide labels
 				Critical:    temp.High,
 			})
 
@@ -884,6 +902,15 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 		log.Debug().Int("temp_sensor_count", len(stats.Temperature)).Msg("Finished processing temperature sensors")
 	} else {
 		log.Debug().Err(err).Msg("Failed to get temperature sensors (may be normal on some systems)")
+	}
+
+	// Get disk temperatures via SMART (Linux: SATA+NVMe, macOS: NVMe only, requires privileges)
+	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+		hddTemps := a.getHDDTemperatures()
+		if len(hddTemps) > 0 {
+			stats.Temperature = append(stats.Temperature, hddTemps...)
+			log.Debug().Int("hdd_temp_count", len(hddTemps)).Msg("Added disk temperature sensors")
+		}
 	}
 
 	// Log final summary
@@ -957,12 +984,136 @@ func (a *Agent) shouldIncludeDisk(mountpoint, device, fstype string) bool {
 	// Skip special filesystems by default (unless explicitly included above)
 	if strings.HasPrefix(mountpoint, "/snap") ||
 		strings.HasPrefix(mountpoint, "/run") ||
+		strings.HasPrefix(mountpoint, "/dev") ||
+		strings.HasPrefix(mountpoint, "/proc") ||
+		strings.HasPrefix(mountpoint, "/sys") ||
+		strings.HasPrefix(mountpoint, "/var/lib/docker/overlay") ||
+		strings.HasPrefix(mountpoint, "/var/lib/containers/storage/overlay") ||
 		strings.HasPrefix(device, "tmpfs") ||
 		strings.HasPrefix(device, "devfs") ||
-		fstype == "squashfs" {
+		strings.HasPrefix(device, "udev") ||
+		strings.HasPrefix(device, "overlay") ||
+		fstype == "squashfs" ||
+		fstype == "devtmpfs" ||
+		fstype == "overlay" ||
+		fstype == "proc" ||
+		fstype == "sysfs" ||
+		fstype == "cgroup" ||
+		fstype == "cgroup2" {
 		return false
 	}
 
 	// Include everything else by default
 	return true
+}
+
+// getHDDTemperatures retrieves disk temperatures via SMART data
+func (a *Agent) getHDDTemperatures() []TemperatureStats {
+	var temps []TemperatureStats
+
+	// Get device paths based on platform
+	devicePaths := a.getDevicePaths()
+	
+	for _, devicePath := range devicePaths {
+		name := filepath.Base(devicePath)
+		
+		// Try to open the device with SMART
+		dev, err := smart.Open(devicePath)
+		if err != nil {
+			log.Trace().Str("device", devicePath).Err(err).Msg("Failed to open device for SMART (may need root or unsupported on this platform)")
+			continue
+		}
+		
+		// Get temperature using the generic attributes API
+		attrs, err := dev.ReadGenericAttributes()
+		if err != nil {
+			dev.Close()
+			log.Trace().Str("device", devicePath).Err(err).Msg("Failed to read generic attributes")
+			continue
+		}
+		
+		// Check if we got a valid temperature
+		if attrs != nil && attrs.Temperature > 0 && attrs.Temperature < 100 {
+			deviceType := "HDD"
+			if strings.Contains(name, "nvme") {
+				deviceType = "NVMe"
+			} else if strings.Contains(name, "sd") || strings.Contains(name, "disk") {
+				// Try to determine if it's SSD or HDD from rotation rate
+				// SSDs typically report 0 RPM
+				deviceType = "HDD" // Default assumption
+			}
+			
+			temps = append(temps, TemperatureStats{
+				SensorKey:   fmt.Sprintf("smart_%s", name),
+				Temperature: float64(attrs.Temperature),
+				Label:       fmt.Sprintf("%s %s", deviceType, strings.ToUpper(name)),
+				Critical:    60.0, // HDDs typically warn at 60°C, SSDs at 70°C
+			})
+
+			log.Debug().
+				Str("device", name).
+				Uint64("temp", attrs.Temperature).
+				Str("type", deviceType).
+				Msg("Added disk temperature from SMART")
+		}
+		
+		dev.Close()
+	}
+
+	return temps
+}
+
+// getDevicePaths returns a list of device paths to check for SMART data
+func (a *Agent) getDevicePaths() []string {
+	var devicePaths []string
+
+	if runtime.GOOS == "darwin" {
+		// macOS: Look for disk devices in /dev
+		entries, err := os.ReadDir("/dev")
+		if err != nil {
+			log.Debug().Err(err).Msg("Failed to read /dev directory")
+			return devicePaths
+		}
+
+		for _, entry := range entries {
+			name := entry.Name()
+			// macOS uses disk0, disk1, etc. and rdisk0, rdisk1, etc.
+			// We want the raw disk devices (rdisk) for SMART access
+			if strings.HasPrefix(name, "rdisk") && !strings.Contains(name, "s") {
+				// Skip partitions (rdisk0s1, rdisk1s2, etc.)
+				devicePaths = append(devicePaths, filepath.Join("/dev", name))
+			}
+			// Also check for nvme devices that might exist
+			if strings.HasPrefix(name, "nvme") && !strings.Contains(name, "p") {
+				devicePaths = append(devicePaths, filepath.Join("/dev", name))
+			}
+		}
+	} else {
+		// Linux: Look for traditional device names
+		entries, err := os.ReadDir("/dev")
+		if err != nil {
+			log.Debug().Err(err).Msg("Failed to read /dev directory")
+			return devicePaths
+		}
+
+		for _, entry := range entries {
+			name := entry.Name()
+			// Look for disk devices (sda, sdb, nvme0n1, etc.)
+			if !strings.HasPrefix(name, "sd") && !strings.HasPrefix(name, "nvme") && !strings.HasPrefix(name, "hd") {
+				continue
+			}
+			
+			// Skip partitions (sda1, sdb2, nvme0n1p1, etc.)
+			if strings.Contains(name, "p") && len(name) > 4 {
+				continue
+			}
+			if len(name) > 3 && name[len(name)-1] >= '0' && name[len(name)-1] <= '9' {
+				continue
+			}
+
+			devicePaths = append(devicePaths, filepath.Join("/dev", name))
+		}
+	}
+
+	return devicePaths
 }

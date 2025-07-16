@@ -218,35 +218,66 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
             </h3>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {hardwareStats.temperature
-              .filter(temp => {
+          <div className="space-y-6">
+            {(() => {
+              // Filter and categorize temperature sensors
+              const filteredTemps = hardwareStats.temperature.filter(temp => {
                 // Filter out sensors with absurd max temperatures (65262°C is likely uninitialized data)
                 return !temp.critical || (temp.critical > 0 && temp.critical < 1000);
-              })
-              .sort((a, b) => {
-                // Sort by category: CPU cores first, then package, then storage, then other
-                const getCategory = (temp: typeof a) => {
-                  const key = temp.sensor_key.toLowerCase();
-                  const label = (temp.label || "").toLowerCase();
-                  
-                  if (key.includes("coretemp_core_") || label.includes("core ")) return 0;
-                  if (key.includes("coretemp_package") || label.includes("package")) return 1;
-                  if (key.includes("nvme") || label.includes("nvme")) return 2;
-                  if (key.includes("smart_") || label.includes("hdd") || label.includes("ssd")) return 3;
-                  if (key.includes("acpitz")) return 4;
-                  return 5;
-                };
+              });
+
+              const getCategory = (temp: typeof filteredTemps[0]) => {
+                const key = temp.sensor_key.toLowerCase();
+                const label = (temp.label || "").toLowerCase();
                 
-                const catA = getCategory(a);
-                const catB = getCategory(b);
+                // CPU - All processor-related sensors
+                if (key.includes("coretemp_core_") || key.includes("coretemp_package") || label.includes("core ") || label.includes("package")) return "cpu";
+                if (key.includes("pmu tdie") || key.includes("pmu2 tdie")) return "cpu";
+                if (key.includes("pmu tdev") || key.includes("pmu2 tdev")) return "cpu";
                 
-                if (catA !== catB) return catA - catB;
+                // Storage - All storage devices
+                if (key.includes("nvme") || label.includes("nvme")) return "storage";
+                if (key.includes("nand") || key.includes("smart_")) return "storage";
+                if (label.includes("hdd") || label.includes("ssd")) return "storage";
                 
-                // Within same category, sort by sensor key
-                return a.sensor_key.localeCompare(b.sensor_key);
-              })
-              .map((temp, index) => {
+                // Power - Battery and power management
+                if (key.includes("battery") || key.includes("gas gauge")) return "power";
+                
+                // System - Everything else (calibration, ACPI, misc)
+                return "system";
+              };
+
+              // Group sensors by category
+              const categories = filteredTemps.reduce((acc, temp) => {
+                const category = getCategory(temp);
+                if (!acc[category]) acc[category] = [];
+                acc[category].push(temp);
+                return acc;
+              }, {} as Record<string, typeof filteredTemps>);
+
+              // Sort within each category
+              Object.keys(categories).forEach(cat => {
+                categories[cat].sort((a, b) => a.sensor_key.localeCompare(b.sensor_key));
+              });
+
+              const categoryOrder = [
+                { key: "cpu", title: "CPU" },
+                { key: "storage", title: "Storage" },
+                { key: "power", title: "Power & Battery" },
+                { key: "system", title: "System" }
+              ];
+
+              return categoryOrder.map(({ key, title }) => {
+                const temps = categories[key];
+                if (!temps || temps.length === 0) return null;
+
+                return (
+                  <div key={key} className="space-y-3">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 pb-1">
+                      {title} ({temps.length})
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {temps.map((temp, index) => {
                 const percentage = temp.critical && temp.critical > 0
                   ? Math.min((temp.temperature / temp.critical) * 100, 100)
                   : (temp.temperature / 100) * 100; // Assume 100°C max if no critical temp
@@ -260,45 +291,13 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                   return "#10B981"; // green
                 };
 
-                // Improve display name
+                // Use original sensor names, with label if available
                 const getDisplayName = () => {
+                  // Use the label if it exists (for SMART drives, etc.)
                   if (temp.label) return temp.label;
                   
-                  const key = temp.sensor_key;
-                  
-                  // CPU core temps
-                  if (key.includes("coretemp_core_")) {
-                    const coreNum = key.replace("coretemp_core_", "");
-                    return `CPU Core ${coreNum}`;
-                  }
-                  if (key.includes("coretemp_package")) {
-                    return "CPU Package";
-                  }
-                  
-                  // Storage temps
-                  if (key.includes("nvme")) {
-                    const parts = key.split("_");
-                    if (parts.includes("composite")) {
-                      return `NVMe ${parts[0].replace("nvme", "Drive ")} (Overall)`;
-                    }
-                    if (parts.includes("sensor")) {
-                      const sensorNum = parts[parts.length - 1];
-                      return `NVMe ${parts[0].replace("nvme", "Drive ")} Sensor ${sensorNum}`;
-                    }
-                  }
-                  
-                  // ACPI thermal zone
-                  if (key === "acpitz") {
-                    return "System Thermal Zone";
-                  }
-                  
-                  // HDD/SSD temperatures from SMART
-                  if (key.includes("smart_")) {
-                    // Already has a good label from backend
-                    return temp.label || key.replace("smart_", "").toUpperCase();
-                  }
-                  
-                  return key;
+                  // Otherwise use the original sensor key
+                  return temp.sensor_key;
                 };
 
                 return (
@@ -329,7 +328,12 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                     )}
                   </div>
                 );
-              })}
+                      })}
+                    </div>
+                  </div>
+                );
+              }).filter(Boolean);
+            })()}
           </div>
         </div>
       )}

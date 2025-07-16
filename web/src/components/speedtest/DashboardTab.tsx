@@ -23,7 +23,7 @@ interface DashboardTabProps {
   hasAnyTests?: boolean;
   onShareClick?: () => void;
   onNavigateToSpeedTest?: () => void;
-  onNavigateToVnstat?: () => void;
+  onNavigateToVnstat?: (agentId?: number) => void;
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({

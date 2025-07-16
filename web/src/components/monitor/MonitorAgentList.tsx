@@ -13,6 +13,7 @@ import {
   ArrowUpIcon,
   CpuChipIcon,
   CircleStackIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { SparklesIcon as SparklesIconSolid } from "@heroicons/react/24/solid";
 import { MonitorAgent } from "@/api/monitor";
@@ -318,6 +319,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
 
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           <div className="flex items-center gap-0.5">
+            <ChevronRightIcon className="w-4 h-4 text-gray-400 mr-1" />
             <button
               className={`p-1 rounded-md transition-colors ${
                 isFeatured
