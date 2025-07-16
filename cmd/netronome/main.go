@@ -108,6 +108,8 @@ func init() {
 	agentCmd.Flags().StringP("interface", "i", "", "network interface to monitor (empty for all)")
 	agentCmd.Flags().StringP("api-key", "k", "", "API key for authentication")
 	agentCmd.Flags().StringP("log-level", "l", "", "log level (trace, debug, info, warn, error)")
+	agentCmd.Flags().StringSlice("disk-include", []string{}, "additional disk mount points to monitor (e.g., /mnt/storage)")
+	agentCmd.Flags().StringSlice("disk-exclude", []string{}, "disk mount points to exclude from monitoring (e.g., /boot)")
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(generateConfigCmd)
@@ -418,6 +420,8 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	iface, _ := cmd.Flags().GetString("interface")
 	apiKey, _ := cmd.Flags().GetString("api-key")
 	logLevel, _ := cmd.Flags().GetString("log-level")
+	diskIncludes, _ := cmd.Flags().GetStringSlice("disk-include")
+	diskExcludes, _ := cmd.Flags().GetStringSlice("disk-exclude")
 
 	// Load config if provided
 	var cfg *config.Config
@@ -454,6 +458,12 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	}
 	if cmd.Flags().Changed("api-key") {
 		cfg.Agent.APIKey = apiKey
+	}
+	if cmd.Flags().Changed("disk-include") {
+		cfg.Agent.DiskIncludes = diskIncludes
+	}
+	if cmd.Flags().Changed("disk-exclude") {
+		cfg.Agent.DiskExcludes = diskExcludes
 	}
 
 	// Create agent service

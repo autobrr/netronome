@@ -345,6 +345,12 @@ journalctl -u netronome-agent-update
    # Run agent with specific interface
    netronome agent --interface eth0 --api-key your-secret-key
 
+   # Include additional disk mounts (e.g., /mnt/storage)
+   netronome agent --disk-include /mnt/storage --disk-include /mnt/backup
+
+   # Exclude certain disk mounts from monitoring
+   netronome agent --disk-exclude /boot --disk-exclude /tmp
+
    # Run with config file
    netronome agent --config /path/to/config.toml
    ```
@@ -359,6 +365,8 @@ journalctl -u netronome-agent-update
    port = 8200
    interface = ""    # Empty for all interfaces, or specify like "eth0"
    api_key = ""      # API key for authentication (recommended)
+   disk_includes = []  # Additional disk mounts to monitor, e.g., ["/mnt/storage", "/mnt/backup"]
+   disk_excludes = []  # Disk mounts to exclude from monitoring, e.g., ["/boot", "/tmp"]
 
    [monitor]
    enabled = true
@@ -431,6 +439,35 @@ The monitoring agents provide comprehensive system visibility:
   - Network interface details and IP addresses
   - Peak bandwidth statistics
 
+#### Disk Filtering
+
+The agent supports flexible disk filtering to customize which filesystems are monitored:
+
+- **Include Specific Mounts**: Use `disk_includes` to monitor additional mount points that might be excluded by default (e.g., `/mnt/storage`, `/mnt/nas`)
+- **Exclude Mounts**: Use `disk_excludes` to hide specific mount points from monitoring (e.g., `/boot`, `/tmp`)
+- **Glob Patterns**: Supports standard glob patterns for flexible matching (e.g., `/System/*`, `/mnt/disk*`)
+- **Priority**: Explicitly included paths take precedence over exclusion rules
+- **Default Behavior**: Special filesystems (`/snap/*`, `/run/*`, tmpfs, devfs, squashfs) are excluded unless explicitly included
+
+Examples:
+```bash
+# Monitor /mnt/storage even if it's a special filesystem type
+netronome agent --disk-include /mnt/storage
+
+# Exclude all System volumes on macOS
+netronome agent --disk-exclude "/System/*"
+
+# Include all /mnt/disk* mounts
+netronome agent --disk-include "/mnt/disk*"
+
+# Hide /boot and all /tmp* directories from monitoring
+netronome agent --disk-exclude /boot --disk-exclude "/tmp*"
+
+# Using environment variables
+export NETRONOME__AGENT_DISK_INCLUDES="/mnt/storage,/mnt/disk*"
+export NETRONOME__AGENT_DISK_EXCLUDES="/boot,/tmp*,/System/*"
+```
+
 #### Data Accuracy and Unit Display
 
 Netronome fetches bandwidth data directly from vnstat's native JSON output, ensuring exact data parity with other vnstat-based tools like swizzin panel.
@@ -492,6 +529,8 @@ This ensures accurate and unambiguous representation of bandwidth data.
 | `NETRONOME__AGENT_HOST`                             | Agent server bind address                                         | `0.0.0.0`                                    | No                     |
 | `NETRONOME__AGENT_PORT`                             | Agent server port                                                 | `8200`                                       | No                     |
 | `NETRONOME__AGENT_INTERFACE`                        | Network interface for agent to monitor (empty for all)            | ``                                           | No                     |
+| `NETRONOME__AGENT_DISK_INCLUDES`                    | Comma-separated list of disk mounts to include                    | ``                                           | No                     |
+| `NETRONOME__AGENT_DISK_EXCLUDES`                    | Comma-separated list of disk mounts to exclude                    | ``                                           | No                     |
 | `NETRONOME__MONITOR_ENABLED`                        | Enable monitor client service in main server                      | `true`                                       | No                     |
 | `NETRONOME__MONITOR_RECONNECT_INTERVAL`             | Reconnection interval for monitor agent connections               | `30s`                                        | No                     |
 

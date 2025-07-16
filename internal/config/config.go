@@ -143,10 +143,12 @@ type PacketLossConfig struct {
 }
 
 type AgentConfig struct {
-	Host      string `toml:"host" env:"AGENT_HOST"`
-	Port      int    `toml:"port" env:"AGENT_PORT"`
-	Interface string `toml:"interface" env:"AGENT_INTERFACE"`
-	APIKey    string `toml:"api_key" env:"AGENT_API_KEY"`
+	Host         string   `toml:"host" env:"AGENT_HOST"`
+	Port         int      `toml:"port" env:"AGENT_PORT"`
+	Interface    string   `toml:"interface" env:"AGENT_INTERFACE"`
+	APIKey       string   `toml:"api_key" env:"AGENT_API_KEY"`
+	DiskIncludes []string `toml:"disk_includes" env:"AGENT_DISK_INCLUDES" envSeparator:","`
+	DiskExcludes []string `toml:"disk_excludes" env:"AGENT_DISK_EXCLUDES" envSeparator:","`
 }
 
 type MonitorConfig struct {
@@ -251,9 +253,11 @@ func New() *Config {
 			RestoreMonitorsOnStartup: false,
 		},
 		Agent: AgentConfig{
-			Host:      "0.0.0.0",
-			Port:      8200,
-			Interface: "",
+			Host:         "0.0.0.0",
+			Port:         8200,
+			Interface:    "",
+			DiskIncludes: []string{},
+			DiskExcludes: []string{},
 		},
 		Monitor: MonitorConfig{
 			Enabled:           true,

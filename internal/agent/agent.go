@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -717,7 +718,10 @@ func (a *Agent) handleHardwareStats(c *gin.Context) {
 
 // getHardwareStats gathers hardware statistics
 func (a *Agent) getHardwareStats() (*HardwareStats, error) {
-	log.Debug().Msg("Starting getHardwareStats")
+	log.Debug().
+		Strs("disk_includes", a.config.DiskIncludes).
+		Strs("disk_excludes", a.config.DiskExcludes).
+		Msg("Starting getHardwareStats with disk filters")
 
 	stats := &HardwareStats{
 		UpdatedAt: time.Now(),
@@ -804,17 +808,13 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 	if err == nil {
 		log.Debug().Int("partition_count", len(partitions)).Msg("Got disk partitions")
 		for _, partition := range partitions {
-			// Skip special filesystems
-			if strings.HasPrefix(partition.Mountpoint, "/snap") ||
-				strings.HasPrefix(partition.Mountpoint, "/run") ||
-				strings.HasPrefix(partition.Device, "tmpfs") ||
-				strings.HasPrefix(partition.Device, "devfs") ||
-				partition.Fstype == "squashfs" {
+			// Check if this disk should be included based on filters
+			if !a.shouldIncludeDisk(partition.Mountpoint, partition.Device, partition.Fstype) {
 				log.Debug().
 					Str("mount", partition.Mountpoint).
 					Str("device", partition.Device).
 					Str("fstype", partition.Fstype).
-					Msg("Skipping special filesystem")
+					Msg("Skipping disk based on filter rules")
 				continue
 			}
 
@@ -910,4 +910,59 @@ func getLoadAverage() ([]float64, error) {
 	}
 
 	return []float64{loadAvg.Load1, loadAvg.Load5, loadAvg.Load15}, nil
+}
+
+// matchPath checks if a path matches a pattern, supporting both glob and prefix patterns
+func matchPath(pattern, path string) bool {
+	// Check if pattern ends with * for prefix matching
+	if strings.HasSuffix(pattern, "*") {
+		prefix := strings.TrimSuffix(pattern, "*")
+		return strings.HasPrefix(path, prefix)
+	}
+	
+	// Check if pattern contains any glob characters
+	if strings.ContainsAny(pattern, "*?[]") {
+		// Use filepath.Match for single-component patterns
+		matched, err := filepath.Match(pattern, path)
+		if err == nil && matched {
+			return true
+		}
+		// Also try matching just the basename
+		matched, err = filepath.Match(pattern, filepath.Base(path))
+		return err == nil && matched
+	}
+	
+	// Otherwise, exact match
+	return pattern == path
+}
+
+// shouldIncludeDisk determines if a disk should be included in monitoring based on filter rules
+func (a *Agent) shouldIncludeDisk(mountpoint, device, fstype string) bool {
+	// First check if it's explicitly included - this takes precedence
+	for _, pattern := range a.config.DiskIncludes {
+		if matchPath(pattern, mountpoint) {
+			log.Debug().Str("mount", mountpoint).Str("pattern", pattern).Msg("Disk included by pattern match")
+			return true
+		}
+	}
+
+	// Then check if it's explicitly excluded
+	for _, pattern := range a.config.DiskExcludes {
+		if matchPath(pattern, mountpoint) {
+			log.Debug().Str("mount", mountpoint).Str("pattern", pattern).Msg("Disk excluded by pattern match")
+			return false
+		}
+	}
+
+	// Skip special filesystems by default (unless explicitly included above)
+	if strings.HasPrefix(mountpoint, "/snap") ||
+		strings.HasPrefix(mountpoint, "/run") ||
+		strings.HasPrefix(device, "tmpfs") ||
+		strings.HasPrefix(device, "devfs") ||
+		fstype == "squashfs" {
+		return false
+	}
+
+	// Include everything else by default
+	return true
 }

@@ -468,9 +468,9 @@ The scheduler runs every minute checking for due tests/monitors. It supports two
 
 ### Agent Mode (`netronome agent`)
 
-The monitor agent is a lightweight SSE server that broadcasts network bandwidth data:
+The monitor agent is a lightweight SSE server that broadcasts network bandwidth and system data:
 
-- **Command**: `netronome agent [--host HOST] [--port PORT] [--interface INTERFACE] [--api-key KEY]`
+- **Command**: `netronome agent [--host HOST] [--port PORT] [--interface INTERFACE] [--api-key KEY] [--disk-include PATH] [--disk-exclude PATH]`
 - **Default Port**: 8200
 - **Default Host**: 0.0.0.0
 - **Authentication**: Optional API key authentication via X-API-Key header or ?apikey= query param
@@ -479,6 +479,12 @@ The monitor agent is a lightweight SSE server that broadcasts network bandwidth 
 - **Data Source**: Executes `vnstat --live --json` and streams output
 - **CORS Support**: Enabled for cross-origin access from Netronome server
 - **Graceful Shutdown**: Properly closes connections on termination
+- **Disk Filtering**: 
+  - `--disk-include`: Add mount points to monitor with glob support (e.g., `/mnt/storage`, `/mnt/disk*`)
+  - `--disk-exclude`: Exclude mount points with glob support (e.g., `/boot`, `/System/*`)
+  - Includes take precedence over excludes
+  - Special filesystems excluded by default unless explicitly included
+  - Supports standard glob patterns for flexible matching
 
 ### Installation Script
 
@@ -548,6 +554,8 @@ host = "0.0.0.0"     # IP address to bind to
 port = 8200          # Port for agent to listen on
 interface = ""       # Network interface to monitor (empty = all)
 api_key = ""         # API key for authentication (optional but recommended)
+disk_includes = []   # Additional disk mounts to monitor, e.g., ["/mnt/storage", "/mnt/backup"]
+disk_excludes = []   # Disk mounts to exclude from monitoring, e.g., ["/boot", "/tmp"]
 
 [monitor]
 enabled = true       # Enable monitor client service in main server

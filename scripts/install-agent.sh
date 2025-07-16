@@ -386,6 +386,38 @@ else
     echo "Port: $PORT (auto-selected)"
 fi
 
+# Get disk filtering configuration
+echo ""
+if [ "$INTERACTIVE_MODE" = true ]; then
+    print_color $YELLOW "Disk Monitoring Configuration (optional):"
+    print_color $YELLOW "You can specify additional disk mounts to monitor or exclude certain mounts."
+    echo ""
+    
+    # Disk includes
+    read -p "Enter disk mounts to include (comma-separated, e.g., /mnt/storage,/mnt/backup): " DISK_INCLUDES_INPUT < "$INPUT_SOURCE"
+    if [ -n "$DISK_INCLUDES_INPUT" ]; then
+        # Convert comma-separated list to TOML array format
+        DISK_INCLUDES=$(echo "$DISK_INCLUDES_INPUT" | sed 's/,/", "/g' | sed 's/^/["/' | sed 's/$/"]/')
+    else
+        DISK_INCLUDES="[]"
+    fi
+    
+    # Disk excludes
+    read -p "Enter disk mounts to exclude (comma-separated, e.g., /boot,/tmp): " DISK_EXCLUDES_INPUT < "$INPUT_SOURCE"
+    if [ -n "$DISK_EXCLUDES_INPUT" ]; then
+        # Convert comma-separated list to TOML array format
+        DISK_EXCLUDES=$(echo "$DISK_EXCLUDES_INPUT" | sed 's/,/", "/g' | sed 's/^/["/' | sed 's/$/"]/')
+    else
+        DISK_EXCLUDES="[]"
+    fi
+else
+    # Non-interactive mode - use defaults
+    DISK_INCLUDES="[]"
+    DISK_EXCLUDES="[]"
+    echo "Disk includes: none (auto-selected)"
+    echo "Disk excludes: none (auto-selected)"
+fi
+
 # Create user if it doesn't exist
 create_user $USER_NAME
 
@@ -445,6 +477,8 @@ host = "$HOST"
 port = $PORT
 interface = "$INTERFACE"
 api_key = "$API_KEY"
+disk_includes = $DISK_INCLUDES
+disk_excludes = $DISK_EXCLUDES
 
 [logging]
 level = "info"
