@@ -6,6 +6,9 @@
 import React from "react";
 import { VnstatUsageTable } from "./VnstatUsageTable";
 import { VnstatLiveMonitor } from "./VnstatLiveMonitor";
+import { VnstatSystemInfo } from "./VnstatSystemInfo";
+import { VnstatBandwidthChart } from "./VnstatBandwidthChart";
+import { VnstatHardwareStats } from "./VnstatHardwareStats";
 import { VnstatAgent } from "@/api/vnstat";
 import { useVnstatAgent } from "@/hooks/useVnstatAgent";
 
@@ -16,14 +19,97 @@ interface VnstatAgentDetailsProps {
 export const VnstatAgentDetails: React.FC<VnstatAgentDetailsProps> = ({
   agent,
 }) => {
-  // Use the shared hook for agent status
-  const { status } = useVnstatAgent({ agent });
+  // Use the shared hook for agent status and system info
+  const { status, systemInfo, nativeData, hardwareStats } = useVnstatAgent({ 
+    agent,
+    includeSystemInfo: true,
+    includeNativeData: true,
+    includeHardwareStats: true,
+  });
+
+  // Transform native data for hourly chart
+  const hourlyChartData = React.useMemo(() => {
+    if (!nativeData?.interfaces?.[0]?.traffic?.hour) return [];
+    
+    const hourData = nativeData.interfaces[0].traffic.hour;
+    // vnstat returns newest first, reverse for chronological order
+    return hourData.slice().reverse().map((item) => {
+      const date = new Date(
+        item.date.year,
+        item.date.month - 1,
+        item.date.day || 1,
+        item.time?.hour || 0,
+        item.time?.minute || 0
+      );
+      
+      return {
+        time: date.toISOString(),
+        rx: item.rx,
+        tx: item.tx,
+      };
+    });
+  }, [nativeData]);
+
+  // Transform native data for daily chart
+  const dailyChartData = React.useMemo(() => {
+    if (!nativeData?.interfaces?.[0]?.traffic?.day) return [];
+    
+    const dayData = nativeData.interfaces[0].traffic.day;
+    // vnstat returns newest first, reverse for chronological order
+    return dayData.slice().reverse().map((item) => {
+      const date = new Date(
+        item.date.year,
+        item.date.month - 1,
+        item.date.day || 1
+      );
+      
+      return {
+        time: date.toISOString(),
+        rx: item.rx,
+        tx: item.tx,
+      };
+    });
+  }, [nativeData]);
 
   return (
     <div className="space-y-6">
       {/* Live Monitor */}
       {agent.enabled && status?.connected && status.liveData && (
-        <VnstatLiveMonitor liveData={status.liveData} />
+        <VnstatLiveMonitor 
+          liveData={status.liveData}
+          thresholds={{
+            download: 100 * 1024 * 1024, // 100 MiB/s
+            upload: 50 * 1024 * 1024,    // 50 MiB/s
+          }}
+        />
+      )}
+
+      {/* System Information */}
+      {agent.enabled && status?.connected && systemInfo && (
+        <VnstatSystemInfo systemInfo={systemInfo} refreshInterval={300000} />
+      )}
+
+      {/* Hardware Stats */}
+      {agent.enabled && status?.connected && hardwareStats && (
+        <VnstatHardwareStats hardwareStats={hardwareStats} />
+      )}
+
+      {/* Hourly Bandwidth Chart */}
+      {agent.enabled && hourlyChartData.length > 0 && (
+        <VnstatBandwidthChart
+          data={hourlyChartData}
+          title="Hourly Bandwidth"
+          timeFormat="hour"
+        />
+      )}
+
+      {/* Daily Bandwidth Chart */}
+      {agent.enabled && dailyChartData.length > 0 && (
+        <VnstatBandwidthChart
+          data={dailyChartData}
+          title="Daily Bandwidth"
+          timeFormat="day"
+        />
       )}
 
       {/* Data Usage Table */}

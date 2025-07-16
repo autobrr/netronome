@@ -31,6 +31,80 @@ export interface VnstatStatus {
   };
 }
 
+export interface InterfaceInfo {
+  name: string;
+  alias: string;
+  ip_address: string;
+  link_speed: number; // Mbps
+  is_up: boolean;
+  bytes_total: number;
+}
+
+export interface SystemInfo {
+  hostname: string;
+  kernel: string;
+  uptime: number; // seconds
+  interfaces: Record<string, InterfaceInfo>;
+  vnstat_version: string;
+  database_size: number; // bytes
+  updated_at: string;
+}
+
+export interface PeakStats {
+  peak_rx: number; // bytes/s
+  peak_tx: number; // bytes/s
+  peak_rx_string: string;
+  peak_tx_string: string;
+  peak_rx_timestamp?: string;
+  peak_tx_timestamp?: string;
+  updated_at: string;
+}
+
+export interface HardwareStats {
+  cpu: CPUStats;
+  memory: MemoryStats;
+  disks: DiskStats[];
+  temperature?: TemperatureStats[];
+  updated_at: string;
+}
+
+export interface CPUStats {
+  usage_percent: number;
+  cores: number;
+  threads: number;
+  model: string;
+  frequency: number; // MHz
+  load_avg?: number[]; // 1, 5, 15 min
+}
+
+export interface MemoryStats {
+  total: number;
+  used: number;
+  free: number;
+  available: number;
+  used_percent: number;
+  swap_total: number;
+  swap_used: number;
+  swap_percent: number;
+}
+
+export interface DiskStats {
+  path: string;
+  device: string;
+  fstype: string;
+  total: number;
+  used: number;
+  free: number;
+  used_percent: number;
+}
+
+export interface TemperatureStats {
+  sensor_key: string;
+  temperature: number; // Celsius
+  label?: string;
+  critical?: number;
+}
+
 export interface CreateAgentRequest {
   name: string;
   url: string;

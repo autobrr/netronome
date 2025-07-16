@@ -107,6 +107,7 @@ func init() {
 	agentCmd.Flags().IntP("port", "p", 8200, "port to listen on")
 	agentCmd.Flags().StringP("interface", "i", "", "network interface to monitor (empty for all)")
 	agentCmd.Flags().StringP("api-key", "k", "", "API key for authentication")
+	agentCmd.Flags().StringP("log-level", "l", "", "log level (trace, debug, info, warn, error)")
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(generateConfigCmd)
@@ -412,13 +413,11 @@ func createUser(cmd *cobra.Command, args []string) error {
 }
 
 func runAgent(cmd *cobra.Command, args []string) error {
-	// initialize logger
-	logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
-
 	host, _ := cmd.Flags().GetString("host")
 	port, _ := cmd.Flags().GetInt("port")
 	iface, _ := cmd.Flags().GetString("interface")
 	apiKey, _ := cmd.Flags().GetString("api-key")
+	logLevel, _ := cmd.Flags().GetString("log-level")
 
 	// Load config if provided
 	var cfg *config.Config
@@ -426,12 +425,22 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		var err error
 		cfg, err = config.Load(configPath)
 		if err != nil {
+			// Initialize logger with default settings if config load fails
+			logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
 			log.Warn().Err(err).Msg("Failed to load config, using defaults")
 			cfg = config.New()
 		}
 	} else {
 		cfg = config.New()
 	}
+	
+	// Override log level from command line flag if provided
+	if cmd.Flags().Changed("log-level") && logLevel != "" {
+		cfg.Logging.Level = logLevel
+	}
+	
+	// Initialize logger with config settings
+	logger.Init(cfg.Logging, cfg.Server, false)
 
 	// Override with command line flags
 	if cmd.Flags().Changed("host") {

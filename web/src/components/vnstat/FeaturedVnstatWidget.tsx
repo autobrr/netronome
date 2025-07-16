@@ -14,6 +14,7 @@ import { getAgentIcon } from "@/utils/agentIcons";
 import { formatBytes } from "@/utils/formatBytes";
 import { useVnstatAgent } from "@/hooks/useVnstatAgent";
 import { VnstatUsageModal } from "./VnstatUsageModal";
+import { MiniSparkline } from "./MiniSparkline";
 
 interface FeaturedVnstatWidgetProps {
   onNavigateToVnstat: () => void;
@@ -101,12 +102,27 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
   onOpenModal,
 }) => {
   // Use the shared hook for agent data
-  const { status, nativeData } = useVnstatAgent({
+  const { status, nativeData, peakStats } = useVnstatAgent({
     agent,
     includeNativeData: true,
+    includePeakStats: true,
   });
 
   const usage = nativeData ? parseVnstatUsagePeriods(nativeData) : null;
+
+  // Extract hourly data for sparklines (last 24 hours)
+  const sparklineData = React.useMemo(() => {
+    if (!nativeData?.interfaces?.[0]?.traffic?.hour) {
+      return { rx: [], tx: [] };
+    }
+
+    const hourData = nativeData.interfaces[0].traffic.hour.slice(0, 24);
+    
+    return {
+      rx: hourData.map(h => h.rx).reverse(),
+      tx: hourData.map(h => h.tx).reverse(),
+    };
+  }, [nativeData]);
 
   return (
     <motion.div
@@ -172,9 +188,50 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
             </div>
           </div>
 
+          {/* Sparklines */}
+          {sparklineData.rx.length > 0 && (
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  24h Download
+                </p>
+                <MiniSparkline data={sparklineData.rx} color="blue" height={24} />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  24h Upload
+                </p>
+                <MiniSparkline data={sparklineData.tx} color="green" height={24} />
+              </div>
+            </div>
+          )}
+
+          {/* Peak speeds */}
+          {peakStats && (peakStats.peak_rx > 0 || peakStats.peak_tx > 0) && (
+            <div className="border-t border-gray-200 dark:border-gray-800 pt-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                Peak Speeds
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center space-x-1">
+                  <FaArrowDown className="h-3 w-3 text-blue-500" />
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    {peakStats.peak_rx_string}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <FaArrowUp className="h-3 w-3 text-green-500" />
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    {peakStats.peak_tx_string}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Today's usage */}
           {usage && (
-            <div className="border-t border-gray-200 dark:border-gray-800 pt-3">
+            <div className={`${peakStats && (peakStats.peak_rx > 0 || peakStats.peak_tx > 0) ? 'mt-3' : 'border-t border-gray-200 dark:border-gray-800'} pt-3`}>
               <div className="flex items-center justify-between mb-1">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   Today's Usage

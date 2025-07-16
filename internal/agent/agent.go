@@ -9,13 +9,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"os"
 	"os/exec"
+	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/host"
+	"github.com/shirou/gopsutil/v3/load"
+	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/autobrr/netronome/internal/config"
 )
@@ -26,6 +36,9 @@ type Agent struct {
 	clients    map[chan string]bool
 	clientsMu  sync.RWMutex
 	vnstatData chan string
+	peakRx     int // Peak download speed in bytes/s
+	peakTx     int // Peak upload speed in bytes/s
+	peakMu     sync.RWMutex
 }
 
 // VnstatLiveData represents the JSON structure from vnstat --live --json
@@ -52,6 +65,87 @@ type VnstatLiveData struct {
 	} `json:"tx"`
 }
 
+// SystemInfo represents system information
+type SystemInfo struct {
+	Hostname      string                   `json:"hostname"`
+	Kernel        string                   `json:"kernel"`
+	Uptime        int64                    `json:"uptime"` // seconds
+	Interfaces    map[string]InterfaceInfo `json:"interfaces"`
+	VnstatVersion string                   `json:"vnstat_version"`
+	UpdatedAt     time.Time                `json:"updated_at"`
+}
+
+// InterfaceInfo represents network interface details
+type InterfaceInfo struct {
+	Name       string `json:"name"`
+	Alias      string `json:"alias"`
+	IPAddress  string `json:"ip_address"`
+	LinkSpeed  int    `json:"link_speed"` // Mbps
+	IsUp       bool   `json:"is_up"`
+	BytesTotal int64  `json:"bytes_total"`
+}
+
+// PeakStats represents peak bandwidth statistics
+type PeakStats struct {
+	PeakRx          int       `json:"peak_rx"` // bytes/s
+	PeakTx          int       `json:"peak_tx"` // bytes/s
+	PeakRxString    string    `json:"peak_rx_string"`
+	PeakTxString    string    `json:"peak_tx_string"`
+	PeakRxTimestamp time.Time `json:"peak_rx_timestamp"`
+	PeakTxTimestamp time.Time `json:"peak_tx_timestamp"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+// HardwareStats represents system hardware statistics
+type HardwareStats struct {
+	CPU         CPUStats           `json:"cpu"`
+	Memory      MemoryStats        `json:"memory"`
+	Disks       []DiskStats        `json:"disks"`
+	Temperature []TemperatureStats `json:"temperature,omitempty"`
+	UpdatedAt   time.Time          `json:"updated_at"`
+}
+
+// CPUStats represents CPU usage statistics
+type CPUStats struct {
+	UsagePercent float64   `json:"usage_percent"`
+	Cores        int       `json:"cores"`
+	Threads      int       `json:"threads"`
+	Model        string    `json:"model"`
+	Frequency    float64   `json:"frequency"`          // MHz
+	LoadAvg      []float64 `json:"load_avg,omitempty"` // 1, 5, 15 min
+}
+
+// MemoryStats represents memory usage statistics
+type MemoryStats struct {
+	Total       uint64  `json:"total"`
+	Used        uint64  `json:"used"`
+	Free        uint64  `json:"free"`
+	Available   uint64  `json:"available"`
+	UsedPercent float64 `json:"used_percent"`
+	SwapTotal   uint64  `json:"swap_total"`
+	SwapUsed    uint64  `json:"swap_used"`
+	SwapPercent float64 `json:"swap_percent"`
+}
+
+// DiskStats represents disk usage statistics
+type DiskStats struct {
+	Path        string  `json:"path"`
+	Device      string  `json:"device"`
+	Fstype      string  `json:"fstype"`
+	Total       uint64  `json:"total"`
+	Used        uint64  `json:"used"`
+	Free        uint64  `json:"free"`
+	UsedPercent float64 `json:"used_percent"`
+}
+
+// TemperatureStats represents temperature sensor data
+type TemperatureStats struct {
+	SensorKey   string  `json:"sensor_key"`
+	Temperature float64 `json:"temperature"` // Celsius
+	Label       string  `json:"label,omitempty"`
+	Critical    float64 `json:"critical,omitempty"`
+}
+
 // New creates a new Agent instance
 func New(cfg *config.AgentConfig) *Agent {
 	return &Agent{
@@ -74,14 +168,14 @@ func (a *Agent) Start(ctx context.Context) error {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	// CORS middleware
+	// CORS middleware - simplified version that should work
 	router.Use(func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "*")
 
 		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(http.StatusOK)
+			c.AbortWithStatus(204)
 			return
 		}
 
@@ -97,6 +191,9 @@ func (a *Agent) Start(ctx context.Context) error {
 			"endpoints": gin.H{
 				"live":       "/events?stream=live-data",
 				"historical": "/export/historical",
+				"system":     "/system/info",
+				"hardware":   "/system/hardware",
+				"peaks":      "/stats/peaks",
 			},
 		}
 
@@ -122,6 +219,15 @@ func (a *Agent) Start(ctx context.Context) error {
 
 	// Historical data export endpoint (protected)
 	protected.GET("/export/historical", a.handleHistoricalExport)
+
+	// System info endpoint (protected)
+	protected.GET("/system/info", a.handleSystemInfo)
+
+	// Peak stats endpoint (protected)
+	protected.GET("/stats/peaks", a.handlePeakStats)
+
+	// Hardware stats endpoint (protected)
+	protected.GET("/system/hardware", a.handleHardwareStats)
 
 	// Start HTTP server
 	addr := fmt.Sprintf("%s:%d", a.config.Host, a.config.Port)
@@ -323,6 +429,16 @@ func (a *Agent) runVnstat(ctx context.Context) {
 			continue
 		}
 
+		// Track peak speeds
+		a.peakMu.Lock()
+		if data.Rx.Bytespersecond > a.peakRx {
+			a.peakRx = data.Rx.Bytespersecond
+		}
+		if data.Tx.Bytespersecond > a.peakTx {
+			a.peakTx = data.Tx.Bytespersecond
+		}
+		a.peakMu.Unlock()
+
 		// Send to broadcaster
 		select {
 		case a.vnstatData <- line:
@@ -343,4 +459,455 @@ func (a *Agent) runVnstat(ctx context.Context) {
 	if err := cmd.Wait(); err != nil {
 		log.Error().Err(err).Msg("vnstat command failed")
 	}
+}
+
+// handleSystemInfo returns system and interface information
+func (a *Agent) handleSystemInfo(c *gin.Context) {
+	info, err := a.getSystemInfo()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get system info")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to get system info",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, info)
+}
+
+// getSystemInfo gathers system and interface information
+func (a *Agent) getSystemInfo() (*SystemInfo, error) {
+	log.Debug().Msg("Starting getSystemInfo")
+
+	info := &SystemInfo{
+		Interfaces: make(map[string]InterfaceInfo),
+		UpdatedAt:  time.Now(),
+	}
+
+	// Get hostname
+	hostname, err := os.Hostname()
+	if err == nil {
+		info.Hostname = hostname
+		log.Debug().Str("hostname", hostname).Msg("Got hostname")
+	} else {
+		log.Error().Err(err).Msg("Failed to get hostname")
+	}
+
+	// Get kernel version
+	info.Kernel = runtime.GOOS + " " + runtime.GOARCH
+	log.Debug().Str("default_kernel", info.Kernel).Msg("Default kernel info")
+
+	if runtime.GOOS == "linux" {
+		cmd := exec.Command("uname", "-r")
+		output, err := cmd.Output()
+		if err == nil {
+			kernel := strings.TrimSpace(string(output))
+			info.Kernel = "Linux " + kernel
+			log.Debug().Str("kernel", info.Kernel).Msg("Got Linux kernel version")
+		} else {
+			log.Error().Err(err).Msg("Failed to run uname -r")
+		}
+	} else if runtime.GOOS == "darwin" {
+		if uname, err := exec.Command("uname", "-r").Output(); err == nil {
+			info.Kernel = "Darwin " + strings.TrimSpace(string(uname))
+			log.Debug().Str("kernel", info.Kernel).Msg("Got Darwin kernel version")
+		}
+	}
+
+	// Get uptime
+	if runtime.GOOS == "linux" {
+		log.Debug().Msg("Getting Linux uptime from /proc/uptime")
+		data, err := os.ReadFile("/proc/uptime")
+		if err == nil {
+			content := string(data)
+			log.Debug().Str("proc_uptime_content", content).Msg("Read /proc/uptime")
+			fields := strings.Fields(content)
+			if len(fields) > 0 {
+				uptime, parseErr := strconv.ParseFloat(fields[0], 64)
+				if parseErr == nil {
+					info.Uptime = int64(uptime)
+					log.Debug().Int64("uptime_seconds", info.Uptime).Msg("Parsed uptime")
+				} else {
+					log.Error().Err(parseErr).Str("field", fields[0]).Msg("Failed to parse uptime")
+				}
+			} else {
+				log.Error().Str("content", content).Msg("No fields in /proc/uptime")
+			}
+		} else {
+			log.Error().Err(err).Msg("Failed to read /proc/uptime")
+		}
+	} else if runtime.GOOS == "darwin" {
+		// macOS: use sysctl
+		if output, err := exec.Command("sysctl", "-n", "kern.boottime").Output(); err == nil {
+			// Parse: { sec = 1234567890, usec = 123456 }
+			str := strings.TrimSpace(string(output))
+			log.Debug().Str("sysctl_output", str).Msg("Got macOS boottime")
+			if idx := strings.Index(str, "sec = "); idx != -1 {
+				str = str[idx+6:]
+				if idx := strings.Index(str, ","); idx != -1 {
+					if sec, err := strconv.ParseInt(str[:idx], 10, 64); err == nil {
+						info.Uptime = time.Now().Unix() - sec
+						log.Debug().Int64("uptime_seconds", info.Uptime).Msg("Calculated macOS uptime")
+					}
+				}
+			}
+		}
+	}
+
+	// Get vnstat version
+	cmd := exec.Command("vnstat", "--version")
+	output, err := cmd.Output()
+	if err == nil {
+		versionOutput := string(output)
+		log.Debug().Str("vnstat_version_output", versionOutput).Msg("vnstat version output")
+		lines := strings.Split(versionOutput, "\n")
+		if len(lines) > 0 {
+			info.VnstatVersion = strings.TrimSpace(lines[0])
+			log.Debug().Str("vnstat_version", info.VnstatVersion).Msg("Parsed vnstat version")
+		}
+	} else {
+		log.Error().Err(err).Msg("Failed to get vnstat version")
+	}
+
+	// Get interface information
+	interfaces, err := net.Interfaces()
+	if err == nil {
+		log.Debug().Msg("Getting network interfaces")
+		for _, iface := range interfaces {
+			// Skip loopback
+			if iface.Flags&net.FlagLoopback != 0 {
+				log.Debug().Str("interface", iface.Name).Msg("Skipping loopback interface")
+				continue
+			}
+
+			log.Debug().Str("interface", iface.Name).Msg("Processing interface")
+
+			ifaceInfo := InterfaceInfo{
+				Name: iface.Name,
+				IsUp: iface.Flags&net.FlagUp != 0,
+			}
+
+			// Get IP addresses
+			addrs, err := iface.Addrs()
+			if err == nil && len(addrs) > 0 {
+				log.Debug().Str("interface", iface.Name).Int("addr_count", len(addrs)).Msg("Got addresses")
+				for _, addr := range addrs {
+					if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.To4() != nil {
+						ifaceInfo.IPAddress = ipnet.IP.String()
+						log.Debug().Str("interface", iface.Name).Str("ip", ifaceInfo.IPAddress).Msg("Got IPv4 address")
+						break
+					}
+				}
+			} else if err != nil {
+				log.Error().Err(err).Str("interface", iface.Name).Msg("Failed to get addresses")
+			}
+
+			// Try to get link speed (Linux)
+			if runtime.GOOS == "linux" {
+				speedFile := fmt.Sprintf("/sys/class/net/%s/speed", iface.Name)
+				data, err := os.ReadFile(speedFile)
+				if err == nil {
+					speedStr := strings.TrimSpace(string(data))
+					log.Debug().Str("interface", iface.Name).Str("speed_raw", speedStr).Msg("Read link speed")
+					if speed, err := strconv.Atoi(speedStr); err == nil && speed > 0 {
+						ifaceInfo.LinkSpeed = speed
+						log.Debug().Str("interface", iface.Name).Int("speed", speed).Msg("Got link speed")
+					}
+				} else {
+					log.Debug().Err(err).Str("interface", iface.Name).Str("file", speedFile).Msg("No link speed available")
+				}
+			}
+
+			// Get vnstat interface alias if configured
+			if output, err := exec.Command("vnstat", "--json", "-i", iface.Name).Output(); err == nil {
+				var vnstatData map[string]interface{}
+				if json.Unmarshal(output, &vnstatData) == nil {
+					if interfaces, ok := vnstatData["interfaces"].([]interface{}); ok && len(interfaces) > 0 {
+						if ifaceData, ok := interfaces[0].(map[string]interface{}); ok {
+							if alias, ok := ifaceData["alias"].(string); ok {
+								ifaceInfo.Alias = alias
+							}
+							if traffic, ok := ifaceData["traffic"].(map[string]interface{}); ok {
+								if total, ok := traffic["total"].(map[string]interface{}); ok {
+									if rx, ok := total["rx"].(float64); ok {
+										if tx, ok := total["tx"].(float64); ok {
+											ifaceInfo.BytesTotal = int64(rx + tx)
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			info.Interfaces[iface.Name] = ifaceInfo
+			log.Debug().
+				Str("interface", iface.Name).
+				Bool("is_up", ifaceInfo.IsUp).
+				Str("ip", ifaceInfo.IPAddress).
+				Int("speed", ifaceInfo.LinkSpeed).
+				Msg("Added interface to info")
+		}
+	} else {
+		log.Error().Err(err).Msg("Failed to get network interfaces")
+	}
+
+	// Log summary of collected info
+	log.Info().
+		Str("hostname", info.Hostname).
+		Str("kernel", info.Kernel).
+		Int64("uptime", info.Uptime).
+		Str("vnstat_version", info.VnstatVersion).
+		Int("interface_count", len(info.Interfaces)).
+		Msg("System info collection complete")
+
+	return info, nil
+}
+
+// handlePeakStats returns peak bandwidth statistics
+func (a *Agent) handlePeakStats(c *gin.Context) {
+	a.peakMu.RLock()
+	stats := PeakStats{
+		PeakRx:       a.peakRx,
+		PeakTx:       a.peakTx,
+		PeakRxString: formatBytesPerSecond(a.peakRx),
+		PeakTxString: formatBytesPerSecond(a.peakTx),
+		UpdatedAt:    time.Now(),
+	}
+	a.peakMu.RUnlock()
+
+	c.JSON(http.StatusOK, stats)
+}
+
+// formatBytesPerSecond formats bytes per second to human readable string
+func formatBytesPerSecond(bytes int) string {
+	if bytes == 0 {
+		return "0 B/s"
+	}
+
+	const k = 1024
+	sizes := []string{"B/s", "KiB/s", "MiB/s", "GiB/s", "TiB/s"}
+
+	i := 0
+	bytesFloat := float64(bytes)
+	for bytesFloat >= k && i < len(sizes)-1 {
+		bytesFloat /= k
+		i++
+	}
+
+	return fmt.Sprintf("%.2f %s", bytesFloat, sizes[i])
+}
+
+// handleHardwareStats returns hardware statistics
+func (a *Agent) handleHardwareStats(c *gin.Context) {
+	stats, err := a.getHardwareStats()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get hardware stats")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to get hardware stats",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, stats)
+}
+
+// getHardwareStats gathers hardware statistics
+func (a *Agent) getHardwareStats() (*HardwareStats, error) {
+	log.Debug().Msg("Starting getHardwareStats")
+
+	stats := &HardwareStats{
+		UpdatedAt: time.Now(),
+	}
+
+	// Get CPU info and usage
+	cpuInfo, err := cpu.Info()
+	if err == nil && len(cpuInfo) > 0 {
+		stats.CPU.Model = cpuInfo[0].ModelName
+		stats.CPU.Cores = int(cpuInfo[0].Cores)
+		stats.CPU.Frequency = cpuInfo[0].Mhz
+		log.Debug().
+			Str("model", stats.CPU.Model).
+			Int("cores", stats.CPU.Cores).
+			Float64("freq", stats.CPU.Frequency).
+			Msg("Got CPU info")
+	} else {
+		log.Error().Err(err).Msg("Failed to get CPU info")
+	}
+
+	// Get CPU count (logical)
+	cpuCount, err := cpu.Counts(true)
+	if err == nil {
+		stats.CPU.Threads = cpuCount
+		log.Debug().Int("threads", cpuCount).Msg("Got CPU thread count")
+	} else {
+		log.Error().Err(err).Msg("Failed to get CPU count")
+	}
+
+	// Get CPU usage percentage
+	cpuPercent, err := cpu.Percent(time.Second, false)
+	if err == nil && len(cpuPercent) > 0 {
+		stats.CPU.UsagePercent = cpuPercent[0]
+		log.Debug().Float64("usage", cpuPercent[0]).Msg("Got CPU usage")
+	} else {
+		log.Error().Err(err).Msg("Failed to get CPU usage")
+	}
+
+	// Get load average (Unix-like systems only)
+	if runtime.GOOS != "windows" {
+		loadAvg, err := getLoadAverage()
+		if err == nil {
+			stats.CPU.LoadAvg = loadAvg
+			log.Debug().Floats64("load_avg", loadAvg).Msg("Got load average")
+		} else {
+			log.Error().Err(err).Msg("Failed to get load average")
+		}
+	}
+
+	// Get memory stats
+	vmStat, err := mem.VirtualMemory()
+	if err == nil {
+		stats.Memory.Total = vmStat.Total
+		stats.Memory.Used = vmStat.Used
+		stats.Memory.Free = vmStat.Free
+		stats.Memory.Available = vmStat.Available
+		stats.Memory.UsedPercent = vmStat.UsedPercent
+		log.Debug().
+			Uint64("total", vmStat.Total).
+			Uint64("used", vmStat.Used).
+			Float64("percent", vmStat.UsedPercent).
+			Msg("Got memory stats")
+	} else {
+		log.Error().Err(err).Msg("Failed to get memory stats")
+	}
+
+	// Get swap memory stats
+	swapStat, err := mem.SwapMemory()
+	if err == nil {
+		stats.Memory.SwapTotal = swapStat.Total
+		stats.Memory.SwapUsed = swapStat.Used
+		stats.Memory.SwapPercent = swapStat.UsedPercent
+		log.Debug().
+			Uint64("total", swapStat.Total).
+			Uint64("used", swapStat.Used).
+			Float64("percent", swapStat.UsedPercent).
+			Msg("Got swap stats")
+	} else {
+		log.Debug().Err(err).Msg("Failed to get swap stats (may be normal if no swap)")
+	}
+
+	// Get disk stats
+	partitions, err := disk.Partitions(false)
+	if err == nil {
+		log.Debug().Int("partition_count", len(partitions)).Msg("Got disk partitions")
+		for _, partition := range partitions {
+			// Skip special filesystems
+			if strings.HasPrefix(partition.Mountpoint, "/snap") ||
+				strings.HasPrefix(partition.Mountpoint, "/run") ||
+				strings.HasPrefix(partition.Device, "tmpfs") ||
+				strings.HasPrefix(partition.Device, "devfs") ||
+				partition.Fstype == "squashfs" {
+				log.Debug().
+					Str("mount", partition.Mountpoint).
+					Str("device", partition.Device).
+					Str("fstype", partition.Fstype).
+					Msg("Skipping special filesystem")
+				continue
+			}
+
+			usage, err := disk.Usage(partition.Mountpoint)
+			if err != nil {
+				log.Debug().Err(err).Str("mount", partition.Mountpoint).Msg("Failed to get disk usage")
+				continue
+			}
+
+			// Skip if disk is too small (less than 1GB)
+			if usage.Total < 1024*1024*1024 {
+				log.Debug().
+					Str("mount", partition.Mountpoint).
+					Uint64("total", usage.Total).
+					Msg("Skipping small disk")
+				continue
+			}
+
+			stats.Disks = append(stats.Disks, DiskStats{
+				Path:        partition.Mountpoint,
+				Device:      partition.Device,
+				Fstype:      partition.Fstype,
+				Total:       usage.Total,
+				Used:        usage.Used,
+				Free:        usage.Free,
+				UsedPercent: usage.UsedPercent,
+			})
+
+			log.Debug().
+				Str("path", partition.Mountpoint).
+				Str("device", partition.Device).
+				Uint64("total", usage.Total).
+				Float64("percent", usage.UsedPercent).
+				Msg("Added disk to stats")
+		}
+		log.Debug().Int("disk_count", len(stats.Disks)).Msg("Finished processing disks")
+	} else {
+		log.Error().Err(err).Msg("Failed to get disk partitions")
+	}
+
+	// Get temperature sensors
+	temps, err := host.SensorsTemperatures()
+	if err == nil {
+		log.Debug().Int("sensor_count", len(temps)).Msg("Got temperature sensors")
+		for _, temp := range temps {
+			// Skip sensors with zero or invalid readings
+			if temp.Temperature <= 0 || temp.Temperature > 200 {
+				log.Debug().
+					Str("sensor", temp.SensorKey).
+					Float64("temp", temp.Temperature).
+					Msg("Skipping invalid temperature reading")
+				continue
+			}
+
+			stats.Temperature = append(stats.Temperature, TemperatureStats{
+				SensorKey:   temp.SensorKey,
+				Temperature: temp.Temperature,
+				Critical:    temp.High,
+			})
+
+			log.Debug().
+				Str("sensor", temp.SensorKey).
+				Float64("temp", temp.Temperature).
+				Float64("critical", temp.High).
+				Msg("Added temperature sensor")
+		}
+		log.Debug().Int("temp_sensor_count", len(stats.Temperature)).Msg("Finished processing temperature sensors")
+	} else {
+		log.Debug().Err(err).Msg("Failed to get temperature sensors (may be normal on some systems)")
+	}
+
+	// Log final summary
+	log.Info().
+		Float64("cpu_usage", stats.CPU.UsagePercent).
+		Int("cpu_threads", stats.CPU.Threads).
+		Float64("mem_percent", stats.Memory.UsedPercent).
+		Int("disk_count", len(stats.Disks)).
+		Int("temp_count", len(stats.Temperature)).
+		Msg("Hardware stats collection complete")
+
+	return stats, nil
+}
+
+// getLoadAverage gets system load averages (Unix-like systems)
+func getLoadAverage() ([]float64, error) {
+	if runtime.GOOS == "windows" {
+		return nil, fmt.Errorf("load average not available on Windows")
+	}
+
+	loadAvg, err := load.Avg()
+	if err != nil {
+		return nil, err
+	}
+
+	return []float64{loadAvg.Load1, loadAvg.Load5, loadAvg.Load15}, nil
 }

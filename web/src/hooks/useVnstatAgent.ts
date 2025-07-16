@@ -7,6 +7,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   VnstatAgent,
   VnstatStatus,
+  SystemInfo,
+  PeakStats,
+  HardwareStats,
   getVnstatAgentStatus,
   getVnstatAgentNative,
   startVnstatAgent,
@@ -16,11 +19,17 @@ import {
 interface UseVnstatAgentOptions {
   agent: VnstatAgent;
   includeNativeData?: boolean;
+  includeSystemInfo?: boolean;
+  includePeakStats?: boolean;
+  includeHardwareStats?: boolean;
 }
 
 export const useVnstatAgent = ({
   agent,
   includeNativeData = false,
+  includeSystemInfo = false,
+  includePeakStats = false,
+  includeHardwareStats = false,
 }: UseVnstatAgentOptions) => {
   const queryClient = useQueryClient();
 
@@ -38,6 +47,98 @@ export const useVnstatAgent = ({
     queryFn: () => getVnstatAgentNative(agent.id),
     refetchInterval: agent.enabled ? 60000 : false, // Poll every minute
     enabled: agent.enabled && includeNativeData,
+  });
+
+  // Debug logging for query conditions
+  console.log("System info query conditions:", {
+    agentEnabled: agent.enabled,
+    includeSystemInfo,
+    statusConnected: statusQuery.data?.connected,
+    shouldBeEnabled: agent.enabled && includeSystemInfo && statusQuery.data?.connected
+  });
+
+  // Fetch system info (optional)
+  const systemInfoQuery = useQuery<SystemInfo>({
+    queryKey: ["vnstat-agent-system", agent.id],
+    queryFn: async () => {
+      console.log("Fetching system info...");
+      // Direct fetch from agent URL with auth if needed
+      const url = new URL(agent.url);
+      const systemUrl = `${url.protocol}//${url.host}/system/info`;
+      
+      const headers: HeadersInit = {};
+      if (agent.apiKey) {
+        headers["X-API-Key"] = agent.apiKey;
+      }
+
+      const response = await fetch(systemUrl, { 
+        method: 'GET',
+        headers,
+        mode: 'cors',
+        credentials: 'omit', // Don't send cookies
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch system info");
+      }
+      const data = await response.json();
+      console.log("System info data:", data);
+      return data;
+    },
+    refetchInterval: agent.enabled ? 300000 : false, // Poll every 5 minutes
+    enabled: agent.enabled && includeSystemInfo && statusQuery.data?.connected,
+  });
+
+  // Fetch peak stats (optional)
+  const peakStatsQuery = useQuery<PeakStats>({
+    queryKey: ["vnstat-agent-peaks", agent.id],
+    queryFn: async () => {
+      // Direct fetch from agent URL with auth if needed
+      const url = new URL(agent.url);
+      const peaksUrl = `${url.protocol}//${url.host}/stats/peaks`;
+      
+      const headers: HeadersInit = {};
+      if (agent.apiKey) {
+        headers["X-API-Key"] = agent.apiKey;
+      }
+
+      const response = await fetch(peaksUrl, { headers });
+      if (!response.ok) {
+        throw new Error("Failed to fetch peak stats");
+      }
+      return response.json();
+    },
+    refetchInterval: agent.enabled ? 30000 : false, // Poll every 30 seconds
+    enabled: agent.enabled && includePeakStats && statusQuery.data?.connected,
+  });
+
+  // Fetch hardware stats (optional)
+  const hardwareStatsQuery = useQuery<HardwareStats>({
+    queryKey: ["vnstat-agent-hardware", agent.id],
+    queryFn: async () => {
+      // Direct fetch from agent URL with auth if needed
+      const url = new URL(agent.url);
+      const hardwareUrl = `${url.protocol}//${url.host}/system/hardware`;
+      
+      const headers: HeadersInit = {};
+      if (agent.apiKey) {
+        headers["X-API-Key"] = agent.apiKey;
+      }
+
+      const response = await fetch(hardwareUrl, { 
+        method: 'GET',
+        headers,
+        mode: 'cors',
+        credentials: 'omit', // Don't send cookies
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch hardware stats");
+      }
+      const data = await response.json();
+      console.log("Hardware stats data:", data);
+      return data;
+    },
+    refetchInterval: agent.enabled ? 30000 : false, // Poll every 30 seconds
+    enabled: agent.enabled && includeHardwareStats && statusQuery.data?.connected,
   });
 
   // Start mutation
@@ -65,8 +166,14 @@ export const useVnstatAgent = ({
   return {
     status: statusQuery.data,
     nativeData: nativeDataQuery.data,
+    systemInfo: systemInfoQuery.data,
+    peakStats: peakStatsQuery.data,
+    hardwareStats: hardwareStatsQuery.data,
     isLoadingStatus: statusQuery.isLoading,
     isLoadingNativeData: nativeDataQuery.isLoading,
+    isLoadingSystemInfo: systemInfoQuery.isLoading,
+    isLoadingPeakStats: peakStatsQuery.isLoading,
+    isLoadingHardwareStats: hardwareStatsQuery.isLoading,
     startMutation,
     stopMutation,
   };
