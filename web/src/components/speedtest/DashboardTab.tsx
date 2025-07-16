@@ -38,10 +38,15 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   onNavigateToVnstat,
 }) => {
   const [displayCount, setDisplayCount] = useState(5);
-  const [isRecentTestsOpen] = useState(() => {
+  const [isRecentTestsOpen, setIsRecentTestsOpen] = useState(() => {
     const saved = localStorage.getItem("recent-tests-open");
     return saved === null ? true : saved === "true";
   });
+
+  // Persist recent tests open state to localStorage
+  useEffect(() => {
+    localStorage.setItem("recent-tests-open", isRecentTestsOpen.toString());
+  }, [isRecentTestsOpen]);
 
   const displayedTests = tests.slice(0, displayCount);
   const formatSpeed = (speed: number) => {
@@ -213,8 +218,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       {tests.length > 0 && (
         <Disclosure defaultOpen={isRecentTestsOpen}>
           {({ open }) => {
+            // Update isRecentTestsOpen when disclosure state changes
             useEffect(() => {
-              localStorage.setItem("recent-tests-open", open.toString());
+              setIsRecentTestsOpen(open);
             }, [open]);
 
             return (

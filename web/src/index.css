@@ -3,9 +3,74 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@variant dark (.dark &);
+
+/* Fix button cursor behavior for Tailwind v4 */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@theme {
+  /* Custom gray colors based on zinc palette from v3 */
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f4f4f5;
+  --color-gray-200: #e4e4e7;
+  --color-gray-300: #d4d4d8;
+  --color-gray-400: #a1a1aa;
+  --color-gray-500: #71717a;
+  --color-gray-600: #52525b;
+  --color-gray-700: #3f3f46;
+  --color-gray-800: #27272a;
+  --color-gray-815: #232427;
+  --color-gray-850: #1c1c1f;
+  --color-gray-900: #18181b;
+  --color-gray-950: #09090b;
+
+  --breakpoint-xs: 400px;
+  --breakpoint-3xl: 2900px;
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(-25%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes ping {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
 
 @layer utilities {
   /* Hide scrollbar but keep functionality */
@@ -44,11 +109,11 @@
   /* Firefox */
   * {
     scrollbar-width: thin;
-    scrollbar-color: theme("colors.gray.300") theme("colors.gray.100");
+    scrollbar-color: #d1d5db #f3f4f6;
   }
 
   .dark * {
-    scrollbar-color: theme("colors.gray.700") theme("colors.gray.900");
+    scrollbar-color: #374151 #111827;
   }
 
   /* Chart theme variables */

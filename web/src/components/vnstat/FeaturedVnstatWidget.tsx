@@ -113,7 +113,7 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={onOpenModal}
-      className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-4 shadow-lg border border-gray-200 dark:border-gray-800 cursor-pointer transition-all duration-200 hover:shadow-xl hover:border-gray-300 dark:hover:border-gray-700"
+      className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl px-4 pb-2 pt-4 shadow-lg border border-gray-200 dark:border-gray-800 cursor-pointer transition-all duration-200 hover:shadow-xl hover:border-gray-300 dark:hover:border-gray-700"
     >
       {/* Header with agent name, status and icon */}
       <div className="flex items-center justify-between mb-4">
@@ -202,7 +202,7 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
         </>
       ) : (
         <div className="text-center py-8">
-          <ServerIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+          <ServerIcon className="h-8 w-8 text-gray-400 mx-auto" />
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {status?.connected === false ? "Disconnected" : "No data"}
           </p>
