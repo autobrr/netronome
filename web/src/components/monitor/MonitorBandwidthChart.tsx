@@ -25,14 +25,14 @@ interface BandwidthData {
   txPeak?: number;
 }
 
-interface VnstatBandwidthChartProps {
+interface MonitorBandwidthChartProps {
   data: BandwidthData[];
   title: string;
   timeFormat?: "hour" | "day" | "month";
   showPeaks?: boolean;
 }
 
-export const VnstatBandwidthChart: React.FC<VnstatBandwidthChartProps> = ({
+export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
   data,
   title,
   timeFormat = "hour",

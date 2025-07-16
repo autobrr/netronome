@@ -8,25 +8,25 @@ import { motion } from "motion/react";
 import { ServerIcon } from "@heroicons/react/24/outline";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { useQuery } from "@tanstack/react-query";
-import { getVnstatAgents, VnstatAgent } from "@/api/vnstat";
-import { parseVnstatUsagePeriods } from "@/utils/vnstatParser";
+import { getMonitorAgents, MonitorAgent } from "@/api/monitor";
+import { parseMonitorUsagePeriods } from "@/utils/monitorDataParser";
 import { getAgentIcon } from "@/utils/agentIcons";
 import { formatBytes } from "@/utils/formatBytes";
-import { useVnstatAgent } from "@/hooks/useVnstatAgent";
-import { VnstatUsageModal } from "./VnstatUsageModal";
+import { useMonitorAgent } from "@/hooks/useMonitorAgent";
+import { MonitorUsageModal } from "./MonitorUsageModal";
 import { MiniSparkline } from "./MiniSparkline";
 
-interface FeaturedVnstatWidgetProps {
-  onNavigateToVnstat: () => void;
+interface FeaturedMonitorWidgetProps {
+  onNavigateToMonitor: () => void;
 }
 
-export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = () => {
-  const [selectedAgent, setSelectedAgent] = useState<VnstatAgent | null>(null);
+export const FeaturedMonitorWidget: React.FC<FeaturedMonitorWidgetProps> = () => {
+  const [selectedAgent, setSelectedAgent] = useState<MonitorAgent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Get featured agent IDs from localStorage
   const getFeaturedAgentIds = (): number[] => {
     try {
-      const stored = localStorage.getItem("netronome-featured-vnstat-agents");
+      const stored = localStorage.getItem("netronome-featured-monitor-agents");
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -36,9 +36,9 @@ export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = () => {
   const featuredAgentIds = getFeaturedAgentIds();
 
   // Fetch all agents
-  const { data: allAgents = [] } = useQuery<VnstatAgent[]>({
-    queryKey: ["vnstat-agents"],
-    queryFn: getVnstatAgents,
+  const { data: allAgents = [] } = useQuery<MonitorAgent[]>({
+    queryKey: ["monitor-agents"],
+    queryFn: getMonitorAgents,
   });
 
   // Filter to only featured agents that exist and are enabled
@@ -78,7 +78,7 @@ export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = () => {
 
       {/* Usage Modal */}
       {selectedAgent && (
-        <VnstatUsageModal
+        <MonitorUsageModal
           isOpen={isModalOpen}
           onClose={() => {
             setIsModalOpen(false);
@@ -93,7 +93,7 @@ export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = () => {
 };
 
 interface FeaturedAgentCardProps {
-  agent: VnstatAgent;
+  agent: MonitorAgent;
   onOpenModal: () => void;
 }
 
@@ -102,13 +102,13 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
   onOpenModal,
 }) => {
   // Use the shared hook for agent data
-  const { status, nativeData, peakStats } = useVnstatAgent({
+  const { status, nativeData, peakStats } = useMonitorAgent({
     agent,
     includeNativeData: true,
     includePeakStats: true,
   });
 
-  const usage = nativeData ? parseVnstatUsagePeriods(nativeData) : null;
+  const usage = nativeData ? parseMonitorUsagePeriods(nativeData) : null;
 
   // Extract hourly data for sparklines (last 24 hours)
   const sparklineData = React.useMemo(() => {

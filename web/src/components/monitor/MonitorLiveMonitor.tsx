@@ -6,17 +6,17 @@
 import React from "react";
 import { motion } from "motion/react";
 import { ArrowDownIcon, ArrowUpIcon } from "@heroicons/react/24/outline";
-import { VnstatStatus } from "@/api/vnstat";
+import { MonitorStatus } from "@/api/monitor";
 
-interface VnstatLiveMonitorProps {
-  liveData: VnstatStatus["liveData"];
+interface MonitorLiveMonitorProps {
+  liveData: MonitorStatus["liveData"];
   thresholds?: {
     download?: number; // bytes/s
     upload?: number; // bytes/s
   };
 }
 
-export const VnstatLiveMonitor: React.FC<VnstatLiveMonitorProps> = ({
+export const MonitorLiveMonitor: React.FC<MonitorLiveMonitorProps> = ({
   liveData,
   thresholds,
 }) => {

@@ -47,7 +47,7 @@ type Config struct {
 	Notifications NotificationConfig `toml:"notifications"`
 	PacketLoss    PacketLossConfig   `toml:"packetloss"`
 	Agent         AgentConfig        `toml:"agent"`
-	Vnstat        VnstatConfig       `toml:"vnstat"`
+	Monitor       MonitorConfig      `toml:"monitor"`
 }
 
 type DatabaseConfig struct {
@@ -149,9 +149,9 @@ type AgentConfig struct {
 	APIKey    string `toml:"api_key" env:"AGENT_API_KEY"`
 }
 
-type VnstatConfig struct {
-	Enabled           bool   `toml:"enabled" env:"VNSTAT_ENABLED"`
-	ReconnectInterval string `toml:"reconnect_interval" env:"VNSTAT_RECONNECT_INTERVAL"`
+type MonitorConfig struct {
+	Enabled           bool   `toml:"enabled" env:"MONITOR_ENABLED"`
+	ReconnectInterval string `toml:"reconnect_interval" env:"MONITOR_RECONNECT_INTERVAL"`
 }
 
 func isRunningInContainer() bool {
@@ -255,7 +255,7 @@ func New() *Config {
 			Port:      8200,
 			Interface: "",
 		},
-		Vnstat: VnstatConfig{
+		Monitor: MonitorConfig{
 			Enabled:           true,
 			ReconnectInterval: "30s",
 		},
@@ -343,7 +343,7 @@ func (c *Config) loadFromEnv() error {
 	c.loadNotificationsFromEnv()
 	c.loadPacketLossFromEnv()
 	c.loadAgentFromEnv()
-	c.loadVnstatFromEnv()
+	c.loadMonitorFromEnv()
 	return nil
 }
 
@@ -583,14 +583,14 @@ func (c *Config) loadAgentFromEnv() {
 	}
 }
 
-func (c *Config) loadVnstatFromEnv() {
-	if v := getEnv("VNSTAT_ENABLED"); v != "" {
+func (c *Config) loadMonitorFromEnv() {
+	if v := getEnv("MONITOR_ENABLED"); v != "" {
 		if enabled, err := strconv.ParseBool(v); err == nil {
-			c.Vnstat.Enabled = enabled
+			c.Monitor.Enabled = enabled
 		}
 	}
-	if v := getEnv("VNSTAT_RECONNECT_INTERVAL"); v != "" {
-		c.Vnstat.ReconnectInterval = v
+	if v := getEnv("MONITOR_RECONNECT_INTERVAL"); v != "" {
+		c.Monitor.ReconnectInterval = v
 	}
 }
 
@@ -901,17 +901,17 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 
-	// Vnstat section
+	// Monitor section
 	if _, err := fmt.Fprintln(w, ""); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintln(w, "[vnstat]"); err != nil {
+	if _, err := fmt.Fprintln(w, "[monitor]"); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.Vnstat.Enabled); err != nil {
+	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.Monitor.Enabled); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "reconnect_interval = \"%s\"\n", cfg.Vnstat.ReconnectInterval); err != nil {
+	if _, err := fmt.Fprintf(w, "reconnect_interval = \"%s\"\n", cfg.Monitor.ReconnectInterval); err != nil {
 		return err
 	}
 

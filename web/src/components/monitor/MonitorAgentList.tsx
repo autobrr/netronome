@@ -9,22 +9,28 @@ import {
   PencilIcon,
   TrashIcon,
   SparklesIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CpuChipIcon,
+  CircleStackIcon,
 } from "@heroicons/react/24/outline";
 import { SparklesIcon as SparklesIconSolid } from "@heroicons/react/24/solid";
-import { VnstatAgent } from "@/api/vnstat";
+import { MonitorAgent } from "@/api/monitor";
 import { AgentIcon } from "@/utils/agentIcons";
-import { useVnstatAgent } from "@/hooks/useVnstatAgent";
+import { useMonitorAgent } from "@/hooks/useMonitorAgent";
+import { formatBytes } from "@/utils/formatBytes";
+import { parseMonitorUsagePeriods } from "@/utils/monitorDataParser";
 
-interface VnstatAgentListProps {
-  agents: VnstatAgent[];
-  selectedAgent: VnstatAgent | null;
-  onSelectAgent: (agent: VnstatAgent) => void;
-  onEditAgent: (agent: VnstatAgent) => void;
+interface MonitorAgentListProps {
+  agents: MonitorAgent[];
+  selectedAgent: MonitorAgent | null;
+  onSelectAgent: (agent: MonitorAgent) => void;
+  onEditAgent: (agent: MonitorAgent) => void;
   onDeleteAgent: (id: number) => void;
   isLoading: boolean;
 }
 
-export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
+export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
   agents,
   selectedAgent,
   onSelectAgent,
@@ -98,8 +104,8 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
 };
 
 interface AgentListItemProps {
-  agent: VnstatAgent;
-  agents: VnstatAgent[];
+  agent: MonitorAgent;
+  agents: MonitorAgent[];
   isSelected: boolean;
   onSelect: () => void;
   onEdit: () => void;
@@ -114,12 +120,16 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const { status } = useVnstatAgent({ agent });
+  const { status, nativeData, hardwareStats } = useMonitorAgent({ 
+    agent,
+    includeNativeData: true,
+    includeHardwareStats: true,
+  });
 
   // Featured agents management with local state for instant feedback
   const getFeaturedAgentIds = (): number[] => {
     try {
-      const stored = localStorage.getItem("netronome-featured-vnstat-agents");
+      const stored = localStorage.getItem("netronome-featured-monitor-agents");
       const parsed = stored ? JSON.parse(stored) : [];
       // Ensure it's always an array
       return Array.isArray(parsed) ? parsed : [];
@@ -133,7 +143,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       // Ensure we're storing a valid array
       const validIds = Array.isArray(ids) ? ids : [];
       localStorage.setItem(
-        "netronome-featured-vnstat-agents",
+        "netronome-featured-monitor-agents",
         JSON.stringify(validIds)
       );
     } catch {
@@ -256,6 +266,53 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                 {agent.url.replace(/\/events\?stream=live-data$/, "")}
               </span>
             </div>
+            
+            {/* Key metrics */}
+            {agent.enabled && status?.connected && (
+              <div className="flex items-center gap-4 mt-2 text-xs">
+                {/* Current speeds */}
+                {status.liveData && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      <ArrowDownIcon className="h-3 w-3 text-blue-500" />
+                      <span className="text-gray-700 dark:text-gray-300 font-medium">
+                        {status.liveData.rx.ratestring}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <ArrowUpIcon className="h-3 w-3 text-green-500" />
+                      <span className="text-gray-700 dark:text-gray-300 font-medium">
+                        {status.liveData.tx.ratestring}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Today's usage */}
+                {nativeData && (() => {
+                  const usage = parseMonitorUsagePeriods(nativeData);
+                  return usage?.["Today"] ? (
+                    <div className="flex items-center gap-1">
+                      <CircleStackIcon className="h-3 w-3 text-gray-400" />
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Today: {formatBytes(usage["Today"].total)}
+                      </span>
+                    </div>
+                  ) : null;
+                })()}
+                
+                {/* CPU/Memory */}
+                {hardwareStats && (
+                  <div className="flex items-center gap-1">
+                    <CpuChipIcon className="h-3 w-3 text-gray-400" />
+                    <span className="text-gray-600 dark:text-gray-400">
+                      CPU: {hardwareStats.cpu.usage_percent.toFixed(0)}% 
+                      RAM: {hardwareStats.memory.used_percent.toFixed(0)}%
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

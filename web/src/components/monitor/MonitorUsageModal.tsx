@@ -7,24 +7,24 @@ import React from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { VnstatAgent } from "@/api/vnstat";
-import { VnstatUsageTable } from "./VnstatUsageTable";
+import { MonitorAgent } from "@/api/monitor";
+import { MonitorUsageTable } from "./MonitorUsageTable";
 import { getAgentIcon } from "@/utils/agentIcons";
-import { useVnstatAgent } from "@/hooks/useVnstatAgent";
+import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 
 
-interface VnstatUsageModalProps {
+interface MonitorUsageModalProps {
   isOpen: boolean;
   onClose: () => void;
-  agent: VnstatAgent;
+  agent: MonitorAgent;
 }
 
-export const VnstatUsageModal: React.FC<VnstatUsageModalProps> = ({
+export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
   isOpen,
   onClose,
   agent,
 }) => {
-  const { status } = useVnstatAgent({ agent });
+  const { status } = useMonitorAgent({ agent });
   const { icon: AgentIcon } = getAgentIcon(agent.name);
 
   return (
@@ -89,7 +89,7 @@ export const VnstatUsageModal: React.FC<VnstatUsageModalProps> = ({
 
                 {/* Content */}
                 <div className="max-h-96 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-800">
-                  <VnstatUsageTable agentId={agent.id} />
+                  <MonitorUsageTable agentId={agent.id} />
                 </div>
             </Dialog.Panel>
           </Transition.Child>

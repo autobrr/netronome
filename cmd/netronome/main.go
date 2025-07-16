@@ -28,7 +28,7 @@ import (
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/server"
 	"github.com/autobrr/netronome/internal/speedtest"
-	"github.com/autobrr/netronome/internal/vnstat"
+	"github.com/autobrr/netronome/internal/monitor"
 )
 
 var (
@@ -76,8 +76,8 @@ track and analyze your network performance over time.`,
 
 	agentCmd = &cobra.Command{
 		Use:   "agent",
-		Short: "Start the vnstat SSE agent",
-		Long: `Start a vnstat SSE agent that broadcasts bandwidth usage data.
+		Short: "Start the monitoring agent",
+		Long: `Start a monitoring agent that broadcasts bandwidth and system usage data.
 This agent can be monitored by a remote Netronome server.
 
 Examples:
@@ -220,14 +220,14 @@ func runServer(cmd *cobra.Command, args []string) error {
 		packetLossService = speedtest.NewPacketLossService(db, notifier, nil, cfg.PacketLoss.MaxConcurrentMonitors, cfg.PacketLoss.PrivilegedMode)
 	}
 
-	// Create vnstat service variable
-	var vnstatService *vnstat.Service
+	// Create monitor service variable
+	var monitorService *monitor.Service
 
 	// Now create scheduler with packet loss service
 	schedulerSvc := scheduler.New(db, speedtestSvc, packetLossService, notifier)
 
-	// create server handler with packet loss service and vnstat service
-	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService, vnstatService)
+	// create server handler with packet loss service and monitor service
+	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService, monitorService)
 
 	speedtestSvc.SetBroadcastUpdate(serverHandler.BroadcastUpdate)
 	speedtestSvc.SetBroadcastTracerouteUpdate(serverHandler.BroadcastTracerouteUpdate)
@@ -240,14 +240,14 @@ func runServer(cmd *cobra.Command, args []string) error {
 		// Don't start monitors here - let the scheduler handle them
 	}
 
-	// Create and set vnstat service if enabled
-	if cfg.Vnstat.Enabled {
-		vnstatService = vnstat.NewService(db, &cfg.Vnstat, serverHandler.BroadcastVnstatUpdate)
-		serverHandler.SetVnstatService(vnstatService)
+	// Create and set monitor service if enabled
+	if cfg.Monitor.Enabled {
+		monitorService = monitor.NewService(db, &cfg.Monitor, serverHandler.BroadcastMonitorUpdate)
+		serverHandler.SetMonitorService(monitorService)
 
-		// Start vnstat service
-		if err := vnstatService.Start(); err != nil {
-			log.Error().Err(err).Msg("Failed to start vnstat service")
+		// Start monitor service
+		if err := monitorService.Start(); err != nil {
+			log.Error().Err(err).Msg("Failed to start monitor service")
 		}
 	}
 
@@ -285,9 +285,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server forced to shutdown: %w", err)
 	}
 
-	// Stop vnstat service if running
-	if vnstatService != nil {
-		vnstatService.Stop()
+	// Stop monitor service if running
+	if monitorService != nil {
+		monitorService.Stop()
 	}
 
 	// Close database connection to ensure WAL is checkpointed

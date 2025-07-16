@@ -4,23 +4,23 @@
  */
 
 import React from "react";
-import { VnstatUsageTable } from "./VnstatUsageTable";
-import { VnstatLiveMonitor } from "./VnstatLiveMonitor";
-import { VnstatSystemInfo } from "./VnstatSystemInfo";
-import { VnstatBandwidthChart } from "./VnstatBandwidthChart";
-import { VnstatHardwareStats } from "./VnstatHardwareStats";
-import { VnstatAgent } from "@/api/vnstat";
-import { useVnstatAgent } from "@/hooks/useVnstatAgent";
+import { MonitorUsageTable } from "./MonitorUsageTable";
+import { MonitorLiveMonitor } from "./MonitorLiveMonitor";
+import { MonitorSystemInfo } from "./MonitorSystemInfo";
+import { MonitorBandwidthChart } from "./MonitorBandwidthChart";
+import { MonitorHardwareStats } from "./MonitorHardwareStats";
+import { MonitorAgent } from "@/api/monitor";
+import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 
-interface VnstatAgentDetailsProps {
-  agent: VnstatAgent;
+interface MonitorAgentDetailsProps {
+  agent: MonitorAgent;
 }
 
-export const VnstatAgentDetails: React.FC<VnstatAgentDetailsProps> = ({
+export const MonitorAgentDetails: React.FC<MonitorAgentDetailsProps> = ({
   agent,
 }) => {
   // Use the shared hook for agent status and system info
-  const { status, systemInfo, nativeData, hardwareStats } = useVnstatAgent({ 
+  const { status, systemInfo, nativeData, hardwareStats } = useMonitorAgent({ 
     agent,
     includeSystemInfo: true,
     includeNativeData: true,
@@ -32,7 +32,7 @@ export const VnstatAgentDetails: React.FC<VnstatAgentDetailsProps> = ({
     if (!nativeData?.interfaces?.[0]?.traffic?.hour) return [];
     
     const hourData = nativeData.interfaces[0].traffic.hour;
-    // vnstat returns newest first, reverse for chronological order
+    // monitor returns newest first, reverse for chronological order
     return hourData.slice().reverse().map((item) => {
       const date = new Date(
         item.date.year,
@@ -55,7 +55,7 @@ export const VnstatAgentDetails: React.FC<VnstatAgentDetailsProps> = ({
     if (!nativeData?.interfaces?.[0]?.traffic?.day) return [];
     
     const dayData = nativeData.interfaces[0].traffic.day;
-    // vnstat returns newest first, reverse for chronological order
+    // monitor returns newest first, reverse for chronological order
     return dayData.slice().reverse().map((item) => {
       const date = new Date(
         item.date.year,
@@ -75,7 +75,7 @@ export const VnstatAgentDetails: React.FC<VnstatAgentDetailsProps> = ({
     <div className="space-y-6">
       {/* Live Monitor */}
       {agent.enabled && status?.connected && status.liveData && (
-        <VnstatLiveMonitor 
+        <MonitorLiveMonitor 
           liveData={status.liveData}
           thresholds={{
             download: 100 * 1024 * 1024, // 100 MiB/s
@@ -86,17 +86,17 @@ export const VnstatAgentDetails: React.FC<VnstatAgentDetailsProps> = ({
 
       {/* System Information */}
       {agent.enabled && status?.connected && systemInfo && (
-        <VnstatSystemInfo systemInfo={systemInfo} refreshInterval={300000} />
+        <MonitorSystemInfo systemInfo={systemInfo} />
       )}
 
       {/* Hardware Stats */}
       {agent.enabled && status?.connected && hardwareStats && (
-        <VnstatHardwareStats hardwareStats={hardwareStats} />
+        <MonitorHardwareStats hardwareStats={hardwareStats} />
       )}
 
       {/* Hourly Bandwidth Chart */}
       {agent.enabled && hourlyChartData.length > 0 && (
-        <VnstatBandwidthChart
+        <MonitorBandwidthChart
           data={hourlyChartData}
           title="Hourly Bandwidth"
           timeFormat="hour"
@@ -105,7 +105,7 @@ export const VnstatAgentDetails: React.FC<VnstatAgentDetailsProps> = ({
 
       {/* Daily Bandwidth Chart */}
       {agent.enabled && dailyChartData.length > 0 && (
-        <VnstatBandwidthChart
+        <MonitorBandwidthChart
           data={dailyChartData}
           title="Daily Bandwidth"
           timeFormat="day"
@@ -123,7 +123,7 @@ export const VnstatAgentDetails: React.FC<VnstatAgentDetailsProps> = ({
           </p>
         </div>
 
-        <VnstatUsageTable agentId={agent.id} />
+        <MonitorUsageTable agentId={agent.id} />
       </div>
     </div>
   );

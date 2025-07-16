@@ -5,7 +5,7 @@
 
 import { getApiUrl } from "@/utils/baseUrl";
 
-export interface VnstatAgent {
+export interface MonitorAgent {
   id: number;
   name: string;
   url: string;
@@ -15,7 +15,7 @@ export interface VnstatAgent {
   updatedAt: string;
 }
 
-export interface VnstatStatus {
+export interface MonitorStatus {
   connected: boolean;
   liveData?: {
     rx: {
@@ -117,8 +117,8 @@ export interface UpdateAgentRequest extends CreateAgentRequest {
 }
 
 // Agent management
-export async function getVnstatAgents(): Promise<VnstatAgent[]> {
-  const response = await fetch(getApiUrl("/vnstat/agents"));
+export async function getMonitorAgents(): Promise<MonitorAgent[]> {
+  const response = await fetch(getApiUrl("/monitor/agents"));
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || "Failed to fetch agents");
@@ -127,8 +127,8 @@ export async function getVnstatAgents(): Promise<VnstatAgent[]> {
   return Array.isArray(data) ? data : [];
 }
 
-export async function getVnstatAgent(id: number): Promise<VnstatAgent> {
-  const response = await fetch(getApiUrl(`/vnstat/agents/${id}`));
+export async function getMonitorAgent(id: number): Promise<MonitorAgent> {
+  const response = await fetch(getApiUrl(`/monitor/agents/${id}`));
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || "Failed to fetch agent");
@@ -136,10 +136,10 @@ export async function getVnstatAgent(id: number): Promise<VnstatAgent> {
   return response.json();
 }
 
-export async function createVnstatAgent(
+export async function createMonitorAgent(
   data: CreateAgentRequest,
-): Promise<VnstatAgent> {
-  const response = await fetch(getApiUrl("/vnstat/agents"), {
+): Promise<MonitorAgent> {
+  const response = await fetch(getApiUrl("/monitor/agents"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -151,11 +151,11 @@ export async function createVnstatAgent(
   return response.json();
 }
 
-export async function updateVnstatAgent(
+export async function updateMonitorAgent(
   id: number,
   data: UpdateAgentRequest,
-): Promise<VnstatAgent> {
-  const response = await fetch(getApiUrl(`/vnstat/agents/${id}`), {
+): Promise<MonitorAgent> {
+  const response = await fetch(getApiUrl(`/monitor/agents/${id}`), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -167,8 +167,8 @@ export async function updateVnstatAgent(
   return response.json();
 }
 
-export async function deleteVnstatAgent(id: number): Promise<void> {
-  const response = await fetch(getApiUrl(`/vnstat/agents/${id}`), {
+export async function deleteMonitorAgent(id: number): Promise<void> {
+  const response = await fetch(getApiUrl(`/monitor/agents/${id}`), {
     method: "DELETE",
   });
   if (!response.ok) {
@@ -178,8 +178,8 @@ export async function deleteVnstatAgent(id: number): Promise<void> {
 }
 
 // Agent monitoring
-export async function getVnstatAgentStatus(id: number): Promise<VnstatStatus> {
-  const response = await fetch(getApiUrl(`/vnstat/agents/${id}/status`));
+export async function getMonitorAgentStatus(id: number): Promise<MonitorStatus> {
+  const response = await fetch(getApiUrl(`/monitor/agents/${id}/status`));
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || "Failed to fetch agent status");
@@ -187,8 +187,8 @@ export async function getVnstatAgentStatus(id: number): Promise<VnstatStatus> {
   return response.json();
 }
 
-export async function startVnstatAgent(id: number): Promise<void> {
-  const response = await fetch(getApiUrl(`/vnstat/agents/${id}/start`), {
+export async function startMonitorAgent(id: number): Promise<void> {
+  const response = await fetch(getApiUrl(`/monitor/agents/${id}/start`), {
     method: "POST",
   });
   if (!response.ok) {
@@ -197,8 +197,8 @@ export async function startVnstatAgent(id: number): Promise<void> {
   }
 }
 
-export async function stopVnstatAgent(id: number): Promise<void> {
-  const response = await fetch(getApiUrl(`/vnstat/agents/${id}/stop`), {
+export async function stopMonitorAgent(id: number): Promise<void> {
+  const response = await fetch(getApiUrl(`/monitor/agents/${id}/stop`), {
     method: "POST",
   });
   if (!response.ok) {
@@ -208,32 +208,32 @@ export async function stopVnstatAgent(id: number): Promise<void> {
 }
 
 // Native vnstat data types
-export interface VnstatNativeData {
+export interface MonitorNativeData {
   vnstatversion: string;
   jsonversion: string;
-  interfaces: VnstatInterface[];
+  interfaces: MonitorInterface[];
   server_time?: string; // RFC3339 formatted server time
   server_time_unix?: number; // Unix timestamp
   timezone_offset?: number; // Offset in seconds from UTC
 }
 
-export interface VnstatInterface {
+export interface MonitorInterface {
   name: string;
   alias: string;
-  traffic: VnstatTraffic;
+  traffic: MonitorTraffic;
 }
 
-export interface VnstatTraffic {
+export interface MonitorTraffic {
   total: {
     rx: number;
     tx: number;
   };
-  hour: VnstatPeriod[];
-  day: VnstatPeriod[];
-  month: VnstatPeriod[];
+  hour: MonitorPeriod[];
+  day: MonitorPeriod[];
+  month: MonitorPeriod[];
 }
 
-export interface VnstatPeriod {
+export interface MonitorPeriod {
   id: number;
   date: {
     year: number;
@@ -248,28 +248,64 @@ export interface VnstatPeriod {
   tx: number;
 }
 
-export interface VnstatUsageSummary {
+export interface MonitorUsageSummary {
   download: number;
   upload: number;
   total: number;
 }
 
 // Native vnstat data fetching
-export async function getVnstatAgentNative(
+export async function getMonitorAgentNative(
   id: number,
   interfaceName?: string,
-): Promise<VnstatNativeData> {
+): Promise<MonitorNativeData> {
   const queryParams = new URLSearchParams();
   if (interfaceName) queryParams.append("interface", interfaceName);
 
   const url = queryParams.toString()
-    ? `${getApiUrl(`/vnstat/agents/${id}/native`)}?${queryParams}`
-    : getApiUrl(`/vnstat/agents/${id}/native`);
+    ? `${getApiUrl(`/monitor/agents/${id}/native`)}?${queryParams}`
+    : getApiUrl(`/monitor/agents/${id}/native`);
 
   const response = await fetch(url);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || "Failed to fetch native vnstat data");
+  }
+  return response.json();
+}
+
+// System info fetching
+export async function getMonitorAgentSystemInfo(
+  id: number,
+): Promise<SystemInfo> {
+  const response = await fetch(getApiUrl(`/monitor/agents/${id}/system`));
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to fetch system info");
+  }
+  return response.json();
+}
+
+// Hardware stats fetching
+export async function getMonitorAgentHardwareStats(
+  id: number,
+): Promise<HardwareStats> {
+  const response = await fetch(getApiUrl(`/monitor/agents/${id}/hardware`));
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to fetch hardware stats");
+  }
+  return response.json();
+}
+
+// Peak stats fetching
+export async function getMonitorAgentPeakStats(
+  id: number,
+): Promise<PeakStats> {
+  const response = await fetch(getApiUrl(`/monitor/agents/${id}/peaks`));
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to fetch peak stats");
   }
   return response.json();
 }

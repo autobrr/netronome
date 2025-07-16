@@ -8,7 +8,7 @@ import { motion } from "motion/react";
 import { SpeedTestResult, TimeRange } from "@/types/types";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import { MetricCard } from "@/components/common/MetricCard";
-import { FeaturedVnstatWidget } from "@/components/vnstat/FeaturedVnstatWidget";
+import { FeaturedMonitorWidget } from "@/components/monitor/FeaturedMonitorWidget";
 import { FaWaveSquare, FaShare, FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
 import { Disclosure, DisclosureButton } from "@headlessui/react";
@@ -124,7 +124,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
       {/* Featured Vnstat Widget - only show if callback is provided */}
       {onNavigateToVnstat && (
-        <FeaturedVnstatWidget onNavigateToVnstat={onNavigateToVnstat} />
+        <FeaturedMonitorWidget onNavigateToMonitor={onNavigateToVnstat} />
       )}
 
       {/* Latest Results */}

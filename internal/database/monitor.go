@@ -15,14 +15,14 @@ import (
 	"github.com/autobrr/netronome/internal/types"
 )
 
-// CreateVnstatAgent creates a new vnstat agent
-func (s *service) CreateVnstatAgent(ctx context.Context, agent *types.VnstatAgent) (*types.VnstatAgent, error) {
+// CreateMonitorAgent creates a new monitoring agent
+func (s *service) CreateMonitorAgent(ctx context.Context, agent *types.MonitorAgent) (*types.MonitorAgent, error) {
 	now := time.Now()
 	agent.CreatedAt = now
 	agent.UpdatedAt = now
 
 	query := s.sqlBuilder.
-		Insert("vnstat_agents").
+		Insert("monitor_agents").
 		Columns("name", "url", "api_key", "enabled", "interface", "created_at", "updated_at").
 		Values(agent.Name, agent.URL, agent.APIKey, agent.Enabled, agent.Interface, agent.CreatedAt, agent.UpdatedAt)
 
@@ -30,12 +30,12 @@ func (s *service) CreateVnstatAgent(ctx context.Context, agent *types.VnstatAgen
 		query = query.Suffix("RETURNING id")
 		err := query.RunWith(s.db).QueryRowContext(ctx).Scan(&agent.ID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create vnstat agent: %w", err)
+			return nil, fmt.Errorf("failed to create monitor agent: %w", err)
 		}
 	} else {
 		res, err := query.RunWith(s.db).ExecContext(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create vnstat agent: %w", err)
+			return nil, fmt.Errorf("failed to create monitor agent: %w", err)
 		}
 		id, err := res.LastInsertId()
 		if err != nil {
@@ -47,14 +47,14 @@ func (s *service) CreateVnstatAgent(ctx context.Context, agent *types.VnstatAgen
 	return agent, nil
 }
 
-// GetVnstatAgent retrieves a vnstat agent by ID
-func (s *service) GetVnstatAgent(ctx context.Context, agentID int64) (*types.VnstatAgent, error) {
+// GetMonitorAgent retrieves a monitoring agent by ID
+func (s *service) GetMonitorAgent(ctx context.Context, agentID int64) (*types.MonitorAgent, error) {
 	query := s.sqlBuilder.
 		Select("id", "name", "url", "api_key", "enabled", "interface", "created_at", "updated_at").
-		From("vnstat_agents").
+		From("monitor_agents").
 		Where(sq.Eq{"id": agentID})
 
-	var agent types.VnstatAgent
+	var agent types.MonitorAgent
 	err := query.RunWith(s.db).QueryRowContext(ctx).Scan(
 		&agent.ID,
 		&agent.Name,
@@ -69,17 +69,17 @@ func (s *service) GetVnstatAgent(ctx context.Context, agentID int64) (*types.Vns
 		if err == sql.ErrNoRows {
 			return nil, ErrNotFound
 		}
-		return nil, fmt.Errorf("failed to get vnstat agent: %w", err)
+		return nil, fmt.Errorf("failed to get monitor agent: %w", err)
 	}
 
 	return &agent, nil
 }
 
-// GetVnstatAgents retrieves all vnstat agents
-func (s *service) GetVnstatAgents(ctx context.Context, enabledOnly bool) ([]*types.VnstatAgent, error) {
+// GetMonitorAgents retrieves all monitoring agents
+func (s *service) GetMonitorAgents(ctx context.Context, enabledOnly bool) ([]*types.MonitorAgent, error) {
 	query := s.sqlBuilder.
 		Select("id", "name", "url", "api_key", "enabled", "interface", "created_at", "updated_at").
-		From("vnstat_agents").
+		From("monitor_agents").
 		OrderBy("created_at DESC")
 
 	if enabledOnly {
@@ -88,13 +88,13 @@ func (s *service) GetVnstatAgents(ctx context.Context, enabledOnly bool) ([]*typ
 
 	rows, err := query.RunWith(s.db).QueryContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get vnstat agents: %w", err)
+		return nil, fmt.Errorf("failed to get monitor agents: %w", err)
 	}
 	defer rows.Close()
 
-	agents := make([]*types.VnstatAgent, 0)
+	agents := make([]*types.MonitorAgent, 0)
 	for rows.Next() {
-		var agent types.VnstatAgent
+		var agent types.MonitorAgent
 		err := rows.Scan(
 			&agent.ID,
 			&agent.Name,
@@ -106,7 +106,7 @@ func (s *service) GetVnstatAgents(ctx context.Context, enabledOnly bool) ([]*typ
 			&agent.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan vnstat agent: %w", err)
+			return nil, fmt.Errorf("failed to scan monitor agent: %w", err)
 		}
 		agents = append(agents, &agent)
 	}
@@ -114,12 +114,12 @@ func (s *service) GetVnstatAgents(ctx context.Context, enabledOnly bool) ([]*typ
 	return agents, nil
 }
 
-// UpdateVnstatAgent updates a vnstat agent
-func (s *service) UpdateVnstatAgent(ctx context.Context, agent *types.VnstatAgent) error {
+// UpdateMonitorAgent updates a monitoring agent
+func (s *service) UpdateMonitorAgent(ctx context.Context, agent *types.MonitorAgent) error {
 	agent.UpdatedAt = time.Now()
 
 	query := s.sqlBuilder.
-		Update("vnstat_agents").
+		Update("monitor_agents").
 		Set("name", agent.Name).
 		Set("url", agent.URL).
 		Set("api_key", agent.APIKey).
@@ -130,21 +130,21 @@ func (s *service) UpdateVnstatAgent(ctx context.Context, agent *types.VnstatAgen
 
 	_, err := query.RunWith(s.db).ExecContext(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to update vnstat agent: %w", err)
+		return fmt.Errorf("failed to update monitor agent: %w", err)
 	}
 
 	return nil
 }
 
-// DeleteVnstatAgent deletes a vnstat agent
-func (s *service) DeleteVnstatAgent(ctx context.Context, agentID int64) error {
+// DeleteMonitorAgent deletes a monitoring agent
+func (s *service) DeleteMonitorAgent(ctx context.Context, agentID int64) error {
 	query := s.sqlBuilder.
-		Delete("vnstat_agents").
+		Delete("monitor_agents").
 		Where(sq.Eq{"id": agentID})
 
 	_, err := query.RunWith(s.db).ExecContext(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to delete vnstat agent: %w", err)
+		return fmt.Errorf("failed to delete monitor agent: %w", err)
 	}
 
 	return nil

@@ -10,17 +10,15 @@ import {
   CpuChipIcon,
   ClockIcon,
 } from "@heroicons/react/24/outline";
-import { SystemInfo, InterfaceInfo } from "@/api/vnstat";
+import { SystemInfo, InterfaceInfo } from "@/api/monitor";
 import { formatBytes } from "@/utils/formatBytes";
 
-interface VnstatSystemInfoProps {
+interface MonitorSystemInfoProps {
   systemInfo: SystemInfo;
-  refreshInterval?: number; // in milliseconds
 }
 
-export const VnstatSystemInfo: React.FC<VnstatSystemInfoProps> = ({
+export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
   systemInfo,
-  refreshInterval = 300000, // default 5 minutes
 }) => {
   const formatUptime = (seconds: number): string => {
     const days = Math.floor(seconds / 86400);
@@ -35,23 +33,11 @@ export const VnstatSystemInfo: React.FC<VnstatSystemInfoProps> = ({
     return parts.join(" ") || "0m";
   };
 
-  const formatRefreshInterval = (ms: number): string => {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    
-    if (hours > 0) {
-      return `${hours} hour${hours > 1 ? 's' : ''}`;
-    } else if (minutes > 0) {
-      return `${minutes} minute${minutes > 1 ? 's' : ''}`;
-    } else {
-      return `${seconds} second${seconds > 1 ? 's' : ''}`;
-    }
-  };
 
   const activeInterfaces = Object.values(systemInfo.interfaces).filter(
     (iface) =>
       iface.is_up &&
+      iface.ip_address && // Only show interfaces with IP addresses
       !iface.name.startsWith("veth") && // Exclude Docker container interfaces
       !iface.name.startsWith("br-") && // Exclude Docker bridge interfaces
       iface.name !== "docker0" // Exclude default Docker bridge
@@ -160,14 +146,6 @@ export const VnstatSystemInfo: React.FC<VnstatSystemInfoProps> = ({
             </div>
           </div>
         </div>
-      </div>
-
-      {/* vnstat Version */}
-      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
-        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between">
-          <span>{systemInfo.vnstat_version}</span>
-          <span>Refresh interval: {formatRefreshInterval(refreshInterval)}</span>
-        </p>
       </div>
     </motion.div>
   );

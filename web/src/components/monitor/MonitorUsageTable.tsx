@@ -5,11 +5,12 @@
 
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getVnstatAgentNative } from "@/api/vnstat";
-import { parseVnstatUsagePeriods } from "@/utils/vnstatParser";
+import { getMonitorAgentNative } from "@/api/monitor";
+import { parseMonitorUsagePeriods } from "@/utils/monitorDataParser";
+import type { MonitorUsageSummary } from "@/api/monitor";
 import { formatBytes } from "@/utils/formatBytes";
 
-interface VnstatUsageTableProps {
+interface MonitorUsageTableProps {
   agentId: number;
 }
 
@@ -20,32 +21,32 @@ interface UsagePeriod {
   total: number; // Total bytes
 }
 
-export const VnstatUsageTable: React.FC<VnstatUsageTableProps> = ({
+export const MonitorUsageTable: React.FC<MonitorUsageTableProps> = ({
   agentId,
 }) => {
-  // Fetch native vnstat data from agent
+  // Fetch native monitor data from agent
   const {
     data: nativeData,
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["vnstat-agent-native", agentId],
-    queryFn: () => getVnstatAgentNative(agentId),
+    queryKey: ["monitor-agent-native", agentId],
+    queryFn: () => getMonitorAgentNative(agentId),
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
-  // Parse vnstat native data into usage periods
+  // Parse monitor native data into usage periods
   const usageDataFromParser = nativeData
-    ? parseVnstatUsagePeriods(nativeData)
+    ? parseMonitorUsagePeriods(nativeData)
     : {};
 
   // Convert parsed data to table format
   const usageData: UsagePeriod[] = Object.entries(usageDataFromParser).map(
     ([period, data]) => ({
       period,
-      download: data.download,
-      upload: data.upload,
-      total: data.total,
+      download: (data as MonitorUsageSummary).download,
+      upload: (data as MonitorUsageSummary).upload,
+      total: (data as MonitorUsageSummary).total,
     })
   );
 

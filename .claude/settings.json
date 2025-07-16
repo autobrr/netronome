@@ -17,17 +17,6 @@
     "deny": []
   },
   "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "uv run .claude/hooks/post_tool_use.py"
-          }
-        ]
-      }
-    ],
     "Notification": [
       {
         "matcher": "",

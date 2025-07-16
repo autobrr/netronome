@@ -7,17 +7,17 @@ import React, { useState, useEffect, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon, EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/Button";
-import { VnstatAgent, CreateAgentRequest } from "@/api/vnstat";
+import { MonitorAgent, CreateAgentRequest } from "@/api/monitor";
 
-interface VnstatAgentFormProps {
-  agent?: VnstatAgent | null;
+interface MonitorAgentFormProps {
+  agent?: MonitorAgent | null;
   onSubmit: (data: CreateAgentRequest) => void;
   onCancel: () => void;
   isSubmitting: boolean;
   isOpen: boolean;
 }
 
-export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
+export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
   agent,
   onSubmit,
   onCancel,
@@ -159,7 +159,7 @@ export const VnstatAgentForm: React.FC<VnstatAgentFormProps> = ({
                       required
                     />
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Enter the base URL of the vnstat agent
+                      Enter the base URL of the monitor agent
                     </p>
                   </div>
 

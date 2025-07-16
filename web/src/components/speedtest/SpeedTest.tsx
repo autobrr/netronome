@@ -13,7 +13,7 @@ import { TabNavigation } from "../common/TabNavigation";
 import { DashboardTab } from "./DashboardTab";
 import { SpeedTestTab } from "./SpeedTestTab";
 import { TracerouteTab } from "./TracerouteTab";
-import { VnstatTab } from "../vnstat/VnstatTab";
+import { MonitorTab } from "../monitor/MonitorTab";
 import {
   ChartBarIcon,
   PlayIcon,
@@ -106,7 +106,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
       icon: <GlobeAltIcon className="w-5 h-5" />,
     },
     {
-      id: "vnstat",
+      id: "monitor",
       label: "Agents",
       icon: <ServerIcon className="w-5 h-5" />,
     },
@@ -527,7 +527,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                 hasAnyTests={hasAnyTests}
                 onShareClick={() => setShareModalOpen(true)}
                 onNavigateToSpeedTest={() => handleTabChange("speedtest")}
-                onNavigateToVnstat={() => handleTabChange("vnstat")}
+                onNavigateToVnstat={() => handleTabChange("monitor")}
               />
             </motion.div>
           )}
@@ -568,15 +568,15 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
             </motion.div>
           )}
 
-          {!isPublic && activeTab === "vnstat" && (
+          {!isPublic && activeTab === "monitor" && (
             <motion.div
-              key="vnstat"
+              key="monitor"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
             >
-              <VnstatTab />
+              <MonitorTab />
             </motion.div>
           )}
         </AnimatePresence>

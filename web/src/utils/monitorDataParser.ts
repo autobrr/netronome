@@ -3,15 +3,15 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import type { VnstatNativeData, VnstatUsageSummary } from "@/api/vnstat";
+import type { MonitorNativeData, MonitorUsageSummary } from "@/api/monitor";
 
 /**
  * Parse vnstat native JSON data into usage periods
  * This directly uses vnstat's own period calculations rather than our database aggregations
  */
-export function parseVnstatUsagePeriods(
-  data: VnstatNativeData,
-): Record<string, VnstatUsageSummary> {
+export function parseMonitorUsagePeriods(
+  data: MonitorNativeData,
+): Record<string, MonitorUsageSummary> {
   if (!data.interfaces || data.interfaces.length === 0) {
     return getEmptyUsage();
   }
@@ -68,7 +68,7 @@ export function parseVnstatUsagePeriods(
   };
 }
 
-function getEmptyUsage(): Record<string, VnstatUsageSummary> {
+function getEmptyUsage(): Record<string, MonitorUsageSummary> {
   const empty = { download: 0, upload: 0, total: 0 };
   return {
     "This Hour": empty,
@@ -88,7 +88,7 @@ function getCurrentHour(
   }>,
   now: Date,
   isUTC: boolean = false,
-): VnstatUsageSummary {
+): MonitorUsageSummary {
   const currentHour = isUTC ? now.getUTCHours() : now.getHours();
   const currentDay = isUTC ? now.getUTCDate() : now.getDate();
   const currentMonth = (isUTC ? now.getUTCMonth() : now.getMonth()) + 1; // vnstat months are 1-based
@@ -123,7 +123,7 @@ function getLastHour(
   }>,
   now: Date,
   isUTC: boolean = false,
-): VnstatUsageSummary {
+): MonitorUsageSummary {
   let lastHour = (isUTC ? now.getUTCHours() : now.getHours()) - 1;
   let targetDay = isUTC ? now.getUTCDate() : now.getDate();
   let targetMonth = (isUTC ? now.getUTCMonth() : now.getMonth()) + 1;
@@ -176,7 +176,7 @@ function getToday(
   }>,
   now: Date,
   isUTC: boolean = false,
-): VnstatUsageSummary {
+): MonitorUsageSummary {
   const currentDay = isUTC ? now.getUTCDate() : now.getDate();
   const currentMonth = (isUTC ? now.getUTCMonth() : now.getMonth()) + 1;
   const currentYear = isUTC ? now.getUTCFullYear() : now.getFullYear();
@@ -207,7 +207,7 @@ function getCurrentMonth(
   }>,
   now: Date,
   isUTC: boolean = false,
-): VnstatUsageSummary {
+): MonitorUsageSummary {
   const currentMonth = (isUTC ? now.getUTCMonth() : now.getMonth()) + 1;
   const currentYear = isUTC ? now.getUTCFullYear() : now.getFullYear();
 

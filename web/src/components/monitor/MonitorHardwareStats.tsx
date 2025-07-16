@@ -11,14 +11,14 @@ import {
   ServerIcon,
   FireIcon,
 } from "@heroicons/react/24/outline";
-import { HardwareStats } from "@/api/vnstat";
+import { HardwareStats } from "@/api/monitor";
 import { formatBytes } from "@/utils/formatBytes";
 
-interface VnstatHardwareStatsProps {
+interface MonitorHardwareStatsProps {
   hardwareStats: HardwareStats;
 }
 
-export const VnstatHardwareStats: React.FC<VnstatHardwareStatsProps> = ({
+export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
   hardwareStats,
 }) => {
   const getProgressColor = (percent: number) => {
@@ -220,26 +220,45 @@ export const VnstatHardwareStats: React.FC<VnstatHardwareStatsProps> = ({
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {hardwareStats.temperature.map((temp, index) => {
-              const isHot = temp.critical && temp.temperature > temp.critical * 0.8;
+              const percentage = temp.critical 
+                ? Math.min((temp.temperature / temp.critical) * 100, 100)
+                : (temp.temperature / 100) * 100; // Assume 100°C max if no critical temp
+              
+              const isWarm = percentage > 60;
+              const isHot = percentage > 80;
+              
+              const getTemperatureColor = () => {
+                if (isHot) return "#EF4444"; // red
+                if (isWarm) return "#F59E0B"; // amber
+                return "#10B981"; // green
+              };
+
               return (
-                <div
-                  key={index}
-                  className={`p-3 rounded-lg ${
-                    isHot
-                      ? "bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700"
-                      : "bg-gray-100 dark:bg-gray-800"
-                  }`}
-                >
-                  <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                <div key={index} className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 truncate mb-1">
                     {temp.label || temp.sensor_key}
                   </p>
-                  <p className={`text-lg font-bold ${
-                    isHot
-                      ? "text-red-600 dark:text-red-400"
-                      : "text-gray-900 dark:text-white"
+                  <p className={`text-xl font-bold mb-2 ${
+                    isHot ? "text-red-600 dark:text-red-400" :
+                    isWarm ? "text-amber-600 dark:text-amber-400" :
+                    "text-green-600 dark:text-green-400"
                   }`}>
                     {temp.temperature.toFixed(1)}°C
                   </p>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                    <div
+                      className="h-1.5 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${Math.min(percentage, 100)}%`,
+                        backgroundColor: getTemperatureColor(),
+                      }}
+                    />
+                  </div>
+                  {temp.critical && (
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      / {temp.critical.toFixed(0)}°C
+                    </p>
+                  )}
                 </div>
               );
             })}

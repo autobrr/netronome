@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2025, s0up and the autobrr contributors.
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-package vnstat
+package monitor
 
 import (
 	"bufio"
@@ -23,22 +23,22 @@ import (
 
 // Client represents an SSE client connection to a vnstat agent
 type Client struct {
-	agent         *types.VnstatAgent
+	agent         *types.MonitorAgent
 	db            database.Service
-	broadcastFunc func(types.VnstatUpdate)
+	broadcastFunc func(types.MonitorUpdate)
 
 	mu        sync.Mutex
 	connected bool
-	lastData  *types.VnstatLiveData
+	lastData  *types.MonitorLiveData
 	ctx       context.Context
 	cancel    context.CancelFunc
 }
 
-// Service manages all vnstat clients
+// Service manages all monitoring clients
 type Service struct {
 	db            database.Service
-	config        *config.VnstatConfig
-	broadcastFunc func(types.VnstatUpdate)
+	config        *config.MonitorConfig
+	broadcastFunc func(types.MonitorUpdate)
 
 	clientsMu sync.RWMutex
 	clients   map[int64]*Client
@@ -46,10 +46,16 @@ type Service struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+	
+	// Background collection tickers
+	bandwidthTicker *time.Ticker
+	resourceTicker  *time.Ticker
+	snapshotTicker  *time.Ticker
+	cleanupTicker   *time.Ticker
 }
 
 // NewService creates a new vnstat service
-func NewService(db database.Service, cfg *config.VnstatConfig, broadcastFunc func(types.VnstatUpdate)) *Service {
+func NewService(db database.Service, cfg *config.MonitorConfig, broadcastFunc func(types.MonitorUpdate)) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Service{
@@ -65,12 +71,12 @@ func NewService(db database.Service, cfg *config.VnstatConfig, broadcastFunc fun
 // Start starts the vnstat service
 func (s *Service) Start() error {
 	if !s.config.Enabled {
-		log.Info().Msg("Vnstat service is disabled")
+		log.Info().Msg("Monitor service is disabled")
 		return nil
 	}
 
 	// Load all enabled agents from database
-	agents, err := s.db.GetVnstatAgents(s.ctx, true)
+	agents, err := s.db.GetMonitorAgents(s.ctx, true)
 	if err != nil {
 		return fmt.Errorf("failed to load vnstat agents: %w", err)
 	}
@@ -84,7 +90,10 @@ func (s *Service) Start() error {
 		}
 	}
 
-	log.Info().Int("agents", len(agents)).Msg("Vnstat service started")
+	// Start background collection tasks
+	s.startBackgroundCollectors()
+
+	log.Info().Int("agents", len(agents)).Msg("Monitor service started")
 	return nil
 }
 
@@ -94,6 +103,9 @@ func (s *Service) Stop() {
 
 	s.cancel()
 
+	// Stop background collectors
+	s.stopBackgroundCollectors()
+
 	// Stop all clients
 	s.clientsMu.Lock()
 	for _, client := range s.clients {
@@ -102,13 +114,13 @@ func (s *Service) Stop() {
 	s.clientsMu.Unlock()
 
 	s.wg.Wait()
-	log.Info().Msg("Vnstat service stopped")
+	log.Info().Msg("Monitor service stopped")
 }
 
 // StartAgent starts monitoring a specific agent
 func (s *Service) StartAgent(agentID int64) error {
 	// Get agent from database
-	agent, err := s.db.GetVnstatAgent(s.ctx, agentID)
+	agent, err := s.db.GetMonitorAgent(s.ctx, agentID)
 	if err != nil {
 		return fmt.Errorf("failed to get agent: %w", err)
 	}
@@ -155,7 +167,7 @@ func (s *Service) StopAgent(agentID int64) {
 }
 
 // GetAgentStatus returns the status of an agent
-func (s *Service) GetAgentStatus(agentID int64) (bool, *types.VnstatLiveData) {
+func (s *Service) GetAgentStatus(agentID int64) (bool, *types.MonitorLiveData) {
 	s.clientsMu.RLock()
 	client, exists := s.clients[agentID]
 	s.clientsMu.RUnlock()
@@ -192,7 +204,7 @@ func (c *Client) Stop() {
 }
 
 // IsConnected returns the connection status and last data
-func (c *Client) IsConnected() (bool, *types.VnstatLiveData) {
+func (c *Client) IsConnected() (bool, *types.MonitorLiveData) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.connected, c.lastData
@@ -232,7 +244,7 @@ func (c *Client) monitor() {
 			c.mu.Unlock()
 
 			// Broadcast disconnection
-			c.broadcastFunc(types.VnstatUpdate{
+			c.broadcastFunc(types.MonitorUpdate{
 				Type:      "vnstat",
 				AgentID:   c.agent.ID,
 				AgentName: c.agent.Name,
@@ -296,7 +308,7 @@ func (c *Client) connectAndStream() error {
 	c.mu.Unlock()
 
 	// Broadcast connection
-	c.broadcastFunc(types.VnstatUpdate{
+	c.broadcastFunc(types.MonitorUpdate{
 		Type:      "vnstat",
 		AgentID:   c.agent.ID,
 		AgentName: c.agent.Name,
@@ -344,7 +356,7 @@ func (c *Client) connectAndStream() error {
 // processData processes incoming vnstat data
 func (c *Client) processData(data string) {
 	// Parse JSON data
-	var liveData types.VnstatLiveData
+	var liveData types.MonitorLiveData
 	if err := json.Unmarshal([]byte(data), &liveData); err != nil {
 		log.Warn().
 			Err(err).
@@ -369,7 +381,7 @@ func (c *Client) processData(data string) {
 	txBytes := int64(liveData.Tx.Bytespersecond)
 
 	// Broadcast update
-	c.broadcastFunc(types.VnstatUpdate{
+	c.broadcastFunc(types.MonitorUpdate{
 		Type:             "vnstat",
 		AgentID:          c.agent.ID,
 		AgentName:        c.agent.Name,
@@ -379,4 +391,110 @@ func (c *Client) processData(data string) {
 		TxRateString:     liveData.Tx.Ratestring,
 		Connected:        true,
 	})
+	
+	// Store bandwidth sample in database
+	if err := c.db.SaveMonitorBandwidthSample(context.Background(), c.agent.ID, rxBytes, txBytes); err != nil {
+		log.Warn().Err(err).Int64("agent_id", c.agent.ID).Msg("Failed to save bandwidth sample")
+	}
+}
+
+// startBackgroundCollectors starts background data collection tasks
+func (s *Service) startBackgroundCollectors() {
+	// Bandwidth samples are collected in real-time via SSE, no separate ticker needed
+	
+	// Resource stats collection every 5 minutes
+	s.resourceTicker = time.NewTicker(5 * time.Minute)
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		for {
+			select {
+			case <-s.ctx.Done():
+				return
+			case <-s.resourceTicker.C:
+				s.collectResourceStats()
+			}
+		}
+	}()
+	
+	// Historical snapshot collection every hour
+	s.snapshotTicker = time.NewTicker(1 * time.Hour)
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		for {
+			select {
+			case <-s.ctx.Done():
+				return
+			case <-s.snapshotTicker.C:
+				s.collectHistoricalSnapshots()
+			}
+		}
+	}()
+	
+	// Data cleanup every hour
+	s.cleanupTicker = time.NewTicker(1 * time.Hour)
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		for {
+			select {
+			case <-s.ctx.Done():
+				return
+			case <-s.cleanupTicker.C:
+				if err := s.db.CleanupMonitorData(s.ctx); err != nil {
+					log.Error().Err(err).Msg("Failed to cleanup vnstat data")
+				}
+			}
+		}
+	}()
+}
+
+// stopBackgroundCollectors stops all background collection tasks
+func (s *Service) stopBackgroundCollectors() {
+	if s.resourceTicker != nil {
+		s.resourceTicker.Stop()
+	}
+	if s.snapshotTicker != nil {
+		s.snapshotTicker.Stop()
+	}
+	if s.cleanupTicker != nil {
+		s.cleanupTicker.Stop()
+	}
+}
+
+// collectResourceStats collects hardware resource stats for all connected agents
+func (s *Service) collectResourceStats() {
+	s.clientsMu.RLock()
+	agents := make([]*Client, 0, len(s.clients))
+	for _, client := range s.clients {
+		if connected, _ := client.IsConnected(); connected {
+			agents = append(agents, client)
+		}
+	}
+	s.clientsMu.RUnlock()
+	
+	for _, client := range agents {
+		// TODO: Fetch hardware stats from agent and store in database
+		// This requires adding a method to fetch from /system/hardware endpoint
+		log.Debug().Int64("agent_id", client.agent.ID).Msg("Would collect resource stats")
+	}
+}
+
+// collectHistoricalSnapshots collects vnstat historical data for all connected agents
+func (s *Service) collectHistoricalSnapshots() {
+	s.clientsMu.RLock()
+	agents := make([]*Client, 0, len(s.clients))
+	for _, client := range s.clients {
+		if connected, _ := client.IsConnected(); connected {
+			agents = append(agents, client)
+		}
+	}
+	s.clientsMu.RUnlock()
+	
+	for _, client := range agents {
+		// TODO: Fetch historical data from agent and store in database
+		// This requires adding a method to fetch from /export/historical endpoint
+		log.Debug().Int64("agent_id", client.agent.ID).Msg("Would collect historical snapshot")
+	}
 }
