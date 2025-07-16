@@ -6,8 +6,6 @@ package database
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
-	"fmt"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -18,32 +16,64 @@ import (
 
 // UpsertMonitorSystemInfo inserts or updates system information for an agent
 func (s *service) UpsertMonitorSystemInfo(ctx context.Context, agentID int64, info *types.MonitorSystemInfo) error {
-	if s.config.Type == "sqlite" {
-		// SQLite uses INSERT OR REPLACE
+	// First check if record exists
+	_, err := s.GetMonitorSystemInfo(ctx, agentID)
+	if err != nil && err != ErrNotFound {
+		return err
+	}
+
+	if err == ErrNotFound {
+		// Insert new record
 		query := s.sqlBuilder.
-			Replace("monitor_agent_system_info").
-			Columns("agent_id", "hostname", "kernel", "vnstat_version", "cpu_model", "cpu_cores", "cpu_threads", "total_memory", "updated_at").
-			Values(agentID, info.Hostname, info.Kernel, info.VnstatVersion, info.CPUModel, info.CPUCores, info.CPUThreads, info.TotalMemory, time.Now())
+			Insert("monitor_agent_system_info").
+			Columns("agent_id", "hostname", "kernel", "vnstat_version", "cpu_model", "cpu_cores", "cpu_threads", "total_memory", "created_at", "updated_at").
+			Values(agentID, info.Hostname, info.Kernel, info.VnstatVersion, info.CPUModel, info.CPUCores, info.CPUThreads, info.TotalMemory, time.Now(), time.Now())
 
 		_, err := query.RunWith(s.db).ExecContext(ctx)
 		return err
 	}
 
-	// PostgreSQL uses INSERT ... ON CONFLICT
-	query := `
-		INSERT INTO monitor_agent_system_info (agent_id, hostname, kernel, vnstat_version, cpu_model, cpu_cores, cpu_threads, total_memory, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		ON CONFLICT (agent_id) DO UPDATE SET
-			hostname = EXCLUDED.hostname,
-			kernel = EXCLUDED.kernel,
-			vnstat_version = EXCLUDED.vnstat_version,
-			cpu_model = EXCLUDED.cpu_model,
-			cpu_cores = EXCLUDED.cpu_cores,
-			cpu_threads = EXCLUDED.cpu_threads,
-			total_memory = EXCLUDED.total_memory,
-			updated_at = EXCLUDED.updated_at`
+	// Update existing record - only update non-empty fields
+	update := s.sqlBuilder.Update("monitor_agent_system_info").
+		Set("updated_at", time.Now()).
+		Where(sq.Eq{"agent_id": agentID})
 
-	_, err := s.db.ExecContext(ctx, query, agentID, info.Hostname, info.Kernel, info.VnstatVersion, info.CPUModel, info.CPUCores, info.CPUThreads, info.TotalMemory, time.Now())
+	hasUpdates := false
+
+	if info.Hostname != "" {
+		update = update.Set("hostname", info.Hostname)
+		hasUpdates = true
+	}
+	if info.Kernel != "" {
+		update = update.Set("kernel", info.Kernel)
+		hasUpdates = true
+	}
+	if info.VnstatVersion != "" {
+		update = update.Set("vnstat_version", info.VnstatVersion)
+		hasUpdates = true
+	}
+	if info.CPUModel != "" {
+		update = update.Set("cpu_model", info.CPUModel)
+		hasUpdates = true
+	}
+	if info.CPUCores > 0 {
+		update = update.Set("cpu_cores", info.CPUCores)
+		hasUpdates = true
+	}
+	if info.CPUThreads > 0 {
+		update = update.Set("cpu_threads", info.CPUThreads)
+		hasUpdates = true
+	}
+	if info.TotalMemory > 0 {
+		update = update.Set("total_memory", info.TotalMemory)
+		hasUpdates = true
+	}
+
+	if !hasUpdates {
+		return nil // Nothing to update
+	}
+
+	_, err = update.RunWith(s.db).ExecContext(ctx)
 	return err
 }
 
@@ -284,18 +314,12 @@ func (s *service) GetMonitorResourceStats(ctx context.Context, agentID int64, ho
 
 // SaveMonitorHistoricalSnapshot saves a bandwidth monitoring data snapshot
 func (s *service) SaveMonitorHistoricalSnapshot(ctx context.Context, agentID int64, snapshot *types.MonitorHistoricalSnapshot) error {
-	// Compress JSON data if needed
-	compressedData, err := json.Marshal(snapshot.DataJSON)
-	if err != nil {
-		return fmt.Errorf("failed to compress snapshot data: %w", err)
-	}
-
 	query := s.sqlBuilder.
 		Insert("monitor_historical_snapshots").
 		Columns("agent_id", "interface_name", "period_type", "data_json").
-		Values(agentID, snapshot.InterfaceName, snapshot.PeriodType, string(compressedData))
+		Values(agentID, snapshot.InterfaceName, snapshot.PeriodType, snapshot.DataJSON)
 
-	_, err = query.RunWith(s.db).ExecContext(ctx)
+	_, err := query.RunWith(s.db).ExecContext(ctx)
 	return err
 }
 
@@ -331,17 +355,9 @@ func (s *service) CleanupMonitorData(ctx context.Context) error {
 	}
 	defer tx.Rollback()
 
-	// Clean up bandwidth samples older than 24 hours
-	bandwidthCutoff := time.Now().Add(-24 * time.Hour)
-	deleteQuery := s.sqlBuilder.Delete("monitor_bandwidth_samples").Where(sq.Lt{"created_at": bandwidthCutoff})
-	if _, err := deleteQuery.RunWith(tx).ExecContext(ctx); err != nil {
-		log.Error().Err(err).Msg("Failed to cleanup bandwidth samples")
-		return err
-	}
-
 	// Clean up resource stats older than 7 days
 	resourceCutoff := time.Now().Add(-7 * 24 * time.Hour)
-	deleteQuery = s.sqlBuilder.Delete("monitor_resource_stats").Where(sq.Lt{"created_at": resourceCutoff})
+	deleteQuery := s.sqlBuilder.Delete("monitor_resource_stats").Where(sq.Lt{"created_at": resourceCutoff})
 	if _, err := deleteQuery.RunWith(tx).ExecContext(ctx); err != nil {
 		log.Error().Err(err).Msg("Failed to cleanup resource stats")
 		return err
