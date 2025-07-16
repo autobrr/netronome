@@ -16,7 +16,7 @@ Netronome (Network Metronome) is a modern network performance testing and monito
 - [Configuration](#️-configuration)
   - [Configuration File](#configuration-file-configtoml)
     - [LibreSpeed Configuration](#librespeed-configuration)
-  - [Vnstat Bandwidth Monitoring](#vnstat-bandwidth-monitoring)
+  - [System Monitoring](#system-monitoring)
   - [Environment Variables](#environment-variables)
   - [Database](#database)
   - [Authentication](#authentication)
@@ -44,11 +44,14 @@ Netronome (Network Metronome) is a modern network performance testing and monito
   - **GeoIP Integration**: Country flags and ASN information for network path visualization
   - **Cross-tab Navigation**: Easy flow between traceroute results and monitor creation
 
-- **Bandwidth Monitoring (vnstat)**
-  - **Distributed Agent Architecture**: Deploy lightweight agents on remote servers
-  - **Real-time SSE Streaming**: Live bandwidth data via Server-Sent Events
-  - **Multi-server Support**: Monitor bandwidth across multiple servers from one dashboard
-  - **Historical Tracking**: Store and visualize bandwidth usage over time
+- **Comprehensive System Monitoring**
+  - **Distributed Agent Architecture**: Deploy lightweight agents on remote servers for complete system visibility
+  - **Real-time SSE Streaming**: Live system metrics via Server-Sent Events
+  - **Multi-server Support**: Monitor multiple servers from one centralized dashboard
+  - **Bandwidth Monitoring**: Real-time and historical network usage with vnstat integration
+  - **Hardware Monitoring**: CPU usage, memory stats, disk usage, and temperature sensors
+  - **System Information**: Hostname, kernel version, uptime, network interfaces, and more
+  - **Historical Tracking**: Store and visualize all metrics over time
   - **Auto-reconnection**: Agents automatically reconnect with exponential backoff
 
 - **Monitoring & Visualization**
@@ -256,15 +259,15 @@ Example `librespeed-servers.json`:
 
 **Note:** When using Docker, the LibreSpeed CLI tool (`librespeed-cli`) is automatically included in the container.
 
-### Vnstat Bandwidth Monitoring
+### System Monitoring
 
-Netronome includes a distributed bandwidth monitoring system using vnstat agents that can be deployed on remote servers.
+Netronome includes a comprehensive distributed monitoring system using lightweight agents that can be deployed on remote servers to track bandwidth, hardware resources, and system information.
 
 #### Agent Setup
 
 The same `netronome` binary can run as a lightweight agent that can be deployed:
 
-- **Remote servers**: Monitor bandwidth across different servers/locations
+- **Remote servers**: Monitor system resources, bandwidth, and hardware across different servers/locations
 - **Same server**: Useful when Netronome runs in Docker but you want to monitor the host system
 
 ##### Quick Installation (Recommended)
@@ -357,18 +360,24 @@ journalctl -u netronome-agent-update
    interface = ""    # Empty for all interfaces, or specify like "eth0"
    api_key = ""      # API key for authentication (recommended)
 
-   [vnstat]
+   [monitor]
    enabled = true
    ```
 
 3. **Add Agents in Netronome UI**
-   - Navigate to the "Bandwidth" tab
+   - Navigate to the "Monitoring" tab
    - Click "Add Agent"
    - Enter agent details:
      - Name: Friendly name for the server
      - URL: `http://server-ip:8200` (agent URL)
      - API Key: Enter the key configured on the agent (if authentication is enabled)
      - Enable monitoring: Start monitoring immediately
+   - Once connected, view:
+     - Real-time bandwidth usage
+     - CPU, memory, and disk utilization
+     - System information and uptime
+     - Network interface details
+     - Temperature sensors (if available)
 
 #### Agent Systemd Service
 
@@ -376,7 +385,7 @@ Create `/etc/systemd/system/netronome-agent.service`:
 
 ```ini
 [Unit]
-Description=Netronome vnstat Agent
+Description=Netronome Monitor Agent
 After=network-online.target
 Wants=network-online.target
 
@@ -405,6 +414,22 @@ systemctl start netronome-agent
 - No authentication on agent endpoint (rely on network security)
 - Consider using reverse proxy with authentication if exposing to internet
 - Agents are read-only and don't accept commands
+
+#### Monitoring Capabilities
+
+The monitoring agents provide comprehensive system visibility:
+
+- **Bandwidth Monitoring**: Real-time network usage via vnstat integration
+- **Hardware Statistics**: 
+  - CPU usage percentage and load averages
+  - Memory and swap usage
+  - Disk usage across all mounted filesystems
+  - Temperature sensors (where available)
+- **System Information**:
+  - Hostname and kernel version
+  - System uptime
+  - Network interface details and IP addresses
+  - Peak bandwidth statistics
 
 #### Data Accuracy and Unit Display
 
@@ -467,8 +492,8 @@ This ensures accurate and unambiguous representation of bandwidth data.
 | `NETRONOME__AGENT_HOST`                             | Agent server bind address                                         | `0.0.0.0`                                    | No                     |
 | `NETRONOME__AGENT_PORT`                             | Agent server port                                                 | `8200`                                       | No                     |
 | `NETRONOME__AGENT_INTERFACE`                        | Network interface for agent to monitor (empty for all)            | ``                                           | No                     |
-| `NETRONOME__VNSTAT_ENABLED`                         | Enable vnstat client service in main server                       | `true`                                       | No                     |
-| `NETRONOME__VNSTAT_RECONNECT_INTERVAL`              | Reconnection interval for vnstat client connections               | `30s`                                        | No                     |
+| `NETRONOME__MONITOR_ENABLED`                        | Enable monitor client service in main server                      | `true`                                       | No                     |
+| `NETRONOME__MONITOR_RECONNECT_INTERVAL`             | Reconnection interval for monitor agent connections               | `30s`                                        | No                     |
 
 ### Database
 
@@ -690,7 +715,7 @@ Netronome provides several command-line commands:
 
 - `generate-config` - Generate a default configuration file to `~/.config/netronome/config.toml`
 - `serve` - Starts the Netronome server
-- `agent` - Starts a vnstat SSE agent for bandwidth monitoring
+- `agent` - Starts a monitor SSE agent for system and bandwidth monitoring
 - `create-user` - Create a new user
 - `change-password` - Change password for an existing user
 
@@ -699,7 +724,7 @@ Examples:
 ```bash
 netronome generate-config
 
-# Start vnstat agent with custom settings
+# Start monitor agent with custom settings
 netronome agent --host 192.168.1.100 --port 8300 --interface eth0
 
 # Create a new user (interactive)
