@@ -282,7 +282,7 @@ func (s *service) GetMonitorResourceStats(ctx context.Context, agentID int64, ho
 	return stats, rows.Err()
 }
 
-// SaveMonitorHistoricalSnapshot saves a vnstat data snapshot
+// SaveMonitorHistoricalSnapshot saves a bandwidth monitoring data snapshot
 func (s *service) SaveMonitorHistoricalSnapshot(ctx context.Context, agentID int64, snapshot *types.MonitorHistoricalSnapshot) error {
 	// Compress JSON data if needed
 	compressedData, err := json.Marshal(snapshot.DataJSON)

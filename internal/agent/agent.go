@@ -30,19 +30,19 @@ import (
 	"github.com/autobrr/netronome/internal/config"
 )
 
-// Agent represents the vnstat SSE agent
+// Agent represents the monitor SSE agent
 type Agent struct {
-	config     *config.AgentConfig
-	clients    map[chan string]bool
-	clientsMu  sync.RWMutex
-	vnstatData chan string
-	peakRx     int // Peak download speed in bytes/s
-	peakTx     int // Peak upload speed in bytes/s
-	peakMu     sync.RWMutex
+	config      *config.AgentConfig
+	clients     map[chan string]bool
+	clientsMu   sync.RWMutex
+	monitorData chan string
+	peakRx      int // Peak download speed in bytes/s
+	peakTx      int // Peak upload speed in bytes/s
+	peakMu      sync.RWMutex
 }
 
-// VnstatLiveData represents the JSON structure from vnstat --live --json
-type VnstatLiveData struct {
+// MonitorLiveData represents the JSON structure from vnstat --live --json
+type MonitorLiveData struct {
 	Index   int `json:"index"`
 	Seconds int `json:"seconds"`
 	Rx      struct {
@@ -149,16 +149,16 @@ type TemperatureStats struct {
 // New creates a new Agent instance
 func New(cfg *config.AgentConfig) *Agent {
 	return &Agent{
-		config:     cfg,
-		clients:    make(map[chan string]bool),
-		vnstatData: make(chan string, 100),
+		config:      cfg,
+		clients:     make(map[chan string]bool),
+		monitorData: make(chan string, 100),
 	}
 }
 
 // Start starts the agent server
 func (a *Agent) Start(ctx context.Context) error {
-	// Start vnstat monitoring
-	go a.runVnstat(ctx)
+	// Start bandwidth monitoring
+	go a.runBandwidthMonitor(ctx)
 
 	// Start broadcaster
 	go a.broadcaster(ctx)
@@ -185,7 +185,7 @@ func (a *Agent) Start(ctx context.Context) error {
 	// Root endpoint (public, no auth required)
 	router.GET("/", func(c *gin.Context) {
 		response := gin.H{
-			"service": "vnstat SSE agent",
+			"service": "monitor SSE agent",
 			"host":    a.config.Host,
 			"port":    a.config.Port,
 			"endpoints": gin.H{
@@ -248,9 +248,9 @@ func (a *Agent) Start(ctx context.Context) error {
 	}()
 
 	if a.config.APIKey != "" {
-		log.Info().Str("addr", addr).Msg("Starting vnstat SSE agent with API key authentication")
+		log.Info().Str("addr", addr).Msg("Starting monitor SSE agent with API key authentication")
 	} else {
-		log.Info().Str("addr", addr).Msg("Starting vnstat SSE agent without authentication")
+		log.Info().Str("addr", addr).Msg("Starting monitor SSE agent without authentication")
 	}
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -321,7 +321,7 @@ func (a *Agent) handleSSE(c *gin.Context) {
 func (a *Agent) broadcaster(ctx context.Context) {
 	for {
 		select {
-		case data := <-a.vnstatData:
+		case data := <-a.monitorData:
 			a.clientsMu.RLock()
 			for client := range a.clients {
 				select {
@@ -337,7 +337,7 @@ func (a *Agent) broadcaster(ctx context.Context) {
 	}
 }
 
-// handleHistoricalExport exports all historical vnstat data
+// handleHistoricalExport exports all historical bandwidth monitor data
 func (a *Agent) handleHistoricalExport(c *gin.Context) {
 	// Get optional interface parameter
 	iface := c.Query("interface")
@@ -364,26 +364,26 @@ func (a *Agent) handleHistoricalExport(c *gin.Context) {
 	}
 
 	// Parse the JSON to add timezone information
-	var vnstatData map[string]interface{}
-	if err := json.Unmarshal(output, &vnstatData); err != nil {
-		log.Error().Err(err).Msg("Failed to parse vnstat JSON")
+	var bandwidthData map[string]interface{}
+	if err := json.Unmarshal(output, &bandwidthData); err != nil {
+		log.Error().Err(err).Msg("Failed to parse bandwidth data JSON")
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to parse vnstat data",
+			"error": "failed to parse bandwidth data",
 		})
 		return
 	}
 
 	// Add server time information for timezone handling
 	now := time.Now()
-	vnstatData["server_time"] = now.Format(time.RFC3339)
-	vnstatData["server_time_unix"] = now.Unix()
+	bandwidthData["server_time"] = now.Format(time.RFC3339)
+	bandwidthData["server_time_unix"] = now.Unix()
 	_, offset := now.Zone()
-	vnstatData["timezone_offset"] = offset // Offset in seconds from UTC
+	bandwidthData["timezone_offset"] = offset // Offset in seconds from UTC
 
 	// Re-encode with timezone information
-	enrichedOutput, err := json.Marshal(vnstatData)
+	enrichedOutput, err := json.Marshal(bandwidthData)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to encode vnstat data")
+		log.Error().Err(err).Msg("Failed to encode bandwidth data")
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to encode data",
 		})
@@ -392,14 +392,14 @@ func (a *Agent) handleHistoricalExport(c *gin.Context) {
 
 	// Set appropriate headers for JSON response
 	c.Header("Content-Type", "application/json")
-	c.Header("Content-Disposition", "inline; filename=\"vnstat-historical.json\"")
+	c.Header("Content-Disposition", "inline; filename=\"monitor-historical.json\"")
 
 	// Return the enriched JSON data
 	c.Data(http.StatusOK, "application/json", enrichedOutput)
 }
 
-// runVnstat runs vnstat and sends data to the broadcast channel
-func (a *Agent) runVnstat(ctx context.Context) {
+// runBandwidthMonitor runs vnstat command and sends data to the broadcast channel
+func (a *Agent) runBandwidthMonitor(ctx context.Context) {
 	// Build vnstat command
 	args := []string{"--live", "--json"}
 	if a.config.Interface != "" {
@@ -423,9 +423,9 @@ func (a *Agent) runVnstat(ctx context.Context) {
 		line := scanner.Text()
 
 		// Parse JSON to validate it
-		var data VnstatLiveData
+		var data MonitorLiveData
 		if err := json.Unmarshal([]byte(line), &data); err != nil {
-			log.Warn().Err(err).Str("line", line).Msg("Failed to parse vnstat JSON")
+			log.Warn().Err(err).Str("line", line).Msg("Failed to parse bandwidth data JSON")
 			continue
 		}
 
@@ -441,7 +441,7 @@ func (a *Agent) runVnstat(ctx context.Context) {
 
 		// Send to broadcaster
 		select {
-		case a.vnstatData <- line:
+		case a.monitorData <- line:
 		default:
 			// Channel full, skip
 		}
@@ -449,7 +449,7 @@ func (a *Agent) runVnstat(ctx context.Context) {
 		log.Trace().
 			Str("rx", data.Rx.Ratestring).
 			Str("tx", data.Tx.Ratestring).
-			Msg("Broadcasting vnstat data")
+			Msg("Broadcasting bandwidth monitor data")
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -621,9 +621,9 @@ func (a *Agent) getSystemInfo() (*SystemInfo, error) {
 
 			// Get vnstat interface alias if configured
 			if output, err := exec.Command("vnstat", "--json", "-i", iface.Name).Output(); err == nil {
-				var vnstatData map[string]interface{}
-				if json.Unmarshal(output, &vnstatData) == nil {
-					if interfaces, ok := vnstatData["interfaces"].([]interface{}); ok && len(interfaces) > 0 {
+				var interfaceData map[string]interface{}
+				if json.Unmarshal(output, &interfaceData) == nil {
+					if interfaces, ok := interfaceData["interfaces"].([]interface{}); ok && len(interfaces) > 0 {
 						if ifaceData, ok := interfaces[0].(map[string]interface{}); ok {
 							if alias, ok := ifaceData["alias"].(string); ok {
 								ifaceInfo.Alias = alias
@@ -862,7 +862,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 		for _, temp := range temps {
 			// Skip sensors with zero or invalid readings
 			if temp.Temperature <= 0 || temp.Temperature > 200 {
-				log.Debug().
+				log.Trace().
 					Str("sensor", temp.SensorKey).
 					Float64("temp", temp.Temperature).
 					Msg("Skipping invalid temperature reading")

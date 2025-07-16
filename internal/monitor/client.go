@@ -21,7 +21,7 @@ import (
 	"github.com/autobrr/netronome/internal/types"
 )
 
-// Client represents an SSE client connection to a vnstat agent
+// Client represents an SSE client connection to a monitor agent
 type Client struct {
 	agent         *types.MonitorAgent
 	db            database.Service
@@ -54,7 +54,7 @@ type Service struct {
 	cleanupTicker   *time.Ticker
 }
 
-// NewService creates a new vnstat service
+// NewService creates a new monitor service
 func NewService(db database.Service, cfg *config.MonitorConfig, broadcastFunc func(types.MonitorUpdate)) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -68,7 +68,7 @@ func NewService(db database.Service, cfg *config.MonitorConfig, broadcastFunc fu
 	}
 }
 
-// Start starts the vnstat service
+// Start starts the monitor service
 func (s *Service) Start() error {
 	if !s.config.Enabled {
 		log.Info().Msg("Monitor service is disabled")
@@ -78,15 +78,15 @@ func (s *Service) Start() error {
 	// Load all enabled agents from database
 	agents, err := s.db.GetMonitorAgents(s.ctx, true)
 	if err != nil {
-		return fmt.Errorf("failed to load vnstat agents: %w", err)
+		return fmt.Errorf("failed to load monitor agents: %w", err)
 	}
 
-	log.Debug().Int("agent_count", len(agents)).Msg("Loaded vnstat agents from database")
+	log.Debug().Int("agent_count", len(agents)).Msg("Loaded monitor agents from database")
 
 	// Start monitoring each agent
 	for _, agent := range agents {
 		if err := s.StartAgent(agent.ID); err != nil {
-			log.Error().Err(err).Int64("agent_id", agent.ID).Msg("Failed to start vnstat agent")
+			log.Error().Err(err).Int64("agent_id", agent.ID).Msg("Failed to start monitor agent")
 		}
 	}
 
@@ -97,9 +97,9 @@ func (s *Service) Start() error {
 	return nil
 }
 
-// Stop stops the vnstat service
+// Stop stops the monitor service
 func (s *Service) Stop() {
-	log.Info().Msg("Stopping vnstat service")
+	log.Info().Msg("Stopping monitor service")
 
 	s.cancel()
 
@@ -147,7 +147,7 @@ func (s *Service) StartAgent(agentID int64) error {
 	s.clients[agentID] = client
 	s.clientsMu.Unlock()
 
-	log.Info().Int64("agent_id", agentID).Str("url", agent.URL).Msg("Started vnstat agent")
+	log.Info().Int64("agent_id", agentID).Str("url", agent.URL).Msg("Started monitor agent")
 	return nil
 }
 
@@ -162,7 +162,7 @@ func (s *Service) StopAgent(agentID int64) {
 
 	if exists {
 		client.Stop()
-		log.Info().Int64("agent_id", agentID).Msg("Stopped vnstat agent")
+		log.Info().Int64("agent_id", agentID).Msg("Stopped monitor agent")
 	}
 }
 
@@ -235,7 +235,7 @@ func (c *Client) monitor() {
 					Err(err).
 					Int64("agent_id", c.agent.ID).
 					Str("url", c.agent.URL).
-					Msg("Failed to connect to vnstat agent")
+					Msg("Failed to connect to monitor agent")
 			}
 
 			// Update connection status
@@ -245,7 +245,7 @@ func (c *Client) monitor() {
 
 			// Broadcast disconnection
 			c.broadcastFunc(types.MonitorUpdate{
-				Type:      "vnstat",
+				Type:      "monitor",
 				AgentID:   c.agent.ID,
 				AgentName: c.agent.Name,
 				Connected: false,
@@ -309,7 +309,7 @@ func (c *Client) connectAndStream() error {
 
 	// Broadcast connection
 	c.broadcastFunc(types.MonitorUpdate{
-		Type:      "vnstat",
+		Type:      "monitor",
 		AgentID:   c.agent.ID,
 		AgentName: c.agent.Name,
 		Connected: true,
@@ -318,7 +318,7 @@ func (c *Client) connectAndStream() error {
 	log.Info().
 		Int64("agent_id", c.agent.ID).
 		Str("url", c.agent.URL).
-		Msg("Connected to vnstat agent")
+		Msg("Connected to monitor agent")
 
 	// Read SSE stream
 	scanner := bufio.NewScanner(resp.Body)
@@ -353,7 +353,7 @@ func (c *Client) connectAndStream() error {
 	return fmt.Errorf("connection closed")
 }
 
-// processData processes incoming vnstat data
+// processData processes incoming bandwidth monitor data
 func (c *Client) processData(data string) {
 	// Parse JSON data
 	var liveData types.MonitorLiveData
@@ -361,7 +361,7 @@ func (c *Client) processData(data string) {
 		log.Warn().
 			Err(err).
 			Str("data", data).
-			Msg("Failed to parse vnstat data")
+			Msg("Failed to parse bandwidth monitor data")
 		return
 	}
 
@@ -382,7 +382,7 @@ func (c *Client) processData(data string) {
 
 	// Broadcast update
 	c.broadcastFunc(types.MonitorUpdate{
-		Type:             "vnstat",
+		Type:             "monitor",
 		AgentID:          c.agent.ID,
 		AgentName:        c.agent.Name,
 		RxBytesPerSecond: rxBytes,
@@ -443,7 +443,7 @@ func (s *Service) startBackgroundCollectors() {
 				return
 			case <-s.cleanupTicker.C:
 				if err := s.db.CleanupMonitorData(s.ctx); err != nil {
-					log.Error().Err(err).Msg("Failed to cleanup vnstat data")
+					log.Error().Err(err).Msg("Failed to cleanup monitor data")
 				}
 			}
 		}
@@ -481,7 +481,7 @@ func (s *Service) collectResourceStats() {
 	}
 }
 
-// collectHistoricalSnapshots collects vnstat historical data for all connected agents
+// collectHistoricalSnapshots collects bandwidth historical data for all connected agents
 func (s *Service) collectHistoricalSnapshots() {
 	s.clientsMu.RLock()
 	agents := make([]*Client, 0, len(s.clients))

@@ -148,7 +148,7 @@ func (s *Server) BroadcastMonitorUpdate(update types.MonitorUpdate) {
 		Bool("connected", update.Connected).
 		Int64("rxBytesPerSecond", update.RxBytesPerSecond).
 		Int64("txBytesPerSecond", update.TxBytesPerSecond).
-		Msg("Broadcasting vnstat update")
+		Msg("Broadcasting monitor update")
 }
 
 func (s *Server) SetPacketLossService(service *speedtest.PacketLossService) {

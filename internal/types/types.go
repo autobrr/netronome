@@ -212,8 +212,8 @@ type MonitorLiveData struct {
 	} `json:"tx"`
 }
 
-// VnstatFullData represents the complete vnstat JSON export structure
-type VnstatFullData struct {
+// MonitorFullData represents the complete bandwidth monitor JSON export structure
+type MonitorFullData struct {
 	Vnstatversion string `json:"vnstatversion"`
 	Jsonversion   string `json:"jsonversion"`
 	Interfaces    []struct {

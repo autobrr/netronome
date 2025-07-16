@@ -294,7 +294,7 @@ func (h *MonitorHandler) StopAgent(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Agent stopped successfully"})
 }
 
-// GetAgentNativeVnstat returns the native vnstat JSON output from an agent for validation
+// GetAgentNativeVnstat returns the native bandwidth monitor JSON output from an agent for validation
 func (h *MonitorHandler) GetAgentNativeVnstat(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -342,8 +342,8 @@ func (h *MonitorHandler) GetAgentNativeVnstat(c *gin.Context) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Error().Err(err).Str("url", exportURL).Msg("Failed to fetch native vnstat data")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch native vnstat data"})
+		log.Error().Err(err).Str("url", exportURL).Msg("Failed to fetch native bandwidth data")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch native bandwidth data"})
 		return
 	}
 	defer resp.Body.Close()
@@ -363,14 +363,14 @@ func (h *MonitorHandler) GetAgentNativeVnstat(c *gin.Context) {
 	}
 
 	// Validate JSON
-	var vnstatData interface{}
-	if err := json.Unmarshal(body, &vnstatData); err != nil {
+	var bandwidthData interface{}
+	if err := json.Unmarshal(body, &bandwidthData); err != nil {
 		log.Error().Err(err).Msg("Invalid JSON response from agent")
 		c.JSON(http.StatusBadGateway, gin.H{"error": "Invalid JSON response from agent"})
 		return
 	}
 
-	// Return the raw vnstat JSON data
+	// Return the raw bandwidth monitor JSON data
 	c.Header("Content-Type", "application/json")
 	c.Data(http.StatusOK, "application/json", body)
 }
