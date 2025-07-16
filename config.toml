@@ -17,6 +17,15 @@ host = "0.0.0.0"
 port = 7575
 #base_url = "/netronome"
 
+# Public server configuration
+# Enable this to run a separate public-only server for reverse proxy scenarios
+# Serves read-only public dashboard (/public) and speed test history API
+# Blocks all admin interfaces and authentication forms for security
+[public_server]
+enabled = false
+host = "127.0.0.1"
+port = 7576
+
 [logging]
 level = "debug" # trace, debug, info, warn, error, fatal, panic
 

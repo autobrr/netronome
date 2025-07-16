@@ -72,8 +72,14 @@ Netronome (Network Metronome) is a modern network performance testing and monito
   - **Form Validation**: Real-time input validation with helpful error messages
 
 - **Flexible Authentication**
+
   - Built-in user authentication
   - OpenID Connect support
+
+- **Public Dashboard**
+  - Optional separate public server for reverse proxy scenarios
+  - Secure public sharing of speed test results
+  - No admin interface exposure
 
 ## 📦 External Dependencies
 
@@ -436,6 +442,8 @@ This ensures accurate and unambiguous representation of bandwidth data.
 | `NETRONOME__IPERF_TEST_DURATION`                    | Duration of iPerf tests in seconds                                | `10`                                         | No                     |
 | `NETRONOME__IPERF_PARALLEL_CONNS`                   | Number of parallel iPerf connections                              | `4`                                          | No                     |
 | `NETRONOME__IPERF_TIMEOUT`                          | Timeout for iperf3 tests in seconds                               | `60`                                         | No                     |
+| `NETRONOME__IPERF_ENABLE_UDP`                       | Enable UDP mode for jitter testing                                | `false`                                      | No                     |
+| `NETRONOME__IPERF_UDP_BANDWIDTH`                    | Bandwidth limit for UDP tests (e.g., "100M")                      | `100M`                                       | No                     |
 | `NETRONOME__IPERF_PING_COUNT`                       | Number of ping packets to send for iperf3 tests                   | `5`                                          | No                     |
 | `NETRONOME__IPERF_PING_INTERVAL`                    | Interval between ping packets in milliseconds for iperf3 tests    | `1000`                                       | No                     |
 | `NETRONOME__IPERF_PING_TIMEOUT`                     | Timeout for ping tests in seconds for iperf3 tests                | `10`                                         | No                     |
@@ -469,6 +477,9 @@ This ensures accurate and unambiguous representation of bandwidth data.
 | `NETRONOME__AGENT_INTERFACE`                        | Network interface for agent to monitor (empty for all)            | ``                                           | No                     |
 | `NETRONOME__VNSTAT_ENABLED`                         | Enable vnstat client service in main server                       | `true`                                       | No                     |
 | `NETRONOME__VNSTAT_RECONNECT_INTERVAL`              | Reconnection interval for vnstat client connections               | `30s`                                        | No                     |
+| `NETRONOME__PUBLIC_SERVER_ENABLED`                  | Enable public server for reverse proxy scenarios                  | `false`                                      | No                     |
+| `NETRONOME__PUBLIC_SERVER_HOST`                     | Public server host                                                | `127.0.0.1`                                  | No                     |
+| `NETRONOME__PUBLIC_SERVER_PORT`                     | Public server port                                                | `7576`                                       | No                     |
 
 ### Database
 
@@ -660,6 +671,48 @@ It's common and normal to see 100% packet loss at intermediate hops (showing as 
 - **100% loss at intermediate hops** = Those routers don't respond to probes, but they're still forwarding your traffic
 
 This is why MTR shows both metrics - overall connectivity health (most important for users) and detailed path analysis (useful for network troubleshooting). The overall packet loss percentage is the primary indicator of your actual network performance to the destination.
+
+### Public Server
+
+Netronome includes an optional public server feature that allows you to safely expose speed test results to the internet without exposing administrative interfaces or authentication forms.
+
+#### Configuration
+
+Add to your `config.toml`:
+
+```toml
+[public_server]
+enabled = true
+host = "0.0.0.0"  # For public access
+port = 7576       # Different port from main server
+```
+
+Or using environment variables:
+
+```bash
+NETRONOME__PUBLIC_SERVER_ENABLED=true
+NETRONOME__PUBLIC_SERVER_HOST=0.0.0.0
+NETRONOME__PUBLIC_SERVER_PORT=7576
+```
+
+#### Features
+
+- **Security First**: Only serves public dashboard and required assets
+- **No Admin Access**: Login forms, admin interfaces completely blocked
+- **Separate Port**: Runs independently on different port (default: 7576)
+- **Read-Only**: Only displays historical speed test data
+- **Clean Logging**: Filters expected 404s to reduce log noise
+
+#### Available Endpoints
+
+The public server only serves:
+
+- `/public` - Public dashboard UI
+- `/api/speedtest/public/history` - Speed test data
+- `/health` - Health check
+- `/assets/*` - Static files for the web interface
+
+All other routes (like `/login`, `/admin`) return 404.
 
 ### Notifications
 

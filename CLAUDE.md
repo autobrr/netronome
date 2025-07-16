@@ -219,11 +219,12 @@ internal/
 
 ### Configuration System
 
-- **Hierarchical TOML** with sections: `[database]`, `[server]`, `[speedtest]`, `[speedtest.iperf]`, `[speedtest.iperf.ping]`, `[speedtest.packetloss]`, `[geoip]`, `[agent]`, `[vnstat]`, etc.
+- **Hierarchical TOML** with sections: `[database]`, `[server]`, `[public_server]`, `[speedtest]`, `[speedtest.iperf]`, `[speedtest.iperf.ping]`, `[speedtest.packetloss]`, `[geoip]`, `[agent]`, `[vnstat]`, etc.
 - **Environment overrides**: Any config value can be overridden with `NETRONOME__SECTION_KEY` format
 - **Auto-generation**: Creates sensible defaults if no config exists
 - **Container detection**: Automatically binds to `0.0.0.0` in containerized environments
 - **GeoIP Configuration**: Optional MaxMind GeoLite2 database paths for traceroute country/ASN lookup
+- **Public Server**: Optional separate server for public-only endpoints (reverse proxy scenarios)
 
 ### Authentication and Security
 
@@ -339,6 +340,7 @@ internal/
 - **Docker**: Multi-stage builds for optimized images
 - **Systemd**: Service file templates provided
 - **Development**: Hot reload with `make dev` (requires tmux)
+- **Public Server**: Optional separate server on different port for public-only access
 
 ### Configuration Hierarchy
 
@@ -419,6 +421,82 @@ The following external tools are required for full functionality:
 - **Responsive hosts**: `8.8.8.8`, `1.1.1.1` (should show 0-5% loss)
 - **Unresponsive hosts**: `203.0.113.1`, `192.0.2.1`, `198.51.100.1` (documentation IPs, should show 100% loss)
 - **Geographic distance**: Far locations may show real packet loss due to routing
+
+## Public Server Feature
+
+### Overview
+
+Netronome includes an optional public server that runs on a separate port and serves only public endpoints. This is designed for users who want to expose speed test results to the internet via reverse proxy without exposing admin interfaces or authentication forms.
+
+### Configuration
+
+Add to `config.toml`:
+
+```toml
+[public_server]
+enabled = true
+host = "0.0.0.0"  # For public access
+port = 7576       # Different port from main server
+```
+
+Environment variables:
+
+- `NETRONOME__PUBLIC_SERVER_ENABLED=true`
+- `NETRONOME__PUBLIC_SERVER_HOST=0.0.0.0`
+- `NETRONOME__PUBLIC_SERVER_PORT=7576`
+
+### Available Endpoints
+
+The public server only serves:
+
+- `/public` - Public dashboard UI (read-only)
+- `/api/speedtest/public/history` - Speed test data API
+- `/health` - Health check endpoint
+- `/assets/*` - Static assets for the React app
+- Static stubs for other API endpoints (return empty arrays)
+
+### Security Features
+
+- **No authentication**: All endpoints are publicly accessible
+- **Limited routes**: Only serves public dashboard and required assets
+- **Blocks admin routes**: `/login`, `/admin`, etc. return 404
+- **Clean logging**: Filters expected 404s to reduce log noise
+- **Separate process**: Runs independently from main server
+
+### Reverse Proxy Example
+
+```nginx
+# Expose only public endpoints
+server {
+    listen 80;
+    server_name speedtest-public.example.com;
+
+    location / {
+        proxy_pass http://localhost:7576;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+# Main server stays private
+server {
+    listen 80;
+    server_name speedtest-admin.internal.com;
+
+    location / {
+        proxy_pass http://localhost:7575;
+        # Additional auth/IP restrictions here
+    }
+}
+```
+
+### Implementation Details
+
+- **File**: `internal/server/public_server.go`
+- **Minimal middleware**: Only logging, recovery, error handling, CORS
+- **Shared database**: Uses same database service as main server
+- **Frontend serving**: Serves React app with only `/public` route accessible
+- **Stub endpoints**: Provides empty responses for API calls made by frontend
 
 ## Frontend Style Guide Reference
 

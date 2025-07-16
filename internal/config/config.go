@@ -37,6 +37,7 @@ const (
 type Config struct {
 	Database      DatabaseConfig     `toml:"database"`
 	Server        ServerConfig       `toml:"server"`
+	PublicServer  PublicServerConfig `toml:"public_server"`
 	Logging       LoggingConfig      `toml:"logging"`
 	Auth          AuthConfig         `toml:"auth"`
 	OIDC          OIDCConfig         `toml:"oidc"`
@@ -66,6 +67,12 @@ type ServerConfig struct {
 	Port    int    `toml:"port" env:"PORT"`
 	BaseURL string `toml:"base_url" env:"BASE_URL"`
 	GinMode string `toml:"gin_mode" env:"GIN_MODE"`
+}
+
+type PublicServerConfig struct {
+	Enabled bool   `toml:"enabled" env:"ENABLED"`
+	Host    string `toml:"host" env:"HOST"`
+	Port    int    `toml:"port" env:"PORT"`
 }
 
 type LoggingConfig struct {
@@ -200,6 +207,11 @@ func New() *Config {
 			Port:    7575,
 			BaseURL: "/",
 		},
+		PublicServer: PublicServerConfig{
+			Enabled: false,
+			Host:    "127.0.0.1",
+			Port:    7576,
+		},
 		Logging: LoggingConfig{
 			Level: "info",
 		},
@@ -333,6 +345,7 @@ func Load(configPath string) (*Config, error) {
 func (c *Config) loadFromEnv() error {
 	c.loadDatabaseFromEnv()
 	c.loadServerFromEnv()
+	c.loadPublicServerFromEnv()
 	c.loadLoggingFromEnv()
 	c.loadAuthFromEnv()
 	c.loadOIDCFromEnv()
@@ -390,6 +403,22 @@ func (c *Config) loadServerFromEnv() {
 	}
 	if v := getEnv("GIN_MODE"); v != "" {
 		c.Server.GinMode = v
+	}
+}
+
+func (c *Config) loadPublicServerFromEnv() {
+	if v := getEnv("PUBLIC_SERVER_ENABLED"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			c.PublicServer.Enabled = enabled
+		}
+	}
+	if v := getEnv("PUBLIC_SERVER_HOST"); v != "" {
+		c.PublicServer.Host = v
+	}
+	if v := getEnv("PUBLIC_SERVER_PORT"); v != "" {
+		if port, err := strconv.Atoi(v); err == nil {
+			c.PublicServer.Port = port
+		}
 	}
 }
 
@@ -662,6 +691,32 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, "# gin_mode = \"release\"  # optional: \"debug\" or \"release\""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+
+	// Public Server section
+	if _, err := fmt.Fprintln(w, "# Public server configuration"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Enable this to run a separate public-only server for reverse proxy scenarios"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# This server only serves /api/speedtest/public/history and /health endpoints"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "[public_server]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.PublicServer.Enabled); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "host = \"%s\"\n", cfg.PublicServer.Host); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "port = %d\n", cfg.PublicServer.Port); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
