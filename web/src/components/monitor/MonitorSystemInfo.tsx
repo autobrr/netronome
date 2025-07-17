@@ -37,7 +37,6 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
     return parts.join(" ") || "0m";
   };
 
-
   const activeInterfaces = Object.values(systemInfo.interfaces).filter(
     (iface) =>
       iface.is_up &&
@@ -78,9 +77,15 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
         <div className="flex items-start space-x-3">
           <div className="rounded-full bg-green-100 p-2 dark:bg-green-900/20 flex-shrink-0">
             {systemInfo.kernel.toLowerCase().includes("darwin") ? (
-              <FontAwesomeIcon icon={faApple} className="h-5 w-5 text-green-600 dark:text-green-400" />
+              <FontAwesomeIcon
+                icon={faApple}
+                className="h-5 w-5 text-green-600 dark:text-green-400"
+              />
             ) : systemInfo.kernel.toLowerCase().includes("linux") ? (
-              <FontAwesomeIcon icon={faLinux} className="h-5 w-5 text-green-600 dark:text-green-400" />
+              <FontAwesomeIcon
+                icon={faLinux}
+                className="h-5 w-5 text-green-600 dark:text-green-400"
+              />
             ) : (
               <CpuChipIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
             )}
@@ -119,7 +124,11 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
           </h4>
           <div className="space-y-2">
             {activeInterfaces.map((iface) => (
-              <InterfaceCard key={iface.name} interface={iface} />
+              <InterfaceCard
+                key={iface.name}
+                interface={iface}
+                isOffline={isOffline}
+              />
             ))}
           </div>
         </div>
@@ -134,9 +143,13 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <p className="text-xs text-gray-600 dark:text-gray-400">Status</p>
-              <p className={`text-sm font-medium ${
-                isOffline ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400"
-              }`}>
+              <p
+                className={`text-sm font-medium ${
+                  isOffline
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-emerald-600 dark:text-emerald-400"
+                }`}
+              >
                 {isOffline ? "Offline" : "Connected"}
               </p>
             </div>
@@ -177,9 +190,13 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
 
 interface InterfaceCardProps {
   interface: InterfaceInfo;
+  isOffline?: boolean;
 }
 
-const InterfaceCard: React.FC<InterfaceCardProps> = ({ interface: iface }) => {
+const InterfaceCard: React.FC<InterfaceCardProps> = ({
+  interface: iface,
+  isOffline = false,
+}) => {
   return (
     <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
       <div className="flex items-center justify-between">
@@ -219,7 +236,11 @@ const InterfaceCard: React.FC<InterfaceCardProps> = ({ interface: iface }) => {
         <div className="flex-shrink-0">
           <span
             className={`inline-flex h-2 w-2 rounded-full ${
-              iface.is_up ? "bg-green-500" : "bg-red-500"
+              isOffline
+                ? "bg-red-500"
+                : iface.is_up
+                ? "bg-emerald-500"
+                : "bg-red-500"
             }`}
           />
         </div>

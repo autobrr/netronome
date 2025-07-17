@@ -51,21 +51,65 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
       {/* Offline Banner */}
       {isOffline && <MonitorOfflineBanner message="Showing cached system information. Real-time data unavailable." />}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* System Information - Left Column */}
-        <div>
+      <div className="space-y-6 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-6">
+        {/* Left Column - System Information */}
+        <div className="order-1">
           {systemInfo && (
             <MonitorSystemInfo systemInfo={systemInfo} isOffline={isOffline} />
           )}
         </div>
         
-        {/* Hardware Statistics - Right Column */}
-        <div>
+        {/* CPU - order 2 on mobile, middle column on desktop */}
+        <div className="order-2 lg:order-2 space-y-6">
           {hardwareStats && (
-            <MonitorHardwareStats hardwareStats={hardwareStats} />
+            <>
+              <MonitorHardwareStats hardwareStats={hardwareStats} showOnly="cpu" />
+              <div className="hidden lg:block">
+                {hardwareStats.temperature && hardwareStats.temperature.length > 0 && (
+                  <MonitorHardwareStats hardwareStats={hardwareStats} showOnly="temperature" />
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        
+        {/* Memory - order 3 on mobile, right column on desktop */}
+        <div className="order-3 lg:order-3 space-y-6">
+          {hardwareStats && (
+            <>
+              <MonitorHardwareStats hardwareStats={hardwareStats} showOnly="memory" />
+              <div className="hidden lg:block">
+                {hardwareStats.disks.length > 0 && (
+                  <MonitorHardwareStats hardwareStats={hardwareStats} showOnly="disk" />
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        
+        {/* Temperature Sensors - order 4 on mobile (shows only on mobile) */}
+        <div className="order-4 lg:hidden">
+          {hardwareStats && hardwareStats.temperature && hardwareStats.temperature.length > 0 && (
+            <MonitorHardwareStats hardwareStats={hardwareStats} showOnly="temperature" />
+          )}
+        </div>
+        
+        {/* Disk Usage - order 5 on mobile (shows only on mobile) */}
+        <div className="order-5 lg:hidden">
+          {hardwareStats && hardwareStats.disks.length > 0 && (
+            <MonitorHardwareStats hardwareStats={hardwareStats} showOnly="disk" />
           )}
         </div>
       </div>
+
+      {/* Single timestamp at bottom */}
+      {(systemInfo || hardwareStats) && (
+        <div className="text-center text-xs text-gray-500 dark:text-gray-400 mt-6">
+          {hardwareStats?.from_cache || systemInfo?.from_cache ? "Data collected" : "Last updated"}:{" "}
+          {new Date((hardwareStats?.updated_at || systemInfo?.updated_at) || Date.now()).toLocaleTimeString()}
+          {(hardwareStats?.from_cache || systemInfo?.from_cache) && " (cached)"}
+        </div>
+      )}
     </div>
   );
 };

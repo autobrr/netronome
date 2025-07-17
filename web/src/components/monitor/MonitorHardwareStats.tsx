@@ -16,10 +16,14 @@ import { formatBytes } from "@/utils/formatBytes";
 
 interface MonitorHardwareStatsProps {
   hardwareStats: HardwareStats;
+  showOnly?: "cpu" | "memory" | "disk" | "temperature";
+  showOnlyTemperature?: boolean; // Keep for backward compatibility
 }
 
 export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
   hardwareStats,
+  showOnly,
+  showOnlyTemperature = false,
 }) => {
   const getProgressColor = (percent: number) => {
     if (percent < 50) return "#34d399"; // emerald-400
@@ -34,6 +38,13 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
     return `${mhz.toFixed(0)} MHz`;
   };
 
+  // Backward compatibility
+  const shouldShow = (component: string) => {
+    if (showOnly) return showOnly === component;
+    if (showOnlyTemperature) return component === "temperature";
+    return component !== "temperature"; // Default behavior: show all except temperature
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -41,9 +52,8 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
-      {/* CPU and Memory Row */}
-      <div className="grid gap-6 sm:grid-cols-2 items-start">
-        {/* CPU Stats */}
+      {/* CPU Stats */}
+      {shouldShow("cpu") && (
         <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
@@ -90,8 +100,10 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
             )}
           </div>
         </div>
+      )}
 
-        {/* Memory Stats */}
+      {/* Memory Stats */}
+      {shouldShow("memory") && (
         <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
@@ -290,10 +302,10 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Disk Usage */}
-      {hardwareStats.disks.length > 0 && (
+      {shouldShow("disk") && hardwareStats.disks.length > 0 && (
         <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
           <div className="flex items-center space-x-2 mb-4">
             <ServerIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
@@ -346,7 +358,7 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
       )}
 
       {/* Temperature Sensors */}
-      {hardwareStats.temperature && hardwareStats.temperature.length > 0 && (
+      {shouldShow("temperature") && hardwareStats.temperature && hardwareStats.temperature.length > 0 && (
         <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
           <div className="flex items-center space-x-2 mb-4">
             <FireIcon className="h-6 w-6 text-orange-600 dark:text-orange-400" />
@@ -556,12 +568,6 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
         </div>
       )}
 
-      {/* Update timestamp */}
-      <div className="text-center text-xs text-gray-500 dark:text-gray-400">
-        {hardwareStats.from_cache ? "Data collected" : "Last updated"}:{" "}
-        {new Date(hardwareStats.updated_at).toLocaleTimeString()}
-        {hardwareStats.from_cache && " (cached)"}
-      </div>
     </motion.div>
   );
 };
