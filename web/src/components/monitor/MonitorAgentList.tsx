@@ -12,7 +12,9 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   ChevronRightIcon,
-} from "@heroicons/react/24/outline";
+  LockClosedIcon,
+  LockOpenIcon,
+} from "@heroicons/react/24/solid";
 import { SparklesIcon as SparklesIconSolid } from "@heroicons/react/24/solid";
 import { MonitorAgent } from "@/api/monitor";
 import { AgentIcon } from "@/utils/agentIcons";
@@ -258,10 +260,23 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-              <span className="truncate">
-                {agent.url.replace(/\/events\?stream=live-data$/, "")}
-              </span>
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-1.5 min-w-0">
+                {agent.apiKey ? (
+                  <LockClosedIcon
+                    className="h-3 w-3 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
+                    title="Authentication enabled"
+                  />
+                ) : (
+                  <LockOpenIcon
+                    className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0"
+                    title="No authentication"
+                  />
+                )}
+                <span className="truncate">
+                  {agent.url.replace(/\/events\?stream=live-data$/, "")}
+                </span>
+              </div>
             </div>
 
             {/* Key metrics */}
