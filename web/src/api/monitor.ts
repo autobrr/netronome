@@ -217,6 +217,8 @@ export interface MonitorNativeData {
   server_time?: string; // RFC3339 formatted server time
   server_time_unix?: number; // Unix timestamp
   timezone_offset?: number; // Offset in seconds from UTC
+  from_cache?: boolean; // True when data is from database, not live agent
+  cache_timestamp?: string; // When the cached data was saved
 }
 
 export interface MonitorInterface {

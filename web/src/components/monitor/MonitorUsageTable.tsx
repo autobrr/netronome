@@ -4,14 +4,13 @@
  */
 
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getMonitorAgentNative } from "@/api/monitor";
+import { MonitorAgent, MonitorUsageSummary } from "@/api/monitor";
+import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { parseMonitorUsagePeriods } from "@/utils/monitorDataParser";
-import type { MonitorUsageSummary } from "@/api/monitor";
 import { formatBytes } from "@/utils/formatBytes";
 
 interface MonitorUsageTableProps {
-  agentId: number;
+  agent: MonitorAgent;
 }
 
 interface UsagePeriod {
@@ -22,17 +21,12 @@ interface UsagePeriod {
 }
 
 export const MonitorUsageTable: React.FC<MonitorUsageTableProps> = ({
-  agentId,
+  agent,
 }) => {
-  // Fetch native monitor data from agent
-  const {
-    data: nativeData,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["monitor-agent-native", agentId],
-    queryFn: () => getMonitorAgentNative(agentId),
-    refetchInterval: 30000, // Refetch every 30 seconds
+  // Use the shared hook for native monitor data
+  const { nativeData, isLoadingNativeData } = useMonitorAgent({
+    agent,
+    includeNativeData: true,
   });
 
   // Parse monitor native data into usage periods
@@ -50,7 +44,7 @@ export const MonitorUsageTable: React.FC<MonitorUsageTableProps> = ({
     })
   );
 
-  if (isLoading) {
+  if (isLoadingNativeData) {
     return (
       <div className="flex h-32 items-center justify-center">
         <p className="text-gray-500 dark:text-gray-400">
@@ -60,7 +54,7 @@ export const MonitorUsageTable: React.FC<MonitorUsageTableProps> = ({
     );
   }
 
-  if (error) {
+  if (!nativeData && !isLoadingNativeData) {
     return (
       <div className="flex h-32 items-center justify-center">
         <p className="text-red-500 dark:text-red-400">

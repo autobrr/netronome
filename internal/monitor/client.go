@@ -129,6 +129,17 @@ func (s *Service) Stop() {
 	s.clientsMu.Unlock()
 
 	s.wg.Wait()
+	
+	// Run cleanup before shutdown
+	log.Info().Msg("Running monitor data cleanup before shutdown")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := s.db.CleanupMonitorData(ctx); err != nil {
+		log.Error().Err(err).Msg("Failed to cleanup monitor data on shutdown")
+	} else {
+		log.Info().Msg("Monitor data cleanup completed")
+	}
+	
 	log.Info().Msg("Monitor service stopped")
 }
 

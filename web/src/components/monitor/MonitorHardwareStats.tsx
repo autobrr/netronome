@@ -123,19 +123,13 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                 }}
               />
             </div>
-            <div className="space-y-1 mt-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Used</span>
-                <span className="text-gray-900 dark:text-white font-medium">
-                  {formatBytes(hardwareStats.memory.used)}
+            <div className="mt-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500 dark:text-gray-500">
+                  {formatBytes(hardwareStats.memory.used)} / {formatBytes(hardwareStats.memory.total)}
                 </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">
-                  Available
-                </span>
-                <span className="text-gray-900 dark:text-white font-medium">
-                  {formatBytes(hardwareStats.memory.available)}
+                <span className="text-gray-500 dark:text-gray-500">
+                  {formatBytes(hardwareStats.memory.available)} available
                 </span>
               </div>
               {hardwareStats.memory.swap_total > 0 && (
@@ -390,7 +384,8 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
 
       {/* Update timestamp */}
       <div className="text-center text-xs text-gray-500 dark:text-gray-400">
-        Last updated: {new Date(hardwareStats.updated_at).toLocaleTimeString()}
+        {hardwareStats.from_cache ? "Data collected" : "Last updated"}: {new Date(hardwareStats.updated_at).toLocaleTimeString()}
+        {hardwareStats.from_cache && " (cached)"}
       </div>
     </motion.div>
   );

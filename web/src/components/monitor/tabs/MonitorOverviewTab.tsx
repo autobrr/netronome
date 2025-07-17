@@ -17,6 +17,7 @@ import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { formatBytes } from "@/utils/formatBytes";
 import { parseMonitorUsagePeriods } from "@/utils/monitorDataParser";
 import { MiniSparkline } from "../MiniSparkline";
+import { MonitorOfflineBanner } from "../MonitorOfflineBanner";
 import {
   AreaChart,
   Area,
@@ -83,21 +84,7 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
   return (
     <div className="space-y-6">
       {/* Offline Banner */}
-      {isOffline && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-          <div className="flex items-center space-x-3">
-            <ServerIcon className="h-5 w-5 text-amber-500" />
-            <div>
-              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                Agent Offline
-              </p>
-              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                Showing cached data. Real-time metrics unavailable.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {isOffline && <MonitorOfflineBanner />}
 
       {/* Key Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

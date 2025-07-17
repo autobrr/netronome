@@ -18,6 +18,7 @@ import {
   startMonitorAgent,
   stopMonitorAgent,
 } from "@/api/monitor";
+import { MONITOR_REFRESH_INTERVALS } from "@/constants/monitorRefreshIntervals";
 
 interface UseMonitorAgentOptions {
   agent: MonitorAgent;
@@ -40,7 +41,7 @@ export const useMonitorAgent = ({
   const statusQuery = useQuery<MonitorStatus>({
     queryKey: ["monitor-agent-status", agent.id],
     queryFn: () => getMonitorAgentStatus(agent.id),
-    refetchInterval: agent.enabled ? 2000 : false, // Poll every 2 seconds if enabled
+    refetchInterval: agent.enabled ? MONITOR_REFRESH_INTERVALS.STATUS : false,
     enabled: agent.enabled,
   });
 
@@ -48,7 +49,7 @@ export const useMonitorAgent = ({
   const nativeDataQuery = useQuery({
     queryKey: ["monitor-agent-native", agent.id],
     queryFn: () => getMonitorAgentNative(agent.id),
-    refetchInterval: agent.enabled ? 60000 : false, // Poll every minute
+    refetchInterval: agent.enabled ? MONITOR_REFRESH_INTERVALS.NATIVE_DATA : false,
     enabled: agent.enabled && includeNativeData,
   });
 
@@ -56,7 +57,7 @@ export const useMonitorAgent = ({
   const systemInfoQuery = useQuery<SystemInfo>({
     queryKey: ["monitor-agent-system", agent.id],
     queryFn: () => getMonitorAgentSystemInfo(agent.id),
-    refetchInterval: agent.enabled ? 300000 : false, // Poll every 5 minutes
+    refetchInterval: agent.enabled ? MONITOR_REFRESH_INTERVALS.SYSTEM_INFO : false,
     enabled: agent.enabled && includeSystemInfo,
   });
 
@@ -64,7 +65,7 @@ export const useMonitorAgent = ({
   const peakStatsQuery = useQuery<PeakStats>({
     queryKey: ["monitor-agent-peaks", agent.id],
     queryFn: () => getMonitorAgentPeakStats(agent.id),
-    refetchInterval: agent.enabled ? 30000 : false, // Poll every 30 seconds
+    refetchInterval: agent.enabled ? MONITOR_REFRESH_INTERVALS.PEAK_STATS : false,
     enabled: agent.enabled && includePeakStats && statusQuery.data?.connected,
   });
 
@@ -72,7 +73,7 @@ export const useMonitorAgent = ({
   const hardwareStatsQuery = useQuery<HardwareStats>({
     queryKey: ["monitor-agent-hardware", agent.id],
     queryFn: () => getMonitorAgentHardwareStats(agent.id),
-    refetchInterval: agent.enabled ? 30000 : false, // Poll every 30 seconds
+    refetchInterval: agent.enabled ? MONITOR_REFRESH_INTERVALS.HARDWARE_STATS : false,
     enabled: agent.enabled && includeHardwareStats,
   });
 

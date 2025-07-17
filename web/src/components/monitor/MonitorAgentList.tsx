@@ -289,29 +289,6 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                   </div>
                 )}
                 
-                {/* Today's usage */}
-                {nativeData && (() => {
-                  const usage = parseMonitorUsagePeriods(nativeData);
-                  return usage?.["Today"] ? (
-                    <div className="flex items-center gap-1">
-                      <CircleStackIcon className="h-3 w-3 text-gray-400" />
-                      <span className="text-gray-600 dark:text-gray-400">
-                        Today: {formatBytes(usage["Today"].total)}
-                      </span>
-                    </div>
-                  ) : null;
-                })()}
-                
-                {/* CPU/Memory */}
-                {hardwareStats && (
-                  <div className="flex items-center gap-1">
-                    <CpuChipIcon className="h-3 w-3 text-gray-400" />
-                    <span className="text-gray-600 dark:text-gray-400">
-                      CPU: {hardwareStats.cpu.usage_percent.toFixed(0)}% 
-                      RAM: {hardwareStats.memory.used_percent.toFixed(0)}%
-                    </span>
-                  </div>
-                )}
               </div>
             )}
           </div>

@@ -18,6 +18,7 @@ import { getAgentIcon } from "@/utils/agentIcons";
 import { formatBytes } from "@/utils/formatBytes";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { MonitorUsageModal } from "./MonitorUsageModal";
+import { MONITOR_REFRESH_INTERVALS } from "@/constants/monitorRefreshIntervals";
 
 interface FeaturedMonitorWidgetProps {
   onNavigateToMonitor: (agentId?: number) => void;
@@ -44,6 +45,7 @@ export const FeaturedMonitorWidget: React.FC<FeaturedMonitorWidgetProps> = ({
   const { data: allAgents = [] } = useQuery<MonitorAgent[]>({
     queryKey: ["monitor-agents"],
     queryFn: getMonitorAgents,
+    refetchInterval: MONITOR_REFRESH_INTERVALS.AGENTS_LIST,
   });
 
   // Filter to only featured agents that exist and are enabled

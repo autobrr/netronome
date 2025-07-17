@@ -123,7 +123,7 @@ export const MonitorAgentDetails: React.FC<MonitorAgentDetailsProps> = ({
           </p>
         </div>
 
-        <MonitorUsageTable agentId={agent.id} />
+        <MonitorUsageTable agent={agent} />
       </div>
     </div>
   );

@@ -15,10 +15,12 @@ import { formatBytes } from "@/utils/formatBytes";
 
 interface MonitorSystemInfoProps {
   systemInfo: SystemInfo;
+  isOffline?: boolean;
 }
 
 export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
   systemInfo,
+  isOffline = false,
 }) => {
   const formatUptime = (seconds: number): string => {
     const days = Math.floor(seconds / 86400);
@@ -124,26 +126,40 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <p className="text-xs text-gray-600 dark:text-gray-400">Status</p>
-              <p className="text-sm font-medium text-green-600 dark:text-green-400">
-                Healthy
+              <p className={`text-sm font-medium ${
+                isOffline ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400"
+              }`}>
+                {isOffline ? "Offline" : "Connected"}
               </p>
             </div>
+            {!isOffline && (
+              <div>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Active Since
+                </p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {formatUptime(systemInfo.uptime)}
+                </p>
+              </div>
+            )}
             <div>
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                Active Since
-              </p>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {formatUptime(systemInfo.uptime)}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                Last Sync
+                {isOffline ? "Last Seen" : "Last Sync"}
               </p>
               <p className="text-sm font-medium text-gray-900 dark:text-white">
                 {new Date(systemInfo.updated_at).toLocaleTimeString()}
               </p>
             </div>
+            {isOffline && systemInfo.from_cache && (
+              <div>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Data Source
+                </p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Cached
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

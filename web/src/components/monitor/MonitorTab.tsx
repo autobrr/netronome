@@ -19,6 +19,7 @@ import {
   CreateAgentRequest,
   UpdateAgentRequest,
 } from "@/api/monitor";
+import { MONITOR_REFRESH_INTERVALS } from "@/constants/monitorRefreshIntervals";
 
 export const MonitorTab: React.FC = () => {
   const [selectedAgent, setSelectedAgent] = useState<MonitorAgent | null>(null);
@@ -30,8 +31,11 @@ export const MonitorTab: React.FC = () => {
   const { data: agents = [], isLoading } = useQuery({
     queryKey: ["monitor-agents"],
     queryFn: getMonitorAgents,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: MONITOR_REFRESH_INTERVALS.AGENTS_LIST,
   });
+
+  // Note: Agent status is fetched by child components using useMonitorAgent hook
+  // This prevents duplicate API calls
 
   // Handle pre-selected agent from navigation
   React.useEffect(() => {
@@ -169,9 +173,17 @@ export const MonitorTab: React.FC = () => {
                 <span className="text-sm font-medium">Back</span>
               </motion.button>
               <div className="flex-1">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                  {selectedAgent.name}
-                </h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                    {selectedAgent.name}
+                  </h2>
+                  {/* Status badge will be added by child components that have access to real-time status */}
+                  {selectedAgent && !selectedAgent.enabled && (
+                    <span className="px-3 py-1 bg-gray-500/10 border border-gray-500/30 text-gray-600 dark:text-gray-400 rounded-lg shadow-md text-xs font-medium">
+                      Disabled
+                    </span>
+                  )}
+                </div>
                 <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   {selectedAgent.url}
                 </p>

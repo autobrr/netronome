@@ -9,6 +9,7 @@ import { ArrowDownIcon, ArrowUpIcon, CalendarIcon } from "@heroicons/react/24/ou
 import { MonitorAgent } from "@/api/monitor";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { MonitorBandwidthChart } from "../MonitorBandwidthChart";
+import { MonitorOfflineBanner } from "../MonitorOfflineBanner";
 import { formatBytes } from "@/utils/formatBytes";
 
 interface MonitorBandwidthTabProps {
@@ -17,7 +18,7 @@ interface MonitorBandwidthTabProps {
 
 export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({ agent }) => {
   const [selectedTimeRange, setSelectedTimeRange] = useState<"6h" | "12h" | "24h" | "48h" | "7d" | "30d">("24h");
-  const { nativeData } = useMonitorAgent({
+  const { nativeData, status } = useMonitorAgent({
     agent,
     includeNativeData: true,
   });
@@ -160,18 +161,25 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({ agent 
     );
   }
 
+  const isOffline = !status?.connected;
+  const isFromCache = nativeData?.from_cache || false;
+
   return (
     <div className="space-y-6">
-      {/* Description */}
-      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-        <h4 className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
-          Real-time Bandwidth Monitoring
-        </h4>
-        <p className="text-sm text-blue-600 dark:text-blue-400">
-          Network bandwidth data collected from <code className="bg-blue-500/10 px-1 rounded text-xs">vnstat</code> running on the remote agent. 
-          Data shows actual bytes transferred during each time period. Use the time range buttons to view different periods of activity.
-        </p>
-      </div>
+      {/* Description or Offline Banner */}
+      {isOffline && isFromCache ? (
+        <MonitorOfflineBanner message="Showing cached bandwidth data. Real-time monitoring unavailable." />
+      ) : (
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
+            Real-time Bandwidth Monitoring
+          </h4>
+          <p className="text-sm text-blue-600 dark:text-blue-400">
+            Network bandwidth data collected from <code className="bg-blue-500/10 px-1 rounded text-xs">vnstat</code> running on the remote agent. 
+            Data shows actual bytes transferred during each time period. Use the time range buttons to view different periods of activity.
+          </p>
+        </div>
+      )}
 
       {chartData.data.length > 0 ? (
         <MonitorBandwidthChart
