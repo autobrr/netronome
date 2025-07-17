@@ -254,6 +254,10 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                   return "cpu";
                 if (key.includes("pmu tdev") || key.includes("pmu2 tdev"))
                   return "cpu";
+                // AMD k10temp sensors
+                if (key.includes("k10temp_")) return "cpu";
+                // AMD zenpower sensors
+                if (key.includes("zenpower_")) return "cpu";
 
                 // Storage - All storage devices
                 if (key.includes("nvme") || label.includes("nvme"))
