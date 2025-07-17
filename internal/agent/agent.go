@@ -734,28 +734,52 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 		UpdatedAt: time.Now(),
 	}
 
-	// Get CPU info and usage
+	// Get CPU info for model name and frequency
 	cpuInfo, err := cpu.Info()
 	if err == nil && len(cpuInfo) > 0 {
+		// Use the first CPU entry for model name and frequency
 		stats.CPU.Model = cpuInfo[0].ModelName
-		stats.CPU.Cores = int(cpuInfo[0].Cores)
 		stats.CPU.Frequency = cpuInfo[0].Mhz
+		
 		log.Debug().
 			Str("model", stats.CPU.Model).
-			Int("cores", stats.CPU.Cores).
 			Float64("freq", stats.CPU.Frequency).
+			Int("cpu_entries", len(cpuInfo)).
 			Msg("Got CPU info")
 	} else {
 		log.Error().Err(err).Msg("Failed to get CPU info")
 	}
 
-	// Get CPU count (logical)
-	cpuCount, err := cpu.Counts(true)
+	// Get physical CPU cores using cpu.Counts(false)
+	physicalCores, err := cpu.Counts(false)
 	if err == nil {
-		stats.CPU.Threads = cpuCount
-		log.Debug().Int("threads", cpuCount).Msg("Got CPU thread count")
+		stats.CPU.Cores = physicalCores
+		log.Debug().Int("physical_cores", physicalCores).Msg("Got physical CPU core count")
 	} else {
-		log.Error().Err(err).Msg("Failed to get CPU count")
+		log.Error().Err(err).Msg("Failed to get physical CPU count")
+		// Fallback: try to get from cpuInfo if available
+		if len(cpuInfo) > 0 && cpuInfo[0].Cores > 0 {
+			stats.CPU.Cores = int(cpuInfo[0].Cores)
+		}
+	}
+
+	// Get logical CPU threads using cpu.Counts(true)
+	logicalThreads, err := cpu.Counts(true)
+	if err == nil {
+		stats.CPU.Threads = logicalThreads
+		log.Debug().Int("logical_threads", logicalThreads).Msg("Got logical CPU thread count")
+	} else {
+		log.Error().Err(err).Msg("Failed to get logical CPU count")
+	}
+	
+	// Handle edge case for containers (like LXC) where threads might be less than cores
+	// In containers, the logical count may reflect container limits
+	if stats.CPU.Threads < stats.CPU.Cores && stats.CPU.Threads > 0 {
+		log.Debug().
+			Int("original_cores", stats.CPU.Cores).
+			Int("threads", stats.CPU.Threads).
+			Msg("Threads less than cores (possibly in container), adjusting cores to match threads")
+		stats.CPU.Cores = stats.CPU.Threads
 	}
 
 	// Get CPU usage percentage
