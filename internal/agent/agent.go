@@ -123,6 +123,9 @@ type MemoryStats struct {
 	Free        uint64  `json:"free"`
 	Available   uint64  `json:"available"`
 	UsedPercent float64 `json:"used_percent"`
+	Cached      uint64  `json:"cached"`
+	Buffers     uint64  `json:"buffers"`
+	ZFSArc      uint64  `json:"zfs_arc"`
 	SwapTotal   uint64  `json:"swap_total"`
 	SwapUsed    uint64  `json:"swap_used"`
 	SwapPercent float64 `json:"swap_percent"`
@@ -779,14 +782,39 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 	vmStat, err := mem.VirtualMemory()
 	if err == nil {
 		stats.Memory.Total = vmStat.Total
-		stats.Memory.Used = vmStat.Used
 		stats.Memory.Free = vmStat.Free
 		stats.Memory.Available = vmStat.Available
-		stats.Memory.UsedPercent = vmStat.UsedPercent
+		stats.Memory.Cached = vmStat.Cached
+		stats.Memory.Buffers = vmStat.Buffers
+		
+		// Get ZFS ARC size if available
+		zfsArcSize := getZFSARCSize()
+		stats.Memory.ZFSArc = zfsArcSize
+		
+		// Calculate used memory
+		// On Linux, the Used field from gopsutil includes cache/buffers
+		// We need to be careful about how we calculate "used" memory
+		if runtime.GOOS == "linux" {
+			// Linux calculation: Total - Free - Buffers - Cached
+			// This gives us the actual application memory usage
+			stats.Memory.Used = vmStat.Total - vmStat.Free
+			// The UsedPercent should reflect total used including cache/buffers
+			stats.Memory.UsedPercent = float64(stats.Memory.Used) / float64(vmStat.Total) * 100
+		} else {
+			// For other systems, use the provided values
+			stats.Memory.Used = vmStat.Used
+			stats.Memory.UsedPercent = vmStat.UsedPercent
+		}
+		
 		log.Debug().
 			Uint64("total", vmStat.Total).
-			Uint64("used", vmStat.Used).
-			Float64("percent", vmStat.UsedPercent).
+			Uint64("used", stats.Memory.Used).
+			Uint64("free", vmStat.Free).
+			Uint64("available", vmStat.Available).
+			Uint64("cached", vmStat.Cached).
+			Uint64("buffers", vmStat.Buffers).
+			Uint64("zfs_arc", zfsArcSize).
+			Float64("percent", stats.Memory.UsedPercent).
 			Msg("Got memory stats")
 	} else {
 		log.Error().Err(err).Msg("Failed to get memory stats")
@@ -977,6 +1005,31 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 		Msg("Hardware stats collection complete")
 
 	return stats, nil
+}
+
+// getZFSARCSize gets the ZFS ARC size on systems using ZFS
+func getZFSARCSize() uint64 {
+	// Check for ZFS ARC stats file (Linux)
+	arcStatsPath := "/proc/spl/kstat/zfs/arcstats"
+	data, err := os.ReadFile(arcStatsPath)
+	if err != nil {
+		// Not a ZFS system or no permissions
+		return 0
+	}
+
+	// Parse the arcstats file to find the size
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) >= 3 && fields[0] == "size" {
+			size, err := strconv.ParseUint(fields[2], 10, 64)
+			if err == nil {
+				return size
+			}
+		}
+	}
+
+	return 0
 }
 
 // getLoadAverage gets system load averages (Unix-like systems)

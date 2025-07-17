@@ -132,6 +132,118 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                   {formatBytes(hardwareStats.memory.available)} available
                 </span>
               </div>
+              
+              {/* Memory breakdown */}
+              {(hardwareStats.memory.cached > 0 || hardwareStats.memory.buffers > 0 || hardwareStats.memory.zfs_arc > 0) && (
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                  <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Memory Breakdown
+                  </div>
+                  
+                  {/* Calculate memory components */}
+                  {(() => {
+                    const cached = hardwareStats.memory.cached || 0;
+                    const buffers = hardwareStats.memory.buffers || 0;
+                    const zfsArc = hardwareStats.memory.zfs_arc || 0;
+                    const cacheTotal = cached + buffers + zfsArc;
+                    const appMemory = Math.max(0, hardwareStats.memory.used - cacheTotal);
+                    
+                    // Create a stacked bar visualization
+                    const total = hardwareStats.memory.total;
+                    const appPercent = (appMemory / total) * 100;
+                    const cachePercent = (cached / total) * 100;
+                    const buffersPercent = (buffers / total) * 100;
+                    const zfsPercent = (zfsArc / total) * 100;
+                    
+                    return (
+                      <>
+                        {/* Stacked bar */}
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded h-3 flex overflow-hidden mb-3">
+                          {appMemory > 0 && (
+                            <div
+                              className="bg-blue-500 dark:bg-blue-600"
+                              style={{ width: `${appPercent}%` }}
+                              title={`Application: ${formatBytes(appMemory)}`}
+                            />
+                          )}
+                          {cached > 0 && (
+                            <div
+                              className="bg-emerald-500 dark:bg-emerald-600"
+                              style={{ width: `${cachePercent}%` }}
+                              title={`Cache: ${formatBytes(cached)}`}
+                            />
+                          )}
+                          {buffers > 0 && (
+                            <div
+                              className="bg-teal-500 dark:bg-teal-600"
+                              style={{ width: `${buffersPercent}%` }}
+                              title={`Buffers: ${formatBytes(buffers)}`}
+                            />
+                          )}
+                          {zfsArc > 0 && (
+                            <div
+                              className="bg-purple-500 dark:bg-purple-600"
+                              style={{ width: `${zfsPercent}%` }}
+                              title={`ZFS ARC: ${formatBytes(zfsArc)}`}
+                            />
+                          )}
+                        </div>
+                        
+                        {/* Legend */}
+                        <div className="space-y-1">
+                          {appMemory > 0 && (
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-3 h-3 bg-blue-500 dark:bg-blue-600 rounded" />
+                                <span className="text-gray-600 dark:text-gray-400">Application</span>
+                              </div>
+                              <span className="text-gray-700 dark:text-gray-300">
+                                {formatBytes(appMemory)}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {cached > 0 && (
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-3 h-3 bg-emerald-500 dark:bg-emerald-600 rounded" />
+                                <span className="text-gray-600 dark:text-gray-400">Page Cache</span>
+                              </div>
+                              <span className="text-gray-700 dark:text-gray-300">
+                                {formatBytes(cached)}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {buffers > 0 && (
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-3 h-3 bg-teal-500 dark:bg-teal-600 rounded" />
+                                <span className="text-gray-600 dark:text-gray-400">Buffers</span>
+                              </div>
+                              <span className="text-gray-700 dark:text-gray-300">
+                                {formatBytes(buffers)}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {zfsArc > 0 && (
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-3 h-3 bg-purple-500 dark:bg-purple-600 rounded" />
+                                <span className="text-gray-600 dark:text-gray-400">ZFS ARC</span>
+                              </div>
+                              <span className="text-gray-700 dark:text-gray-300">
+                                {formatBytes(zfsArc)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
               {hardwareStats.memory.swap_total > 0 && (
                 <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex justify-between text-sm mb-1">

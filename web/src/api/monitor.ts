@@ -85,6 +85,9 @@ export interface MemoryStats {
   free: number;
   available: number;
   used_percent: number;
+  cached: number;
+  buffers: number;
+  zfs_arc: number;
   swap_total: number;
   swap_used: number;
   swap_percent: number;
