@@ -42,7 +42,7 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
       className="space-y-6"
     >
       {/* CPU and Memory Row */}
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2 items-start">
         {/* CPU Stats */}
         <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
           <div className="flex items-center justify-between mb-4">
