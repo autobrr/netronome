@@ -33,7 +33,7 @@ type Client struct {
 	lastData  *types.MonitorLiveData
 	ctx       context.Context
 	cancel    context.CancelFunc
-	
+
 	// Peak tracking
 	peakRx          int64
 	peakTx          int64
@@ -53,7 +53,7 @@ type Service struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
-	
+
 	// Background collection tickers
 	bandwidthTicker *time.Ticker
 	resourceTicker  *time.Ticker
@@ -99,7 +99,7 @@ func (s *Service) Start() error {
 
 	// Start background collection tasks
 	s.startBackgroundCollectors()
-	
+
 	// Do an initial collection for all connected agents
 	go func() {
 		// Wait a bit for agents to connect
@@ -129,7 +129,7 @@ func (s *Service) Stop() {
 	s.clientsMu.Unlock()
 
 	s.wg.Wait()
-	
+
 	// Run cleanup before shutdown
 	log.Info().Msg("Running monitor data cleanup before shutdown")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -139,7 +139,7 @@ func (s *Service) Stop() {
 	} else {
 		log.Info().Msg("Monitor data cleanup completed")
 	}
-	
+
 	log.Info().Msg("Monitor service stopped")
 }
 
@@ -345,7 +345,7 @@ func (c *Client) connectAndStream() error {
 		Int64("agent_id", c.agent.ID).
 		Str("url", c.agent.URL).
 		Msg("Connected to monitor agent")
-	
+
 	// Fetch initial peak stats after connection
 	go c.fetchInitialPeakStats()
 
@@ -420,7 +420,7 @@ func (c *Client) processData(data string) {
 		TxRateString:     liveData.Tx.Ratestring,
 		Connected:        true,
 	})
-	
+
 	// Update peak stats if this is a new peak
 	c.updatePeakStats(rxBytes, txBytes)
 }
@@ -429,22 +429,22 @@ func (c *Client) processData(data string) {
 func (c *Client) updatePeakStats(rxBytes, txBytes int64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	now := time.Now()
 	updated := false
-	
+
 	if rxBytes > c.peakRx {
 		c.peakRx = rxBytes
 		c.peakRxTimestamp = now
 		updated = true
 	}
-	
+
 	if txBytes > c.peakTx {
 		c.peakTx = txBytes
 		c.peakTxTimestamp = now
 		updated = true
 	}
-	
+
 	// Save to database if we have new peaks
 	if updated {
 		stats := &types.MonitorPeakStats{
@@ -463,7 +463,7 @@ func (c *Client) updatePeakStats(rxBytes, txBytes int64) {
 // startBackgroundCollectors starts background data collection tasks
 func (s *Service) startBackgroundCollectors() {
 	// Bandwidth samples are collected in real-time via SSE, no separate ticker needed
-	
+
 	// Resource stats collection every 30 seconds
 	s.resourceTicker = time.NewTicker(30 * time.Second)
 	s.wg.Add(1)
@@ -478,7 +478,7 @@ func (s *Service) startBackgroundCollectors() {
 			}
 		}
 	}()
-	
+
 	// Historical snapshot collection every hour
 	s.snapshotTicker = time.NewTicker(1 * time.Hour)
 	s.wg.Add(1)
@@ -493,7 +493,7 @@ func (s *Service) startBackgroundCollectors() {
 			}
 		}
 	}()
-	
+
 	// Data cleanup every hour
 	s.cleanupTicker = time.NewTicker(1 * time.Hour)
 	s.wg.Add(1)
@@ -535,7 +535,7 @@ func (s *Service) collectResourceStats() {
 		}
 	}
 	s.clientsMu.RUnlock()
-	
+
 	for _, client := range agents {
 		go s.fetchAndStoreResourceStats(client)
 	}
@@ -547,7 +547,7 @@ func (s *Service) fetchAndStoreResourceStats(client *Client) {
 	if err := s.fetchSystemInfo(client); err != nil {
 		log.Error().Err(err).Int64("agent_id", client.agent.ID).Msg("Failed to fetch system info")
 	}
-	
+
 	// Fetch hardware stats
 	if err := s.fetchHardwareStats(client); err != nil {
 		log.Error().Err(err).Int64("agent_id", client.agent.ID).Msg("Failed to fetch hardware stats")
@@ -558,52 +558,52 @@ func (s *Service) fetchAndStoreResourceStats(client *Client) {
 func (s *Service) fetchSystemInfo(client *Client) error {
 	baseURL := strings.TrimSuffix(client.agent.URL, "/events?stream=live-data")
 	systemURL := baseURL + "/system/info"
-	
+
 	req, err := http.NewRequestWithContext(client.ctx, "GET", systemURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	if client.agent.APIKey != nil && *client.agent.APIKey != "" {
 		req.Header.Set("X-API-Key", *client.agent.APIKey)
 	}
-	
+
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch system info: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	
+
 	// Read the response body first for debugging
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
-	
+
 	// Log the raw response for debugging
-	log.Debug().
+	log.Trace().
 		Int64("agent_id", client.agent.ID).
 		Str("response", string(body)).
 		Msg("System info raw response")
-	
+
 	var systemInfo struct {
-		Hostname      string                    `json:"hostname"`
-		Kernel        string                    `json:"kernel"`
-		Uptime        int64                     `json:"uptime"`
-		VnstatVersion string                    `json:"vnstat_version"`
-		Interfaces    map[string]interface{}    `json:"interfaces"`
-		UpdatedAt     time.Time                 `json:"updated_at"`
+		Hostname      string                 `json:"hostname"`
+		Kernel        string                 `json:"kernel"`
+		Uptime        int64                  `json:"uptime"`
+		VnstatVersion string                 `json:"vnstat_version"`
+		Interfaces    map[string]interface{} `json:"interfaces"`
+		UpdatedAt     time.Time              `json:"updated_at"`
 	}
-	
+
 	if err := json.Unmarshal(body, &systemInfo); err != nil {
 		return fmt.Errorf("failed to decode system info: %w", err)
 	}
-	
+
 	// Log parsed values for debugging
 	log.Debug().
 		Int64("agent_id", client.agent.ID).
@@ -612,7 +612,7 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 		Str("vnstat_version", systemInfo.VnstatVersion).
 		Int("interface_count", len(systemInfo.Interfaces)).
 		Msg("Parsed system info values")
-	
+
 	// Store system info
 	sysInfo := &types.MonitorSystemInfo{
 		AgentID:       client.agent.ID,
@@ -620,11 +620,11 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 		Kernel:        systemInfo.Kernel,
 		VnstatVersion: systemInfo.VnstatVersion,
 	}
-	
+
 	if err := s.db.UpsertMonitorSystemInfo(client.ctx, client.agent.ID, sysInfo); err != nil {
 		return fmt.Errorf("failed to store system info: %w", err)
 	}
-	
+
 	// Store interfaces
 	var interfaces []types.MonitorInterface
 	for ifaceName, ifaceData := range systemInfo.Interfaces {
@@ -633,7 +633,7 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 				AgentID: client.agent.ID,
 				Name:    ifaceName,
 			}
-			
+
 			if alias, ok := ifaceMap["alias"].(string); ok {
 				iface.Alias = alias
 			}
@@ -643,15 +643,15 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 			if speed, ok := ifaceMap["link_speed"].(float64); ok {
 				iface.LinkSpeed = int(speed)
 			}
-			
+
 			interfaces = append(interfaces, iface)
 		}
 	}
-	
+
 	if err := s.db.UpsertMonitorInterfaces(client.ctx, client.agent.ID, interfaces); err != nil {
 		return fmt.Errorf("failed to store interfaces: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -659,27 +659,27 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 func (s *Service) fetchHardwareStats(client *Client) error {
 	baseURL := strings.TrimSuffix(client.agent.URL, "/events?stream=live-data")
 	hardwareURL := baseURL + "/system/hardware"
-	
+
 	req, err := http.NewRequestWithContext(client.ctx, "GET", hardwareURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	if client.agent.APIKey != nil && *client.agent.APIKey != "" {
 		req.Header.Set("X-API-Key", *client.agent.APIKey)
 	}
-	
+
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch hardware stats: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	
+
 	var hardwareStats struct {
 		CPU struct {
 			UsagePercent float64 `json:"usage_percent"`
@@ -706,11 +706,11 @@ func (s *Service) fetchHardwareStats(client *Client) error {
 			Label       string  `json:"label"`
 		} `json:"temperature"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&hardwareStats); err != nil {
 		return fmt.Errorf("failed to decode hardware stats: %w", err)
 	}
-	
+
 	// Update system info with CPU details
 	if hardwareStats.CPU.Model != "" {
 		sysInfo := &types.MonitorSystemInfo{
@@ -723,11 +723,11 @@ func (s *Service) fetchHardwareStats(client *Client) error {
 			log.Warn().Err(err).Msg("Failed to update CPU info")
 		}
 	}
-	
+
 	// Store resource stats
 	diskJSON, _ := json.Marshal(hardwareStats.Disks)
 	tempJSON, _ := json.Marshal(hardwareStats.Temperature)
-	
+
 	stats := &types.MonitorResourceStats{
 		AgentID:           client.agent.ID,
 		CPUUsagePercent:   hardwareStats.CPU.UsagePercent,
@@ -737,11 +737,11 @@ func (s *Service) fetchHardwareStats(client *Client) error {
 		TemperatureJSON:   string(tempJSON),
 		UptimeSeconds:     0, // Will be set from system info
 	}
-	
+
 	if err := s.db.SaveMonitorResourceStats(client.ctx, client.agent.ID, stats); err != nil {
 		return fmt.Errorf("failed to store resource stats: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -755,7 +755,7 @@ func (s *Service) collectHistoricalSnapshots() {
 		}
 	}
 	s.clientsMu.RUnlock()
-	
+
 	for _, client := range agents {
 		go s.fetchAndStoreHistoricalData(client)
 	}
@@ -765,17 +765,17 @@ func (s *Service) collectHistoricalSnapshots() {
 func (s *Service) fetchAndStoreHistoricalData(client *Client) {
 	baseURL := strings.TrimSuffix(client.agent.URL, "/events?stream=live-data")
 	historicalURL := baseURL + "/export/historical"
-	
+
 	req, err := http.NewRequestWithContext(client.ctx, "GET", historicalURL, nil)
 	if err != nil {
 		log.Error().Err(err).Int64("agent_id", client.agent.ID).Msg("Failed to create historical request")
 		return
 	}
-	
+
 	if client.agent.APIKey != nil && *client.agent.APIKey != "" {
 		req.Header.Set("X-API-Key", *client.agent.APIKey)
 	}
-	
+
 	httpClient := &http.Client{Timeout: 60 * time.Second}
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -783,19 +783,19 @@ func (s *Service) fetchAndStoreHistoricalData(client *Client) {
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		log.Error().Int("status", resp.StatusCode).Int64("agent_id", client.agent.ID).Msg("Historical endpoint returned error")
 		return
 	}
-	
+
 	// Parse the vnstat JSON data
 	var vnstatData map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&vnstatData); err != nil {
 		log.Error().Err(err).Int64("agent_id", client.agent.ID).Msg("Failed to decode historical data")
 		return
 	}
-	
+
 	// First, save the complete vnstat data snapshot
 	vnstatJSON, err := json.Marshal(vnstatData)
 	if err == nil {
@@ -811,32 +811,32 @@ func (s *Service) fetchAndStoreHistoricalData(client *Client) {
 			log.Debug().Int64("agent_id", client.agent.ID).Msg("Saved full vnstat snapshot")
 		}
 	}
-	
+
 	// Extract interfaces data
 	interfaces, ok := vnstatData["interfaces"].([]interface{})
 	if !ok {
 		log.Warn().Int64("agent_id", client.agent.ID).Msg("No interfaces found in historical data")
 		return
 	}
-	
+
 	// Process each interface
 	for _, ifaceData := range interfaces {
 		iface, ok := ifaceData.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		
+
 		ifaceName, _ := iface["name"].(string)
 		if ifaceName == "" {
 			continue
 		}
-		
+
 		// Extract and store different period types
 		traffic, ok := iface["traffic"].(map[string]interface{})
 		if !ok {
 			continue
 		}
-		
+
 		// Store hourly data
 		if hourly, ok := traffic["hour"].([]interface{}); ok && len(hourly) > 0 {
 			hourlyJSON, err := json.Marshal(hourly)
@@ -852,7 +852,7 @@ func (s *Service) fetchAndStoreHistoricalData(client *Client) {
 				}
 			}
 		}
-		
+
 		// Store daily data
 		if daily, ok := traffic["day"].([]interface{}); ok && len(daily) > 0 {
 			dailyJSON, err := json.Marshal(daily)
@@ -868,7 +868,7 @@ func (s *Service) fetchAndStoreHistoricalData(client *Client) {
 				}
 			}
 		}
-		
+
 		// Store monthly data
 		if monthly, ok := traffic["month"].([]interface{}); ok && len(monthly) > 0 {
 			monthlyJSON, err := json.Marshal(monthly)
@@ -884,7 +884,7 @@ func (s *Service) fetchAndStoreHistoricalData(client *Client) {
 				}
 			}
 		}
-		
+
 		// Store total data if available
 		if total, ok := traffic["total"].(map[string]interface{}); ok {
 			totalJSON, err := json.Marshal(total)
@@ -900,7 +900,7 @@ func (s *Service) fetchAndStoreHistoricalData(client *Client) {
 				}
 			}
 		}
-		
+
 		// Also check for and update total memory if available from vnstat data
 		if created, ok := iface["created"].(map[string]interface{}); ok {
 			if memory, ok := created["memory"].(float64); ok && memory > 0 {
@@ -916,7 +916,7 @@ func (s *Service) fetchAndStoreHistoricalData(client *Client) {
 			}
 		}
 	}
-	
+
 	log.Debug().Int64("agent_id", client.agent.ID).Msg("Successfully collected historical snapshots")
 }
 
@@ -924,17 +924,17 @@ func (s *Service) fetchAndStoreHistoricalData(client *Client) {
 func (c *Client) fetchInitialPeakStats() {
 	baseURL := strings.TrimSuffix(c.agent.URL, "/events?stream=live-data")
 	peaksURL := baseURL + "/stats/peaks"
-	
+
 	req, err := http.NewRequestWithContext(c.ctx, "GET", peaksURL, nil)
 	if err != nil {
 		log.Warn().Err(err).Int64("agent_id", c.agent.ID).Msg("Failed to create peaks request")
 		return
 	}
-	
+
 	if c.agent.APIKey != nil && *c.agent.APIKey != "" {
 		req.Header.Set("X-API-Key", *c.agent.APIKey)
 	}
-	
+
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -942,28 +942,28 @@ func (c *Client) fetchInitialPeakStats() {
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		log.Warn().Int("status", resp.StatusCode).Int64("agent_id", c.agent.ID).Msg("Peak stats endpoint returned error")
 		return
 	}
-	
+
 	var peakStats struct {
 		PeakRx          int    `json:"peak_rx"`
 		PeakTx          int    `json:"peak_tx"`
 		PeakRxTimestamp string `json:"peak_rx_timestamp"`
 		PeakTxTimestamp string `json:"peak_tx_timestamp"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&peakStats); err != nil {
 		log.Warn().Err(err).Int64("agent_id", c.agent.ID).Msg("Failed to decode peak stats")
 		return
 	}
-	
+
 	// Parse timestamps
 	rxTime, _ := time.Parse(time.RFC3339, peakStats.PeakRxTimestamp)
 	txTime, _ := time.Parse(time.RFC3339, peakStats.PeakTxTimestamp)
-	
+
 	// Update local peak tracking
 	c.mu.Lock()
 	c.peakRx = int64(peakStats.PeakRx)
@@ -971,7 +971,7 @@ func (c *Client) fetchInitialPeakStats() {
 	c.peakRxTimestamp = rxTime
 	c.peakTxTimestamp = txTime
 	c.mu.Unlock()
-	
+
 	// Store in database
 	stats := &types.MonitorPeakStats{
 		AgentID:         c.agent.ID,
@@ -980,7 +980,7 @@ func (c *Client) fetchInitialPeakStats() {
 		PeakRxTimestamp: &rxTime,
 		PeakTxTimestamp: &txTime,
 	}
-	
+
 	if err := c.db.UpsertMonitorPeakStats(context.Background(), c.agent.ID, stats); err != nil {
 		log.Warn().Err(err).Int64("agent_id", c.agent.ID).Msg("Failed to store initial peak stats")
 	} else {

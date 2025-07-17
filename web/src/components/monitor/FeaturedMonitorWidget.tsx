@@ -104,6 +104,7 @@ interface FeaturedAgentCardProps {
   agent: MonitorAgent;
   onOpenModal: () => void;
   onNavigateToAgent: () => void;
+  onHover?: () => void;
 }
 
 const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
@@ -115,7 +116,7 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
   const { status, nativeData, hardwareStats } = useMonitorAgent({
     agent,
     includeNativeData: true,
-    includeHardwareStats: true, // Pre-fetch hardware stats for instant modal loading
+    includeHardwareStats: true, // Now efficiently cached and shared
   });
 
   const usage = nativeData ? parseMonitorUsagePeriods(nativeData) : null;

@@ -19,8 +19,6 @@ import { SparklesIcon as SparklesIconSolid } from "@heroicons/react/24/solid";
 import { MonitorAgent } from "@/api/monitor";
 import { AgentIcon } from "@/utils/agentIcons";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
-import { formatBytes } from "@/utils/formatBytes";
-import { parseMonitorUsagePeriods } from "@/utils/monitorDataParser";
 
 interface MonitorAgentListProps {
   agents: MonitorAgent[];
@@ -121,10 +119,10 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const { status, nativeData, hardwareStats } = useMonitorAgent({ 
+  const { status } = useMonitorAgent({
     agent,
     includeNativeData: true,
-    includeHardwareStats: true,
+    includeHardwareStats: false, // Don't fetch hardware stats for every agent in the list
   });
 
   // Featured agents management with local state for instant feedback
@@ -267,7 +265,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                 {agent.url.replace(/\/events\?stream=live-data$/, "")}
               </span>
             </div>
-            
+
             {/* Key metrics */}
             {agent.enabled && status?.connected && (
               <div className="flex items-center gap-4 mt-2 text-xs">
@@ -288,7 +286,6 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                     </div>
                   </div>
                 )}
-                
               </div>
             )}
           </div>
