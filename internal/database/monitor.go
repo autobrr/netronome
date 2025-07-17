@@ -10,6 +10,7 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/types"
@@ -136,16 +137,46 @@ func (s *service) UpdateMonitorAgent(ctx context.Context, agent *types.MonitorAg
 	return nil
 }
 
-// DeleteMonitorAgent deletes a monitoring agent
+// DeleteMonitorAgent deletes a monitoring agent and all its associated data
 func (s *service) DeleteMonitorAgent(ctx context.Context, agentID int64) error {
-	query := s.sqlBuilder.
-		Delete("monitor_agents").
-		Where(sq.Eq{"id": agentID})
+	// Start transaction to delete agent and all associated data
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
 
-	_, err := query.RunWith(s.db).ExecContext(ctx)
+	// Delete associated data first (foreign key constraints)
+	tables := []string{
+		"monitor_agent_interfaces",
+		"monitor_agent_system_info", 
+		"monitor_peak_stats",
+		"monitor_resource_stats",
+		"monitor_historical_snapshots",
+	}
+	
+	for _, table := range tables {
+		deleteQuery := s.sqlBuilder.Delete(table).Where(sq.Eq{"agent_id": agentID})
+		result, err := deleteQuery.RunWith(tx).ExecContext(ctx)
+		if err != nil {
+			log.Error().Err(err).Str("table", table).Int64("agent_id", agentID).Msg("Failed to delete agent data")
+			return fmt.Errorf("failed to delete %s for agent %d: %w", table, agentID, err)
+		}
+		rowsDeleted, _ := result.RowsAffected()
+		log.Debug().Str("table", table).Int64("agent_id", agentID).Int64("rows_deleted", rowsDeleted).Msg("Deleted agent data")
+	}
+
+	// Finally delete the agent itself
+	query := s.sqlBuilder.Delete("monitor_agents").Where(sq.Eq{"id": agentID})
+	_, err = query.RunWith(tx).ExecContext(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete monitor agent: %w", err)
 	}
 
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit delete transaction: %w", err)
+	}
+	
+	log.Info().Int64("agent_id", agentID).Msg("Successfully deleted monitor agent and all associated data")
 	return nil
 }

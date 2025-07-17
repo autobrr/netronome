@@ -348,6 +348,8 @@ func (s *service) GetMonitorLatestSnapshot(ctx context.Context, agentID int64, p
 
 // CleanupMonitorData removes old data based on retention policies
 func (s *service) CleanupMonitorData(ctx context.Context) error {
+	log.Info().Msg("Starting monitor data cleanup")
+	
 	// Start transaction
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -358,11 +360,17 @@ func (s *service) CleanupMonitorData(ctx context.Context) error {
 	// Clean up resource stats older than 2 hours
 	// We collect every 30 seconds, so 2 hours gives us ~240 data points which is plenty
 	resourceCutoff := time.Now().Add(-2 * time.Hour)
+	log.Debug().Time("cutoff", resourceCutoff).Msg("Cleaning up resource stats")
+	
 	deleteQuery := s.sqlBuilder.Delete("monitor_resource_stats").Where(sq.Lt{"created_at": resourceCutoff})
-	if _, err := deleteQuery.RunWith(tx).ExecContext(ctx); err != nil {
+	result, err := deleteQuery.RunWith(tx).ExecContext(ctx)
+	if err != nil {
 		log.Error().Err(err).Msg("Failed to cleanup resource stats")
 		return err
 	}
+	
+	rowsDeleted, _ := result.RowsAffected()
+	log.Info().Int64("rows_deleted", rowsDeleted).Msg("Cleaned up resource stats")
 
 	// Clean up old historical snapshots - keep only the latest of each type per agent
 	// This is more complex and requires a subquery
@@ -374,10 +382,13 @@ func (s *service) CleanupMonitorData(ctx context.Context) error {
 				FROM monitor_historical_snapshots
 				GROUP BY agent_id, period_type
 			)`
-		if _, err := tx.ExecContext(ctx, query); err != nil {
+		result, err := tx.ExecContext(ctx, query)
+		if err != nil {
 			log.Error().Err(err).Msg("Failed to cleanup historical snapshots")
 			return err
 		}
+		rowsDeleted, _ := result.RowsAffected()
+		log.Info().Int64("snapshots_deleted", rowsDeleted).Msg("Cleaned up historical snapshots")
 	} else {
 		// PostgreSQL version
 		query := `
@@ -387,11 +398,20 @@ func (s *service) CleanupMonitorData(ctx context.Context) error {
 				FROM monitor_historical_snapshots
 				ORDER BY agent_id, period_type, created_at DESC
 			)`
-		if _, err := tx.ExecContext(ctx, query); err != nil {
+		result, err := tx.ExecContext(ctx, query)
+		if err != nil {
 			log.Error().Err(err).Msg("Failed to cleanup historical snapshots")
 			return err
 		}
+		rowsDeleted, _ := result.RowsAffected()
+		log.Info().Int64("snapshots_deleted", rowsDeleted).Msg("Cleaned up historical snapshots")
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		log.Error().Err(err).Msg("Failed to commit cleanup transaction")
+		return err
+	}
+	
+	log.Info().Msg("Monitor data cleanup completed successfully")
+	return nil
 }

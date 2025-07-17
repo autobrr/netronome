@@ -126,35 +126,41 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
             <div className="mt-2">
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500 dark:text-gray-500">
-                  {formatBytes(hardwareStats.memory.used)} / {formatBytes(hardwareStats.memory.total)}
+                  {formatBytes(hardwareStats.memory.used)} /{" "}
+                  {formatBytes(hardwareStats.memory.total)}
                 </span>
                 <span className="text-gray-500 dark:text-gray-500">
                   {formatBytes(hardwareStats.memory.available)} available
                 </span>
               </div>
-              
+
               {/* Memory breakdown */}
-              {(hardwareStats.memory.cached > 0 || hardwareStats.memory.buffers > 0 || hardwareStats.memory.zfs_arc > 0) && (
+              {(hardwareStats.memory.cached > 0 ||
+                hardwareStats.memory.buffers > 0 ||
+                hardwareStats.memory.zfs_arc > 0) && (
                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
                   <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Memory Breakdown
                   </div>
-                  
+
                   {/* Calculate memory components */}
                   {(() => {
                     const cached = hardwareStats.memory.cached || 0;
                     const buffers = hardwareStats.memory.buffers || 0;
                     const zfsArc = hardwareStats.memory.zfs_arc || 0;
                     const cacheTotal = cached + buffers + zfsArc;
-                    const appMemory = Math.max(0, hardwareStats.memory.used - cacheTotal);
-                    
+                    const appMemory = Math.max(
+                      0,
+                      hardwareStats.memory.used - cacheTotal
+                    );
+
                     // Create a stacked bar visualization
                     const total = hardwareStats.memory.total;
                     const appPercent = (appMemory / total) * 100;
                     const cachePercent = (cached / total) * 100;
                     const buffersPercent = (buffers / total) * 100;
                     const zfsPercent = (zfsArc / total) * 100;
-                    
+
                     return (
                       <>
                         {/* Stacked bar */}
@@ -188,50 +194,58 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                             />
                           )}
                         </div>
-                        
+
                         {/* Legend */}
                         <div className="space-y-1">
                           {appMemory > 0 && (
                             <div className="flex items-center justify-between text-xs">
                               <div className="flex items-center space-x-2">
                                 <div className="w-3 h-3 bg-blue-500 dark:bg-blue-600 rounded" />
-                                <span className="text-gray-600 dark:text-gray-400">Application</span>
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  Application
+                                </span>
                               </div>
                               <span className="text-gray-700 dark:text-gray-300">
                                 {formatBytes(appMemory)}
                               </span>
                             </div>
                           )}
-                          
+
                           {cached > 0 && (
                             <div className="flex items-center justify-between text-xs">
                               <div className="flex items-center space-x-2">
                                 <div className="w-3 h-3 bg-emerald-500 dark:bg-emerald-600 rounded" />
-                                <span className="text-gray-600 dark:text-gray-400">Page Cache</span>
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  Page Cache
+                                </span>
                               </div>
                               <span className="text-gray-700 dark:text-gray-300">
                                 {formatBytes(cached)}
                               </span>
                             </div>
                           )}
-                          
+
                           {buffers > 0 && (
                             <div className="flex items-center justify-between text-xs">
                               <div className="flex items-center space-x-2">
                                 <div className="w-3 h-3 bg-amber-500 dark:bg-amber-600 rounded" />
-                                <span className="text-gray-600 dark:text-gray-400">Buffers</span>
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  Buffers
+                                </span>
                               </div>
                               <span className="text-gray-700 dark:text-gray-300">
                                 {formatBytes(buffers)}
                               </span>
                             </div>
                           )}
-                          
+
                           {zfsArc > 0 && (
                             <div className="flex items-center justify-between text-xs">
                               <div className="flex items-center space-x-2">
                                 <div className="w-3 h-3 bg-purple-500 dark:bg-purple-600 rounded" />
-                                <span className="text-gray-600 dark:text-gray-400">ZFS ARC</span>
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  ZFS ARC
+                                </span>
                               </div>
                               <span className="text-gray-700 dark:text-gray-300">
                                 {formatBytes(zfsArc)}
@@ -300,7 +314,8 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                       {disk.path}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {disk.model ? `${disk.model} • ` : ''}{disk.device} • {disk.fstype}
+                      {disk.model ? `${disk.model} • ` : ""}
+                      {disk.device} • {disk.fstype}
                     </p>
                   </div>
                   <div className="text-right ml-4">
@@ -417,23 +432,33 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                         {temps.map((temp, index) => {
                           // For invalid critical temps (> 1000°C), use absolute temperature thresholds
-                          const hasValidCritical = temp.critical && temp.critical > 0 && temp.critical < 1000;
-                          
-                          const percentage = hasValidCritical && temp.critical
-                            ? Math.min((temp.temperature / temp.critical) * 100, 100)
-                            : (temp.temperature / 100) * 100; // Assume 100°C max if no valid critical temp
+                          const hasValidCritical =
+                            temp.critical &&
+                            temp.critical > 0 &&
+                            temp.critical < 1000;
+
+                          const percentage =
+                            hasValidCritical && temp.critical
+                              ? Math.min(
+                                  (temp.temperature / temp.critical) * 100,
+                                  100
+                                )
+                              : (temp.temperature / 100) * 100; // Assume 100°C max if no valid critical temp
 
                           // Use different thresholds based on sensor type
                           // For HDDs/SSDs, 50°C is warm, 60°C is hot
                           // For CPUs/NVMe, 60°C is warm, 80°C is hot
-                          const isStorageSensor = temp.sensor_key.toLowerCase().includes('smart_') || 
-                                                  temp.label?.toLowerCase().includes('hdd') ||
-                                                  temp.label?.toLowerCase().includes('ssd');
-                          
+                          const isStorageSensor =
+                            temp.sensor_key.toLowerCase().includes("smart_") ||
+                            temp.label?.toLowerCase().includes("hdd") ||
+                            temp.label?.toLowerCase().includes("ssd");
+
                           const warmThreshold = isStorageSensor ? 50 : 60;
                           const hotThreshold = isStorageSensor ? 60 : 80;
-                          
-                          const isWarm = temp.temperature > warmThreshold && temp.temperature <= hotThreshold;
+
+                          const isWarm =
+                            temp.temperature > warmThreshold &&
+                            temp.temperature <= hotThreshold;
                           const isHot = temp.temperature > hotThreshold;
 
                           const getTemperatureColor = () => {
@@ -444,7 +469,11 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
 
                           // Extract device identifier from label if it contains parentheses
                           const getSensorDisplay = () => {
-                            if (temp.label && temp.label.includes('(') && temp.label.includes(')')) {
+                            if (
+                              temp.label &&
+                              temp.label.includes("(") &&
+                              temp.label.includes(")")
+                            ) {
                               // Extract device ID from label like "Model Name (SDA)"
                               const match = temp.label.match(/\(([^)]+)\)$/);
                               if (match) {
@@ -457,9 +486,13 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
 
                           // Get the model name from label (without device ID)
                           const getModelName = () => {
-                            if (temp.label && temp.label.includes('(') && temp.label.includes(')')) {
+                            if (
+                              temp.label &&
+                              temp.label.includes("(") &&
+                              temp.label.includes(")")
+                            ) {
                               // Remove the (SDA) part to get just the model
-                              return temp.label.replace(/\s*\([^)]+\)$/, '');
+                              return temp.label.replace(/\s*\([^)]+\)$/, "");
                             }
                             return null;
                           };
@@ -503,7 +536,10 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                                   </p>
                                 )}
                               {getModelName() && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate" title={getModelName() || undefined}>
+                                <p
+                                  className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate"
+                                  title={getModelName() || undefined}
+                                >
                                   {getModelName()}
                                 </p>
                               )}
@@ -522,7 +558,8 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
 
       {/* Update timestamp */}
       <div className="text-center text-xs text-gray-500 dark:text-gray-400">
-        {hardwareStats.from_cache ? "Data collected" : "Last updated"}: {new Date(hardwareStats.updated_at).toLocaleTimeString()}
+        {hardwareStats.from_cache ? "Data collected" : "Last updated"}:{" "}
+        {new Date(hardwareStats.updated_at).toLocaleTimeString()}
         {hardwareStats.from_cache && " (cached)"}
       </div>
     </motion.div>
