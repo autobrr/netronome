@@ -104,6 +104,8 @@ Download the latest release, or download the source code and build it yourself u
 wget $(curl -s https://api.github.com/repos/autobrr/netronome/releases/latest | grep download | grep linux_x86_64 | cut -d\" -f4)
 ```
 
+**Note**: Release binaries still include most temperature monitoring (CPU, NVMe, battery) via gopsutil. Only SATA/HDD temperatures and disk model names require building from source with SMART support. See [Building from Source](#building-from-source) for details.
+
 #### Unpack
 
 Run with root or sudo. If you do not have root, or are on a shared system, place the binaries somewhere in your home directory like ~/.bin.
@@ -802,10 +804,15 @@ A: Disk temperature monitoring has several requirements:
    - **Other platforms**: No SMART support
 
 2. **Build Requirements**: 
-   - SMART functionality requires the `github.com/anatol/smart.go` library
-   - Only available on Linux and macOS builds
-   - Windows and other platforms receive a stub implementation to ensure cross-platform compilation
-   - The `nosmart` build tag can be used to disable SMART support on any platform
+   - Release binaries are built without SMART support but still include:
+     - CPU temperature monitoring (all platforms)
+     - NVMe temperature monitoring (via gopsutil)
+     - Battery temperature monitoring
+   - SMART functionality (only for SATA/HDD temps and disk model names) requires:
+     - The `github.com/anatol/smart.go` library
+     - Building from source with CGO enabled
+     - Only available on Linux and macOS
+   - The `nosmart` build tag disables SMART support but keeps gopsutil temperatures
 
 3. **Privileges Required**: The agent must run with elevated privileges (root/sudo) to access SMART data from disk devices. Without proper permissions, HDD temperatures cannot be read.
 
@@ -839,6 +846,54 @@ User=root
 ```
 
 **Note**: Running with elevated privileges has security implications. Only do this in trusted environments.
+
+## 🔨 Building from Source
+
+### Building with Full SMART Support
+
+The release binaries include most temperature monitoring (CPU, NVMe, battery) but lack SMART support for SATA/HDD temperatures and disk model names. To build with full SMART support on Linux or macOS:
+
+```bash
+# Clone the repository
+git clone https://github.com/autobrr/netronome
+cd netronome
+
+# Build with SMART support (default when building locally)
+make build
+
+# The binary will be in ./bin/netronome with full SMART support
+sudo ./bin/netronome agent  # Run with sudo for SATA/HDD temperature access
+```
+
+### Building without SMART Support
+
+To build without SMART support (like the release binaries):
+
+```bash
+# Build with nosmart tag (still includes CPU/NVMe/battery temps via gopsutil)
+CGO_ENABLED=0 go build -tags nosmart -o bin/netronome ./cmd/netronome
+```
+
+**What works without SMART:**
+- ✅ CPU temperature monitoring (all cores, packages)
+- ✅ NVMe temperature monitoring 
+- ✅ Battery temperature monitoring
+- ✅ Other system sensors via gopsutil
+
+**What requires SMART (Linux/macOS only):**
+- ❌ SATA/HDD temperature monitoring
+- ❌ Disk model and serial number display
+
+### Docker Build
+
+The Docker images include SMART support by default:
+
+```bash
+make docker-build
+make docker-run
+```
+
+**Note**: When running Docker containers, ensure you use `--cap-add=NET_RAW` and run with appropriate privileges for SMART disk access.
 
 ## 🤝 Contributing
 

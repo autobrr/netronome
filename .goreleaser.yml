@@ -15,6 +15,8 @@ builds:
       - -X main.version={{.Version}}
       - -X main.buildTime={{.Date}}
       - -X main.commit={{.Commit}}
+    tags:
+      - nosmart
     goos:
       - linux
       - windows
@@ -78,6 +80,26 @@ release:
     - Contributing to the project
     - Sharing your feedback
     - Sponsoring the project
+
+    ## ⚠️ Temperature Monitoring Support
+
+    Release binaries include most temperature monitoring via gopsutil:
+    - ✅ CPU temperatures (all cores, packages, dies)
+    - ✅ NVMe temperatures (M.2 drives)
+    - ✅ Battery temperatures
+    - ✅ System sensors
+    
+    For SATA/HDD temperatures and disk model names, build from source:
+    ```bash
+    git clone https://github.com/autobrr/netronome
+    cd netronome
+    make build  # Includes full SMART support
+    ```
+    
+    SMART features (SATA/HDD temps) require:
+    - Linux or macOS (not supported on Windows/FreeBSD)
+    - Running with root/sudo privileges
+    - Building from source with CGO enabled
 
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"

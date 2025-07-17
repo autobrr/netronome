@@ -393,6 +393,42 @@ The following external tools are required for full functionality:
   - Download from MaxMind with free license key
   - Configure paths in `[geoip]` section of config.toml
 
+## Build Considerations
+
+### Release Build Strategy
+
+- **Release Binaries**: Built with `CGO_ENABLED=0` and `nosmart` tag for maximum cross-platform compatibility
+  - Still includes most temperature monitoring via gopsutil:
+    - CPU temperatures (all cores, packages, dies)
+    - NVMe temperatures (shows as nvme_composite)
+    - Battery temperatures
+    - Other system sensors
+  - Only lacks SMART-specific features:
+    - SATA/HDD temperature monitoring
+    - Disk model and serial number display
+  - Works on all platforms without C dependencies
+  - Used by goreleaser for GitHub releases
+
+### Local Development Builds
+
+- **make build**: Builds with CGO enabled by default
+  - Includes SMART support on Linux/macOS
+  - Requires `github.com/anatol/smart.go` library
+  - May fail on platforms without proper C toolchain
+
+### Docker Builds
+
+- **Docker Images**: Built with SMART support enabled
+  - Linux-based containers have full SMART access
+  - Requires appropriate privileges (--cap-add=NET_RAW, --privileged for disk access)
+
+### Cross-compilation
+
+- Use `nosmart` build tag when cross-compiling: `go build -tags nosmart`
+- Prevents CGO dependencies which don't work well with cross-compilation
+- Trade-off: No SATA/HDD temperature monitoring or disk model names
+- Still retains: CPU, NVMe, and battery temperature monitoring via gopsutil
+
 ## Packet Loss Monitoring Implementation Notes
 
 ### Backend Architecture (`internal/speedtest/packetloss.go`)
@@ -603,15 +639,24 @@ Temperature monitoring has been significantly enhanced with cross-platform suppo
 - **Enhanced Detection**: 40+ temperature sensors detected on Apple Silicon vs 0 working sensors in v3
 - **Real Temperature Values**: Proper readings (29°C-52°C) instead of 0.0°C placeholders
 
-#### SMART Disk Temperature Support
+#### Temperature Monitoring Sources
 
-Cross-platform disk temperature monitoring via `anatol/smart.go`:
+Netronome uses two different sources for temperature monitoring:
 
-- **Linux**: Full SATA and NVMe SMART support with `/dev/sd*`, `/dev/nvme*` device paths
-- **macOS**: NVMe-only support with `/dev/rdisk*` device paths (SATA not supported by smart.go on macOS)
-- **Windows**: No SMART support (uses stub implementation)
-- **Automatic Fallback**: Graceful handling of unsupported device types per platform
-- **Privilege Requirements**: Requires root/sudo for SMART data access on all platforms
+1. **gopsutil v4** (works without CGO, included in all builds):
+   - CPU temperatures (all cores, packages, dies)
+   - NVMe temperatures (shows as nvme_composite)
+   - Battery temperatures
+   - Other system sensors (ACPI, thermal zones)
+
+2. **SMART via `anatol/smart.go`** (requires CGO, only in local builds):
+   - SATA/HDD temperature monitoring
+   - Disk model and serial number retrieval
+   - Platform support:
+     - **Linux**: Full SATA and NVMe SMART support
+     - **macOS**: NVMe-only SMART support (SATA not supported)
+     - **Windows**: No SMART support (stub implementation)
+   - Requires root/sudo privileges for disk access
 
 ##### SMART Implementation Architecture
 
