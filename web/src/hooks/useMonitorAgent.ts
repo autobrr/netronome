@@ -52,12 +52,12 @@ export const useMonitorAgent = ({
     enabled: agent.enabled && includeNativeData,
   });
 
-  // Fetch system info (optional)
+  // Fetch system info (optional) - always fetch if requested, regardless of connection status
   const systemInfoQuery = useQuery<SystemInfo>({
     queryKey: ["monitor-agent-system", agent.id],
     queryFn: () => getMonitorAgentSystemInfo(agent.id),
     refetchInterval: agent.enabled ? 300000 : false, // Poll every 5 minutes
-    enabled: agent.enabled && includeSystemInfo && statusQuery.data?.connected,
+    enabled: agent.enabled && includeSystemInfo,
   });
 
   // Fetch peak stats (optional)
@@ -68,12 +68,12 @@ export const useMonitorAgent = ({
     enabled: agent.enabled && includePeakStats && statusQuery.data?.connected,
   });
 
-  // Fetch hardware stats (optional)
+  // Fetch hardware stats (optional) - always fetch if requested, regardless of connection status
   const hardwareStatsQuery = useQuery<HardwareStats>({
     queryKey: ["monitor-agent-hardware", agent.id],
     queryFn: () => getMonitorAgentHardwareStats(agent.id),
     refetchInterval: agent.enabled ? 30000 : false, // Poll every 30 seconds
-    enabled: agent.enabled && includeHardwareStats && statusQuery.data?.connected,
+    enabled: agent.enabled && includeHardwareStats,
   });
 
   // Start mutation

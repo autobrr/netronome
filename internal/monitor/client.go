@@ -785,6 +785,22 @@ func (s *Service) fetchAndStoreHistoricalData(client *Client) {
 		return
 	}
 	
+	// First, save the complete vnstat data snapshot
+	vnstatJSON, err := json.Marshal(vnstatData)
+	if err == nil {
+		snapshot := &types.MonitorHistoricalSnapshot{
+			AgentID:       client.agent.ID,
+			InterfaceName: "all", // Indicates this is the full vnstat data
+			PeriodType:    "vnstat",
+			DataJSON:      string(vnstatJSON),
+		}
+		if err := s.db.SaveMonitorHistoricalSnapshot(client.ctx, client.agent.ID, snapshot); err != nil {
+			log.Warn().Err(err).Msg("Failed to save full vnstat snapshot")
+		} else {
+			log.Debug().Int64("agent_id", client.agent.ID).Msg("Saved full vnstat snapshot")
+		}
+	}
+	
 	// Extract interfaces data
 	interfaces, ok := vnstatData["interfaces"].([]interface{})
 	if !ok {
@@ -854,6 +870,22 @@ func (s *Service) fetchAndStoreHistoricalData(client *Client) {
 				}
 				if err := s.db.SaveMonitorHistoricalSnapshot(client.ctx, client.agent.ID, snapshot); err != nil {
 					log.Warn().Err(err).Str("period", "monthly").Msg("Failed to save historical snapshot")
+				}
+			}
+		}
+		
+		// Store total data if available
+		if total, ok := traffic["total"].(map[string]interface{}); ok {
+			totalJSON, err := json.Marshal(total)
+			if err == nil {
+				snapshot := &types.MonitorHistoricalSnapshot{
+					AgentID:       client.agent.ID,
+					InterfaceName: ifaceName,
+					PeriodType:    "total",
+					DataJSON:      string(totalJSON),
+				}
+				if err := s.db.SaveMonitorHistoricalSnapshot(client.ctx, client.agent.ID, snapshot); err != nil {
+					log.Warn().Err(err).Str("period", "total").Msg("Failed to save total snapshot")
 				}
 			}
 		}

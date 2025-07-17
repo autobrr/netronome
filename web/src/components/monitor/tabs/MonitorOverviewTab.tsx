@@ -78,22 +78,27 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
     };
   }, [nativeData]);
 
-  if (!status?.connected) {
-    return (
-      <div className="text-center py-12">
-        <ServerIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-lg text-gray-500 dark:text-gray-400">
-          Agent Disconnected
-        </p>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-          Unable to connect to {agent.url}
-        </p>
-      </div>
-    );
-  }
+  const isOffline = !status?.connected;
 
   return (
     <div className="space-y-6">
+      {/* Offline Banner */}
+      {isOffline && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+          <div className="flex items-center space-x-3">
+            <ServerIcon className="h-5 w-5 text-amber-500" />
+            <div>
+              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                Agent Offline
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                Showing cached data. Real-time metrics unavailable.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Key Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Current Speed */}
@@ -124,6 +129,8 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
                 </span>
               </div>
             </>
+          ) : isOffline ? (
+            <p className="text-gray-500 dark:text-gray-400">Offline</p>
           ) : (
             <p className="text-gray-500 dark:text-gray-400">No data</p>
           )}

@@ -22,8 +22,8 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
   hardwareStats,
 }) => {
   const getProgressColor = (percent: number) => {
-    if (percent < 50) return "#10B981"; // green
-    if (percent < 75) return "#F59E0B"; // yellow
+    if (percent < 50) return "#34d399"; // emerald-400
+    if (percent < 75) return "#d97706"; // amber-600
     return "#EF4444"; // red
   };
 
@@ -53,7 +53,8 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
               </h3>
             </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">
-              {hardwareStats.cpu.cores} cores, {hardwareStats.cpu.threads} threads
+              {hardwareStats.cpu.cores} cores, {hardwareStats.cpu.threads}{" "}
+              threads
             </div>
           </div>
 
@@ -69,7 +70,9 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                 className="h-2 rounded-full transition-all duration-300"
                 style={{
                   width: `${hardwareStats.cpu.usage_percent}%`,
-                  backgroundColor: getProgressColor(hardwareStats.cpu.usage_percent),
+                  backgroundColor: getProgressColor(
+                    hardwareStats.cpu.usage_percent
+                  ),
                 }}
               />
             </div>
@@ -81,7 +84,8 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
             </p>
             {hardwareStats.cpu.load_avg && (
               <p className="text-xs text-gray-500 dark:text-gray-500">
-                Load: {hardwareStats.cpu.load_avg.map(l => l.toFixed(2)).join(", ")}
+                Load:{" "}
+                {hardwareStats.cpu.load_avg.map((l) => l.toFixed(2)).join(", ")}
               </p>
             )}
           </div>
@@ -91,7 +95,7 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
         <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <CircleStackIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <CircleStackIcon className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                 Memory
               </h3>
@@ -113,7 +117,9 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                 className="h-2 rounded-full transition-all duration-300"
                 style={{
                   width: `${hardwareStats.memory.used_percent}%`,
-                  backgroundColor: getProgressColor(hardwareStats.memory.used_percent),
+                  backgroundColor: getProgressColor(
+                    hardwareStats.memory.used_percent
+                  ),
                 }}
               />
             </div>
@@ -125,7 +131,9 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                 </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Available</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  Available
+                </span>
                 <span className="text-gray-900 dark:text-white font-medium">
                   {formatBytes(hardwareStats.memory.available)}
                 </span>
@@ -133,7 +141,9 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
               {hardwareStats.memory.swap_total > 0 && (
                 <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600 dark:text-gray-400">Swap</span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Swap
+                    </span>
                     <span className="text-gray-900 dark:text-white font-medium">
                       {hardwareStats.memory.swap_percent.toFixed(1)}%
                     </span>
@@ -143,13 +153,16 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                       className="h-2 rounded-full transition-all duration-300"
                       style={{
                         width: `${hardwareStats.memory.swap_percent}%`,
-                        backgroundColor: getProgressColor(hardwareStats.memory.swap_percent),
+                        backgroundColor: getProgressColor(
+                          hardwareStats.memory.swap_percent
+                        ),
                       }}
                     />
                   </div>
                   <div className="flex justify-between text-xs mt-1">
                     <span className="text-gray-500 dark:text-gray-500">
-                      {formatBytes(hardwareStats.memory.swap_used)} / {formatBytes(hardwareStats.memory.swap_total)}
+                      {formatBytes(hardwareStats.memory.swap_used)} /{" "}
+                      {formatBytes(hardwareStats.memory.swap_total)}
                     </span>
                   </div>
                 </div>
@@ -171,7 +184,10 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
 
           <div className="space-y-3">
             {hardwareStats.disks.map((disk, index) => (
-              <div key={index} className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+              <div
+                key={index}
+                className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg"
+              >
                 <div className="flex justify-between items-center mb-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
@@ -194,7 +210,7 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                   <div
                     className={`h-2 rounded-full transition-all duration-300 ${
                       disk.used_percent < 70
-                        ? "bg-green-500"
+                        ? "bg-emerald-500"
                         : disk.used_percent < 85
                         ? "bg-yellow-500"
                         : "bg-red-500"
@@ -221,28 +237,42 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
           <div className="space-y-6">
             {(() => {
               // Filter and categorize temperature sensors
-              const filteredTemps = hardwareStats.temperature.filter(temp => {
+              const filteredTemps = hardwareStats.temperature.filter((temp) => {
                 // Filter out sensors with absurd max temperatures (65262°C is likely uninitialized data)
-                return !temp.critical || (temp.critical > 0 && temp.critical < 1000);
+                return (
+                  !temp.critical || (temp.critical > 0 && temp.critical < 1000)
+                );
               });
 
-              const getCategory = (temp: typeof filteredTemps[0]) => {
+              const getCategory = (temp: (typeof filteredTemps)[0]) => {
                 const key = temp.sensor_key.toLowerCase();
                 const label = (temp.label || "").toLowerCase();
-                
+
                 // CPU - All processor-related sensors
-                if (key.includes("coretemp_core_") || key.includes("coretemp_package") || label.includes("core ") || label.includes("package")) return "cpu";
-                if (key.includes("pmu tdie") || key.includes("pmu2 tdie")) return "cpu";
-                if (key.includes("pmu tdev") || key.includes("pmu2 tdev")) return "cpu";
-                
+                if (
+                  key.includes("coretemp_core_") ||
+                  key.includes("coretemp_package") ||
+                  label.includes("core ") ||
+                  label.includes("package")
+                )
+                  return "cpu";
+                if (key.includes("pmu tdie") || key.includes("pmu2 tdie"))
+                  return "cpu";
+                if (key.includes("pmu tdev") || key.includes("pmu2 tdev"))
+                  return "cpu";
+
                 // Storage - All storage devices
-                if (key.includes("nvme") || label.includes("nvme")) return "storage";
-                if (key.includes("nand") || key.includes("smart_")) return "storage";
-                if (label.includes("hdd") || label.includes("ssd")) return "storage";
-                
+                if (key.includes("nvme") || label.includes("nvme"))
+                  return "storage";
+                if (key.includes("nand") || key.includes("smart_"))
+                  return "storage";
+                if (label.includes("hdd") || label.includes("ssd"))
+                  return "storage";
+
                 // Power - Battery and power management
-                if (key.includes("battery") || key.includes("gas gauge")) return "power";
-                
+                if (key.includes("battery") || key.includes("gas gauge"))
+                  return "power";
+
                 // System - Everything else (calibration, ACPI, misc)
                 return "system";
               };
@@ -256,83 +286,103 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
               }, {} as Record<string, typeof filteredTemps>);
 
               // Sort within each category
-              Object.keys(categories).forEach(cat => {
-                categories[cat].sort((a, b) => a.sensor_key.localeCompare(b.sensor_key));
+              Object.keys(categories).forEach((cat) => {
+                categories[cat].sort((a, b) =>
+                  a.sensor_key.localeCompare(b.sensor_key)
+                );
               });
 
               const categoryOrder = [
                 { key: "cpu", title: "CPU" },
                 { key: "storage", title: "Storage" },
                 { key: "power", title: "Power & Battery" },
-                { key: "system", title: "System" }
+                { key: "system", title: "System" },
               ];
 
-              return categoryOrder.map(({ key, title }) => {
-                const temps = categories[key];
-                if (!temps || temps.length === 0) return null;
+              return categoryOrder
+                .map(({ key, title }) => {
+                  const temps = categories[key];
+                  if (!temps || temps.length === 0) return null;
 
-                return (
-                  <div key={key} className="space-y-3">
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 pb-1">
-                      {title} ({temps.length})
-                    </h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {temps.map((temp, index) => {
-                const percentage = temp.critical && temp.critical > 0
-                  ? Math.min((temp.temperature / temp.critical) * 100, 100)
-                  : (temp.temperature / 100) * 100; // Assume 100°C max if no critical temp
-                
-                const isWarm = percentage > 60;
-                const isHot = percentage > 80;
-                
-                const getTemperatureColor = () => {
-                  if (isHot) return "#EF4444"; // red
-                  if (isWarm) return "#F59E0B"; // amber
-                  return "#10B981"; // green
-                };
+                  return (
+                    <div key={key} className="space-y-3">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 pb-1">
+                        {title} ({temps.length})
+                      </h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {temps.map((temp, index) => {
+                          const percentage =
+                            temp.critical && temp.critical > 0
+                              ? Math.min(
+                                  (temp.temperature / temp.critical) * 100,
+                                  100
+                                )
+                              : (temp.temperature / 100) * 100; // Assume 100°C max if no critical temp
 
-                // Use original sensor names, with label if available
-                const getDisplayName = () => {
-                  // Use the label if it exists (for SMART drives, etc.)
-                  if (temp.label) return temp.label;
-                  
-                  // Otherwise use the original sensor key
-                  return temp.sensor_key;
-                };
+                          const isWarm = percentage > 60;
+                          const isHot = percentage > 80;
 
-                return (
-                  <div key={index} className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
-                    <p className="text-xs text-gray-600 dark:text-gray-400 truncate mb-1" title={temp.sensor_key}>
-                      {getDisplayName()}
-                    </p>
-                    <p className={`text-xl font-bold mb-2 ${
-                      isHot ? "text-red-600 dark:text-red-400" :
-                      isWarm ? "text-amber-600 dark:text-amber-400" :
-                      "text-green-600 dark:text-green-400"
-                    }`}>
-                      {temp.temperature.toFixed(1)}°C
-                    </p>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                      <div
-                        className="h-1.5 rounded-full transition-all duration-300"
-                        style={{
-                          width: `${Math.min(percentage, 100)}%`,
-                          backgroundColor: getTemperatureColor(),
-                        }}
-                      />
+                          const getTemperatureColor = () => {
+                            if (isHot) return "#EF4444"; // red
+                            if (isWarm) return "#F59E0B"; // amber
+                            return "#34d399"; // green
+                          };
+
+                          // Use original sensor names, with label if available
+                          const getDisplayName = () => {
+                            // Use the label if it exists (for SMART drives, etc.)
+                            if (temp.label) return temp.label;
+
+                            // Otherwise use the original sensor key
+                            return temp.sensor_key;
+                          };
+
+                          return (
+                            <div
+                              key={index}
+                              className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3"
+                            >
+                              <p
+                                className="text-xs text-gray-600 dark:text-gray-400 truncate mb-1"
+                                title={temp.sensor_key}
+                              >
+                                {getDisplayName()}
+                              </p>
+                              <p
+                                className={`text-xl font-bold mb-2 ${
+                                  isHot
+                                    ? "text-red-600 dark:text-red-400"
+                                    : isWarm
+                                    ? "text-amber-600 dark:text-amber-400"
+                                    : "text-emerald-600 dark:text-emerald-400"
+                                }`}
+                              >
+                                {temp.temperature.toFixed(1)}°C
+                              </p>
+                              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                                <div
+                                  className="h-1.5 rounded-full transition-all duration-300"
+                                  style={{
+                                    width: `${Math.min(percentage, 100)}%`,
+                                    backgroundColor: getTemperatureColor(),
+                                  }}
+                                />
+                              </div>
+                              {temp.critical &&
+                                temp.critical > 0 &&
+                                temp.critical < 1000 && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                    Max: {temp.critical.toFixed(0)}°C
+                                  </p>
+                                )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    {temp.critical && temp.critical > 0 && temp.critical < 1000 && (
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        Max: {temp.critical.toFixed(0)}°C
-                      </p>
-                    )}
-                  </div>
-                );
-                      })}
-                    </div>
-                  </div>
-                );
-              }).filter(Boolean);
+                  );
+                })
+                .filter(Boolean);
             })()}
           </div>
         </div>

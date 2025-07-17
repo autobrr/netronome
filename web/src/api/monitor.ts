@@ -48,6 +48,7 @@ export interface SystemInfo {
   vnstat_version: string;
   database_size: number; // bytes
   updated_at: string;
+  from_cache?: boolean; // True when data is from database, not live agent
 }
 
 export interface PeakStats {
@@ -66,6 +67,7 @@ export interface HardwareStats {
   disks: DiskStats[];
   temperature?: TemperatureStats[];
   updated_at: string;
+  from_cache?: boolean; // True when data is from database, not live agent
 }
 
 export interface CPUStats {

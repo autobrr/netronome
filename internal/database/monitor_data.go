@@ -355,8 +355,9 @@ func (s *service) CleanupMonitorData(ctx context.Context) error {
 	}
 	defer tx.Rollback()
 
-	// Clean up resource stats older than 7 days
-	resourceCutoff := time.Now().Add(-7 * 24 * time.Hour)
+	// Clean up resource stats older than 2 hours
+	// We collect every 30 seconds, so 2 hours gives us ~240 data points which is plenty
+	resourceCutoff := time.Now().Add(-2 * time.Hour)
 	deleteQuery := s.sqlBuilder.Delete("monitor_resource_stats").Where(sq.Lt{"created_at": resourceCutoff})
 	if _, err := deleteQuery.RunWith(tx).ExecContext(ctx); err != nil {
 		log.Error().Err(err).Msg("Failed to cleanup resource stats")
