@@ -98,6 +98,8 @@ export interface DiskStats {
   used: number;
   free: number;
   used_percent: number;
+  model?: string;
+  serial?: string;
 }
 
 export interface TemperatureStats {

@@ -138,6 +138,8 @@ type DiskStats struct {
 	Used        uint64  `json:"used"`
 	Free        uint64  `json:"free"`
 	UsedPercent float64 `json:"used_percent"`
+	Model       string  `json:"model,omitempty"`       // Disk model name from SMART data
+	Serial      string  `json:"serial,omitempty"`      // Disk serial number from SMART data
 }
 
 // TemperatureStats represents temperature sensor data
@@ -810,6 +812,25 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 	partitions, err := disk.Partitions(true)
 	if err == nil {
 		log.Debug().Int("partition_count", len(partitions)).Msg("Got disk partitions")
+		
+		// Build a map of device names to SMART info
+		deviceInfoMap := make(map[string]struct{ model, serial string })
+		devicePaths := a.getDevicePaths()
+		for _, devicePath := range devicePaths {
+			model, serial := a.getDiskInfo(devicePath)
+			if model != "" || serial != "" {
+				// Store info for both the raw device and partition names
+				baseName := filepath.Base(devicePath)
+				deviceInfoMap[devicePath] = struct{ model, serial string }{model, serial}
+				deviceInfoMap["/dev/"+baseName] = struct{ model, serial string }{model, serial}
+				// Also store without partition suffix for matching
+				if strings.Contains(baseName, "disk") {
+					// macOS style: /dev/diskX -> store for matching /dev/diskXsY
+					deviceInfoMap["/dev/"+baseName] = struct{ model, serial string }{model, serial}
+				}
+			}
+		}
+		
 		for _, partition := range partitions {
 			// Check if this disk should be included based on filters
 			if !a.shouldIncludeDisk(partition.Mountpoint, partition.Device, partition.Fstype) {
@@ -835,8 +856,8 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 					Msg("Skipping small disk")
 				continue
 			}
-
-			stats.Disks = append(stats.Disks, DiskStats{
+			
+			diskStat := DiskStats{
 				Path:        partition.Mountpoint,
 				Device:      partition.Device,
 				Fstype:      partition.Fstype,
@@ -844,11 +865,45 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 				Used:        usage.Used,
 				Free:        usage.Free,
 				UsedPercent: usage.UsedPercent,
-			})
+			}
+			
+			// Try to find SMART info for this device
+			// First try exact match
+			if info, ok := deviceInfoMap[partition.Device]; ok {
+				diskStat.Model = info.model
+				diskStat.Serial = info.serial
+			} else {
+				// Try to match by base device name (remove partition number)
+				baseDevice := partition.Device
+				// Remove partition suffix (e.g., /dev/sda1 -> /dev/sda)
+				if idx := strings.LastIndexAny(baseDevice, "0123456789"); idx > 0 && idx == len(baseDevice)-1 {
+					// Remove trailing numbers
+					for idx > 0 && baseDevice[idx-1] >= '0' && baseDevice[idx-1] <= '9' {
+						idx--
+					}
+					baseDevice = baseDevice[:idx]
+				}
+				// Also handle p1, p2 style partitions (e.g., /dev/nvme0n1p1 -> /dev/nvme0n1)
+				if strings.Contains(baseDevice, "p") && len(baseDevice) > 2 {
+					if idx := strings.LastIndex(baseDevice, "p"); idx > 0 {
+						if idx < len(baseDevice)-1 && baseDevice[idx+1] >= '0' && baseDevice[idx+1] <= '9' {
+							baseDevice = baseDevice[:idx]
+						}
+					}
+				}
+				
+				if info, ok := deviceInfoMap[baseDevice]; ok {
+					diskStat.Model = info.model
+					diskStat.Serial = info.serial
+				}
+			}
+
+			stats.Disks = append(stats.Disks, diskStat)
 
 			log.Debug().
 				Str("path", partition.Mountpoint).
 				Str("device", partition.Device).
+				Str("model", diskStat.Model).
 				Uint64("total", usage.Total).
 				Float64("percent", usage.UsedPercent).
 				Msg("Added disk to stats")
@@ -1007,6 +1062,46 @@ func (a *Agent) shouldIncludeDisk(mountpoint, device, fstype string) bool {
 	return true
 }
 
+// swapBytes swaps pairs of bytes in ATA strings which are stored in a special format
+func swapBytes(b []byte) []byte {
+	swapped := make([]byte, len(b))
+	for i := 0; i < len(b)-1; i += 2 {
+		swapped[i] = b[i+1]
+		swapped[i+1] = b[i]
+	}
+	if len(b)%2 == 1 {
+		swapped[len(b)-1] = b[len(b)-1]
+	}
+	return swapped
+}
+
+// getDiskInfo retrieves disk model/serial info for a device path
+func (a *Agent) getDiskInfo(devicePath string) (model string, serial string) {
+	dev, err := smart.Open(devicePath)
+	if err != nil {
+		return "", ""
+	}
+	defer dev.Close()
+
+	// Try different device types to get identify information
+	switch d := dev.(type) {
+	case *smart.SataDevice:
+		if ident, err := d.Identify(); err == nil {
+			// ATA strings have byte pairs swapped
+			model = strings.TrimSpace(string(swapBytes(ident.ModelNumberRaw[:])))
+			serial = strings.TrimSpace(string(swapBytes(ident.SerialNumberRaw[:])))
+		}
+	case *smart.NVMeDevice:
+		if ctrl, _, err := d.Identify(); err == nil {
+			// NVMe strings are stored normally
+			model = strings.TrimSpace(string(ctrl.ModelNumberRaw[:]))
+			serial = strings.TrimSpace(string(ctrl.SerialNumberRaw[:]))
+		}
+	}
+	
+	return model, serial
+}
+
 // getHDDTemperatures retrieves disk temperatures via SMART data
 func (a *Agent) getHDDTemperatures() []TemperatureStats {
 	var temps []TemperatureStats
@@ -1035,18 +1130,36 @@ func (a *Agent) getHDDTemperatures() []TemperatureStats {
 		// Check if we got a valid temperature
 		if attrs != nil && attrs.Temperature > 0 && attrs.Temperature < 100 {
 			deviceType := "HDD"
-			if strings.Contains(name, "nvme") {
+			modelName := ""
+			
+			// Try to get model information
+			switch d := dev.(type) {
+			case *smart.SataDevice:
+				if ident, err := d.Identify(); err == nil {
+					// ATA strings have byte pairs swapped
+					modelName = strings.TrimSpace(string(swapBytes(ident.ModelNumberRaw[:])))
+					// Check rotation rate to determine if SSD (0 RPM) or HDD
+					// Note: This is a simplified check, some SSDs may not report 0
+					deviceType = "HDD" // Default to HDD for SATA
+				}
+			case *smart.NVMeDevice:
 				deviceType = "NVMe"
-			} else if strings.Contains(name, "sd") || strings.Contains(name, "disk") {
-				// Try to determine if it's SSD or HDD from rotation rate
-				// SSDs typically report 0 RPM
-				deviceType = "HDD" // Default assumption
+				if ctrl, _, err := d.Identify(); err == nil {
+					// NVMe strings are stored normally
+					modelName = strings.TrimSpace(string(ctrl.ModelNumberRaw[:]))
+				}
+			}
+			
+			label := fmt.Sprintf("%s %s", deviceType, strings.ToUpper(name))
+			if modelName != "" {
+				// Include both model name and device identifier
+				label = fmt.Sprintf("%s (%s)", modelName, strings.ToUpper(name))
 			}
 			
 			temps = append(temps, TemperatureStats{
 				SensorKey:   fmt.Sprintf("smart_%s", name),
 				Temperature: float64(attrs.Temperature),
-				Label:       fmt.Sprintf("%s %s", deviceType, strings.ToUpper(name)),
+				Label:       label,
 				Critical:    60.0, // HDDs typically warn at 60°C, SSDs at 70°C
 			})
 
@@ -1054,6 +1167,7 @@ func (a *Agent) getHDDTemperatures() []TemperatureStats {
 				Str("device", name).
 				Uint64("temp", attrs.Temperature).
 				Str("type", deviceType).
+				Str("model", modelName).
 				Msg("Added disk temperature from SMART")
 		}
 		

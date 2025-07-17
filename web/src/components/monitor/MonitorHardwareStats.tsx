@@ -188,7 +188,7 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                       {disk.path}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {disk.device} • {disk.fstype}
+                      {disk.model ? `${disk.model} • ` : ''}{disk.device} • {disk.fstype}
                     </p>
                   </div>
                   <div className="text-right ml-4">
@@ -330,25 +330,38 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                             return "#34d399"; // green
                           };
 
-                          // Use original sensor names, with label if available
-                          const getDisplayName = () => {
-                            // Use the label if it exists (for SMART drives, etc.)
-                            if (temp.label) return temp.label;
-
-                            // Otherwise use the original sensor key
+                          // Extract device identifier from label if it contains parentheses
+                          const getSensorDisplay = () => {
+                            if (temp.label && temp.label.includes('(') && temp.label.includes(')')) {
+                              // Extract device ID from label like "Model Name (SDA)"
+                              const match = temp.label.match(/\(([^)]+)\)$/);
+                              if (match) {
+                                return match[1];
+                              }
+                            }
+                            // For non-SMART sensors, use the sensor key
                             return temp.sensor_key;
+                          };
+
+                          // Get the model name from label (without device ID)
+                          const getModelName = () => {
+                            if (temp.label && temp.label.includes('(') && temp.label.includes(')')) {
+                              // Remove the (SDA) part to get just the model
+                              return temp.label.replace(/\s*\([^)]+\)$/, '');
+                            }
+                            return null;
                           };
 
                           return (
                             <div
                               key={index}
-                              className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3"
+                              className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 flex flex-col"
                             >
                               <p
                                 className="text-xs text-gray-600 dark:text-gray-400 truncate mb-1"
                                 title={temp.sensor_key}
                               >
-                                {getDisplayName()}
+                                {getSensorDisplay()}
                               </p>
                               <p
                                 className={`text-xl font-bold mb-2 ${
@@ -377,6 +390,11 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                                     Max: {temp.critical.toFixed(0)}°C
                                   </p>
                                 )}
+                              {getModelName() && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate" title={getModelName() || undefined}>
+                                  {getModelName()}
+                                </p>
+                              )}
                             </div>
                           );
                         })}
