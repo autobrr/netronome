@@ -17,7 +17,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -31,126 +30,6 @@ import (
 	"github.com/autobrr/netronome/internal/config"
 )
 
-// Agent represents the monitor SSE agent
-type Agent struct {
-	config      *config.AgentConfig
-	clients     map[chan string]bool
-	clientsMu   sync.RWMutex
-	monitorData chan string
-	peakRx      int // Peak download speed in bytes/s
-	peakTx      int // Peak upload speed in bytes/s
-	peakMu      sync.RWMutex
-}
-
-// MonitorLiveData represents the JSON structure from vnstat --live --json
-type MonitorLiveData struct {
-	Index   int `json:"index"`
-	Seconds int `json:"seconds"`
-	Rx      struct {
-		Ratestring       string `json:"ratestring"`
-		Bytespersecond   int    `json:"bytespersecond"`
-		Packetspersecond int    `json:"packetspersecond"`
-		Bytes            int    `json:"bytes"`
-		Packets          int    `json:"packets"`
-		Totalbytes       int    `json:"totalbytes"`
-		Totalpackets     int    `json:"totalpackets"`
-	} `json:"rx"`
-	Tx struct {
-		Ratestring       string `json:"ratestring"`
-		Bytespersecond   int    `json:"bytespersecond"`
-		Packetspersecond int    `json:"packetspersecond"`
-		Bytes            int    `json:"bytes"`
-		Packets          int    `json:"packets"`
-		Totalbytes       int    `json:"totalbytes"`
-		Totalpackets     int    `json:"totalpackets"`
-	} `json:"tx"`
-}
-
-// SystemInfo represents system information
-type SystemInfo struct {
-	Hostname      string                   `json:"hostname"`
-	Kernel        string                   `json:"kernel"`
-	Uptime        int64                    `json:"uptime"` // seconds
-	Interfaces    map[string]InterfaceInfo `json:"interfaces"`
-	VnstatVersion string                   `json:"vnstat_version"`
-	UpdatedAt     time.Time                `json:"updated_at"`
-}
-
-// InterfaceInfo represents network interface details
-type InterfaceInfo struct {
-	Name       string `json:"name"`
-	Alias      string `json:"alias"`
-	IPAddress  string `json:"ip_address"`
-	LinkSpeed  int    `json:"link_speed"` // Mbps
-	IsUp       bool   `json:"is_up"`
-	BytesTotal int64  `json:"bytes_total"`
-}
-
-// PeakStats represents peak bandwidth statistics
-type PeakStats struct {
-	PeakRx          int       `json:"peak_rx"` // bytes/s
-	PeakTx          int       `json:"peak_tx"` // bytes/s
-	PeakRxString    string    `json:"peak_rx_string"`
-	PeakTxString    string    `json:"peak_tx_string"`
-	PeakRxTimestamp time.Time `json:"peak_rx_timestamp"`
-	PeakTxTimestamp time.Time `json:"peak_tx_timestamp"`
-	UpdatedAt       time.Time `json:"updated_at"`
-}
-
-// HardwareStats represents system hardware statistics
-type HardwareStats struct {
-	CPU         CPUStats           `json:"cpu"`
-	Memory      MemoryStats        `json:"memory"`
-	Disks       []DiskStats        `json:"disks"`
-	Temperature []TemperatureStats `json:"temperature,omitempty"`
-	UpdatedAt   time.Time          `json:"updated_at"`
-}
-
-// CPUStats represents CPU usage statistics
-type CPUStats struct {
-	UsagePercent float64   `json:"usage_percent"`
-	Cores        int       `json:"cores"`
-	Threads      int       `json:"threads"`
-	Model        string    `json:"model"`
-	Frequency    float64   `json:"frequency"`          // MHz
-	LoadAvg      []float64 `json:"load_avg,omitempty"` // 1, 5, 15 min
-}
-
-// MemoryStats represents memory usage statistics
-type MemoryStats struct {
-	Total       uint64  `json:"total"`
-	Used        uint64  `json:"used"`
-	Free        uint64  `json:"free"`
-	Available   uint64  `json:"available"`
-	UsedPercent float64 `json:"used_percent"`
-	Cached      uint64  `json:"cached"`
-	Buffers     uint64  `json:"buffers"`
-	ZFSArc      uint64  `json:"zfs_arc"`
-	SwapTotal   uint64  `json:"swap_total"`
-	SwapUsed    uint64  `json:"swap_used"`
-	SwapPercent float64 `json:"swap_percent"`
-}
-
-// DiskStats represents disk usage statistics
-type DiskStats struct {
-	Path        string  `json:"path"`
-	Device      string  `json:"device"`
-	Fstype      string  `json:"fstype"`
-	Total       uint64  `json:"total"`
-	Used        uint64  `json:"used"`
-	Free        uint64  `json:"free"`
-	UsedPercent float64 `json:"used_percent"`
-	Model       string  `json:"model,omitempty"`       // Disk model name from SMART data
-	Serial      string  `json:"serial,omitempty"`      // Disk serial number from SMART data
-}
-
-// TemperatureStats represents temperature sensor data
-type TemperatureStats struct {
-	SensorKey   string  `json:"sensor_key"`
-	Temperature float64 `json:"temperature"` // Celsius
-	Label       string  `json:"label,omitempty"`
-	Critical    float64 `json:"critical,omitempty"`
-}
 
 // New creates a new Agent instance
 func New(cfg *config.AgentConfig) *Agent {
@@ -169,71 +48,8 @@ func (a *Agent) Start(ctx context.Context) error {
 	// Start broadcaster
 	go a.broadcaster(ctx)
 
-	// Set up Gin router
-	gin.SetMode(gin.ReleaseMode)
-	router := gin.New()
-	router.Use(gin.Recovery())
-
-	// CORS middleware - simplified version that should work
-	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "*")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	})
-
-	// Root endpoint (public, no auth required)
-	router.GET("/", func(c *gin.Context) {
-		response := gin.H{
-			"service": "monitor SSE agent",
-			"host":    a.config.Host,
-			"port":    a.config.Port,
-			"endpoints": gin.H{
-				"live":       "/events?stream=live-data",
-				"historical": "/export/historical",
-				"system":     "/system/info",
-				"hardware":   "/system/hardware",
-				"peaks":      "/stats/peaks",
-			},
-		}
-
-		// Indicate if authentication is required
-		if a.config.APIKey != "" {
-			response["authentication"] = "required"
-			response["auth_methods"] = []string{"X-API-Key header", "apikey query parameter"}
-		} else {
-			response["authentication"] = "none"
-		}
-
-		c.JSON(http.StatusOK, response)
-	})
-
-	// Create authenticated group for protected endpoints
-	protected := router.Group("/")
-	if a.config.APIKey != "" {
-		protected.Use(a.authMiddleware())
-	}
-
-	// SSE endpoint (protected)
-	protected.GET("/events", a.handleSSE)
-
-	// Historical data export endpoint (protected)
-	protected.GET("/export/historical", a.handleHistoricalExport)
-
-	// System info endpoint (protected)
-	protected.GET("/system/info", a.handleSystemInfo)
-
-	// Peak stats endpoint (protected)
-	protected.GET("/stats/peaks", a.handlePeakStats)
-
-	// Hardware stats endpoint (protected)
-	protected.GET("/system/hardware", a.handleHardwareStats)
+	// Set up routes
+	router := a.setupRoutes()
 
 	// Start HTTP server
 	addr := fmt.Sprintf("%s:%d", a.config.Host, a.config.Port)
@@ -264,28 +80,6 @@ func (a *Agent) Start(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// authMiddleware validates API key from header or query parameter
-func (a *Agent) authMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Check header first
-		apiKey := c.GetHeader("X-API-Key")
-
-		// If not in header, check query parameter
-		if apiKey == "" {
-			apiKey = c.Query("apikey")
-		}
-
-		// Validate API key
-		if apiKey != a.config.APIKey {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or missing API key"})
-			c.Abort()
-			return
-		}
-
-		c.Next()
-	}
 }
 
 // handleSSE handles SSE connections
@@ -613,17 +407,39 @@ func (a *Agent) getSystemInfo() (*SystemInfo, error) {
 
 			// Try to get link speed (Linux)
 			if runtime.GOOS == "linux" {
-				speedFile := fmt.Sprintf("/sys/class/net/%s/speed", iface.Name)
-				data, err := os.ReadFile(speedFile)
-				if err == nil {
-					speedStr := strings.TrimSpace(string(data))
-					log.Debug().Str("interface", iface.Name).Str("speed_raw", speedStr).Msg("Read link speed")
-					if speed, err := strconv.Atoi(speedStr); err == nil && speed > 0 {
-						ifaceInfo.LinkSpeed = speed
-						log.Debug().Str("interface", iface.Name).Int("speed", speed).Msg("Got link speed")
-					}
+				// Check if this is a virtual/bridge interface
+				bridgePath := fmt.Sprintf("/sys/class/net/%s/bridge", iface.Name)
+				_, isBridge := os.Stat(bridgePath)
+				
+				// Check for common virtual interface patterns
+				isVirtual := isBridge == nil || 
+					strings.HasPrefix(iface.Name, "vmbr") || 
+					strings.HasPrefix(iface.Name, "br") ||
+					strings.HasPrefix(iface.Name, "virbr") ||
+					strings.HasPrefix(iface.Name, "docker") ||
+					strings.HasPrefix(iface.Name, "veth") ||
+					strings.HasPrefix(iface.Name, "tap") ||
+					strings.HasPrefix(iface.Name, "tun") ||
+					strings.Contains(iface.Name, "bond")
+				
+				if isVirtual {
+					// For virtual interfaces, set LinkSpeed to -1 to indicate it's virtual
+					ifaceInfo.LinkSpeed = -1
+					log.Debug().Str("interface", iface.Name).Msg("Detected virtual/bridge interface")
 				} else {
-					log.Debug().Err(err).Str("interface", iface.Name).Str("file", speedFile).Msg("No link speed available")
+					// For physical interfaces, read actual speed
+					speedFile := fmt.Sprintf("/sys/class/net/%s/speed", iface.Name)
+					data, err := os.ReadFile(speedFile)
+					if err == nil {
+						speedStr := strings.TrimSpace(string(data))
+						log.Debug().Str("interface", iface.Name).Str("speed_raw", speedStr).Msg("Read link speed")
+						if speed, err := strconv.Atoi(speedStr); err == nil && speed > 0 {
+							ifaceInfo.LinkSpeed = speed
+							log.Debug().Str("interface", iface.Name).Int("speed", speed).Msg("Got link speed")
+						}
+					} else {
+						log.Debug().Err(err).Str("interface", iface.Name).Str("file", speedFile).Msg("No link speed available")
+					}
 				}
 			}
 

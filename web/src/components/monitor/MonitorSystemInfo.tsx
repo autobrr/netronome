@@ -10,6 +10,8 @@ import {
   CpuChipIcon,
   ClockIcon,
 } from "@heroicons/react/24/outline";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faLinux, faApple } from "@fortawesome/free-brands-svg-icons";
 import { SystemInfo, InterfaceInfo } from "@/api/monitor";
 import { formatBytes } from "@/utils/formatBytes";
 
@@ -75,7 +77,13 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
         {/* Kernel */}
         <div className="flex items-start space-x-3">
           <div className="rounded-full bg-green-100 p-2 dark:bg-green-900/20 flex-shrink-0">
-            <CpuChipIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+            {systemInfo.kernel.toLowerCase().includes("darwin") ? (
+              <FontAwesomeIcon icon={faApple} className="h-5 w-5 text-green-600 dark:text-green-400" />
+            ) : systemInfo.kernel.toLowerCase().includes("linux") ? (
+              <FontAwesomeIcon icon={faLinux} className="h-5 w-5 text-green-600 dark:text-green-400" />
+            ) : (
+              <CpuChipIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+            )}
           </div>
           <div>
             <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
@@ -185,11 +193,15 @@ const InterfaceCard: React.FC<InterfaceCardProps> = ({ interface: iface }) => {
                 ({iface.name})
               </span>
             )}
-            {iface.link_speed > 0 && (
+            {iface.link_speed === -1 ? (
+              <span className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full">
+                Virtual
+              </span>
+            ) : iface.link_speed > 0 ? (
               <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
                 {iface.link_speed} Mbps
               </span>
-            )}
+            ) : null}
           </div>
           <div className="mt-1 flex items-center space-x-3">
             {iface.ip_address && (
