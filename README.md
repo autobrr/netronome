@@ -798,13 +798,20 @@ A: Disk temperature monitoring has several requirements:
 1. **Platform Support**: 
    - **Linux**: Full SMART support for SATA and NVMe drives
    - **macOS**: NVMe drives only (SATA drives not supported)
-   - **Windows**: Limited SMART support
+   - **Windows**: No SMART support (uses stub implementation)
+   - **Other platforms**: No SMART support
 
-2. **Privileges Required**: The agent must run with elevated privileges (root/sudo) to access SMART data from disk devices. Without proper permissions, HDD temperatures cannot be read.
+2. **Build Requirements**: 
+   - SMART functionality requires the `github.com/anatol/smart.go` library
+   - Only available on Linux and macOS builds
+   - Windows and other platforms receive a stub implementation to ensure cross-platform compilation
+   - The `nosmart` build tag can be used to disable SMART support on any platform
 
-3. **SMART Support**: The drive must support SMART (Self-Monitoring, Analysis and Reporting Technology) and have it enabled. Most modern drives support this, but some older or specialized drives may not.
+3. **Privileges Required**: The agent must run with elevated privileges (root/sudo) to access SMART data from disk devices. Without proper permissions, HDD temperatures cannot be read.
 
-4. **Temperature Sensor**: Not all drives report temperature via SMART. Some drives, particularly older models, may not have temperature sensors.
+4. **SMART Support**: The drive must support SMART (Self-Monitoring, Analysis and Reporting Technology) and have it enabled. Most modern drives support this, but some older or specialized drives may not.
+
+5. **Temperature Sensor**: Not all drives report temperature via SMART. Some drives, particularly older models, may not have temperature sensors.
 
 **Q: Why do I see multiple temperature entries for NVMe drives?**
 

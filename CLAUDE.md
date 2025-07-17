@@ -609,8 +609,43 @@ Cross-platform disk temperature monitoring via `anatol/smart.go`:
 
 - **Linux**: Full SATA and NVMe SMART support with `/dev/sd*`, `/dev/nvme*` device paths
 - **macOS**: NVMe-only support with `/dev/rdisk*` device paths (SATA not supported by smart.go on macOS)
+- **Windows**: No SMART support (uses stub implementation)
 - **Automatic Fallback**: Graceful handling of unsupported device types per platform
 - **Privilege Requirements**: Requires root/sudo for SMART data access on all platforms
+
+##### SMART Implementation Architecture
+
+The SMART functionality uses platform-specific build files to handle cross-platform compilation without CGO:
+
+- **`internal/agent/smart.go`**: Full SMART implementation for Linux and macOS
+  - Build tags: `//go:build !nosmart && (linux || darwin)`
+  - Implements `getDiskInfo()` and `getHDDTemperatures()` with actual SMART library calls
+  - Includes ATA string byte-swapping for proper model/serial display
+- **`internal/agent/smart_stub.go`**: Stub implementation for unsupported platforms
+  - Build tags: `//go:build nosmart || (!linux && !darwin)`
+  - Returns empty values to maintain API compatibility
+  - Allows goreleaser to build for all platforms without CGO
+
+##### ATA String Handling
+
+SATA/ATA drives store model and serial numbers with byte pairs swapped. The implementation includes proper byte-swapping:
+
+```go
+// swapBytes swaps pairs of bytes in ATA strings which are stored in a special format
+func swapBytes(b []byte) []byte {
+    swapped := make([]byte, len(b))
+    for i := 0; i < len(b)-1; i += 2 {
+        swapped[i] = b[i+1]
+        swapped[i+1] = b[i]
+    }
+    if len(b)%2 == 1 {
+        swapped[len(b)-1] = b[len(b)-1]
+    }
+    return swapped
+}
+```
+
+This ensures model names like "WDC WD40EFRX-68N32N0" display correctly instead of "DW CWD04FERX86-3NN20".
 
 #### Temperature Sensor Categorization
 
