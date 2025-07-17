@@ -11,8 +11,6 @@ import {
   SparklesIcon,
   ArrowDownIcon,
   ArrowUpIcon,
-  CpuChipIcon,
-  CircleStackIcon,
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { SparklesIcon as SparklesIconSolid } from "@heroicons/react/24/solid";

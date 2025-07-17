@@ -230,13 +230,8 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
 
           <div className="space-y-6">
             {(() => {
-              // Filter and categorize temperature sensors
-              const filteredTemps = hardwareStats.temperature.filter((temp) => {
-                // Filter out sensors with absurd max temperatures (65262°C is likely uninitialized data)
-                return (
-                  !temp.critical || (temp.critical > 0 && temp.critical < 1000)
-                );
-              });
+              // Categorize temperature sensors (no filtering - show all sensors)
+              const filteredTemps = hardwareStats.temperature;
 
               const getCategory = (temp: (typeof filteredTemps)[0]) => {
                 const key = temp.sensor_key.toLowerCase();
@@ -309,16 +304,25 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                       </h4>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                         {temps.map((temp, index) => {
-                          const percentage =
-                            temp.critical && temp.critical > 0
-                              ? Math.min(
-                                  (temp.temperature / temp.critical) * 100,
-                                  100
-                                )
-                              : (temp.temperature / 100) * 100; // Assume 100°C max if no critical temp
+                          // For invalid critical temps (> 1000°C), use absolute temperature thresholds
+                          const hasValidCritical = temp.critical && temp.critical > 0 && temp.critical < 1000;
+                          
+                          const percentage = hasValidCritical && temp.critical
+                            ? Math.min((temp.temperature / temp.critical) * 100, 100)
+                            : (temp.temperature / 100) * 100; // Assume 100°C max if no valid critical temp
 
-                          const isWarm = percentage > 60;
-                          const isHot = percentage > 80;
+                          // Use different thresholds based on sensor type
+                          // For HDDs/SSDs, 50°C is warm, 60°C is hot
+                          // For CPUs/NVMe, 60°C is warm, 80°C is hot
+                          const isStorageSensor = temp.sensor_key.toLowerCase().includes('smart_') || 
+                                                  temp.label?.toLowerCase().includes('hdd') ||
+                                                  temp.label?.toLowerCase().includes('ssd');
+                          
+                          const warmThreshold = isStorageSensor ? 50 : 60;
+                          const hotThreshold = isStorageSensor ? 60 : 80;
+                          
+                          const isWarm = temp.temperature > warmThreshold && temp.temperature <= hotThreshold;
+                          const isHot = temp.temperature > hotThreshold;
 
                           const getTemperatureColor = () => {
                             if (isHot) return "#EF4444"; // red
