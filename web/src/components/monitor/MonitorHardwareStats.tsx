@@ -175,7 +175,7 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                           )}
                           {buffers > 0 && (
                             <div
-                              className="bg-teal-500 dark:bg-teal-600"
+                              className="bg-amber-500 dark:bg-amber-600"
                               style={{ width: `${buffersPercent}%` }}
                               title={`Buffers: ${formatBytes(buffers)}`}
                             />
@@ -218,7 +218,7 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                           {buffers > 0 && (
                             <div className="flex items-center justify-between text-xs">
                               <div className="flex items-center space-x-2">
-                                <div className="w-3 h-3 bg-teal-500 dark:bg-teal-600 rounded" />
+                                <div className="w-3 h-3 bg-amber-500 dark:bg-amber-600 rounded" />
                                 <span className="text-gray-600 dark:text-gray-400">Buffers</span>
                               </div>
                               <span className="text-gray-700 dark:text-gray-300">
