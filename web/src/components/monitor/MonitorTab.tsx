@@ -86,7 +86,7 @@ export const MonitorTab: React.FC = () => {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateAgentRequest }) =>
       updateMonitorAgent(id, data),
-    onSuccess: (updatedAgent, variables) => {
+    onSuccess: (_, variables) => {
       // If agent was disabled, remove it from featured agents
       if (!variables.data.enabled) {
         const featuredAgentIds = getFeaturedAgentIds();
