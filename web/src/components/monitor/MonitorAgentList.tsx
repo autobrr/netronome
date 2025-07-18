@@ -14,12 +14,12 @@ import {
   ChevronRightIcon,
   LockClosedIcon,
   LockOpenIcon,
-  ShieldCheckIcon,
 } from "@heroicons/react/24/solid";
 import { SparklesIcon as SparklesIconSolid } from "@heroicons/react/24/solid";
 import { MonitorAgent } from "@/api/monitor";
 import { AgentIcon } from "@/utils/agentIcons";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
+import { TailscaleLogo } from "../icons/TailscaleLogo";
 
 interface MonitorAgentListProps {
   agents: MonitorAgent[];
@@ -268,20 +268,25 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               <div className="flex items-center gap-1.5 min-w-0">
-                {agent.isTailscale && (
-                  <ShieldCheckIcon
-                    className="h-3 w-3 text-blue-600 dark:text-blue-500 flex-shrink-0"
-                    title={`Tailscale connected${agent.tailscaleHostname ? `: ${agent.tailscaleHostname}` : ""}`}
-                  />
-                )}
-                {agent.apiKey ? (
+                {agent.isTailscale ? (
+                  <>
+                    <TailscaleLogo
+                      className="h-4 w-4 flex-shrink-0"
+                      title="Connected through Tailscale"
+                    />
+                    <LockClosedIcon
+                      className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
+                      title="Encrypted via Tailscale"
+                    />
+                  </>
+                ) : agent.apiKey ? (
                   <LockClosedIcon
-                    className="h-3 w-3 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
+                    className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
                     title="Authentication enabled"
                   />
                 ) : (
                   <LockOpenIcon
-                    className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0"
+                    className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500 flex-shrink-0"
                     title="No authentication"
                   />
                 )}
