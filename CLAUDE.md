@@ -171,6 +171,7 @@ internal/
 
 - **Distributed Architecture**: Lightweight agents broadcast vnstat data via Server-Sent Events (SSE)
 - **Agent Implementation**: Uses Gin framework to serve SSE endpoint at `/events?stream=live-data` and historical data endpoint at `/export/historical`
+- **Agent Identification**: Exposes `/netronome/info` endpoint for automatic discovery verification
 - **Client Implementation**: SSE client with automatic reconnection and exponential backoff
 - **Real-time Streaming**: Processes `vnstat --live --json` output and broadcasts to connected clients
 - **Multi-agent Support**: Central server can connect to multiple remote agents
@@ -513,6 +514,7 @@ The monitor agent is a lightweight SSE server that broadcasts network bandwidth 
 - **Authentication**: Optional API key authentication via X-API-Key header or ?apikey= query param
 - **SSE Endpoint**: `http://agent-host:port/events?stream=live-data`
 - **Historical Export**: `http://agent-host:port/export/historical`
+- **Identification Endpoint**: `http://agent-host:port/netronome/info` (returns agent type and version for discovery)
 - **Data Source**: Executes `vnstat --live --json` and streams output
 - **CORS Support**: Enabled for cross-origin access from Netronome server
 - **Graceful Shutdown**: Properly closes connections on termination
@@ -597,6 +599,16 @@ disk_excludes = []   # Disk mounts to exclude from monitoring, e.g., ["/boot", "
 [monitor]
 enabled = true       # Enable monitor client service in main server
 reconnect_interval = "30s"  # Reconnection interval for agent connections
+
+[tailscale]
+enabled = false      # Use host's tailscaled for discovery when false
+auth_key = ""        # Only needed when enabled = true
+
+[tailscale.monitor]
+auto_discover = true      # Enable automatic agent discovery
+discovery_interval = "5m" # How often to scan for agents
+discovery_port = 8200     # Port to probe for Netronome agents
+# No prefix needed! Discovers ALL Netronome agents on the network
 ```
 
 ### Monitor Native Data Architecture

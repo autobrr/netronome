@@ -5,6 +5,7 @@ package monitor
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -16,15 +17,18 @@ import (
 	"tailscale.com/tsnet"
 
 	"github.com/autobrr/netronome/internal/config"
+	tailscale "github.com/autobrr/netronome/internal/tailscale"
 	"github.com/autobrr/netronome/internal/types"
 )
 
 // TailscaleDiscovery handles automatic discovery of Tailscale-connected agents
 type TailscaleDiscovery struct {
-	config       *config.TailscaleConfig
-	tsnetServer  *tsnet.Server
-	service      *Service
+	config          *config.TailscaleConfig
+	tsnetServer     *tsnet.Server
+	tailscaleClient tailscale.Client
+	service         *Service
 	discoveryTicker *time.Ticker
+	mode            tailscale.Mode
 }
 
 // NewTailscaleDiscovery creates a new Tailscale discovery service
@@ -37,8 +41,25 @@ func NewTailscaleDiscovery(cfg *config.TailscaleConfig, service *Service) *Tails
 
 // Start initializes Tailscale connection and begins discovery
 func (td *TailscaleDiscovery) Start(ctx context.Context) error {
-	if !td.config.Enabled || !td.config.Monitor.AutoDiscover {
+	if !td.config.Monitor.AutoDiscover {
 		log.Debug().Msg("Tailscale discovery is disabled")
+		return nil
+	}
+
+	// If Tailscale is not enabled, try to use host's tailscaled
+	if !td.config.Enabled {
+		log.Info().Msg("Tailscale not enabled, attempting to use host's tailscaled for discovery...")
+		hostClient, err := tailscale.GetHostClient()
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to connect to host's tailscaled, discovery will not work")
+			return nil // Don't fail startup, just disable discovery
+		}
+		td.tailscaleClient = hostClient
+		td.mode = tailscale.ModeHost
+		log.Info().Msg("Successfully connected to host's tailscaled for discovery")
+		
+		// Start periodic discovery
+		td.startDiscoveryTimer(ctx)
 		return nil
 	}
 
@@ -71,16 +92,39 @@ func (td *TailscaleDiscovery) Start(ctx context.Context) error {
 	}
 
 	// Start tsnet
-	log.Info().Str("hostname", hostname).Msg("Starting Tailscale discovery service...")
+	log.Info().Str("hostname", hostname).Msg("Starting Tailscale discovery service (tsnet)...")
 	if err := td.tsnetServer.Start(); err != nil {
 		return fmt.Errorf("failed to start tsnet for discovery: %w", err)
 	}
 
-	// Start periodic discovery
-	td.discoveryTicker = time.NewTicker(30 * time.Second)
-	go td.runDiscovery(ctx)
+	// Get tsnet client
+	var err error
+	td.tailscaleClient, err = tailscale.GetTsnetClient(td.tsnetServer)
+	if err != nil {
+		return fmt.Errorf("failed to get tsnet client: %w", err)
+	}
+	td.mode = tailscale.ModeTsnet
 
+	// Start periodic discovery
+	td.startDiscoveryTimer(ctx)
 	return nil
+}
+
+// startDiscoveryTimer starts the periodic discovery timer
+func (td *TailscaleDiscovery) startDiscoveryTimer(ctx context.Context) {
+	// Parse discovery interval
+	interval := 5 * time.Minute // default
+	if td.config.Monitor.DiscoveryInterval != "" {
+		if parsed, err := time.ParseDuration(td.config.Monitor.DiscoveryInterval); err == nil {
+			interval = parsed
+		} else {
+			log.Warn().Err(err).Str("interval", td.config.Monitor.DiscoveryInterval).Msg("Failed to parse discovery interval, using default")
+		}
+	}
+
+	log.Info().Str("interval", interval.String()).Msg("Starting Tailscale discovery timer")
+	td.discoveryTicker = time.NewTicker(interval)
+	go td.runDiscovery(ctx)
 }
 
 // Stop stops the discovery service
@@ -110,13 +154,12 @@ func (td *TailscaleDiscovery) runDiscovery(ctx context.Context) {
 
 // discoverAgents discovers and registers new Tailscale agents
 func (td *TailscaleDiscovery) discoverAgents(ctx context.Context) {
-	localClient, err := td.tsnetServer.LocalClient()
-	if err != nil {
-		log.Warn().Err(err).Msg("Failed to get Tailscale local client for discovery")
+	if td.tailscaleClient == nil {
+		log.Error().Msg("Tailscale client not initialized")
 		return
 	}
 
-	status, err := localClient.Status(ctx)
+	status, err := td.tailscaleClient.Status(ctx)
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to get Tailscale status for discovery")
 		return
@@ -129,51 +172,110 @@ func (td *TailscaleDiscovery) discoverAgents(ctx context.Context) {
 		return
 	}
 
-	// Create map of existing Tailscale hostnames
-	existingMap := make(map[string]*types.MonitorAgent)
+	// Create map of existing agents by URL and Tailscale hostname
+	existingMap := make(map[string]bool)
 	for _, agent := range existingAgents {
-		// Check if URL contains a Tailscale hostname
-		if strings.Contains(agent.URL, ".ts.net") || strings.Contains(agent.URL, status.MagicDNSSuffix) {
+		// Add URL to map
+		existingMap[agent.URL] = true
+		
+		// Also check by Tailscale hostname if it's a Tailscale agent
+		if agent.IsTailscale && agent.TailscaleHostname != nil {
+			existingMap[*agent.TailscaleHostname] = true
+		}
+		
+		// Extract hostname from URL for comparison
+		if strings.Contains(agent.URL, "://") {
 			parts := strings.Split(agent.URL, "://")
 			if len(parts) > 1 {
 				hostParts := strings.Split(parts[1], ":")
 				if len(hostParts) > 0 {
-					existingMap[hostParts[0]] = agent
+					existingMap[hostParts[0]] = true
 				}
 			}
 		}
 	}
 
-	// Look for new agents
-	prefix := td.config.Monitor.DiscoveryPrefix
+	// Get discovery port
+	discoveryPort := td.config.Monitor.DiscoveryPort
+	if discoveryPort == 0 {
+		discoveryPort = 8200 // Default port
+	}
+
+	// Look for new agents by probing all online peers
+	log.Debug().Msg("Tailscale discovery service checking for new agents")
+	
 	for _, peer := range status.Peer {
-		if !strings.HasPrefix(peer.HostName, prefix) {
-			continue
-		}
-
-		// Skip if already exists
-		if _, exists := existingMap[peer.HostName]; exists {
-			continue
-		}
-
 		// Skip if not online
 		if !peer.Online {
 			continue
 		}
 
-		// Create new agent
-		tailscaleIP := ""
-		if len(peer.TailscaleIPs) > 0 {
-			tailscaleIP = peer.TailscaleIPs[0].String()
+		// Skip if already exists (check by hostname and potential URL)
+		if existingMap[peer.HostName] {
+			continue
+		}
+		
+		// Also check if the full URL already exists
+		potentialURL := fmt.Sprintf("http://%s:%d", peer.HostName, discoveryPort)
+		if existingMap[potentialURL] {
+			continue
 		}
 
+		// Try to identify if this is a Netronome agent
+		infoURL := fmt.Sprintf("http://%s:%d/netronome/info", peer.HostName, discoveryPort)
+		client := &http.Client{Timeout: 3 * time.Second}
+		
+		resp, err := client.Get(infoURL)
+		if err != nil {
+			// Not a Netronome agent or not reachable
+			continue
+		}
+		defer resp.Body.Close()
+		
+		if resp.StatusCode != http.StatusOK {
+			continue
+		}
+		
+		// Parse the response to verify it's a Netronome agent
+		var agentInfo struct {
+			Type     string `json:"type"`
+			Version  string `json:"version"`
+			Hostname string `json:"hostname"`
+		}
+		
+		if err := json.NewDecoder(resp.Body).Decode(&agentInfo); err != nil {
+			continue
+		}
+		
+		if agentInfo.Type != "netronome-agent" {
+			continue
+		}
+
+		// This is a valid Netronome agent!
+		log.Info().
+			Str("hostname", peer.HostName).
+			Int("port", discoveryPort).
+			Str("version", agentInfo.Version).
+			Msg("Discovered new Netronome agent")
+
+		// Create agent URL with SSE endpoint
+		agentURL := potentialURL
+		if !strings.HasSuffix(agentURL, "/events?stream=live-data") {
+			if strings.HasSuffix(agentURL, "/") {
+				agentURL = agentURL + "events?stream=live-data"
+			} else {
+				agentURL = agentURL + "/events?stream=live-data"
+			}
+		}
+
+		// Create new agent entry
 		emptyString := ""
 		now := time.Now()
 		newAgent := &types.MonitorAgent{
 			Name:              peer.HostName,
-			URL:               fmt.Sprintf("http://%s:8200", peer.HostName),
+			URL:               agentURL,
 			APIKey:            &emptyString, // User will need to set this manually if required
-			Enabled:           false, // Start disabled, user can enable
+			Enabled:           true, // Auto-discovered agents start enabled
 			IsTailscale:       true,
 			TailscaleHostname: &peer.HostName,
 			DiscoveredAt:      &now,
@@ -181,25 +283,9 @@ func (td *TailscaleDiscovery) discoverAgents(ctx context.Context) {
 			UpdatedAt:         time.Now(),
 		}
 
-		// Try to get more info from the agent
-		if tailscaleIP != "" {
-			// Optionally try to connect to get system info
-			testURL := fmt.Sprintf("http://%s:8200/", tailscaleIP)
-			client := &http.Client{Timeout: 5 * time.Second}
-			if resp, err := client.Get(testURL); err == nil {
-				resp.Body.Close()
-				if resp.StatusCode == http.StatusOK {
-					// Agent is reachable, use the hostname URL
-					log.Info().
-						Str("hostname", peer.HostName).
-						Str("tailscale_ip", tailscaleIP).
-						Msg("Discovered new Tailscale agent")
-				}
-			}
-		}
-
 		// Save to database
-		if _, err := td.service.db.CreateMonitorAgent(ctx, newAgent); err != nil {
+		createdAgent, err := td.service.db.CreateMonitorAgent(ctx, newAgent)
+		if err != nil {
 			log.Error().
 				Err(err).
 				Str("hostname", peer.HostName).
@@ -208,13 +294,26 @@ func (td *TailscaleDiscovery) discoverAgents(ctx context.Context) {
 			log.Info().
 				Str("name", newAgent.Name).
 				Str("url", newAgent.URL).
-				Msg("Added discovered Tailscale agent (disabled by default)")
+				Msg("Added discovered Tailscale agent")
+			
+			// Start monitoring the new agent immediately
+			if err := td.service.StartAgent(createdAgent.ID); err != nil {
+				log.Error().
+					Err(err).
+					Int64("agent_id", createdAgent.ID).
+					Msg("Failed to start monitoring discovered agent")
+			} else {
+				log.Info().
+					Int64("agent_id", createdAgent.ID).
+					Str("name", createdAgent.Name).
+					Msg("Started monitoring discovered agent")
+			}
 			
 			// Broadcast update
 			td.service.broadcastFunc(types.MonitorUpdate{
 				Type: types.MonitorUpdateTypeAgentDiscovered,
 				Data: map[string]interface{}{
-					"agent": newAgent,
+					"agent": createdAgent,
 				},
 			})
 		}

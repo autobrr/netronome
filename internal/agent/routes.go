@@ -5,6 +5,7 @@ package agent
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,6 +22,9 @@ func (a *Agent) setupRoutes() *gin.Engine {
 
 	// Root endpoint (public, no auth required)
 	router.GET("/", a.handleRoot)
+
+	// Agent identification endpoint (public, for discovery)
+	router.GET("/netronome/info", a.handleInfo)
 
 	// Create authenticated group for protected endpoints
 	protected := router.Group("/")
@@ -74,6 +78,18 @@ func (a *Agent) handleRoot(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+// handleInfo handles the agent identification endpoint for discovery
+func (a *Agent) handleInfo(c *gin.Context) {
+	// Get hostname
+	hostname, _ := os.Hostname()
+	
+	c.JSON(http.StatusOK, gin.H{
+		"type":     "netronome-agent",
+		"version":  "1.0.0", // TODO: Use actual version
+		"hostname": hostname,
+	})
 }
 
 // handleTailscaleStatus handles the Tailscale status endpoint

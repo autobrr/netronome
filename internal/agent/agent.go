@@ -29,6 +29,7 @@ import (
 	"tailscale.com/tsnet"
 
 	"github.com/autobrr/netronome/internal/config"
+	ts "github.com/autobrr/netronome/internal/tailscale"
 )
 
 
@@ -56,6 +57,15 @@ func NewWithTailscale(cfg *config.AgentConfig, tsCfg *config.TailscaleConfig) *A
 func (a *Agent) Start(ctx context.Context) error {
 	// If Tailscale is enabled, use Tailscale start
 	if a.useTailscale {
+		// Try to use host's tailscaled first if configured
+		if a.tailscaleConfig != nil && a.tailscaleConfig.PreferHost {
+			log.Info().Msg("Attempting to use host's tailscaled...")
+			if err := a.startWithHostTailscale(ctx); err != nil {
+				log.Warn().Err(err).Msg("Failed to use host's tailscaled, falling back to tsnet")
+			} else {
+				return nil
+			}
+		}
 		return a.startWithTailscale(ctx)
 	}
 
@@ -197,6 +207,75 @@ func (a *Agent) startWithTailscale(ctx context.Context) error {
 				log.Info().Msg("API key authentication enabled")
 			}
 		}
+	}
+
+	if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("failed to serve: %w", err)
+	}
+
+	return nil
+}
+
+// startWithHostTailscale starts the agent using the host's existing tailscaled
+func (a *Agent) startWithHostTailscale(ctx context.Context) error {
+	// Start bandwidth monitoring
+	go a.runBandwidthMonitor(ctx)
+	// Start broadcaster
+	go a.broadcaster(ctx)
+
+	// Get host tailscale client
+	hostClient, err := ts.GetHostClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to host tailscaled: %w", err)
+	}
+
+	// Get our tailscale status
+	hostname, ips, err := ts.GetSelfInfo(hostClient)
+	if err != nil {
+		return fmt.Errorf("failed to get Tailscale info: %w", err)
+	}
+
+	log.Info().
+		Str("hostname", hostname).
+		Strs("tailscale_ips", ips).
+		Msg("Using host's tailscaled for agent")
+
+	// Start normal server but bind to Tailscale IP
+	router := a.setupRoutes()
+	server := &http.Server{
+		Handler: router,
+	}
+
+	// Listen on Tailscale network
+	ln, err := ts.ListenOnTailscale(hostClient, a.config.Port)
+	if err != nil {
+		// Fallback to all interfaces if we can't bind to specific Tailscale IP
+		log.Warn().Err(err).Msg("Failed to bind to Tailscale IP, using all interfaces")
+		addr := fmt.Sprintf("%s:%d", a.config.Host, a.config.Port)
+		ln, err = net.Listen("tcp", addr)
+		if err != nil {
+			return fmt.Errorf("failed to listen: %w", err)
+		}
+	}
+
+	// Set up graceful shutdown
+	go func() {
+		<-ctx.Done()
+		log.Info().Msg("Shutting down agent server...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Error().Err(err).Msg("Failed to gracefully shutdown server")
+		}
+	}()
+
+	log.Info().
+		Str("address", ln.Addr().String()).
+		Int("port", a.config.Port).
+		Msg("Monitor SSE agent listening via host's tailscaled")
+
+	if a.config.APIKey != "" {
+		log.Info().Msg("API key authentication enabled")
 	}
 
 	if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {

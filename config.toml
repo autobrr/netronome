@@ -77,13 +77,7 @@ privileged_mode = true
 enabled = true
 reconnect_interval = "30s"
 
-[tailscale]
-enabled = true
-# Since your host already has tailscaled, this will create a separate tsnet instance for discovery
-# If you don't want a separate instance, see the alternative approach below
-auth_key = "tskey-auth-YOUR-KEY-HERE"  # Add your auth key here
-
 [tailscale.monitor]
 auto_discover = true
 discovery_interval = "1m"
-discovery_prefix = "netronome-agent-"
+discovery_port = 8200

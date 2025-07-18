@@ -164,6 +164,7 @@ type TailscaleConfig struct {
 	Ephemeral      bool                   `toml:"ephemeral" env:"TAILSCALE_EPHEMERAL"`
 	StateDir       string                 `toml:"state_dir" env:"TAILSCALE_STATE_DIR"`
 	ControlURL     string                 `toml:"control_url" env:"TAILSCALE_CONTROL_URL"`
+	PreferHost     bool                   `toml:"prefer_host" env:"TAILSCALE_PREFER_HOST"`
 	Agent          TailscaleAgentConfig   `toml:"agent"`
 	Monitor        TailscaleMonitorConfig `toml:"monitor"`
 }
@@ -174,8 +175,10 @@ type TailscaleAgentConfig struct {
 }
 
 type TailscaleMonitorConfig struct {
-	AutoDiscover    bool   `toml:"auto_discover" env:"TAILSCALE_MONITOR_AUTO_DISCOVER"`
-	DiscoveryPrefix string `toml:"discovery_prefix" env:"TAILSCALE_MONITOR_DISCOVERY_PREFIX"`
+	AutoDiscover      bool   `toml:"auto_discover" env:"TAILSCALE_MONITOR_AUTO_DISCOVER"`
+	DiscoveryInterval string `toml:"discovery_interval" env:"TAILSCALE_MONITOR_DISCOVERY_INTERVAL"`
+	DiscoveryPrefix   string `toml:"discovery_prefix" env:"TAILSCALE_MONITOR_DISCOVERY_PREFIX"`
+	DiscoveryPort     int    `toml:"discovery_port" env:"TAILSCALE_MONITOR_DISCOVERY_PORT"`
 }
 
 func isRunningInContainer() bool {
@@ -297,8 +300,10 @@ func New() *Config {
 				AcceptRoutes: true,
 			},
 			Monitor: TailscaleMonitorConfig{
-				AutoDiscover:    true,
-				DiscoveryPrefix: "netronome-agent",
+				AutoDiscover:      true,
+				DiscoveryInterval: "5m",
+				DiscoveryPrefix:   "netronome-agent-",
+				DiscoveryPort:     8200,
 			},
 		},
 	}
