@@ -14,6 +14,7 @@ import {
   ChevronRightIcon,
   LockClosedIcon,
   LockOpenIcon,
+  ShieldCheckIcon,
 } from "@heroicons/react/24/solid";
 import { SparklesIcon as SparklesIconSolid } from "@heroicons/react/24/solid";
 import { MonitorAgent } from "@/api/monitor";
@@ -238,6 +239,11 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
               <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white">
                 {agent.name}
               </h3>
+              {agent.discoveredAt && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                  Auto-discovered
+                </span>
+              )}
               <div className="flex items-center space-x-1.5">
                 {agent.enabled && status?.connected ? (
                   <span className="relative inline-flex h-2 w-2">
@@ -262,6 +268,12 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               <div className="flex items-center gap-1.5 min-w-0">
+                {agent.isTailscale && (
+                  <ShieldCheckIcon
+                    className="h-3 w-3 text-blue-600 dark:text-blue-500 flex-shrink-0"
+                    title={`Tailscale connected${agent.tailscaleHostname ? `: ${agent.tailscaleHostname}` : ""}`}
+                  />
+                )}
                 {agent.apiKey ? (
                   <LockClosedIcon
                     className="h-3 w-3 text-emerald-600 dark:text-emerald-500 flex-shrink-0"

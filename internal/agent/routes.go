@@ -43,6 +43,9 @@ func (a *Agent) setupRoutes() *gin.Engine {
 	// Hardware stats endpoint (protected)
 	protected.GET("/system/hardware", a.handleHardwareStats)
 
+	// Tailscale status endpoint (protected)
+	protected.GET("/tailscale/status", a.handleTailscaleStatus)
+
 	return router
 }
 
@@ -58,6 +61,7 @@ func (a *Agent) handleRoot(c *gin.Context) {
 			"system":     "/system/info",
 			"hardware":   "/system/hardware",
 			"peaks":      "/stats/peaks",
+			"tailscale":  "/tailscale/status",
 		},
 	}
 
@@ -70,4 +74,14 @@ func (a *Agent) handleRoot(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+// handleTailscaleStatus handles the Tailscale status endpoint
+func (a *Agent) handleTailscaleStatus(c *gin.Context) {
+	status, err := a.GetTailscaleStatus()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, status)
 }

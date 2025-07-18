@@ -48,6 +48,7 @@ type Config struct {
 	PacketLoss    PacketLossConfig   `toml:"packetloss"`
 	Agent         AgentConfig        `toml:"agent"`
 	Monitor       MonitorConfig      `toml:"monitor"`
+	Tailscale     TailscaleConfig    `toml:"tailscale"`
 }
 
 type DatabaseConfig struct {
@@ -154,6 +155,27 @@ type AgentConfig struct {
 type MonitorConfig struct {
 	Enabled           bool   `toml:"enabled" env:"MONITOR_ENABLED"`
 	ReconnectInterval string `toml:"reconnect_interval" env:"MONITOR_RECONNECT_INTERVAL"`
+}
+
+type TailscaleConfig struct {
+	Enabled        bool                   `toml:"enabled" env:"TAILSCALE_ENABLED"`
+	Hostname       string                 `toml:"hostname" env:"TAILSCALE_HOSTNAME"`
+	AuthKey        string                 `toml:"auth_key" env:"TAILSCALE_AUTH_KEY"`
+	Ephemeral      bool                   `toml:"ephemeral" env:"TAILSCALE_EPHEMERAL"`
+	StateDir       string                 `toml:"state_dir" env:"TAILSCALE_STATE_DIR"`
+	ControlURL     string                 `toml:"control_url" env:"TAILSCALE_CONTROL_URL"`
+	Agent          TailscaleAgentConfig   `toml:"agent"`
+	Monitor        TailscaleMonitorConfig `toml:"monitor"`
+}
+
+type TailscaleAgentConfig struct {
+	Enabled       bool `toml:"enabled" env:"TAILSCALE_AGENT_ENABLED"`
+	AcceptRoutes  bool `toml:"accept_routes" env:"TAILSCALE_AGENT_ACCEPT_ROUTES"`
+}
+
+type TailscaleMonitorConfig struct {
+	AutoDiscover    bool   `toml:"auto_discover" env:"TAILSCALE_MONITOR_AUTO_DISCOVER"`
+	DiscoveryPrefix string `toml:"discovery_prefix" env:"TAILSCALE_MONITOR_DISCOVERY_PREFIX"`
 }
 
 func isRunningInContainer() bool {
@@ -263,6 +285,22 @@ func New() *Config {
 			Enabled:           true,
 			ReconnectInterval: "30s",
 		},
+		Tailscale: TailscaleConfig{
+			Enabled:    false,
+			Hostname:   "",
+			AuthKey:    "",
+			Ephemeral:  false,
+			StateDir:   "~/.config/netronome/tsnet",
+			ControlURL: "",
+			Agent: TailscaleAgentConfig{
+				Enabled:      false,
+				AcceptRoutes: true,
+			},
+			Monitor: TailscaleMonitorConfig{
+				AutoDiscover:    true,
+				DiscoveryPrefix: "netronome-agent",
+			},
+		},
 	}
 }
 
@@ -348,6 +386,7 @@ func (c *Config) loadFromEnv() error {
 	c.loadPacketLossFromEnv()
 	c.loadAgentFromEnv()
 	c.loadMonitorFromEnv()
+	c.loadTailscaleFromEnv()
 	return nil
 }
 
@@ -585,6 +624,18 @@ func (c *Config) loadAgentFromEnv() {
 	if v := getEnv("AGENT_API_KEY"); v != "" {
 		c.Agent.APIKey = v
 	}
+	if v := getEnv("AGENT_DISK_INCLUDES"); v != "" {
+		c.Agent.DiskIncludes = strings.Split(v, ",")
+		for i := range c.Agent.DiskIncludes {
+			c.Agent.DiskIncludes[i] = strings.TrimSpace(c.Agent.DiskIncludes[i])
+		}
+	}
+	if v := getEnv("AGENT_DISK_EXCLUDES"); v != "" {
+		c.Agent.DiskExcludes = strings.Split(v, ",")
+		for i := range c.Agent.DiskExcludes {
+			c.Agent.DiskExcludes[i] = strings.TrimSpace(c.Agent.DiskExcludes[i])
+		}
+	}
 }
 
 func (c *Config) loadMonitorFromEnv() {
@@ -595,6 +646,49 @@ func (c *Config) loadMonitorFromEnv() {
 	}
 	if v := getEnv("MONITOR_RECONNECT_INTERVAL"); v != "" {
 		c.Monitor.ReconnectInterval = v
+	}
+}
+
+func (c *Config) loadTailscaleFromEnv() {
+	if v := getEnv("TAILSCALE_ENABLED"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			c.Tailscale.Enabled = enabled
+		}
+	}
+	if v := getEnv("TAILSCALE_HOSTNAME"); v != "" {
+		c.Tailscale.Hostname = v
+	}
+	if v := getEnv("TAILSCALE_AUTH_KEY"); v != "" {
+		c.Tailscale.AuthKey = v
+	}
+	if v := getEnv("TAILSCALE_EPHEMERAL"); v != "" {
+		if ephemeral, err := strconv.ParseBool(v); err == nil {
+			c.Tailscale.Ephemeral = ephemeral
+		}
+	}
+	if v := getEnv("TAILSCALE_STATE_DIR"); v != "" {
+		c.Tailscale.StateDir = v
+	}
+	if v := getEnv("TAILSCALE_CONTROL_URL"); v != "" {
+		c.Tailscale.ControlURL = v
+	}
+	if v := getEnv("TAILSCALE_AGENT_ENABLED"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			c.Tailscale.Agent.Enabled = enabled
+		}
+	}
+	if v := getEnv("TAILSCALE_AGENT_ACCEPT_ROUTES"); v != "" {
+		if accept, err := strconv.ParseBool(v); err == nil {
+			c.Tailscale.Agent.AcceptRoutes = accept
+		}
+	}
+	if v := getEnv("TAILSCALE_MONITOR_AUTO_DISCOVER"); v != "" {
+		if auto, err := strconv.ParseBool(v); err == nil {
+			c.Tailscale.Monitor.AutoDiscover = auto
+		}
+	}
+	if v := getEnv("TAILSCALE_MONITOR_DISCOVERY_PREFIX"); v != "" {
+		c.Tailscale.Monitor.DiscoveryPrefix = v
 	}
 }
 
@@ -916,6 +1010,59 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "reconnect_interval = \"%s\"\n", cfg.Monitor.ReconnectInterval); err != nil {
+		return err
+	}
+
+	// Tailscale section
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Tailscale integration for secure agent-to-server communication"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "[tailscale]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.Tailscale.Enabled); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# hostname = \"\" # Template: netronome-{{.NodeType}}-{{.Hostname}} (optional)"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# auth_key = \"\" # Pre-authentication key (optional)"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "# ephemeral = %v # Register as ephemeral node\n", cfg.Tailscale.Ephemeral); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "# state_dir = \"%s\" # Directory for tsnet state\n", cfg.Tailscale.StateDir); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# control_url = \"\" # Custom control server URL (optional)"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "[tailscale.agent]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "enabled = %v # Enable Tailscale for agents\n", cfg.Tailscale.Agent.Enabled); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "accept_routes = %v # Accept advertised routes\n", cfg.Tailscale.Agent.AcceptRoutes); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "[tailscale.monitor]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "auto_discover = %v # Auto-discover Tailscale agents\n", cfg.Tailscale.Monitor.AutoDiscover); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "discovery_prefix = \"%s\" # Prefix for agent discovery\n", cfg.Tailscale.Monitor.DiscoveryPrefix); err != nil {
 		return err
 	}
 

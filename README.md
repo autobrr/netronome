@@ -17,6 +17,7 @@ Netronome (Network Metronome) is a modern network performance testing and monito
   - [Configuration File](#configuration-file-configtoml)
     - [LibreSpeed Configuration](#librespeed-configuration)
   - [System Monitoring](#system-monitoring)
+  - [Tailscale Integration](#tailscale-integration)
   - [Environment Variables](#environment-variables)
   - [Database](#database)
   - [Authentication](#authentication)
@@ -228,6 +229,22 @@ webhook_url = ""
 ping_threshold = 30
 upload_threshold = 200
 download_threshold = 200
+
+[tailscale]
+enabled = false
+hostname = ""
+auth_key = ""
+ephemeral = false
+state_dir = ""
+control_url = ""
+
+[tailscale.agent]
+port = 8200
+
+[tailscale.monitor]
+auto_discover = true
+discovery_interval = "5m"
+discovery_prefix = "netronome-agent-"
 ```
 
 #### LibreSpeed Configuration
@@ -482,6 +499,254 @@ Netronome fetches bandwidth data directly from vnstat's native JSON output, ensu
 
 This ensures accurate and unambiguous representation of bandwidth data.
 
+### Tailscale Integration
+
+Netronome includes native Tailscale support, allowing agents to securely connect through Tailscale's mesh VPN without exposing ports or configuring NAT/firewall rules. This integration uses tsnet to create isolated Tailscale nodes that don't interfere with existing tailscaled installations.
+
+#### Key Features
+
+- **Zero-configuration Networking**: Agents automatically connect through Tailscale's encrypted mesh network
+- **Automatic Discovery**: Server automatically discovers agents with `netronome-agent-` hostname prefix
+- **Isolated Instances**: Uses tsnet for separate Tailscale nodes, doesn't interfere with system tailscaled
+- **Visual Indicators**: UI shows shield icons and badges for Tailscale-connected agents
+- **Mixed Mode Support**: Run both Tailscale and traditional HTTP agents simultaneously
+- **Defense in Depth**: Combine Tailscale network isolation with API key authentication
+
+#### Quick Start
+
+##### For Agents
+
+1. **Get a Tailscale Auth Key**
+   - Visit https://login.tailscale.com/admin/settings/keys
+   - Create a new auth key (reusable recommended for multiple agents)
+
+2. **Start Agent with Tailscale**
+   ```bash
+   # Basic Tailscale agent
+   ./bin/netronome agent --tailscale --tailscale-auth-key tskey-auth-YOUR-KEY
+
+   # With custom hostname (must start with "netronome-agent-")
+   ./bin/netronome agent --tailscale --tailscale-hostname "netronome-agent-prod1" \
+     --tailscale-auth-key tskey-auth-YOUR-KEY
+
+   # Ephemeral agent (removes from Tailscale on shutdown)
+   ./bin/netronome agent --tailscale --tailscale-ephemeral \
+     --tailscale-auth-key tskey-auth-YOUR-KEY
+
+   # With API key for additional security
+   ./bin/netronome agent --tailscale --api-key "secret123" \
+     --tailscale-auth-key tskey-auth-YOUR-KEY
+   ```
+
+3. **Using the Installation Script**
+   ```bash
+   # The install script supports Tailscale configuration
+   curl -sL https://netrono.me/install-agent | bash
+   # Follow prompts to enable Tailscale during setup
+   ```
+
+##### For Server
+
+**Important Note**: The server's Tailscale configuration (`[tailscale]` section) is **ONLY required for automatic discovery**. If your server is already on the Tailscale network via system tailscaled, or if you're manually adding agents, you can skip the server Tailscale configuration entirely.
+
+1. **Option A: Enable Automatic Discovery** (requires server Tailscale config)
+   
+   Add to your server's `config.toml`:
+   ```toml
+   [tailscale]
+   enabled = true          # Creates a tsnet instance for discovery
+   hostname = ""           # Optional custom hostname for server
+   auth_key = ""           # Your Tailscale auth key
+
+   [tailscale.monitor]
+   auto_discover = true
+   discovery_interval = "5m"
+   discovery_prefix = "netronome-agent-"
+   ```
+
+   This creates a dedicated tsnet instance just for discovering agents.
+
+2. **Option B: Manual Agent Addition** (no server Tailscale config needed)
+   
+   If your server is already on Tailscale or you prefer manual control:
+   ```toml
+   # No [tailscale] section needed!
+   
+   [tailscale.monitor]
+   auto_discover = false  # Disable auto-discovery
+   ```
+   
+   Then manually add agents through the UI using their Tailscale hostnames.
+
+3. **Start the Server**
+   ```bash
+   ./bin/netronome serve
+   ```
+
+#### Configuration Options
+
+##### Agent Configuration
+
+```toml
+[tailscale]
+enabled = false          # Enable Tailscale for this agent
+hostname = ""           # Custom hostname (auto-generated if empty)
+auth_key = ""          # Tailscale auth key (required)
+ephemeral = false      # Remove from Tailscale on shutdown
+state_dir = ""         # Custom state directory (default: ~/.config/netronome/tailscale-agent)
+control_url = ""       # Custom control server (for Headscale)
+
+[tailscale.agent]
+port = 8200           # Port for agent to listen on Tailscale network
+```
+
+##### Server Configuration
+
+```toml
+[tailscale]
+enabled = false         # Enable Tailscale support
+hostname = ""          # Custom hostname for server
+auth_key = ""         # Tailscale auth key
+ephemeral = false     # Remove from Tailscale on shutdown
+state_dir = ""        # Custom state directory
+control_url = ""      # Custom control server (for Headscale)
+
+[tailscale.monitor]
+auto_discover = true      # Auto-discover Tailscale agents
+discovery_interval = "5m"     # How often to check for new agents
+discovery_prefix = "netronome-agent-"  # Hostname prefix to look for
+```
+
+#### Environment Variables
+
+All Tailscale settings can be configured via environment variables:
+
+```bash
+# Agent-specific
+export NETRONOME__TAILSCALE_ENABLED=true
+export NETRONOME__TAILSCALE_AUTH_KEY="tskey-auth-YOUR-KEY"
+export NETRONOME__TAILSCALE_HOSTNAME="netronome-agent-web01"
+export NETRONOME__TAILSCALE_EPHEMERAL=true
+
+# Server discovery
+export NETRONOME__TAILSCALE_MONITOR_AUTO_DISCOVER=true
+export NETRONOME__TAILSCALE_MONITOR_DISCOVERY_INTERVAL="2m"
+```
+
+#### How It Works
+
+1. **Agent Side**:
+   - Creates an isolated tsnet instance in `~/.config/netronome/tailscale-agent`
+   - Joins your Tailscale network with hostname like `netronome-agent-<hostname>`
+   - Listens on the Tailscale network interface (100.x.x.x)
+   - Regular HTTP/SSE endpoints work normally through Tailscale
+   - **Completely independent** from any existing system tailscaled
+
+2. **Server Side**:
+   - Optionally connects to Tailscale for discovery (only if `[tailscale]` enabled)
+   - Periodically scans for peers matching the prefix
+   - Automatically creates monitor entries for discovered agents
+   - Uses Tailscale hostnames for reliable connectivity
+
+3. **Network Flow**:
+   ```
+   Agent (tailscale) → Tailscale Network (encrypted) → Server
+   ```
+
+#### Important: Existing Tailscale Installations
+
+**Q: What if my server/agent already has tailscaled running?**
+
+**A: No problem!** The Netronome Tailscale integration uses tsnet, which creates completely isolated instances:
+
+- **For Agents**: The `--tailscale` flag creates a separate tsnet node. You can run both:
+  ```bash
+  # System tailscaled continues running normally
+  systemctl status tailscaled  # Still active
+  
+  # Netronome agent creates its own tsnet instance
+  netronome agent --tailscale  # Separate from system tailscaled
+  ```
+
+- **For Server**: You have two options:
+  1. **Use existing tailscaled**: Don't enable `[tailscale]` in config. Just add agents manually using their Tailscale hostnames.
+  2. **Enable discovery**: Set `[tailscale] enabled = true` to create a separate tsnet instance just for discovery.
+
+**Q: Can I use the agent without --tailscale if my host is already on Tailscale?**
+
+**A: Yes!** If your host is already on Tailscale via system tailscaled:
+```bash
+# Just run the agent normally (no --tailscale flag)
+netronome agent --host 0.0.0.0 --port 8200
+
+# Add it to the server using the host's Tailscale hostname
+# e.g., "http://my-host.tail-scale.ts.net:8200"
+```
+
+This works because Tailscale makes the host accessible on the Tailnet regardless of which application is listening.
+
+#### Visual Indicators
+
+The UI provides clear indicators for Tailscale connectivity:
+
+- 🛡️ **Shield Icon**: Agent is connected via Tailscale
+- **Auto-discovered Badge**: Agent was found via Tailscale discovery
+- **Connection Info**: Shows Tailscale hostname in agent details
+
+#### Troubleshooting
+
+**Agent not discovered?**
+- Check agent hostname starts with `netronome-agent-`
+- Verify both server and agent are on same Tailnet
+- Check logs: `grep -i tailscale /path/to/netronome.log`
+- Ensure discovery is enabled on server
+
+**Connection issues?**
+- Verify Tailscale connectivity: `tailscale ping <agent-hostname>`
+- Check agent is listening: `curl http://<agent-hostname>:8200/health`
+- Ensure no firewall blocking Tailscale (100.64.0.0/10)
+
+**Want to use existing tailscaled instead?**
+- For agents: Run without `--tailscale` flag, access via host's Tailscale hostname
+- For server: Skip `[tailscale]` config, manually add agents
+- Both approaches work perfectly!
+
+#### Security Considerations
+
+- **Network Isolation**: Tailscale provides encrypted point-to-point connections
+- **No Port Exposure**: Agents don't need public ports or NAT configuration
+- **Access Control**: Use Tailscale ACLs to restrict agent access
+- **API Keys**: Combine with API authentication for defense in depth
+- **Ephemeral Nodes**: Use `--tailscale-ephemeral` for temporary agents
+
+#### Advanced Usage
+
+##### Headscale Support
+
+For self-hosted Tailscale control servers:
+
+```bash
+netronome agent --tailscale \
+  --tailscale-control-url "https://headscale.example.com" \
+  --tailscale-auth-key "YOUR-HEADSCALE-KEY"
+```
+
+##### Multiple Tailnets
+
+Run agents on different Tailnets by using separate state directories:
+
+```bash
+# Production Tailnet
+netronome agent --tailscale \
+  --tailscale-state-dir ~/.config/netronome/tailscale-prod \
+  --tailscale-auth-key "PROD-KEY"
+
+# Development Tailnet  
+netronome agent --tailscale \
+  --tailscale-state-dir ~/.config/netronome/tailscale-dev \
+  --tailscale-auth-key "DEV-KEY"
+```
+
 ### Environment Variables
 
 | Variable                                            | Description                                                       | Default                                      | Required               |
@@ -535,6 +800,16 @@ This ensures accurate and unambiguous representation of bandwidth data.
 | `NETRONOME__AGENT_DISK_EXCLUDES`                    | Comma-separated list of disk mounts to exclude                    | ``                                           | No                     |
 | `NETRONOME__MONITOR_ENABLED`                        | Enable monitor client service in main server                      | `true`                                       | No                     |
 | `NETRONOME__MONITOR_RECONNECT_INTERVAL`             | Reconnection interval for monitor agent connections               | `30s`                                        | No                     |
+| `NETRONOME__TAILSCALE_ENABLED`                      | Enable Tailscale integration                                      | `false`                                      | No                     |
+| `NETRONOME__TAILSCALE_HOSTNAME`                     | Custom Tailscale hostname (auto-generated if empty)               | ``                                           | No                     |
+| `NETRONOME__TAILSCALE_AUTH_KEY`                     | Tailscale auth key for automatic registration                     | ``                                           | When Tailscale enabled |
+| `NETRONOME__TAILSCALE_EPHEMERAL`                    | Remove from Tailscale network on shutdown                         | `false`                                      | No                     |
+| `NETRONOME__TAILSCALE_STATE_DIR`                    | Custom Tailscale state directory                                  | `~/.config/netronome/tailscale-agent`        | No                     |
+| `NETRONOME__TAILSCALE_CONTROL_URL`                  | Custom control server URL (for Headscale)                         | ``                                           | No                     |
+| `NETRONOME__TAILSCALE_AGENT_PORT`                   | Port for agent to listen on Tailscale network                     | `8200`                                       | No                     |
+| `NETRONOME__TAILSCALE_MONITOR_AUTO_DISCOVER`        | Enable automatic Tailscale agent discovery                        | `true`                                       | No                     |
+| `NETRONOME__TAILSCALE_MONITOR_DISCOVERY_INTERVAL`   | How often to scan for new Tailscale agents                        | `5m`                                         | No                     |
+| `NETRONOME__TAILSCALE_MONITOR_DISCOVERY_PREFIX`     | Hostname prefix for agent discovery                               | `netronome-agent-`                           | No                     |
 
 ### Database
 

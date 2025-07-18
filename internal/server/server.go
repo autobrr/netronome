@@ -270,6 +270,7 @@ func (s *Server) RegisterRoutes() {
 				protected.GET("/monitor/agents/:id/system", monitorHandler.GetAgentSystemInfo)
 				protected.GET("/monitor/agents/:id/hardware", monitorHandler.GetAgentHardwareStats)
 				protected.GET("/monitor/agents/:id/peaks", monitorHandler.GetAgentPeakStats)
+				protected.GET("/monitor/tailscale/status", monitorHandler.GetTailscaleStatus)
 			}
 		}
 	}

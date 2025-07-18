@@ -90,6 +90,15 @@ Examples:
   # Start agent monitoring specific interface
   netronome agent --interface eth0
 
+  # Start agent with Tailscale for secure connectivity
+  netronome agent --tailscale
+
+  # Start agent with Tailscale and custom hostname
+  netronome agent --tailscale --tailscale-hostname my-server
+
+  # Start agent with Tailscale and auth key for headless deployment
+  netronome agent --tailscale --tailscale-auth-key tskey-auth-xxx
+
   # Use configuration file
   netronome agent --config /etc/netronome/agent.toml`,
 		RunE: runAgent,
@@ -110,6 +119,10 @@ func init() {
 	agentCmd.Flags().StringP("log-level", "l", "", "log level (trace, debug, info, warn, error)")
 	agentCmd.Flags().StringSlice("disk-include", []string{}, "additional disk mount points to monitor (e.g., /mnt/storage)")
 	agentCmd.Flags().StringSlice("disk-exclude", []string{}, "disk mount points to exclude from monitoring (e.g., /boot)")
+	agentCmd.Flags().Bool("tailscale", false, "enable Tailscale for secure connectivity")
+	agentCmd.Flags().String("tailscale-hostname", "", "custom Tailscale hostname (default: netronome-agent-<hostname>)")
+	agentCmd.Flags().String("tailscale-auth-key", "", "Tailscale auth key for automatic registration")
+	agentCmd.Flags().String("tailscale-state-dir", "", "directory for Tailscale state (default: ~/.config/netronome/tsnet)")
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(generateConfigCmd)
@@ -244,7 +257,13 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	// Create and set monitor service if enabled
 	if cfg.Monitor.Enabled {
-		monitorService = monitor.NewService(db, &cfg.Monitor, serverHandler.BroadcastMonitorUpdate)
+		// Use Tailscale-enabled service if configured
+		if cfg.Tailscale.Enabled && cfg.Tailscale.Monitor.AutoDiscover {
+			monitorService = monitor.NewServiceWithTailscale(db, &cfg.Monitor, &cfg.Tailscale, serverHandler.BroadcastMonitorUpdate)
+			log.Info().Msg("Monitor service created with Tailscale discovery support")
+		} else {
+			monitorService = monitor.NewService(db, &cfg.Monitor, serverHandler.BroadcastMonitorUpdate)
+		}
 		serverHandler.SetMonitorService(monitorService)
 
 		// Start monitor service
@@ -466,8 +485,35 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		cfg.Agent.DiskExcludes = diskExcludes
 	}
 
+	// Handle Tailscale flags
+	useTailscale, _ := cmd.Flags().GetBool("tailscale")
+	tailscaleHostname, _ := cmd.Flags().GetString("tailscale-hostname")
+	tailscaleAuthKey, _ := cmd.Flags().GetString("tailscale-auth-key")
+	tailscaleStateDir, _ := cmd.Flags().GetString("tailscale-state-dir")
+
 	// Create agent service
-	agentService := agent.New(&cfg.Agent)
+	var agentService *agent.Agent
+	if useTailscale || cfg.Tailscale.Agent.Enabled {
+		// Override Tailscale config with command line flags
+		if cmd.Flags().Changed("tailscale") {
+			cfg.Tailscale.Enabled = useTailscale
+			cfg.Tailscale.Agent.Enabled = useTailscale
+		}
+		if cmd.Flags().Changed("tailscale-hostname") {
+			cfg.Tailscale.Hostname = tailscaleHostname
+		}
+		if cmd.Flags().Changed("tailscale-auth-key") {
+			cfg.Tailscale.AuthKey = tailscaleAuthKey
+		}
+		if cmd.Flags().Changed("tailscale-state-dir") {
+			cfg.Tailscale.StateDir = tailscaleStateDir
+		}
+		
+		agentService = agent.NewWithTailscale(&cfg.Agent, &cfg.Tailscale)
+		log.Info().Msg("Starting agent with Tailscale support")
+	} else {
+		agentService = agent.New(&cfg.Agent)
+	}
 
 	// Setup signal handling
 	ctx, cancel := context.WithCancel(context.Background())
