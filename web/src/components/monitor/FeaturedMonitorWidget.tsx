@@ -5,27 +5,34 @@
 
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { ServerIcon } from "@heroicons/react/24/outline";
+import {
+  ServerIcon,
+  CpuChipIcon,
+  ArrowTopRightOnSquareIcon,
+} from "@heroicons/react/24/outline";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { useQuery } from "@tanstack/react-query";
-import { getVnstatAgents, VnstatAgent } from "@/api/vnstat";
-import { parseVnstatUsagePeriods } from "@/utils/vnstatParser";
+import { getMonitorAgents, MonitorAgent } from "@/api/monitor";
+import { parseMonitorUsagePeriods } from "@/utils/monitorDataParser";
 import { getAgentIcon } from "@/utils/agentIcons";
 import { formatBytes } from "@/utils/formatBytes";
-import { useVnstatAgent } from "@/hooks/useVnstatAgent";
-import { VnstatUsageModal } from "./VnstatUsageModal";
+import { useMonitorAgent } from "@/hooks/useMonitorAgent";
+import { MonitorUsageModal } from "./MonitorUsageModal";
+import { MONITOR_REFRESH_INTERVALS } from "@/constants/monitorRefreshIntervals";
 
-interface FeaturedVnstatWidgetProps {
-  onNavigateToVnstat: () => void;
+interface FeaturedMonitorWidgetProps {
+  onNavigateToMonitor: (agentId?: number) => void;
 }
 
-export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = () => {
-  const [selectedAgent, setSelectedAgent] = useState<VnstatAgent | null>(null);
+export const FeaturedMonitorWidget: React.FC<FeaturedMonitorWidgetProps> = ({
+  onNavigateToMonitor,
+}) => {
+  const [selectedAgent, setSelectedAgent] = useState<MonitorAgent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Get featured agent IDs from localStorage
   const getFeaturedAgentIds = (): number[] => {
     try {
-      const stored = localStorage.getItem("netronome-featured-vnstat-agents");
+      const stored = localStorage.getItem("netronome-featured-monitor-agents");
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -35,9 +42,10 @@ export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = () => {
   const featuredAgentIds = getFeaturedAgentIds();
 
   // Fetch all agents
-  const { data: allAgents = [] } = useQuery<VnstatAgent[]>({
-    queryKey: ["vnstat-agents"],
-    queryFn: getVnstatAgents,
+  const { data: allAgents = [] } = useQuery<MonitorAgent[]>({
+    queryKey: ["monitor-agents"],
+    queryFn: getMonitorAgents,
+    refetchInterval: MONITOR_REFRESH_INTERVALS.AGENTS_LIST,
   });
 
   // Filter to only featured agents that exist and are enabled
@@ -71,13 +79,14 @@ export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = () => {
               setSelectedAgent(agent);
               setIsModalOpen(true);
             }}
+            onNavigateToAgent={() => onNavigateToMonitor(agent.id)}
           />
         ))}
       </div>
 
       {/* Usage Modal */}
       {selectedAgent && (
-        <VnstatUsageModal
+        <MonitorUsageModal
           isOpen={isModalOpen}
           onClose={() => {
             setIsModalOpen(false);
@@ -92,28 +101,32 @@ export const FeaturedVnstatWidget: React.FC<FeaturedVnstatWidgetProps> = () => {
 };
 
 interface FeaturedAgentCardProps {
-  agent: VnstatAgent;
+  agent: MonitorAgent;
   onOpenModal: () => void;
+  onNavigateToAgent: () => void;
+  onHover?: () => void;
 }
 
 const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
   agent,
   onOpenModal,
+  onNavigateToAgent,
 }) => {
   // Use the shared hook for agent data
-  const { status, nativeData } = useVnstatAgent({
+  const { status, nativeData, hardwareStats } = useMonitorAgent({
     agent,
     includeNativeData: true,
+    includeHardwareStats: true, // Now efficiently cached and shared
   });
 
-  const usage = nativeData ? parseVnstatUsagePeriods(nativeData) : null;
+  const usage = nativeData ? parseMonitorUsagePeriods(nativeData) : null;
 
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={onOpenModal}
-      className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl px-4 pb-2 pt-4 shadow-lg border border-gray-200 dark:border-gray-800 cursor-pointer transition-all duration-200 hover:shadow-xl hover:border-gray-300 dark:hover:border-gray-700"
+      className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl px-4 pb-2 pt-4 shadow-lg border border-gray-200 dark:border-gray-800 cursor-pointer transition-all duration-200 hover:shadow-xl hover:border-gray-300 dark:hover:border-gray-700/60 relative group"
     >
       {/* Header with agent name, status and icon */}
       <div className="flex items-center justify-between mb-4">
@@ -126,14 +139,39 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
           ) : (
             <div className="h-2.5 w-2.5 rounded-full flex-shrink-0 bg-red-500" />
           )}
-          <h3 className="font-semibold text-gray-900 dark:text-white truncate text-base">
-            {agent.name}
-          </h3>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900 dark:text-white truncate text-base">
+              {agent.name}
+            </h3>
+            {/* System Stats */}
+            {hardwareStats && (
+              <div className="flex items-center gap-1">
+                <CpuChipIcon className="h-3 w-3 text-gray-400" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">
+                  CPU: {hardwareStats.cpu.usage_percent.toFixed(0)}% RAM:{" "}
+                  {hardwareStats.memory.used_percent.toFixed(0)}%
+                </span>
+              </div>
+            )}
+          </div>
         </div>
-        {(() => {
-          const { icon: Icon } = getAgentIcon(agent.name);
-          return <Icon className="h-5 w-5 text-gray-400 flex-shrink-0" />;
-        })()}
+        <div className="flex items-center gap-2">
+          {(() => {
+            const { icon: Icon } = getAgentIcon(agent.name);
+            return <Icon className="h-5 w-5 text-gray-400 flex-shrink-0" />;
+          })()}
+          {/* Navigate to agent button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigateToAgent();
+            }}
+            className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200"
+            title="View detailed stats"
+          >
+            <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Bandwidth data */}

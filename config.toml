@@ -72,3 +72,7 @@ default_interval = 3600
 default_packet_count = 10
 max_concurrent_monitors = 10
 privileged_mode = true
+
+[monitor]
+enabled = true
+reconnect_interval = "30s"

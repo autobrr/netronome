@@ -28,7 +28,7 @@ import (
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/server"
 	"github.com/autobrr/netronome/internal/speedtest"
-	"github.com/autobrr/netronome/internal/vnstat"
+	"github.com/autobrr/netronome/internal/monitor"
 )
 
 var (
@@ -76,8 +76,8 @@ track and analyze your network performance over time.`,
 
 	agentCmd = &cobra.Command{
 		Use:   "agent",
-		Short: "Start the vnstat SSE agent",
-		Long: `Start a vnstat SSE agent that broadcasts bandwidth usage data.
+		Short: "Start the monitoring agent",
+		Long: `Start a monitoring agent that broadcasts bandwidth and system usage data.
 This agent can be monitored by a remote Netronome server.
 
 Examples:
@@ -107,6 +107,9 @@ func init() {
 	agentCmd.Flags().IntP("port", "p", 8200, "port to listen on")
 	agentCmd.Flags().StringP("interface", "i", "", "network interface to monitor (empty for all)")
 	agentCmd.Flags().StringP("api-key", "k", "", "API key for authentication")
+	agentCmd.Flags().StringP("log-level", "l", "", "log level (trace, debug, info, warn, error)")
+	agentCmd.Flags().StringSlice("disk-include", []string{}, "additional disk mount points to monitor (e.g., /mnt/storage)")
+	agentCmd.Flags().StringSlice("disk-exclude", []string{}, "disk mount points to exclude from monitoring (e.g., /boot)")
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(generateConfigCmd)
@@ -219,14 +222,14 @@ func runServer(cmd *cobra.Command, args []string) error {
 		packetLossService = speedtest.NewPacketLossService(db, notifier, nil, cfg.PacketLoss.MaxConcurrentMonitors, cfg.PacketLoss.PrivilegedMode)
 	}
 
-	// Create vnstat service variable
-	var vnstatService *vnstat.Service
+	// Create monitor service variable
+	var monitorService *monitor.Service
 
 	// Now create scheduler with packet loss service
 	schedulerSvc := scheduler.New(db, speedtestSvc, packetLossService, notifier)
 
-	// create server handler with packet loss service and vnstat service
-	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService, vnstatService)
+	// create server handler with packet loss service and monitor service
+	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService, monitorService)
 
 	speedtestSvc.SetBroadcastUpdate(serverHandler.BroadcastUpdate)
 	speedtestSvc.SetBroadcastTracerouteUpdate(serverHandler.BroadcastTracerouteUpdate)
@@ -239,14 +242,14 @@ func runServer(cmd *cobra.Command, args []string) error {
 		// Don't start monitors here - let the scheduler handle them
 	}
 
-	// Create and set vnstat service if enabled
-	if cfg.Vnstat.Enabled {
-		vnstatService = vnstat.NewService(db, &cfg.Vnstat, serverHandler.BroadcastVnstatUpdate)
-		serverHandler.SetVnstatService(vnstatService)
+	// Create and set monitor service if enabled
+	if cfg.Monitor.Enabled {
+		monitorService = monitor.NewService(db, &cfg.Monitor, serverHandler.BroadcastMonitorUpdate)
+		serverHandler.SetMonitorService(monitorService)
 
-		// Start vnstat service
-		if err := vnstatService.Start(); err != nil {
-			log.Error().Err(err).Msg("Failed to start vnstat service")
+		// Start monitor service
+		if err := monitorService.Start(); err != nil {
+			log.Error().Err(err).Msg("Failed to start monitor service")
 		}
 	}
 
@@ -284,9 +287,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server forced to shutdown: %w", err)
 	}
 
-	// Stop vnstat service if running
-	if vnstatService != nil {
-		vnstatService.Stop()
+	// Stop monitor service if running
+	if monitorService != nil {
+		monitorService.Stop()
 	}
 
 	// Close database connection to ensure WAL is checkpointed
@@ -412,13 +415,13 @@ func createUser(cmd *cobra.Command, args []string) error {
 }
 
 func runAgent(cmd *cobra.Command, args []string) error {
-	// initialize logger
-	logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
-
 	host, _ := cmd.Flags().GetString("host")
 	port, _ := cmd.Flags().GetInt("port")
 	iface, _ := cmd.Flags().GetString("interface")
 	apiKey, _ := cmd.Flags().GetString("api-key")
+	logLevel, _ := cmd.Flags().GetString("log-level")
+	diskIncludes, _ := cmd.Flags().GetStringSlice("disk-include")
+	diskExcludes, _ := cmd.Flags().GetStringSlice("disk-exclude")
 
 	// Load config if provided
 	var cfg *config.Config
@@ -426,12 +429,22 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		var err error
 		cfg, err = config.Load(configPath)
 		if err != nil {
+			// Initialize logger with default settings if config load fails
+			logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
 			log.Warn().Err(err).Msg("Failed to load config, using defaults")
 			cfg = config.New()
 		}
 	} else {
 		cfg = config.New()
 	}
+	
+	// Override log level from command line flag if provided
+	if cmd.Flags().Changed("log-level") && logLevel != "" {
+		cfg.Logging.Level = logLevel
+	}
+	
+	// Initialize logger with config settings
+	logger.Init(cfg.Logging, cfg.Server, false)
 
 	// Override with command line flags
 	if cmd.Flags().Changed("host") {
@@ -445,6 +458,12 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	}
 	if cmd.Flags().Changed("api-key") {
 		cfg.Agent.APIKey = apiKey
+	}
+	if cmd.Flags().Changed("disk-include") {
+		cfg.Agent.DiskIncludes = diskIncludes
+	}
+	if cmd.Flags().Changed("disk-exclude") {
+		cfg.Agent.DiskExcludes = diskExcludes
 	}
 
 	// Create agent service

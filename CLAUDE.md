@@ -107,12 +107,12 @@ internal/
 ├── config/          # TOML + env var configuration system
 ├── database/        # Interface-based DB layer with Squirrel query builder
 ├── server/          # Gin HTTP server with middleware stack
-├── speedtest/       # Core testing logic (6 implementations)
+├── speedtest/       # Core testing logic (7 implementations)
 ├── scheduler/       # Background cron-like job scheduler
 ├── auth/           # Session + OIDC authentication
 ├── notifications/  # Webhook/Discord alert system
-├── agent/          # vnstat SSE agent server implementation
-├── vnstat/         # vnstat SSE client and database service
+├── agent/          # Monitor SSE agent server implementation
+├── monitor/         # Monitor SSE client and database service
 └── types/          # Shared data structures
 ```
 
@@ -167,7 +167,7 @@ internal/
 - MTR requires privileged mode (root/NET_RAW capability) for ICMP; falls back to UDP or ping otherwise
 - Real-time progress updates during execution
 
-**7. vnstat Bandwidth Monitoring** (`internal/agent/agent.go`, `internal/vnstat/client.go`)
+**7. Monitor Bandwidth Monitoring** (`internal/agent/agent.go`, `internal/monitor/client.go`)
 
 - **Distributed Architecture**: Lightweight agents broadcast vnstat data via Server-Sent Events (SSE)
 - **Agent Implementation**: Uses Gin framework to serve SSE endpoint at `/events?stream=live-data` and historical data endpoint at `/export/historical`
@@ -177,6 +177,7 @@ internal/
 - **Native Data Usage**: Fetches and displays vnstat's native JSON calculations directly
 - **URL Normalization**: Automatically formats agent URLs to ensure correct SSE endpoint
 - **Error Recovery**: Graceful handling of agent disconnections with automatic retry
+- **Backend Processing**: All data fetching and processing handled by backend, frontend only displays
 
 ### Database Schema and Migrations
 
@@ -188,7 +189,8 @@ internal/
   - `saved_iperf_servers` - Custom iperf3 server configs
   - `packet_loss_monitors` - Packet loss monitor configurations
   - `packet_loss_results` - Historical packet loss monitoring results
-  - `vnstat_agents` - vnstat agent configurations and connection settings
+  - `monitor_agents` - Monitor agent configurations and connection settings
+  - `monitor_agent_data` - Historical monitoring data storage
 - **Query patterns**: Interface-based with Squirrel query builder for cross-database compatibility
 
 ### Frontend Architecture
@@ -200,7 +202,7 @@ internal/
 - **Charts**: Recharts for speed test visualizations
 - **Real-time Updates**: Polling-based progress tracking during tests
 - **Unified Traceroute UI**: Combined single-trace and monitoring interface with mode switching (`web/src/components/speedtest/TracerouteTab.tsx`)
-- **vnstat Bandwidth UI**: Real-time and historical bandwidth monitoring (`web/src/components/vnstat/VnstatTab.tsx`)
+- **Monitor Bandwidth UI**: Real-time and historical bandwidth monitoring (`web/src/components/monitor/MonitorTab.tsx`)
 
 ### Chart Data Patterns
 
@@ -219,7 +221,7 @@ internal/
 
 ### Configuration System
 
-- **Hierarchical TOML** with sections: `[database]`, `[server]`, `[speedtest]`, `[speedtest.iperf]`, `[speedtest.iperf.ping]`, `[speedtest.packetloss]`, `[geoip]`, `[agent]`, `[vnstat]`, etc.
+- **Hierarchical TOML** with sections: `[database]`, `[server]`, `[speedtest]`, `[speedtest.iperf]`, `[speedtest.iperf.ping]`, `[speedtest.packetloss]`, `[geoip]`, `[agent]`, `[monitor]`, etc.
 - **Environment overrides**: Any config value can be overridden with `NETRONOME__SECTION_KEY` format
 - **Auto-generation**: Creates sensible defaults if no config exists
 - **Container detection**: Automatically binds to `0.0.0.0` in containerized environments
@@ -297,6 +299,7 @@ internal/
 - **zerolog**: Structured logging
 - **showwin/speedtest-go**: Speedtest.net integration
 - **prometheus-community/pro-bing**: Packet loss monitoring via ICMP ping
+- **gopsutil/v4**: System metrics and temperature monitoring with improved Apple Silicon support
 - **TOML**: Configuration parsing
 - **OIDC**: Authentication provider integration
 
@@ -390,6 +393,42 @@ The following external tools are required for full functionality:
   - Download from MaxMind with free license key
   - Configure paths in `[geoip]` section of config.toml
 
+## Build Considerations
+
+### Release Build Strategy
+
+- **Release Binaries**: Built with `CGO_ENABLED=0` and `nosmart` tag for maximum cross-platform compatibility
+  - Still includes most temperature monitoring via gopsutil:
+    - CPU temperatures (all cores, packages, dies)
+    - NVMe temperatures (shows as nvme_composite)
+    - Battery temperatures
+    - Other system sensors
+  - Only lacks SMART-specific features:
+    - SATA/HDD temperature monitoring
+    - Disk model and serial number display
+  - Works on all platforms without C dependencies
+  - Used by goreleaser for GitHub releases
+
+### Local Development Builds
+
+- **make build**: Builds with CGO enabled by default
+  - Includes SMART support on Linux/macOS
+  - Requires `github.com/anatol/smart.go` library
+  - May fail on platforms without proper C toolchain
+
+### Docker Builds
+
+- **Docker Images**: Built with SMART support enabled
+  - Linux-based containers have full SMART access
+  - Requires appropriate privileges (--cap-add=NET_RAW, --privileged for disk access)
+
+### Cross-compilation
+
+- Use `nosmart` build tag when cross-compiling: `go build -tags nosmart`
+- Prevents CGO dependencies which don't work well with cross-compilation
+- Trade-off: No SATA/HDD temperature monitoring or disk model names
+- Still retains: CPU, NVMe, and battery temperature monitoring via gopsutil
+
 ## Packet Loss Monitoring Implementation Notes
 
 ### Backend Architecture (`internal/speedtest/packetloss.go`)
@@ -462,13 +501,13 @@ The scheduler runs every minute checking for due tests/monitors. It supports two
 - `initializePacketLossMonitors()` - Startup initialization for monitors
 - `initializeSchedules()` - Startup initialization for speed tests
 
-## vnstat Agent Architecture
+## Monitor Agent Architecture
 
 ### Agent Mode (`netronome agent`)
 
-The vnstat agent is a lightweight SSE server that broadcasts network bandwidth data:
+The monitor agent is a lightweight SSE server that broadcasts network bandwidth and system data:
 
-- **Command**: `netronome agent [--host HOST] [--port PORT] [--interface INTERFACE] [--api-key KEY]`
+- **Command**: `netronome agent [--host HOST] [--port PORT] [--interface INTERFACE] [--api-key KEY] [--disk-include PATH] [--disk-exclude PATH]`
 - **Default Port**: 8200
 - **Default Host**: 0.0.0.0
 - **Authentication**: Optional API key authentication via X-API-Key header or ?apikey= query param
@@ -477,6 +516,12 @@ The vnstat agent is a lightweight SSE server that broadcasts network bandwidth d
 - **Data Source**: Executes `vnstat --live --json` and streams output
 - **CORS Support**: Enabled for cross-origin access from Netronome server
 - **Graceful Shutdown**: Properly closes connections on termination
+- **Disk Filtering**: 
+  - `--disk-include`: Add mount points to monitor with glob support (e.g., `/mnt/storage`, `/mnt/disk*`)
+  - `--disk-exclude`: Exclude mount points with glob support (e.g., `/boot`, `/System/*`)
+  - Includes take precedence over excludes
+  - Special filesystems excluded by default unless explicitly included
+  - Supports standard glob patterns for flexible matching
 
 ### Installation Script
 
@@ -502,7 +547,7 @@ Script options:
 - `--update` - Update to latest version
 - `--auto-update [true|false]` - Enable/disable automatic updates without prompting
 
-### Client Integration (`internal/vnstat/`)
+### Client Integration (`internal/monitor/`)
 
 - **Service Management**: Manages multiple SSE client connections to remote agents
 - **Connection Lifecycle**:
@@ -516,22 +561,27 @@ Script options:
 
 ### API Endpoints
 
-- `GET /api/vnstat/agents` - List all configured agents
-- `POST /api/vnstat/agents` - Add new agent
-- `PUT /api/vnstat/agents/:id` - Update agent configuration
-- `DELETE /api/vnstat/agents/:id` - Remove agent
-- `GET /api/vnstat/agents/:id/status` - Get live connection status and current bandwidth
-- `GET /api/vnstat/agents/:id/bandwidth` - Get historical bandwidth data
-- `POST /api/vnstat/agents/:id/start` - Start monitoring an agent
-- `POST /api/vnstat/agents/:id/stop` - Stop monitoring an agent
+- `GET /api/monitor/agents` - List all configured agents
+- `POST /api/monitor/agents` - Add new agent
+- `PUT /api/monitor/agents/:id` - Update agent configuration
+- `DELETE /api/monitor/agents/:id` - Remove agent
+- `GET /api/monitor/agents/:id/status` - Get live connection status and current bandwidth
+- `GET /api/monitor/agents/:id/bandwidth` - Get historical bandwidth data
+- `POST /api/monitor/agents/:id/start` - Start monitoring an agent
+- `POST /api/monitor/agents/:id/stop` - Stop monitoring an agent
+- `GET /api/monitor/agents/:id/system` - Get system information from agent
+- `GET /api/monitor/agents/:id/hardware` - Get hardware stats from agent
+- `GET /api/monitor/agents/:id/peaks` - Get peak bandwidth statistics
 
 ### Frontend Components
 
-- **VnstatTab**: Main container component with agent list and details view
-- **VnstatAgentList**: Displays all agents with connection status indicators
-- **VnstatAgentForm**: Modal form for adding/editing agents
-- **VnstatAgentDetails**: Shows real-time and historical bandwidth charts
-- **VnstatBandwidthChart**: Recharts-based visualization of bandwidth data
+- **MonitorTab**: Main container component with agent list and details view
+- **MonitorAgentList**: Displays all agents with connection status indicators
+- **MonitorAgentForm**: Modal form for adding/editing agents
+- **MonitorAgentDetailsTabs**: Tabbed interface for agent details (Overview, Bandwidth, System & Hardware)
+- **MonitorBandwidthChart**: Recharts-based visualization of bandwidth data
+- **MonitorSystemInfo**: Displays system information and network interfaces
+- **MonitorHardwareStats**: Shows CPU, memory, disk, and temperature information with categorized sensor display
 
 ### Configuration
 
@@ -541,13 +591,15 @@ host = "0.0.0.0"     # IP address to bind to
 port = 8200          # Port for agent to listen on
 interface = ""       # Network interface to monitor (empty = all)
 api_key = ""         # API key for authentication (optional but recommended)
+disk_includes = []   # Additional disk mounts to monitor, e.g., ["/mnt/storage", "/mnt/backup"]
+disk_excludes = []   # Disk mounts to exclude from monitoring, e.g., ["/boot", "/tmp"]
 
-[vnstat]
-enabled = true       # Enable vnstat client service in main server
+[monitor]
+enabled = true       # Enable monitor client service in main server
 reconnect_interval = "30s"  # Reconnection interval for agent connections
 ```
 
-### vnstat Native Data Architecture
+### Monitor Native Data Architecture
 
 Netronome directly uses vnstat's native JSON output for bandwidth calculations, ensuring exact parity with other vnstat-based tools like swizzin panel.
 
@@ -568,6 +620,127 @@ Netronome uses proper binary units for bandwidth display:
 
 This ensures accurate representation of data sizes and bandwidth calculations.
 
+## Temperature Monitoring Architecture
+
+### Cross-Platform Support
+
+Temperature monitoring has been significantly enhanced with cross-platform support:
+
+#### Platform Capabilities
+
+- **Linux**: Full support for CPU cores/package (coretemp), NVMe drives, SATA drives (via SMART), ACPI thermal zones
+- **macOS**: Apple Silicon sensors (PMU dies, thermal devices, calibration), NVMe drives, NAND storage, battery
+- **Windows**: CPU cores/package, NVMe drives, ACPI thermal zones
+
+#### gopsutil v4 Integration
+
+- **Upgraded from v3 to v4**: Significantly improved Apple Silicon temperature sensor support
+- **API Changes**: Temperature functions moved from `host` package to `sensors` package
+- **Enhanced Detection**: 40+ temperature sensors detected on Apple Silicon vs 0 working sensors in v3
+- **Real Temperature Values**: Proper readings (29°C-52°C) instead of 0.0°C placeholders
+
+#### Temperature Monitoring Sources
+
+Netronome uses two different sources for temperature monitoring:
+
+1. **gopsutil v4** (works without CGO, included in all builds):
+   - CPU temperatures (all cores, packages, dies)
+   - NVMe temperatures (shows as nvme_composite)
+   - Battery temperatures
+   - Other system sensors (ACPI, thermal zones)
+
+2. **SMART via `anatol/smart.go`** (requires CGO, only in local builds):
+   - SATA/HDD temperature monitoring
+   - Disk model and serial number retrieval
+   - Platform support:
+     - **Linux**: Full SATA and NVMe SMART support
+     - **macOS**: NVMe-only SMART support (SATA not supported)
+     - **Windows**: No SMART support (stub implementation)
+   - Requires root/sudo privileges for disk access
+
+##### SMART Implementation Architecture
+
+The SMART functionality uses platform-specific build files to handle cross-platform compilation without CGO:
+
+- **`internal/agent/smart.go`**: Full SMART implementation for Linux and macOS
+  - Build tags: `//go:build !nosmart && (linux || darwin)`
+  - Implements `getDiskInfo()` and `getHDDTemperatures()` with actual SMART library calls
+  - Includes ATA string byte-swapping for proper model/serial display
+- **`internal/agent/smart_stub.go`**: Stub implementation for unsupported platforms
+  - Build tags: `//go:build nosmart || (!linux && !darwin)`
+  - Returns empty values to maintain API compatibility
+  - Allows goreleaser to build for all platforms without CGO
+
+##### ATA String Handling
+
+SATA/ATA drives store model and serial numbers with byte pairs swapped. The implementation includes proper byte-swapping:
+
+```go
+// swapBytes swaps pairs of bytes in ATA strings which are stored in a special format
+func swapBytes(b []byte) []byte {
+    swapped := make([]byte, len(b))
+    for i := 0; i < len(b)-1; i += 2 {
+        swapped[i] = b[i+1]
+        swapped[i+1] = b[i]
+    }
+    if len(b)%2 == 1 {
+        swapped[len(b)-1] = b[len(b)-1]
+    }
+    return swapped
+}
+```
+
+This ensures model names like "WDC WD40EFRX-68N32N0" display correctly instead of "DW CWD04FERX86-3NN20".
+
+#### Temperature Sensor Categorization
+
+Frontend displays sensors in user-friendly categories:
+
+```typescript
+// Simplified categorization for better UX
+const categories = {
+  "cpu": "CPU",                    // All processor-related sensors
+  "storage": "Storage",            // NVMe, NAND, SMART drives  
+  "power": "Power & Battery",      // Battery temperatures
+  "system": "System"               // Calibration, ACPI, misc
+};
+```
+
+**Category Mapping**:
+- **CPU**: `coretemp_core_*`, `coretemp_package`, `PMU tdie*`, `PMU tdev*`
+- **Storage**: `nvme_*`, `NAND*`, `smart_*`
+- **Power**: `gas gauge battery`, `*battery*`
+- **System**: `PMU tcal`, `acpitz`, other sensors
+
+#### Device Discovery Implementation
+
+Platform-specific device path discovery in `getDevicePaths()`:
+
+```go
+// Linux: Traditional device naming
+"/dev/sda", "/dev/nvme0n1"
+
+// macOS: Raw disk devices for SMART access  
+"/dev/rdisk0", "/dev/rdisk1" (skips partitions like rdisk0s1)
+```
+
+#### Technical Implementation Notes
+
+- **Error Handling**: `ErrOSUnsupported` gracefully handled for unsupported device types
+- **API Consistency**: Same `ReadGenericAttributes()` interface across platforms
+- **Sensor Filtering**: Invalid readings (≤0°C, >200°C) automatically filtered
+- **Original Names**: Temperature sensors display original names (e.g., "PMU tdie1") with categorization
+- **Real-time Updates**: Live temperature monitoring with 30-second intervals
+
+### Frontend Temperature Display
+
+Temperature sensors are organized into collapsible categories with:
+- **Section Headers**: "CPU (35)", "Storage (1)", etc. with sensor counts
+- **Original Sensor Names**: Technical accuracy preserved (PMU tdie1, gas gauge battery)
+- **Visual Indicators**: Color-coded temperature bars (green/amber/red)
+- **Critical Temperatures**: Max temperature display when available
+- **Responsive Layout**: Grid layout adapts to screen size
+
 ## Common Development Workflows
 
 ### Adding a New Speed Test Type
@@ -580,7 +753,7 @@ This ensures accurate representation of data sizes and bandwidth calculations.
 
 ### Adding a New API Endpoint
 
-1. Define handler in `internal/server/handlers.go`
+1. Define handler in `internal/handlers/your_handler.go` or add to existing handler
 2. Add route in `internal/server/server.go`
 3. Create database methods if needed in `internal/database/`
 4. Add TypeScript types in `web/src/types/`
@@ -589,7 +762,7 @@ This ensures accurate representation of data sizes and bandwidth calculations.
 ### Working with Database Migrations
 
 1. Create new migration files in `internal/database/migrations/sqlite/` and `internal/database/migrations/postgres/`
-2. Use sequential numbering (e.g., `014_your_migration.sql`)
+2. Use sequential numbering (e.g., `015_your_migration.sql`)
 3. Always provide both up and down migrations
 4. Test with both SQLite and PostgreSQL
 
@@ -607,4 +780,4 @@ This ensures accurate representation of data sizes and bandwidth calculations.
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

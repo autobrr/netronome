@@ -21,7 +21,7 @@ import (
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
-	"github.com/autobrr/netronome/internal/vnstat"
+	"github.com/autobrr/netronome/internal/monitor"
 	"github.com/autobrr/netronome/web"
 )
 
@@ -31,7 +31,7 @@ type Server struct {
 	Router               *gin.Engine
 	speedtest            speedtest.Service
 	packetLossService    *speedtest.PacketLossService
-	vnstatService        *vnstat.Service
+	monitorService       *monitor.Service
 	db                   database.Service
 	scheduler            scheduler.Service
 	auth                 *AuthHandler
@@ -39,11 +39,11 @@ type Server struct {
 	lastUpdate           *types.SpeedUpdate
 	lastTracerouteUpdate *types.TracerouteUpdate
 	lastPacketLossUpdate *types.PacketLossUpdate
-	lastVnstatUpdate     *types.VnstatUpdate
+	lastMonitorUpdate    *types.MonitorUpdate
 	config               *config.Config
 }
 
-func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config, packetLossService *speedtest.PacketLossService, vnstatService *vnstat.Service) *Server {
+func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config, packetLossService *speedtest.PacketLossService, monitorService *monitor.Service) *Server {
 	// Set Gin mode from config
 	if cfg.Server.GinMode != "" {
 		gin.SetMode(cfg.Server.GinMode)
@@ -83,7 +83,7 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 		Router:            router,
 		speedtest:         speedtest,
 		packetLossService: packetLossService,
-		vnstatService:     vnstatService,
+		monitorService:     monitorService,
 		db:                db,
 		scheduler:         scheduler,
 		auth:              NewAuthHandler(db, oidcConfig, cfg.Session.Secret, cfg.Auth.Whitelist),
@@ -137,9 +137,9 @@ func (s *Server) BroadcastPacketLossUpdate(update types.PacketLossUpdate) {
 		Msg("Broadcasting packet loss update")
 }
 
-func (s *Server) BroadcastVnstatUpdate(update types.VnstatUpdate) {
+func (s *Server) BroadcastMonitorUpdate(update types.MonitorUpdate) {
 	s.mu.Lock()
-	s.lastVnstatUpdate = &update
+	s.lastMonitorUpdate = &update
 	s.mu.Unlock()
 
 	log.Trace().
@@ -148,7 +148,7 @@ func (s *Server) BroadcastVnstatUpdate(update types.VnstatUpdate) {
 		Bool("connected", update.Connected).
 		Int64("rxBytesPerSecond", update.RxBytesPerSecond).
 		Int64("txBytesPerSecond", update.TxBytesPerSecond).
-		Msg("Broadcasting vnstat update")
+		Msg("Broadcasting monitor update")
 }
 
 func (s *Server) SetPacketLossService(service *speedtest.PacketLossService) {
@@ -157,9 +157,9 @@ func (s *Server) SetPacketLossService(service *speedtest.PacketLossService) {
 	s.mu.Unlock()
 }
 
-func (s *Server) SetVnstatService(service *vnstat.Service) {
+func (s *Server) SetMonitorService(service *monitor.Service) {
 	s.mu.Lock()
-	s.vnstatService = service
+	s.monitorService = service
 	s.mu.Unlock()
 }
 
@@ -256,17 +256,20 @@ func (s *Server) RegisterRoutes() {
 			}
 
 			// Vnstat monitoring routes
-			if s.vnstatService != nil {
-				vnstatHandler := handlers.NewVnstatHandler(s.db, s.vnstatService, &s.config.Vnstat)
-				protected.GET("/vnstat/agents", vnstatHandler.GetAgents)
-				protected.POST("/vnstat/agents", vnstatHandler.CreateAgent)
-				protected.GET("/vnstat/agents/:id", vnstatHandler.GetAgent)
-				protected.PUT("/vnstat/agents/:id", vnstatHandler.UpdateAgent)
-				protected.DELETE("/vnstat/agents/:id", vnstatHandler.DeleteAgent)
-				protected.GET("/vnstat/agents/:id/status", vnstatHandler.GetAgentStatus)
-				protected.POST("/vnstat/agents/:id/start", vnstatHandler.StartAgent)
-				protected.POST("/vnstat/agents/:id/stop", vnstatHandler.StopAgent)
-				protected.GET("/vnstat/agents/:id/native", vnstatHandler.GetAgentNativeVnstat)
+			if s.monitorService != nil {
+				monitorHandler := handlers.NewMonitorHandler(s.db, s.monitorService, &s.config.Monitor)
+				protected.GET("/monitor/agents", monitorHandler.GetAgents)
+				protected.POST("/monitor/agents", monitorHandler.CreateAgent)
+				protected.GET("/monitor/agents/:id", monitorHandler.GetAgent)
+				protected.PUT("/monitor/agents/:id", monitorHandler.UpdateAgent)
+				protected.DELETE("/monitor/agents/:id", monitorHandler.DeleteAgent)
+				protected.GET("/monitor/agents/:id/status", monitorHandler.GetAgentStatus)
+				protected.POST("/monitor/agents/:id/start", monitorHandler.StartAgent)
+				protected.POST("/monitor/agents/:id/stop", monitorHandler.StopAgent)
+				protected.GET("/monitor/agents/:id/native", monitorHandler.GetAgentNativeVnstat)
+				protected.GET("/monitor/agents/:id/system", monitorHandler.GetAgentSystemInfo)
+				protected.GET("/monitor/agents/:id/hardware", monitorHandler.GetAgentHardwareStats)
+				protected.GET("/monitor/agents/:id/peaks", monitorHandler.GetAgentPeakStats)
 			}
 		}
 	}

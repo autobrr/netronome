@@ -163,8 +163,8 @@ type PacketLossResult struct {
 	CreatedAt      time.Time `db:"created_at" json:"createdAt"`
 }
 
-// VnstatAgent represents a vnstat agent configuration
-type VnstatAgent struct {
+// MonitorAgent represents a monitoring agent configuration
+type MonitorAgent struct {
 	ID        int64     `db:"id" json:"id"`
 	Name      string    `db:"name" json:"name"`
 	URL       string    `db:"url" json:"url"`
@@ -175,8 +175,8 @@ type VnstatAgent struct {
 	UpdatedAt time.Time `db:"updated_at" json:"updatedAt"`
 }
 
-// VnstatBandwidth represents bandwidth data from vnstat
-type VnstatBandwidth struct {
+// MonitorBandwidth represents bandwidth data from monitoring agent
+type MonitorBandwidth struct {
 	ID                 int64     `db:"id" json:"id"`
 	AgentID            int64     `db:"agent_id" json:"agentId"`
 	RxBytesPerSecond   *int64    `db:"rx_bytes_per_second" json:"rxBytesPerSecond"`
@@ -188,8 +188,8 @@ type VnstatBandwidth struct {
 	CreatedAt          time.Time `db:"created_at" json:"createdAt"`
 }
 
-// VnstatLiveData represents live data from vnstat agent
-type VnstatLiveData struct {
+// MonitorLiveData represents live data from monitoring agent
+type MonitorLiveData struct {
 	Index   int `json:"index"`
 	Seconds int `json:"seconds"`
 	Rx      struct {
@@ -212,8 +212,8 @@ type VnstatLiveData struct {
 	} `json:"tx"`
 }
 
-// VnstatFullData represents the complete vnstat JSON export structure
-type VnstatFullData struct {
+// MonitorFullData represents the complete bandwidth monitor JSON export structure
+type MonitorFullData struct {
 	Vnstatversion string `json:"vnstatversion"`
 	Jsonversion   string `json:"jsonversion"`
 	Interfaces    []struct {
@@ -298,8 +298,8 @@ type VnstatFullData struct {
 	} `json:"interfaces"`
 }
 
-// VnstatUpdate represents real-time vnstat updates
-type VnstatUpdate struct {
+// MonitorUpdate represents real-time monitoring updates
+type MonitorUpdate struct {
 	Type             string `json:"type"`
 	AgentID          int64  `json:"agentId"`
 	AgentName        string `json:"agentName"`
@@ -308,4 +308,74 @@ type VnstatUpdate struct {
 	RxRateString     string `json:"rxRateString"`
 	TxRateString     string `json:"txRateString"`
 	Connected        bool   `json:"connected"`
+}
+
+// MonitorSystemInfo represents static/semi-static system information
+type MonitorSystemInfo struct {
+	ID            int64     `db:"id" json:"id"`
+	AgentID       int64     `db:"agent_id" json:"agentId"`
+	Hostname      string    `db:"hostname" json:"hostname"`
+	Kernel        string    `db:"kernel" json:"kernel"`
+	VnstatVersion string    `db:"vnstat_version" json:"vnstatVersion"`
+	CPUModel      string    `db:"cpu_model" json:"cpuModel"`
+	CPUCores      int       `db:"cpu_cores" json:"cpuCores"`
+	CPUThreads    int       `db:"cpu_threads" json:"cpuThreads"`
+	TotalMemory   int64     `db:"total_memory" json:"totalMemory"`
+	CreatedAt     time.Time `db:"created_at" json:"createdAt"`
+	UpdatedAt     time.Time `db:"updated_at" json:"updatedAt"`
+}
+
+// MonitorInterface represents network interface configuration
+type MonitorInterface struct {
+	ID        int64     `db:"id" json:"id"`
+	AgentID   int64     `db:"agent_id" json:"agentId"`
+	Name      string    `db:"name" json:"name"`
+	Alias     string    `db:"alias" json:"alias"`
+	IPAddress string    `db:"ip_address" json:"ipAddress"`
+	LinkSpeed int       `db:"link_speed" json:"linkSpeed"` // Mbps
+	CreatedAt time.Time `db:"created_at" json:"createdAt"`
+	UpdatedAt time.Time `db:"updated_at" json:"updatedAt"`
+}
+
+// MonitorBandwidthSample represents periodic bandwidth snapshots
+type MonitorBandwidthSample struct {
+	ID               int64     `db:"id" json:"id"`
+	AgentID          int64     `db:"agent_id" json:"agentId"`
+	RxBytesPerSecond int64     `db:"rx_bytes_per_second" json:"rxBytesPerSecond"`
+	TxBytesPerSecond int64     `db:"tx_bytes_per_second" json:"txBytesPerSecond"`
+	CreatedAt        time.Time `db:"created_at" json:"createdAt"`
+}
+
+// MonitorPeakStats represents historical peak bandwidth
+type MonitorPeakStats struct {
+	ID              int64      `db:"id" json:"id"`
+	AgentID         int64      `db:"agent_id" json:"agentId"`
+	PeakRxBytes     int64      `db:"peak_rx_bytes" json:"peakRxBytes"`
+	PeakTxBytes     int64      `db:"peak_tx_bytes" json:"peakTxBytes"`
+	PeakRxTimestamp *time.Time `db:"peak_rx_timestamp" json:"peakRxTimestamp"`
+	PeakTxTimestamp *time.Time `db:"peak_tx_timestamp" json:"peakTxTimestamp"`
+	CreatedAt       time.Time  `db:"created_at" json:"createdAt"`
+}
+
+// MonitorResourceStats represents hardware resource usage
+type MonitorResourceStats struct {
+	ID                int64     `db:"id" json:"id"`
+	AgentID           int64     `db:"agent_id" json:"agentId"`
+	CPUUsagePercent   float64   `db:"cpu_usage_percent" json:"cpuUsagePercent"`
+	MemoryUsedPercent float64   `db:"memory_used_percent" json:"memoryUsedPercent"`
+	SwapUsedPercent   float64   `db:"swap_used_percent" json:"swapUsedPercent"`
+	DiskUsageJSON     string    `db:"disk_usage_json" json:"diskUsageJson"`
+	TemperatureJSON   string    `db:"temperature_json" json:"temperatureJson"`
+	UptimeSeconds     int64     `db:"uptime_seconds" json:"uptimeSeconds"`
+	CreatedAt         time.Time `db:"created_at" json:"createdAt"`
+}
+
+// MonitorHistoricalSnapshot represents monitoring data snapshots
+type MonitorHistoricalSnapshot struct {
+	ID            int64     `db:"id" json:"id"`
+	AgentID       int64     `db:"agent_id" json:"agentId"`
+	InterfaceName string    `db:"interface_name" json:"interfaceName"`
+	PeriodType    string    `db:"period_type" json:"periodType"` // 'hourly', 'daily', 'monthly'
+	DataJSON      string    `db:"data_json" json:"dataJson"`
+	CreatedAt     time.Time `db:"created_at" json:"createdAt"`
 }

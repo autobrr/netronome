@@ -16,7 +16,7 @@ Netronome (Network Metronome) is a modern network performance testing and monito
 - [Configuration](#️-configuration)
   - [Configuration File](#configuration-file-configtoml)
     - [LibreSpeed Configuration](#librespeed-configuration)
-  - [Vnstat Bandwidth Monitoring](#vnstat-bandwidth-monitoring)
+  - [System Monitoring](#system-monitoring)
   - [Environment Variables](#environment-variables)
   - [Database](#database)
   - [Authentication](#authentication)
@@ -44,11 +44,14 @@ Netronome (Network Metronome) is a modern network performance testing and monito
   - **GeoIP Integration**: Country flags and ASN information for network path visualization
   - **Cross-tab Navigation**: Easy flow between traceroute results and monitor creation
 
-- **Bandwidth Monitoring (vnstat)**
-  - **Distributed Agent Architecture**: Deploy lightweight agents on remote servers
-  - **Real-time SSE Streaming**: Live bandwidth data via Server-Sent Events
-  - **Multi-server Support**: Monitor bandwidth across multiple servers from one dashboard
-  - **Historical Tracking**: Store and visualize bandwidth usage over time
+- **Comprehensive System Monitoring**
+  - **Distributed Agent Architecture**: Deploy lightweight agents on remote servers for complete system visibility
+  - **Real-time SSE Streaming**: Live system metrics via Server-Sent Events
+  - **Multi-server Support**: Monitor multiple servers from one centralized dashboard
+  - **Bandwidth Monitoring**: Real-time and historical network usage with vnstat integration
+  - **Hardware Monitoring**: CPU usage, memory stats, disk usage, and temperature sensors
+  - **System Information**: Hostname, kernel version, uptime, network interfaces, and more
+  - **Historical Tracking**: Store and visualize all metrics over time
   - **Auto-reconnection**: Agents automatically reconnect with exponential backoff
 
 - **Monitoring & Visualization**
@@ -100,6 +103,8 @@ Download the latest release, or download the source code and build it yourself u
 ```bash
 wget $(curl -s https://api.github.com/repos/autobrr/netronome/releases/latest | grep download | grep linux_x86_64 | cut -d\" -f4)
 ```
+
+**Note**: Release binaries still include most temperature monitoring (CPU, NVMe, battery) via gopsutil. Only SATA/HDD temperatures and disk model names require building from source with SMART support. See [Building from Source](#building-from-source) for details.
 
 #### Unpack
 
@@ -256,15 +261,15 @@ Example `librespeed-servers.json`:
 
 **Note:** When using Docker, the LibreSpeed CLI tool (`librespeed-cli`) is automatically included in the container.
 
-### Vnstat Bandwidth Monitoring
+### System Monitoring
 
-Netronome includes a distributed bandwidth monitoring system using vnstat agents that can be deployed on remote servers.
+Netronome includes a comprehensive distributed monitoring system using lightweight agents that can be deployed on remote servers to track bandwidth, hardware resources, and system information.
 
 #### Agent Setup
 
 The same `netronome` binary can run as a lightweight agent that can be deployed:
 
-- **Remote servers**: Monitor bandwidth across different servers/locations
+- **Remote servers**: Monitor system resources, bandwidth, and hardware across different servers/locations
 - **Same server**: Useful when Netronome runs in Docker but you want to monitor the host system
 
 ##### Quick Installation (Recommended)
@@ -342,6 +347,12 @@ journalctl -u netronome-agent-update
    # Run agent with specific interface
    netronome agent --interface eth0 --api-key your-secret-key
 
+   # Include additional disk mounts (e.g., /mnt/storage)
+   netronome agent --disk-include /mnt/storage --disk-include /mnt/backup
+
+   # Exclude certain disk mounts from monitoring
+   netronome agent --disk-exclude /boot --disk-exclude /tmp
+
    # Run with config file
    netronome agent --config /path/to/config.toml
    ```
@@ -356,19 +367,27 @@ journalctl -u netronome-agent-update
    port = 8200
    interface = ""    # Empty for all interfaces, or specify like "eth0"
    api_key = ""      # API key for authentication (recommended)
+   disk_includes = []  # Additional disk mounts to monitor, e.g., ["/mnt/storage", "/mnt/backup"]
+   disk_excludes = []  # Disk mounts to exclude from monitoring, e.g., ["/boot", "/tmp"]
 
-   [vnstat]
+   [monitor]
    enabled = true
    ```
 
 3. **Add Agents in Netronome UI**
-   - Navigate to the "Bandwidth" tab
+   - Navigate to the "Monitoring" tab
    - Click "Add Agent"
    - Enter agent details:
      - Name: Friendly name for the server
      - URL: `http://server-ip:8200` (agent URL)
      - API Key: Enter the key configured on the agent (if authentication is enabled)
      - Enable monitoring: Start monitoring immediately
+   - Once connected, view:
+     - Real-time bandwidth usage
+     - CPU, memory, and disk utilization
+     - System information and uptime
+     - Network interface details
+     - Temperature sensors (if available)
 
 #### Agent Systemd Service
 
@@ -376,7 +395,7 @@ Create `/etc/systemd/system/netronome-agent.service`:
 
 ```ini
 [Unit]
-Description=Netronome vnstat Agent
+Description=Netronome Monitor Agent
 After=network-online.target
 Wants=network-online.target
 
@@ -405,6 +424,51 @@ systemctl start netronome-agent
 - No authentication on agent endpoint (rely on network security)
 - Consider using reverse proxy with authentication if exposing to internet
 - Agents are read-only and don't accept commands
+
+#### Monitoring Capabilities
+
+The monitoring agents provide comprehensive system visibility:
+
+- **Bandwidth Monitoring**: Real-time network usage via vnstat integration
+- **Hardware Statistics**: 
+  - CPU usage percentage and load averages
+  - Memory and swap usage
+  - Disk usage across all mounted filesystems
+  - Temperature sensors (where available)
+- **System Information**:
+  - Hostname and kernel version
+  - System uptime
+  - Network interface details and IP addresses
+  - Peak bandwidth statistics
+
+#### Disk Filtering
+
+The agent supports flexible disk filtering to customize which filesystems are monitored:
+
+- **Include Specific Mounts**: Use `disk_includes` to monitor additional mount points that might be excluded by default (e.g., `/mnt/storage`, `/mnt/nas`)
+- **Exclude Mounts**: Use `disk_excludes` to hide specific mount points from monitoring (e.g., `/boot`, `/tmp`)
+- **Glob Patterns**: Supports standard glob patterns for flexible matching (e.g., `/System/*`, `/mnt/disk*`)
+- **Priority**: Explicitly included paths take precedence over exclusion rules
+- **Default Behavior**: Special filesystems (`/snap/*`, `/run/*`, tmpfs, devfs, squashfs) are excluded unless explicitly included
+
+Examples:
+```bash
+# Monitor /mnt/storage even if it's a special filesystem type
+netronome agent --disk-include /mnt/storage
+
+# Exclude all System volumes on macOS
+netronome agent --disk-exclude "/System/*"
+
+# Include all /mnt/disk* mounts
+netronome agent --disk-include "/mnt/disk*"
+
+# Hide /boot and all /tmp* directories from monitoring
+netronome agent --disk-exclude /boot --disk-exclude "/tmp*"
+
+# Using environment variables
+export NETRONOME__AGENT_DISK_INCLUDES="/mnt/storage,/mnt/disk*"
+export NETRONOME__AGENT_DISK_EXCLUDES="/boot,/tmp*,/System/*"
+```
 
 #### Data Accuracy and Unit Display
 
@@ -467,8 +531,10 @@ This ensures accurate and unambiguous representation of bandwidth data.
 | `NETRONOME__AGENT_HOST`                             | Agent server bind address                                         | `0.0.0.0`                                    | No                     |
 | `NETRONOME__AGENT_PORT`                             | Agent server port                                                 | `8200`                                       | No                     |
 | `NETRONOME__AGENT_INTERFACE`                        | Network interface for agent to monitor (empty for all)            | ``                                           | No                     |
-| `NETRONOME__VNSTAT_ENABLED`                         | Enable vnstat client service in main server                       | `true`                                       | No                     |
-| `NETRONOME__VNSTAT_RECONNECT_INTERVAL`              | Reconnection interval for vnstat client connections               | `30s`                                        | No                     |
+| `NETRONOME__AGENT_DISK_INCLUDES`                    | Comma-separated list of disk mounts to include                    | ``                                           | No                     |
+| `NETRONOME__AGENT_DISK_EXCLUDES`                    | Comma-separated list of disk mounts to exclude                    | ``                                           | No                     |
+| `NETRONOME__MONITOR_ENABLED`                        | Enable monitor client service in main server                      | `true`                                       | No                     |
+| `NETRONOME__MONITOR_RECONNECT_INTERVAL`             | Reconnection interval for monitor agent connections               | `30s`                                        | No                     |
 
 ### Database
 
@@ -690,7 +756,7 @@ Netronome provides several command-line commands:
 
 - `generate-config` - Generate a default configuration file to `~/.config/netronome/config.toml`
 - `serve` - Starts the Netronome server
-- `agent` - Starts a vnstat SSE agent for bandwidth monitoring
+- `agent` - Starts a monitor SSE agent for system and bandwidth monitoring
 - `create-user` - Create a new user
 - `change-password` - Change password for an existing user
 
@@ -699,7 +765,7 @@ Examples:
 ```bash
 netronome generate-config
 
-# Start vnstat agent with custom settings
+# Start monitor agent with custom settings
 netronome agent --host 192.168.1.100 --port 8300 --interface eth0
 
 # Create a new user (interactive)
@@ -714,6 +780,120 @@ netronome --config /home/username/.config/netronome/config.toml change-password 
 # Change user password (non-interactive)
 echo "newpassword123" | netronome --config /home/username/.config/netronome/config.toml change-password username
 ```
+
+## ❓ FAQ
+
+### Temperature Monitoring
+
+**Q: What temperature sensors are supported?**
+
+Netronome supports comprehensive temperature monitoring across multiple platforms:
+
+- **Linux**: CPU cores/package, NVMe drives, SATA drives (via SMART), ACPI thermal zones
+- **macOS**: CPU dies, thermal devices, calibration sensors, NVMe drives, NAND storage, battery
+- **Windows**: CPU cores/package, NVMe drives, ACPI thermal zones
+
+**Q: Why don't I see disk temperatures in the monitoring interface?**
+
+A: Disk temperature monitoring has several requirements:
+
+1. **Platform Support**: 
+   - **Linux**: Full SMART support for SATA and NVMe drives
+   - **macOS**: NVMe drives only (SATA drives not supported)
+   - **Windows**: No SMART support (uses stub implementation)
+   - **Other platforms**: No SMART support
+
+2. **Build Requirements**: 
+   - Release binaries are built without SMART support but still include:
+     - CPU temperature monitoring (all platforms)
+     - NVMe temperature monitoring (via gopsutil)
+     - Battery temperature monitoring
+   - SMART functionality (only for SATA/HDD temps and disk model names) requires:
+     - The `github.com/anatol/smart.go` library
+     - Building from source with CGO enabled
+     - Only available on Linux and macOS
+   - The `nosmart` build tag disables SMART support but keeps gopsutil temperatures
+
+3. **Privileges Required**: The agent must run with elevated privileges (root/sudo) to access SMART data from disk devices. Without proper permissions, HDD temperatures cannot be read.
+
+4. **SMART Support**: The drive must support SMART (Self-Monitoring, Analysis and Reporting Technology) and have it enabled. Most modern drives support this, but some older or specialized drives may not.
+
+5. **Temperature Sensor**: Not all drives report temperature via SMART. Some drives, particularly older models, may not have temperature sensors.
+
+**Q: Why do I see multiple temperature entries for NVMe drives?**
+
+A: This is a limitation of the gopsutil library used for temperature monitoring. NVMe drives often have multiple temperature sensors (composite and individual sensors), but the library doesn't always provide enough context to distinguish which physical drive each sensor belongs to. You may see duplicate "nvme_composite" entries without clear identification of which drive they represent.
+
+**Q: What do the different temperature sensor categories mean?**
+
+Temperature sensors are organized into user-friendly categories:
+
+- **CPU**: All processor-related sensors (cores, dies, thermal devices, packages)
+- **Storage**: NVMe drives, NAND storage, SATA drives (where supported)
+- **Power & Battery**: Battery temperature sensors (mainly on laptops)
+- **System**: Calibration sensors, ACPI thermal zones, and other system sensors
+
+**Q: How can I enable disk temperature monitoring?**
+
+Run the agent with elevated privileges:
+
+```bash
+# Using sudo
+sudo netronome agent --config /path/to/config.toml
+
+# Or in the systemd service file, run as root
+User=root
+```
+
+**Note**: Running with elevated privileges has security implications. Only do this in trusted environments.
+
+## 🔨 Building from Source
+
+### Building with Full SMART Support
+
+The release binaries include most temperature monitoring (CPU, NVMe, battery) but lack SMART support for SATA/HDD temperatures and disk model names. To build with full SMART support on Linux or macOS:
+
+```bash
+# Clone the repository
+git clone https://github.com/autobrr/netronome
+cd netronome
+
+# Build with SMART support (default when building locally)
+make build
+
+# The binary will be in ./bin/netronome with full SMART support
+sudo ./bin/netronome agent  # Run with sudo for SATA/HDD temperature access
+```
+
+### Building without SMART Support
+
+To build without SMART support (like the release binaries):
+
+```bash
+# Build with nosmart tag (still includes CPU/NVMe/battery temps via gopsutil)
+CGO_ENABLED=0 go build -tags nosmart -o bin/netronome ./cmd/netronome
+```
+
+**What works without SMART:**
+- ✅ CPU temperature monitoring (all cores, packages)
+- ✅ NVMe temperature monitoring 
+- ✅ Battery temperature monitoring
+- ✅ Other system sensors via gopsutil
+
+**What requires SMART (Linux/macOS only):**
+- ❌ SATA/HDD temperature monitoring
+- ❌ Disk model and serial number display
+
+### Docker Build
+
+The Docker images include SMART support by default:
+
+```bash
+make docker-build
+make docker-run
+```
+
+**Note**: When running Docker containers, ensure you use `--cap-add=NET_RAW` and run with appropriate privileges for SMART disk access.
 
 ## 🤝 Contributing
 

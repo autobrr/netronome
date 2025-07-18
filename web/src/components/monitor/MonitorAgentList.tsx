@@ -9,22 +9,27 @@ import {
   PencilIcon,
   TrashIcon,
   SparklesIcon,
-} from "@heroicons/react/24/outline";
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ChevronRightIcon,
+  LockClosedIcon,
+  LockOpenIcon,
+} from "@heroicons/react/24/solid";
 import { SparklesIcon as SparklesIconSolid } from "@heroicons/react/24/solid";
-import { VnstatAgent } from "@/api/vnstat";
+import { MonitorAgent } from "@/api/monitor";
 import { AgentIcon } from "@/utils/agentIcons";
-import { useVnstatAgent } from "@/hooks/useVnstatAgent";
+import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 
-interface VnstatAgentListProps {
-  agents: VnstatAgent[];
-  selectedAgent: VnstatAgent | null;
-  onSelectAgent: (agent: VnstatAgent) => void;
-  onEditAgent: (agent: VnstatAgent) => void;
+interface MonitorAgentListProps {
+  agents: MonitorAgent[];
+  selectedAgent: MonitorAgent | null;
+  onSelectAgent: (agent: MonitorAgent) => void;
+  onEditAgent: (agent: MonitorAgent) => void;
   onDeleteAgent: (id: number) => void;
   isLoading: boolean;
 }
 
-export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
+export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
   agents,
   selectedAgent,
   onSelectAgent,
@@ -59,15 +64,15 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
         </h3>
       </div>
 
-      <div className="divide-y divide-gray-200 dark:divide-gray-800">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-y lg:divide-y-0 divide-gray-200 dark:divide-gray-800">
         {isLoading ? (
-          <div className="p-4 text-center">
+          <div className="lg:col-span-2 p-4 text-center">
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Loading agents...
             </p>
           </div>
         ) : !agents || agents.length === 0 ? (
-          <div className="p-4 text-center">
+          <div className="lg:col-span-2 p-4 text-center">
             <AgentIcon
               name="Server"
               className="mx-auto h-10 w-10 text-gray-400"
@@ -98,8 +103,8 @@ export const VnstatAgentList: React.FC<VnstatAgentListProps> = ({
 };
 
 interface AgentListItemProps {
-  agent: VnstatAgent;
-  agents: VnstatAgent[];
+  agent: MonitorAgent;
+  agents: MonitorAgent[];
   isSelected: boolean;
   onSelect: () => void;
   onEdit: () => void;
@@ -114,12 +119,16 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const { status } = useVnstatAgent({ agent });
+  const { status } = useMonitorAgent({
+    agent,
+    includeNativeData: true,
+    includeHardwareStats: false, // Don't fetch hardware stats for every agent in the list
+  });
 
   // Featured agents management with local state for instant feedback
   const getFeaturedAgentIds = (): number[] => {
     try {
-      const stored = localStorage.getItem("netronome-featured-vnstat-agents");
+      const stored = localStorage.getItem("netronome-featured-monitor-agents");
       const parsed = stored ? JSON.parse(stored) : [];
       // Ensure it's always an array
       return Array.isArray(parsed) ? parsed : [];
@@ -133,7 +142,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       // Ensure we're storing a valid array
       const validIds = Array.isArray(ids) ? ids : [];
       localStorage.setItem(
-        "netronome-featured-vnstat-agents",
+        "netronome-featured-monitor-agents",
         JSON.stringify(validIds)
       );
     } catch {
@@ -251,16 +260,53 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-              <span className="truncate">
-                {agent.url.replace(/\/events\?stream=live-data$/, "")}
-              </span>
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-1.5 min-w-0">
+                {agent.apiKey ? (
+                  <LockClosedIcon
+                    className="h-3 w-3 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
+                    title="Authentication enabled"
+                  />
+                ) : (
+                  <LockOpenIcon
+                    className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0"
+                    title="No authentication"
+                  />
+                )}
+                <span className="truncate">
+                  {agent.url.replace(/\/events\?stream=live-data$/, "")}
+                </span>
+              </div>
             </div>
+
+            {/* Key metrics */}
+            {agent.enabled && status?.connected && (
+              <div className="flex items-center gap-4 mt-2 text-xs">
+                {/* Current speeds */}
+                {status.liveData && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      <ArrowDownIcon className="h-3 w-3 text-blue-500" />
+                      <span className="text-gray-700 dark:text-gray-300 font-medium">
+                        {status.liveData.rx.ratestring}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <ArrowUpIcon className="h-3 w-3 text-green-500" />
+                      <span className="text-gray-700 dark:text-gray-300 font-medium">
+                        {status.liveData.tx.ratestring}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           <div className="flex items-center gap-0.5">
+            <ChevronRightIcon className="w-4 h-4 text-gray-400 mr-1" />
             <button
               className={`p-1 rounded-md transition-colors ${
                 isFeatured

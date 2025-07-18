@@ -80,12 +80,33 @@ type Service interface {
 	GetPacketLossMonitors() ([]*types.PacketLossMonitor, error)
 	GetPacketLossResults(monitorID int64, limit int) ([]*types.PacketLossResult, error)
 
-	// Vnstat operations
-	CreateVnstatAgent(ctx context.Context, agent *types.VnstatAgent) (*types.VnstatAgent, error)
-	GetVnstatAgent(ctx context.Context, agentID int64) (*types.VnstatAgent, error)
-	GetVnstatAgents(ctx context.Context, enabledOnly bool) ([]*types.VnstatAgent, error)
-	UpdateVnstatAgent(ctx context.Context, agent *types.VnstatAgent) error
-	DeleteVnstatAgent(ctx context.Context, agentID int64) error
+	// Monitor operations
+	CreateMonitorAgent(ctx context.Context, agent *types.MonitorAgent) (*types.MonitorAgent, error)
+	GetMonitorAgent(ctx context.Context, agentID int64) (*types.MonitorAgent, error)
+	GetMonitorAgents(ctx context.Context, enabledOnly bool) ([]*types.MonitorAgent, error)
+	UpdateMonitorAgent(ctx context.Context, agent *types.MonitorAgent) error
+	DeleteMonitorAgent(ctx context.Context, agentID int64) error
+
+	// Monitor agent data operations
+	UpsertMonitorSystemInfo(ctx context.Context, agentID int64, info *types.MonitorSystemInfo) error
+	GetMonitorSystemInfo(ctx context.Context, agentID int64) (*types.MonitorSystemInfo, error)
+	
+	UpsertMonitorInterfaces(ctx context.Context, agentID int64, interfaces []types.MonitorInterface) error
+	GetMonitorInterfaces(ctx context.Context, agentID int64) ([]types.MonitorInterface, error)
+	
+	SaveMonitorBandwidthSample(ctx context.Context, agentID int64, rxBytes, txBytes int64) error
+	GetMonitorBandwidthSamples(ctx context.Context, agentID int64, hours int) ([]types.MonitorBandwidthSample, error)
+	
+	UpsertMonitorPeakStats(ctx context.Context, agentID int64, stats *types.MonitorPeakStats) error
+	GetMonitorPeakStats(ctx context.Context, agentID int64) (*types.MonitorPeakStats, error)
+	
+	SaveMonitorResourceStats(ctx context.Context, agentID int64, stats *types.MonitorResourceStats) error
+	GetMonitorResourceStats(ctx context.Context, agentID int64, hours int) ([]types.MonitorResourceStats, error)
+	
+	SaveMonitorHistoricalSnapshot(ctx context.Context, agentID int64, snapshot *types.MonitorHistoricalSnapshot) error
+	GetMonitorLatestSnapshot(ctx context.Context, agentID int64, periodType string) (*types.MonitorHistoricalSnapshot, error)
+	
+	CleanupMonitorData(ctx context.Context) error
 }
 
 type service struct {

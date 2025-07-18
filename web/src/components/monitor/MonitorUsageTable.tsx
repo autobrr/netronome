@@ -4,13 +4,13 @@
  */
 
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getVnstatAgentNative } from "@/api/vnstat";
-import { parseVnstatUsagePeriods } from "@/utils/vnstatParser";
+import { MonitorAgent, MonitorUsageSummary } from "@/api/monitor";
+import { useMonitorAgent } from "@/hooks/useMonitorAgent";
+import { parseMonitorUsagePeriods } from "@/utils/monitorDataParser";
 import { formatBytes } from "@/utils/formatBytes";
 
-interface VnstatUsageTableProps {
-  agentId: number;
+interface MonitorUsageTableProps {
+  agent: MonitorAgent;
 }
 
 interface UsagePeriod {
@@ -20,36 +20,31 @@ interface UsagePeriod {
   total: number; // Total bytes
 }
 
-export const VnstatUsageTable: React.FC<VnstatUsageTableProps> = ({
-  agentId,
+export const MonitorUsageTable: React.FC<MonitorUsageTableProps> = ({
+  agent,
 }) => {
-  // Fetch native vnstat data from agent
-  const {
-    data: nativeData,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["vnstat-agent-native", agentId],
-    queryFn: () => getVnstatAgentNative(agentId),
-    refetchInterval: 30000, // Refetch every 30 seconds
+  // Use the shared hook for native monitor data
+  const { nativeData, isLoadingNativeData } = useMonitorAgent({
+    agent,
+    includeNativeData: true,
   });
 
-  // Parse vnstat native data into usage periods
+  // Parse monitor native data into usage periods
   const usageDataFromParser = nativeData
-    ? parseVnstatUsagePeriods(nativeData)
+    ? parseMonitorUsagePeriods(nativeData)
     : {};
 
   // Convert parsed data to table format
   const usageData: UsagePeriod[] = Object.entries(usageDataFromParser).map(
     ([period, data]) => ({
       period,
-      download: data.download,
-      upload: data.upload,
-      total: data.total,
+      download: (data as MonitorUsageSummary).download,
+      upload: (data as MonitorUsageSummary).upload,
+      total: (data as MonitorUsageSummary).total,
     })
   );
 
-  if (isLoading) {
+  if (isLoadingNativeData) {
     return (
       <div className="flex h-32 items-center justify-center">
         <p className="text-gray-500 dark:text-gray-400">
@@ -59,7 +54,7 @@ export const VnstatUsageTable: React.FC<VnstatUsageTableProps> = ({
     );
   }
 
-  if (error) {
+  if (!nativeData && !isLoadingNativeData) {
     return (
       <div className="flex h-32 items-center justify-center">
         <p className="text-red-500 dark:text-red-400">
