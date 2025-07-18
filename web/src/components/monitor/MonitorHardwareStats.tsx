@@ -27,7 +27,7 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
 }) => {
   const getProgressColor = (percent: number) => {
     if (percent < 50) return "#34d399"; // emerald-400
-    if (percent < 75) return "#d97706"; // amber-600
+    if (percent < 85) return "#d97706"; // amber-600
     return "#EF4444"; // red
   };
 
@@ -86,10 +86,8 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                 }}
               />
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-              {hardwareStats.cpu.model}
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+              {hardwareStats.cpu.model} @{" "}
               {formatFrequency(hardwareStats.cpu.frequency)}
             </p>
             {hardwareStats.cpu.load_avg && (
@@ -214,7 +212,7 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                               <div className="flex items-center space-x-2">
                                 <div className="w-3 h-3 bg-blue-500 dark:bg-blue-600 rounded" />
                                 <span className="text-gray-600 dark:text-gray-400">
-                                  Application
+                                  Services
                                 </span>
                               </div>
                               <span className="text-gray-700 dark:text-gray-300">
@@ -358,216 +356,220 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
       )}
 
       {/* Temperature Sensors */}
-      {shouldShow("temperature") && hardwareStats.temperature && hardwareStats.temperature.length > 0 && (
-        <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
-          <div className="flex items-center space-x-2 mb-4">
-            <FireIcon className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              Temperature Sensors
-            </h3>
-          </div>
+      {shouldShow("temperature") &&
+        hardwareStats.temperature &&
+        hardwareStats.temperature.length > 0 && (
+          <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
+            <div className="flex items-center space-x-2 mb-4">
+              <FireIcon className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                Temperature Sensors
+              </h3>
+            </div>
 
-          <div className="space-y-6">
-            {(() => {
-              // Categorize temperature sensors (no filtering - show all sensors)
-              const filteredTemps = hardwareStats.temperature;
+            <div className="space-y-6">
+              {(() => {
+                // Categorize temperature sensors (no filtering - show all sensors)
+                const filteredTemps = hardwareStats.temperature;
 
-              const getCategory = (temp: (typeof filteredTemps)[0]) => {
-                const key = temp.sensor_key.toLowerCase();
-                const label = (temp.label || "").toLowerCase();
+                const getCategory = (temp: (typeof filteredTemps)[0]) => {
+                  const key = temp.sensor_key.toLowerCase();
+                  const label = (temp.label || "").toLowerCase();
 
-                // CPU - All processor-related sensors
-                if (
-                  key.includes("coretemp_core_") ||
-                  key.includes("coretemp_package") ||
-                  label.includes("core ") ||
-                  label.includes("package")
-                )
-                  return "cpu";
-                if (key.includes("pmu tdie") || key.includes("pmu2 tdie"))
-                  return "cpu";
-                if (key.includes("pmu tdev") || key.includes("pmu2 tdev"))
-                  return "cpu";
-                // AMD k10temp sensors
-                if (key.includes("k10temp_")) return "cpu";
-                // AMD zenpower sensors
-                if (key.includes("zenpower_")) return "cpu";
+                  // CPU - All processor-related sensors
+                  if (
+                    key.includes("coretemp_core_") ||
+                    key.includes("coretemp_package") ||
+                    label.includes("core ") ||
+                    label.includes("package")
+                  )
+                    return "cpu";
+                  if (key.includes("pmu tdie") || key.includes("pmu2 tdie"))
+                    return "cpu";
+                  if (key.includes("pmu tdev") || key.includes("pmu2 tdev"))
+                    return "cpu";
+                  // AMD k10temp sensors
+                  if (key.includes("k10temp_")) return "cpu";
+                  // AMD zenpower sensors
+                  if (key.includes("zenpower_")) return "cpu";
 
-                // Storage - All storage devices
-                if (key.includes("nvme") || label.includes("nvme"))
-                  return "storage";
-                if (key.includes("nand") || key.includes("smart_"))
-                  return "storage";
-                if (label.includes("hdd") || label.includes("ssd"))
-                  return "storage";
+                  // Storage - All storage devices
+                  if (key.includes("nvme") || label.includes("nvme"))
+                    return "storage";
+                  if (key.includes("nand") || key.includes("smart_"))
+                    return "storage";
+                  if (label.includes("hdd") || label.includes("ssd"))
+                    return "storage";
 
-                // Power - Battery and power management
-                if (key.includes("battery") || key.includes("gas gauge"))
-                  return "power";
+                  // Power - Battery and power management
+                  if (key.includes("battery") || key.includes("gas gauge"))
+                    return "power";
 
-                // System - Everything else (calibration, ACPI, misc)
-                return "system";
-              };
+                  // System - Everything else (calibration, ACPI, misc)
+                  return "system";
+                };
 
-              // Group sensors by category
-              const categories = filteredTemps.reduce((acc, temp) => {
-                const category = getCategory(temp);
-                if (!acc[category]) acc[category] = [];
-                acc[category].push(temp);
-                return acc;
-              }, {} as Record<string, typeof filteredTemps>);
+                // Group sensors by category
+                const categories = filteredTemps.reduce((acc, temp) => {
+                  const category = getCategory(temp);
+                  if (!acc[category]) acc[category] = [];
+                  acc[category].push(temp);
+                  return acc;
+                }, {} as Record<string, typeof filteredTemps>);
 
-              // Sort within each category
-              Object.keys(categories).forEach((cat) => {
-                categories[cat].sort((a, b) =>
-                  a.sensor_key.localeCompare(b.sensor_key)
-                );
-              });
-
-              const categoryOrder = [
-                { key: "cpu", title: "CPU" },
-                { key: "storage", title: "Storage" },
-                { key: "power", title: "Power & Battery" },
-                { key: "system", title: "System" },
-              ];
-
-              return categoryOrder
-                .map(({ key, title }) => {
-                  const temps = categories[key];
-                  if (!temps || temps.length === 0) return null;
-
-                  return (
-                    <div key={key} className="space-y-3">
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 pb-1">
-                        {title} ({temps.length})
-                      </h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {temps.map((temp, index) => {
-                          // For invalid critical temps (> 1000°C), use absolute temperature thresholds
-                          const hasValidCritical =
-                            temp.critical &&
-                            temp.critical > 0 &&
-                            temp.critical < 1000;
-
-                          const percentage =
-                            hasValidCritical && temp.critical
-                              ? Math.min(
-                                  (temp.temperature / temp.critical) * 100,
-                                  100
-                                )
-                              : (temp.temperature / 100) * 100; // Assume 100°C max if no valid critical temp
-
-                          // Use different thresholds based on sensor type
-                          // For HDDs/SSDs, 50°C is warm, 60°C is hot
-                          // For CPUs/NVMe, 60°C is warm, 80°C is hot
-                          const isStorageSensor =
-                            temp.sensor_key.toLowerCase().includes("smart_") ||
-                            temp.label?.toLowerCase().includes("hdd") ||
-                            temp.label?.toLowerCase().includes("ssd");
-
-                          const warmThreshold = isStorageSensor ? 50 : 60;
-                          const hotThreshold = isStorageSensor ? 60 : 80;
-
-                          const isWarm =
-                            temp.temperature > warmThreshold &&
-                            temp.temperature <= hotThreshold;
-                          const isHot = temp.temperature > hotThreshold;
-
-                          const getTemperatureColor = () => {
-                            if (isHot) return "#EF4444"; // red
-                            if (isWarm) return "#F59E0B"; // amber
-                            return "#34d399"; // green
-                          };
-
-                          // Extract device identifier from label if it contains parentheses
-                          const getSensorDisplay = () => {
-                            if (
-                              temp.label &&
-                              temp.label.includes("(") &&
-                              temp.label.includes(")")
-                            ) {
-                              // Extract device ID from label like "Model Name (SDA)"
-                              const match = temp.label.match(/\(([^)]+)\)$/);
-                              if (match) {
-                                return match[1];
-                              }
-                            }
-                            // For non-SMART sensors, use the sensor key
-                            return temp.sensor_key;
-                          };
-
-                          // Get the model name from label (without device ID)
-                          const getModelName = () => {
-                            if (
-                              temp.label &&
-                              temp.label.includes("(") &&
-                              temp.label.includes(")")
-                            ) {
-                              // Remove the (SDA) part to get just the model
-                              return temp.label.replace(/\s*\([^)]+\)$/, "");
-                            }
-                            return null;
-                          };
-
-                          return (
-                            <div
-                              key={index}
-                              className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 flex flex-col"
-                            >
-                              <p
-                                className="text-xs text-gray-600 dark:text-gray-400 truncate mb-1"
-                                title={temp.sensor_key}
-                              >
-                                {getSensorDisplay()}
-                              </p>
-                              <p
-                                className={`text-xl font-bold mb-2 ${
-                                  isHot
-                                    ? "text-red-600 dark:text-red-400"
-                                    : isWarm
-                                    ? "text-amber-600 dark:text-amber-400"
-                                    : "text-emerald-600 dark:text-emerald-400"
-                                }`}
-                              >
-                                {temp.temperature.toFixed(1)}°C
-                              </p>
-                              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                                <div
-                                  className="h-1.5 rounded-full transition-all duration-300"
-                                  style={{
-                                    width: `${Math.min(percentage, 100)}%`,
-                                    backgroundColor: getTemperatureColor(),
-                                  }}
-                                />
-                              </div>
-                              {temp.critical &&
-                                temp.critical > 0 &&
-                                temp.critical < 1000 && (
-                                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                    Max: {temp.critical.toFixed(0)}°C
-                                  </p>
-                                )}
-                              {getModelName() && (
-                                <p
-                                  className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate"
-                                  title={getModelName() || undefined}
-                                >
-                                  {getModelName()}
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                // Sort within each category
+                Object.keys(categories).forEach((cat) => {
+                  categories[cat].sort((a, b) =>
+                    a.sensor_key.localeCompare(b.sensor_key)
                   );
-                })
-                .filter(Boolean);
-            })()}
-          </div>
-        </div>
-      )}
+                });
 
+                const categoryOrder = [
+                  { key: "cpu", title: "CPU" },
+                  { key: "storage", title: "Storage" },
+                  { key: "power", title: "Power & Battery" },
+                  { key: "system", title: "System" },
+                ];
+
+                return categoryOrder
+                  .map(({ key, title }) => {
+                    const temps = categories[key];
+                    if (!temps || temps.length === 0) return null;
+
+                    return (
+                      <div key={key} className="space-y-3">
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 pb-1">
+                          {title} ({temps.length})
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          {temps.map((temp, index) => {
+                            // For invalid critical temps (> 1000°C), use absolute temperature thresholds
+                            const hasValidCritical =
+                              temp.critical &&
+                              temp.critical > 0 &&
+                              temp.critical < 1000;
+
+                            const percentage =
+                              hasValidCritical && temp.critical
+                                ? Math.min(
+                                    (temp.temperature / temp.critical) * 100,
+                                    100
+                                  )
+                                : (temp.temperature / 100) * 100; // Assume 100°C max if no valid critical temp
+
+                            // Use different thresholds based on sensor type
+                            // For HDDs/SSDs, 50°C is warm, 60°C is hot
+                            // For CPUs/NVMe, 60°C is warm, 80°C is hot
+                            const isStorageSensor =
+                              temp.sensor_key
+                                .toLowerCase()
+                                .includes("smart_") ||
+                              temp.label?.toLowerCase().includes("hdd") ||
+                              temp.label?.toLowerCase().includes("ssd");
+
+                            const warmThreshold = isStorageSensor ? 50 : 60;
+                            const hotThreshold = isStorageSensor ? 60 : 80;
+
+                            const isWarm =
+                              temp.temperature > warmThreshold &&
+                              temp.temperature <= hotThreshold;
+                            const isHot = temp.temperature > hotThreshold;
+
+                            const getTemperatureColor = () => {
+                              if (isHot) return "#EF4444"; // red
+                              if (isWarm) return "#F59E0B"; // amber
+                              return "#34d399"; // green
+                            };
+
+                            // Extract device identifier from label if it contains parentheses
+                            const getSensorDisplay = () => {
+                              if (
+                                temp.label &&
+                                temp.label.includes("(") &&
+                                temp.label.includes(")")
+                              ) {
+                                // Extract device ID from label like "Model Name (SDA)"
+                                const match = temp.label.match(/\(([^)]+)\)$/);
+                                if (match) {
+                                  return match[1];
+                                }
+                              }
+                              // For non-SMART sensors, use the sensor key
+                              return temp.sensor_key;
+                            };
+
+                            // Get the model name from label (without device ID)
+                            const getModelName = () => {
+                              if (
+                                temp.label &&
+                                temp.label.includes("(") &&
+                                temp.label.includes(")")
+                              ) {
+                                // Remove the (SDA) part to get just the model
+                                return temp.label.replace(/\s*\([^)]+\)$/, "");
+                              }
+                              return null;
+                            };
+
+                            return (
+                              <div
+                                key={index}
+                                className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2.5 flex flex-col"
+                              >
+                                <div className="flex justify-between items-start mb-1">
+                                  <p
+                                    className="text-xs text-gray-600 dark:text-gray-400 truncate flex-1"
+                                    title={temp.sensor_key}
+                                  >
+                                    {getSensorDisplay()}
+                                  </p>
+                                  <p
+                                    className={`text-xs font-medium ml-2 ${
+                                      isHot
+                                        ? "text-red-600 dark:text-red-400"
+                                        : isWarm
+                                        ? "text-amber-600 dark:text-amber-400"
+                                        : "text-emerald-600 dark:text-emerald-400"
+                                    }`}
+                                  >
+                                    {temp.temperature.toFixed(1)}°C
+                                  </p>
+                                </div>
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-1">
+                                  <div
+                                    className="h-2 rounded-full transition-all duration-300"
+                                    style={{
+                                      width: `${Math.min(percentage, 100)}%`,
+                                      backgroundColor: getTemperatureColor(),
+                                    }}
+                                  />
+                                </div>
+                                <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-500">
+                                  {getModelName() && (
+                                    <span className="truncate flex-1" title={getModelName() || undefined}>
+                                      {getModelName()}
+                                    </span>
+                                  )}
+                                  {temp.critical &&
+                                    temp.critical > 0 &&
+                                    temp.critical < 1000 && (
+                                      <span className={getModelName() ? "ml-2" : ""}>
+                                        Max: {temp.critical.toFixed(0)}°C
+                                      </span>
+                                    )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })
+                  .filter(Boolean);
+              })()}
+            </div>
+          </div>
+        )}
     </motion.div>
   );
 };

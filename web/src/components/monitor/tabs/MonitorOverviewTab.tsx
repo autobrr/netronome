@@ -12,6 +12,8 @@ import {
   ChartBarIcon,
   CpuChipIcon,
 } from "@heroicons/react/24/outline";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faLinux, faApple } from "@fortawesome/free-brands-svg-icons";
 import { MonitorAgent } from "@/api/monitor";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { formatBytes } from "@/utils/formatBytes";
@@ -35,7 +37,7 @@ interface MonitorOverviewTabProps {
 export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
   agent,
 }) => {
-  const { status, nativeData, hardwareStats } = useMonitorAgent({
+  const { status, nativeData, hardwareStats, systemInfo } = useMonitorAgent({
     agent,
     includeNativeData: true,
     includeSystemInfo: true,
@@ -173,7 +175,19 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
               System Health
             </h3>
-            <CpuChipIcon className="h-5 w-5 text-gray-400" />
+            {systemInfo?.kernel.toLowerCase().includes("darwin") ? (
+              <FontAwesomeIcon
+                icon={faApple}
+                className="h-5 w-5 text-gray-400"
+              />
+            ) : systemInfo?.kernel.toLowerCase().includes("linux") ? (
+              <FontAwesomeIcon
+                icon={faLinux}
+                className="h-5 w-5 text-gray-400"
+              />
+            ) : (
+              <CpuChipIcon className="h-5 w-5 text-gray-400" />
+            )}
           </div>
           {hardwareStats ? (
             <>

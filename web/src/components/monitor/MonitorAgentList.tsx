@@ -64,15 +64,15 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
         </h3>
       </div>
 
-      <div className="divide-y divide-gray-200 dark:divide-gray-800">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-y lg:divide-y-0 divide-gray-200 dark:divide-gray-800">
         {isLoading ? (
-          <div className="p-4 text-center">
+          <div className="lg:col-span-2 p-4 text-center">
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Loading agents...
             </p>
           </div>
         ) : !agents || agents.length === 0 ? (
-          <div className="p-4 text-center">
+          <div className="lg:col-span-2 p-4 text-center">
             <AgentIcon
               name="Server"
               className="mx-auto h-10 w-10 text-gray-400"
