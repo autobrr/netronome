@@ -92,8 +92,8 @@ func NewServiceWithTailscale(db database.Service, cfg *config.MonitorConfig, tsC
 	}
 
 	// Create Tailscale discovery if auto-discover is enabled
-	// This works even if Tailscale is not enabled (uses host's tailscaled)
-	if tsCfg != nil && tsCfg.Monitor.AutoDiscover {
+	// This works with both host and tsnet modes
+	if tsCfg != nil && tsCfg.IsServerDiscoveryMode() {
 		service.tailscaleDiscovery = NewTailscaleDiscovery(tsCfg, service)
 	}
 

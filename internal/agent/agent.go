@@ -49,24 +49,29 @@ func NewWithTailscale(cfg *config.AgentConfig, tsCfg *config.TailscaleConfig) *A
 		tailscaleConfig: tsCfg,
 		clients:         make(map[chan string]bool),
 		monitorData:     make(chan string, 100),
-		useTailscale:    tsCfg != nil && tsCfg.Enabled && tsCfg.Agent.Enabled,
+		useTailscale:    tsCfg != nil && tsCfg.IsAgentMode(),
 	}
 }
 
 // Start starts the agent server
 func (a *Agent) Start(ctx context.Context) error {
-	// If Tailscale is enabled, use Tailscale start
-	if a.useTailscale {
-		// Try to use host's tailscaled first if configured
-		if a.tailscaleConfig != nil && a.tailscaleConfig.PreferHost {
-			log.Info().Msg("Attempting to use host's tailscaled...")
-			if err := a.startWithHostTailscale(ctx); err != nil {
-				log.Warn().Err(err).Msg("Failed to use host's tailscaled, falling back to tsnet")
-			} else {
-				return nil
-			}
+	// If Tailscale is enabled, determine method
+	if a.useTailscale && a.tailscaleConfig != nil {
+		method, err := a.tailscaleConfig.GetEffectiveMethod()
+		if err != nil {
+			return fmt.Errorf("failed to determine Tailscale method: %w", err)
 		}
-		return a.startWithTailscale(ctx)
+		
+		switch method {
+		case "host":
+			log.Info().Msg("Using host's tailscaled...")
+			return a.startWithHostTailscale(ctx)
+		case "tsnet":
+			log.Info().Msg("Using embedded tsnet...")
+			return a.startWithTailscale(ctx)
+		default:
+			return fmt.Errorf("unexpected Tailscale method: %s", method)
+		}
 	}
 
 	// Start bandwidth monitoring
@@ -162,7 +167,11 @@ func (a *Agent) startWithTailscale(ctx context.Context) error {
 	router := a.setupRoutes()
 
 	// Listen on Tailscale network
-	ln, err := a.tsnetServer.Listen("tcp", fmt.Sprintf(":%d", a.config.Port))
+	port := a.config.Port
+	if a.tailscaleConfig.AgentPort > 0 {
+		port = a.tailscaleConfig.AgentPort
+	}
+	ln, err := a.tsnetServer.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return fmt.Errorf("failed to listen on Tailscale: %w", err)
 	}
@@ -195,7 +204,7 @@ func (a *Agent) startWithTailscale(ctx context.Context) error {
 		} else if status.Self != nil {
 			logEvent := log.Info().
 				Str("hostname", hostname).
-				Int("port", a.config.Port)
+				Int("port", port)
 			
 			if len(status.Self.TailscaleIPs) > 0 {
 				logEvent = logEvent.Str("tailscale_ip", status.Self.TailscaleIPs[0].String())
@@ -247,11 +256,15 @@ func (a *Agent) startWithHostTailscale(ctx context.Context) error {
 	}
 
 	// Listen on Tailscale network
-	ln, err := ts.ListenOnTailscale(hostClient, a.config.Port)
+	port := a.config.Port
+	if a.tailscaleConfig.AgentPort > 0 {
+		port = a.tailscaleConfig.AgentPort
+	}
+	ln, err := ts.ListenOnTailscale(hostClient, port)
 	if err != nil {
 		// Fallback to all interfaces if we can't bind to specific Tailscale IP
 		log.Warn().Err(err).Msg("Failed to bind to Tailscale IP, using all interfaces")
-		addr := fmt.Sprintf("%s:%d", a.config.Host, a.config.Port)
+		addr := fmt.Sprintf("%s:%d", a.config.Host, port)
 		ln, err = net.Listen("tcp", addr)
 		if err != nil {
 			return fmt.Errorf("failed to listen: %w", err)
@@ -271,7 +284,7 @@ func (a *Agent) startWithHostTailscale(ctx context.Context) error {
 
 	log.Info().
 		Str("address", ln.Addr().String()).
-		Int("port", a.config.Port).
+		Int("port", port).
 		Msg("Monitor SSE agent listening via host's tailscaled")
 
 	if a.config.APIKey != "" {
@@ -287,38 +300,61 @@ func (a *Agent) startWithHostTailscale(ctx context.Context) error {
 
 // GetTailscaleStatus returns the current Tailscale connection status
 func (a *Agent) GetTailscaleStatus() (map[string]interface{}, error) {
-	if !a.useTailscale || a.tsnetServer == nil {
+	if !a.useTailscale || a.tailscaleConfig == nil {
 		return map[string]interface{}{
 			"enabled": false,
 			"status":  "disabled",
 		}, nil
 	}
 
-	localClient, err := a.tsnetServer.LocalClient()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Tailscale local client: %w", err)
-	}
-
-	status, err := localClient.Status(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Tailscale status: %w", err)
-	}
-
+	method, _ := a.tailscaleConfig.GetEffectiveMethod()
 	result := map[string]interface{}{
-		"enabled":  true,
-		"hostname": a.tsnetServer.Hostname,
+		"enabled": true,
+		"method":  method,
 	}
 
-	if status.Self != nil {
-		var ips []string
-		for _, ip := range status.Self.TailscaleIPs {
-			ips = append(ips, ip.String())
+	// Handle tsnet mode
+	if method == "tsnet" && a.tsnetServer != nil {
+		localClient, err := a.tsnetServer.LocalClient()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Tailscale local client: %w", err)
 		}
-		result["tailscale_ips"] = ips
-		result["online"] = status.Self.Online
-		result["status"] = "connected"
-	} else {
-		result["status"] = "connecting"
+
+		status, err := localClient.Status(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Tailscale status: %w", err)
+		}
+
+		result["hostname"] = a.tsnetServer.Hostname
+
+		if status.Self != nil {
+			var ips []string
+			for _, ip := range status.Self.TailscaleIPs {
+				ips = append(ips, ip.String())
+			}
+			result["tailscale_ips"] = ips
+			result["online"] = status.Self.Online
+			result["status"] = "connected"
+		} else {
+			result["status"] = "connecting"
+		}
+	} else if method == "host" {
+		// Handle host mode
+		hostClient, err := ts.GetHostClient()
+		if err != nil {
+			result["status"] = "host_unavailable"
+			result["error"] = err.Error()
+		} else {
+			hostname, ips, err := ts.GetSelfInfo(hostClient)
+			if err != nil {
+				result["status"] = "error"
+				result["error"] = err.Error()
+			} else {
+				result["hostname"] = hostname
+				result["tailscale_ips"] = ips
+				result["status"] = "connected"
+			}
+		}
 	}
 
 	return result, nil

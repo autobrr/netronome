@@ -41,14 +41,20 @@ func NewTailscaleDiscovery(cfg *config.TailscaleConfig, service *Service) *Tails
 
 // Start initializes Tailscale connection and begins discovery
 func (td *TailscaleDiscovery) Start(ctx context.Context) error {
-	if !td.config.Monitor.AutoDiscover {
+	if !td.config.IsServerDiscoveryMode() {
 		log.Debug().Msg("Tailscale discovery is disabled")
 		return nil
 	}
 
-	// If Tailscale is not enabled, try to use host's tailscaled
-	if !td.config.Enabled {
-		log.Info().Msg("Tailscale not enabled, attempting to use host's tailscaled for discovery...")
+	// Determine the effective method
+	method, methodErr := td.config.GetEffectiveMethod()
+	if methodErr != nil {
+		return fmt.Errorf("failed to determine Tailscale method: %w", methodErr)
+	}
+
+	// Handle host mode
+	if method == "host" {
+		log.Info().Msg("Using host's tailscaled for discovery...")
 		hostClient, err := tailscale.GetHostClient()
 		if err != nil {
 			log.Warn().Err(err).Msg("Failed to connect to host's tailscaled, discovery will not work")
@@ -98,10 +104,10 @@ func (td *TailscaleDiscovery) Start(ctx context.Context) error {
 	}
 
 	// Get tsnet client
-	var err error
-	td.tailscaleClient, err = tailscale.GetTsnetClient(td.tsnetServer)
-	if err != nil {
-		return fmt.Errorf("failed to get tsnet client: %w", err)
+	var clientErr error
+	td.tailscaleClient, clientErr = tailscale.GetTsnetClient(td.tsnetServer)
+	if clientErr != nil {
+		return fmt.Errorf("failed to get tsnet client: %w", clientErr)
 	}
 	td.mode = tailscale.ModeTsnet
 
@@ -114,11 +120,11 @@ func (td *TailscaleDiscovery) Start(ctx context.Context) error {
 func (td *TailscaleDiscovery) startDiscoveryTimer(ctx context.Context) {
 	// Parse discovery interval
 	interval := 5 * time.Minute // default
-	if td.config.Monitor.DiscoveryInterval != "" {
-		if parsed, err := time.ParseDuration(td.config.Monitor.DiscoveryInterval); err == nil {
+	if td.config.DiscoveryInterval != "" {
+		if parsed, err := time.ParseDuration(td.config.DiscoveryInterval); err == nil {
 			interval = parsed
 		} else {
-			log.Warn().Err(err).Str("interval", td.config.Monitor.DiscoveryInterval).Msg("Failed to parse discovery interval, using default")
+			log.Warn().Err(err).Str("interval", td.config.DiscoveryInterval).Msg("Failed to parse discovery interval, using default")
 		}
 	}
 
@@ -196,7 +202,7 @@ func (td *TailscaleDiscovery) discoverAgents(ctx context.Context) {
 	}
 
 	// Get discovery port
-	discoveryPort := td.config.Monitor.DiscoveryPort
+	discoveryPort := td.config.DiscoveryPort
 	if discoveryPort == 0 {
 		discoveryPort = 8200 // Default port
 	}

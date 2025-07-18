@@ -123,7 +123,7 @@ func init() {
 	agentCmd.Flags().String("tailscale-hostname", "", "custom Tailscale hostname (default: netronome-agent-<hostname>)")
 	agentCmd.Flags().String("tailscale-auth-key", "", "Tailscale auth key for automatic registration")
 	agentCmd.Flags().String("tailscale-state-dir", "", "directory for Tailscale state (default: ~/.config/netronome/tsnet)")
-	agentCmd.Flags().Bool("tailscale-prefer-host", false, "prefer using host's tailscaled if available")
+	agentCmd.Flags().String("tailscale-method", "auto", "Tailscale method: auto, host, or tsnet (default: auto)")
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(generateConfigCmd)
@@ -259,14 +259,11 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Create and set monitor service if enabled
 	if cfg.Monitor.Enabled {
 		// Use Tailscale-enabled service if auto-discovery is enabled
-		// This works even if [tailscale] enabled = false (uses host's tailscaled)
-		if cfg.Tailscale.Monitor.AutoDiscover {
+		// This works with both host and tsnet modes
+		if cfg.Tailscale.IsServerDiscoveryMode() {
 			monitorService = monitor.NewServiceWithTailscale(db, &cfg.Monitor, &cfg.Tailscale, serverHandler.BroadcastMonitorUpdate)
-			if cfg.Tailscale.Enabled {
-				log.Info().Msg("Monitor service created with Tailscale discovery support (tsnet)")
-			} else {
-				log.Info().Msg("Monitor service created with Tailscale discovery support (host tailscaled)")
-			}
+			method, _ := cfg.Tailscale.GetEffectiveMethod()
+			log.Info().Str("method", method).Msg("Monitor service created with Tailscale discovery support")
 		} else {
 			monitorService = monitor.NewService(db, &cfg.Monitor, serverHandler.BroadcastMonitorUpdate)
 		}
@@ -496,7 +493,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	tailscaleHostname, _ := cmd.Flags().GetString("tailscale-hostname")
 	tailscaleAuthKey, _ := cmd.Flags().GetString("tailscale-auth-key")
 	tailscaleStateDir, _ := cmd.Flags().GetString("tailscale-state-dir")
-	tailscalePreferHost, _ := cmd.Flags().GetBool("tailscale-prefer-host")
+	tailscaleMethod, _ := cmd.Flags().GetString("tailscale-method")
 
 	// Create agent service
 	var agentService *agent.Agent
@@ -515,8 +512,8 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		if cmd.Flags().Changed("tailscale-state-dir") {
 			cfg.Tailscale.StateDir = tailscaleStateDir
 		}
-		if cmd.Flags().Changed("tailscale-prefer-host") {
-			cfg.Tailscale.PreferHost = tailscalePreferHost
+		if cmd.Flags().Changed("tailscale-method") {
+			cfg.Tailscale.Method = tailscaleMethod
 		}
 		
 		agentService = agent.NewWithTailscale(&cfg.Agent, &cfg.Tailscale)
