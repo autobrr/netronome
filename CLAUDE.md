@@ -99,6 +99,7 @@ cd web && pnpm tsc --noEmit
 - **License Headers**: Use `./license.sh false` to add GPL-2.0-or-later headers to new source files
 - **Commit Attribution**: Never add yourself as co-author to commits
 - **Frontend Development**: Before writing any frontend-code, make sure to read through the docs/style-guide.md first, so you familiarize yourself with our style. This is a crucial step.
+- **Import Paths**: Always use the `@` alias for imports in frontend code (e.g., `@/components/...` instead of relative paths like `../components/...`)
 
 ## Additional Notes
 

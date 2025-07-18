@@ -27,6 +27,29 @@ export const MonitorTab: React.FC = () => {
   const [editingAgent, setEditingAgent] = useState<MonitorAgent | null>(null);
   const queryClient = useQueryClient();
 
+  // Helper functions for managing featured agents
+  const getFeaturedAgentIds = (): number[] => {
+    try {
+      const stored = localStorage.getItem("netronome-featured-monitor-agents");
+      const parsed = stored ? JSON.parse(stored) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const setFeaturedAgentIds = (ids: number[]) => {
+    try {
+      const validIds = Array.isArray(ids) ? ids : [];
+      localStorage.setItem(
+        "netronome-featured-monitor-agents",
+        JSON.stringify(validIds)
+      );
+    } catch {
+      console.error("Error saving featured agents to localStorage");
+    }
+  };
+
   // Fetch agents
   const { data: agents = [], isLoading } = useQuery({
     queryKey: ["monitor-agents"],
@@ -63,7 +86,21 @@ export const MonitorTab: React.FC = () => {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateAgentRequest }) =>
       updateMonitorAgent(id, data),
-    onSuccess: () => {
+    onSuccess: (updatedAgent, variables) => {
+      // If agent was disabled, remove it from featured agents
+      if (!variables.data.enabled) {
+        const featuredAgentIds = getFeaturedAgentIds();
+        const updatedFeaturedIds = featuredAgentIds.filter(
+          (featuredId) => featuredId !== variables.id
+        );
+        if (updatedFeaturedIds.length !== featuredAgentIds.length) {
+          setFeaturedAgentIds(updatedFeaturedIds);
+          // Trigger storage event for other components
+          window.dispatchEvent(new Event("storage"));
+          window.dispatchEvent(new Event("featured-agents-changed"));
+        }
+      }
+      
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       setIsFormOpen(false);
       setEditingAgent(null);
@@ -73,7 +110,19 @@ export const MonitorTab: React.FC = () => {
   // Delete agent mutation
   const deleteMutation = useMutation({
     mutationFn: deleteMonitorAgent,
-    onSuccess: () => {
+    onSuccess: (_, deletedAgentId) => {
+      // Remove deleted agent from featured agents
+      const featuredAgentIds = getFeaturedAgentIds();
+      const updatedFeaturedIds = featuredAgentIds.filter(
+        (featuredId) => featuredId !== deletedAgentId
+      );
+      if (updatedFeaturedIds.length !== featuredAgentIds.length) {
+        setFeaturedAgentIds(updatedFeaturedIds);
+        // Trigger storage event for other components
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new Event("featured-agents-changed"));
+      }
+      
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       setSelectedAgent(null);
     },
