@@ -165,6 +165,8 @@ If running Docker manually, add the capability:
 docker run --cap-add=NET_RAW -p 7575:7575 -v ./netronome:/data ghcr.io/autobrr/netronome:latest
 ```
 
+**Tailscale Sidecar Setup**: For running Netronome with a Tailscale sidecar container for secure networking and agent discovery, see our [Docker Tailscale Sidecar Guide](docs/docker-tailscale-sidecar.md).
+
 **Note about MTR without NET_RAW**: When MTR runs without the NET_RAW capability (unprivileged mode), it falls back to UDP mode instead of ICMP. UDP mode may show higher packet loss than ICMP because:
 
 - Some routers prioritize ICMP traffic over UDP
