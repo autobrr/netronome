@@ -122,8 +122,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </div>
       )}
 
-      {/* Featured Vnstat Widget - only show if callback is provided */}
-      {onNavigateToVnstat && (
+      {/* Featured Vnstat Widget - only show if callback is provided and not public */}
+      {onNavigateToVnstat && !isPublic && (
         <FeaturedMonitorWidget onNavigateToMonitor={onNavigateToVnstat} />
       )}
 
