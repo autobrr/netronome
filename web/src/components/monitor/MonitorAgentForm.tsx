@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { XMarkIcon, EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon, EyeIcon, EyeSlashIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/Button";
 import { MonitorAgent, CreateAgentRequest } from "@/api/monitor";
 
@@ -121,6 +121,31 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Show Tailscale info if this is a Tailscale agent */}
+                  {agent?.isTailscale && (
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheckIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                            Tailscale Connected Agent
+                          </p>
+                          {agent.tailscaleHostname && (
+                            <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
+                              Hostname: {agent.tailscaleHostname}
+                            </p>
+                          )}
+                          {agent.discoveredAt && (
+                            <p className="text-xs text-blue-700 dark:text-blue-300">
+                              Auto-discovered on{" "}
+                              {new Date(agent.discoveredAt).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label
                       htmlFor="name"

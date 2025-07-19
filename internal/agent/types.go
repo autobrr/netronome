@@ -8,17 +8,21 @@ import (
 	"time"
 
 	"github.com/autobrr/netronome/internal/config"
+	"tailscale.com/tsnet"
 )
 
 // Agent represents the monitor SSE agent
 type Agent struct {
-	config      *config.AgentConfig
-	clients     map[chan string]bool
-	clientsMu   sync.RWMutex
-	monitorData chan string
-	peakRx      int // Peak download speed in bytes/s
-	peakTx      int // Peak upload speed in bytes/s
-	peakMu      sync.RWMutex
+	config          *config.AgentConfig
+	tailscaleConfig *config.TailscaleConfig
+	clients         map[chan string]bool
+	clientsMu       sync.RWMutex
+	monitorData     chan string
+	peakRx          int // Peak download speed in bytes/s
+	peakTx          int // Peak upload speed in bytes/s
+	peakMu          sync.RWMutex
+	tsnetServer     *tsnet.Server
+	useTailscale    bool
 }
 
 // MonitorLiveData represents the JSON structure from vnstat --live --json

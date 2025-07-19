@@ -24,8 +24,8 @@ func (s *service) CreateMonitorAgent(ctx context.Context, agent *types.MonitorAg
 
 	query := s.sqlBuilder.
 		Insert("monitor_agents").
-		Columns("name", "url", "api_key", "enabled", "interface", "created_at", "updated_at").
-		Values(agent.Name, agent.URL, agent.APIKey, agent.Enabled, agent.Interface, agent.CreatedAt, agent.UpdatedAt)
+		Columns("name", "url", "api_key", "enabled", "interface", "is_tailscale", "tailscale_hostname", "discovered_at", "created_at", "updated_at").
+		Values(agent.Name, agent.URL, agent.APIKey, agent.Enabled, agent.Interface, agent.IsTailscale, agent.TailscaleHostname, agent.DiscoveredAt, agent.CreatedAt, agent.UpdatedAt)
 
 	if s.config.Type == config.Postgres {
 		query = query.Suffix("RETURNING id")
@@ -51,7 +51,7 @@ func (s *service) CreateMonitorAgent(ctx context.Context, agent *types.MonitorAg
 // GetMonitorAgent retrieves a monitoring agent by ID
 func (s *service) GetMonitorAgent(ctx context.Context, agentID int64) (*types.MonitorAgent, error) {
 	query := s.sqlBuilder.
-		Select("id", "name", "url", "api_key", "enabled", "interface", "created_at", "updated_at").
+		Select("id", "name", "url", "api_key", "enabled", "interface", "is_tailscale", "tailscale_hostname", "discovered_at", "created_at", "updated_at").
 		From("monitor_agents").
 		Where(sq.Eq{"id": agentID})
 
@@ -63,6 +63,9 @@ func (s *service) GetMonitorAgent(ctx context.Context, agentID int64) (*types.Mo
 		&agent.APIKey,
 		&agent.Enabled,
 		&agent.Interface,
+		&agent.IsTailscale,
+		&agent.TailscaleHostname,
+		&agent.DiscoveredAt,
 		&agent.CreatedAt,
 		&agent.UpdatedAt,
 	)
@@ -79,7 +82,7 @@ func (s *service) GetMonitorAgent(ctx context.Context, agentID int64) (*types.Mo
 // GetMonitorAgents retrieves all monitoring agents
 func (s *service) GetMonitorAgents(ctx context.Context, enabledOnly bool) ([]*types.MonitorAgent, error) {
 	query := s.sqlBuilder.
-		Select("id", "name", "url", "api_key", "enabled", "interface", "created_at", "updated_at").
+		Select("id", "name", "url", "api_key", "enabled", "interface", "is_tailscale", "tailscale_hostname", "discovered_at", "created_at", "updated_at").
 		From("monitor_agents").
 		OrderBy("created_at DESC")
 
@@ -103,6 +106,9 @@ func (s *service) GetMonitorAgents(ctx context.Context, enabledOnly bool) ([]*ty
 			&agent.APIKey,
 			&agent.Enabled,
 			&agent.Interface,
+			&agent.IsTailscale,
+			&agent.TailscaleHostname,
+			&agent.DiscoveredAt,
 			&agent.CreatedAt,
 			&agent.UpdatedAt,
 		)
@@ -126,6 +132,9 @@ func (s *service) UpdateMonitorAgent(ctx context.Context, agent *types.MonitorAg
 		Set("api_key", agent.APIKey).
 		Set("enabled", agent.Enabled).
 		Set("interface", agent.Interface).
+		Set("is_tailscale", agent.IsTailscale).
+		Set("tailscale_hostname", agent.TailscaleHostname).
+		Set("discovered_at", agent.DiscoveredAt).
 		Set("updated_at", agent.UpdatedAt).
 		Where(sq.Eq{"id": agent.ID})
 

@@ -10,7 +10,7 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import App from "@/App";
-import SpeedTest from "@/components/speedtest/SpeedTest";
+import Main from "@/components/Main";
 import Login from "@/components/auth/Login";
 import Register from "@/components/auth/Register";
 import { useAuth } from "@/context/auth";
@@ -139,13 +139,13 @@ const registerRoute = createRoute({
 const indexRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: "/",
-  component: SpeedTest,
+  component: Main,
 });
 
 const publicRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/public",
-  component: () => <SpeedTest isPublic={true} />,
+  component: () => <Main isPublic={true} />,
 });
 
 const routeTree = rootRoute.addChildren([

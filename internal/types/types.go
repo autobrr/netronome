@@ -165,14 +165,17 @@ type PacketLossResult struct {
 
 // MonitorAgent represents a monitoring agent configuration
 type MonitorAgent struct {
-	ID        int64     `db:"id" json:"id"`
-	Name      string    `db:"name" json:"name"`
-	URL       string    `db:"url" json:"url"`
-	APIKey    *string   `db:"api_key" json:"apiKey,omitempty"`
-	Enabled   bool      `db:"enabled" json:"enabled"`
-	Interface *string   `db:"interface" json:"interface,omitempty"`
-	CreatedAt time.Time `db:"created_at" json:"createdAt"`
-	UpdatedAt time.Time `db:"updated_at" json:"updatedAt"`
+	ID                int64      `db:"id" json:"id"`
+	Name              string     `db:"name" json:"name"`
+	URL               string     `db:"url" json:"url"`
+	APIKey            *string    `db:"api_key" json:"apiKey,omitempty"`
+	Enabled           bool       `db:"enabled" json:"enabled"`
+	Interface         *string    `db:"interface" json:"interface,omitempty"`
+	IsTailscale       bool       `db:"is_tailscale" json:"isTailscale"`
+	TailscaleHostname *string    `db:"tailscale_hostname" json:"tailscaleHostname,omitempty"`
+	DiscoveredAt      *time.Time `db:"discovered_at" json:"discoveredAt,omitempty"`
+	CreatedAt         time.Time  `db:"created_at" json:"createdAt"`
+	UpdatedAt         time.Time  `db:"updated_at" json:"updatedAt"`
 }
 
 // MonitorBandwidth represents bandwidth data from monitoring agent
@@ -300,15 +303,23 @@ type MonitorFullData struct {
 
 // MonitorUpdate represents real-time monitoring updates
 type MonitorUpdate struct {
-	Type             string `json:"type"`
-	AgentID          int64  `json:"agentId"`
-	AgentName        string `json:"agentName"`
-	RxBytesPerSecond int64  `json:"rxBytesPerSecond"`
-	TxBytesPerSecond int64  `json:"txBytesPerSecond"`
-	RxRateString     string `json:"rxRateString"`
-	TxRateString     string `json:"txRateString"`
-	Connected        bool   `json:"connected"`
+	Type             string                 `json:"type"`
+	AgentID          int64                  `json:"agentId"`
+	AgentName        string                 `json:"agentName"`
+	RxBytesPerSecond int64                  `json:"rxBytesPerSecond"`
+	TxBytesPerSecond int64                  `json:"txBytesPerSecond"`
+	RxRateString     string                 `json:"rxRateString"`
+	TxRateString     string                 `json:"txRateString"`
+	Connected        bool                   `json:"connected"`
+	Data             map[string]interface{} `json:"data,omitempty"`
 }
+
+// MonitorUpdateType constants
+const (
+	MonitorUpdateTypeBandwidth       = "bandwidth"
+	MonitorUpdateTypeConnection      = "connection"
+	MonitorUpdateTypeAgentDiscovered = "agent_discovered"
+)
 
 // MonitorSystemInfo represents static/semi-static system information
 type MonitorSystemInfo struct {

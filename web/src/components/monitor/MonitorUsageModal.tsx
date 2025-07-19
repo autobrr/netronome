@@ -18,6 +18,7 @@ import { getAgentIcon } from "@/utils/agentIcons";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { parseMonitorUsagePeriods } from "@/utils/monitorDataParser";
 import { formatBytes } from "@/utils/formatBytes";
+import { TailscaleLogo } from "@/components/icons/TailscaleLogo";
 
 interface MonitorUsageModalProps {
   isOpen: boolean;
@@ -79,12 +80,20 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                   )}
                   <AgentIcon className="h-6 w-6 text-gray-600 dark:text-gray-400" />
                   <div>
-                    <Dialog.Title
-                      as="h3"
-                      className="text-lg font-semibold leading-6 text-gray-900 dark:text-white"
-                    >
-                      {agent.name}
-                    </Dialog.Title>
+                    <div className="flex items-center gap-2">
+                      <Dialog.Title
+                        as="h3"
+                        className="text-lg font-semibold leading-6 text-gray-900 dark:text-white"
+                      >
+                        {agent.name}
+                      </Dialog.Title>
+                      {agent.isTailscale && (
+                        <TailscaleLogo
+                          className="h-4 w-4 flex-shrink-0"
+                          title="Connected through Tailscale"
+                        />
+                      )}
+                    </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Monitor Dashboard
                     </p>

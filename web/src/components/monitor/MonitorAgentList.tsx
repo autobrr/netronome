@@ -19,6 +19,7 @@ import { SparklesIcon as SparklesIconSolid } from "@heroicons/react/24/solid";
 import { MonitorAgent } from "@/api/monitor";
 import { AgentIcon } from "@/utils/agentIcons";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
+import { TailscaleLogo } from "../icons/TailscaleLogo";
 
 interface MonitorAgentListProps {
   agents: MonitorAgent[];
@@ -238,6 +239,11 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
               <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white">
                 {agent.name}
               </h3>
+              {agent.discoveredAt && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                  Auto-discovered
+                </span>
+              )}
               <div className="flex items-center space-x-1.5">
                 {agent.enabled && status?.connected ? (
                   <span className="relative inline-flex h-2 w-2">
@@ -262,14 +268,25 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               <div className="flex items-center gap-1.5 min-w-0">
-                {agent.apiKey ? (
+                {agent.isTailscale ? (
+                  <>
+                    <TailscaleLogo
+                      className="h-4 w-4 flex-shrink-0"
+                      title="Connected through Tailscale"
+                    />
+                    <LockClosedIcon
+                      className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
+                      title="Encrypted via Tailscale"
+                    />
+                  </>
+                ) : agent.apiKey ? (
                   <LockClosedIcon
-                    className="h-3 w-3 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
+                    className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
                     title="Authentication enabled"
                   />
                 ) : (
                   <LockOpenIcon
-                    className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0"
+                    className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500 flex-shrink-0"
                     title="No authentication"
                   />
                 )}

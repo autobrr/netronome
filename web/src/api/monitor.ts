@@ -13,6 +13,9 @@ export interface MonitorAgent {
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
+  isTailscale?: boolean;
+  tailscaleHostname?: string;
+  discoveredAt?: string;
 }
 
 export interface MonitorStatus {

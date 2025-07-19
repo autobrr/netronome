@@ -886,3 +886,15 @@ func (h *MonitorHandler) GetAgentPeakStats(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
 	c.Data(http.StatusOK, "application/json", body)
 }
+
+// GetTailscaleStatus returns the Tailscale discovery status
+func (h *MonitorHandler) GetTailscaleStatus(c *gin.Context) {
+	status, err := h.service.GetTailscaleStatus()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get Tailscale status")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get Tailscale status"})
+		return
+	}
+
+	c.JSON(http.StatusOK, status)
+}
