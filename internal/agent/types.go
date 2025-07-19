@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/autobrr/netronome/internal/config"
 	"tailscale.com/tsnet"
+
+	"github.com/autobrr/netronome/internal/config"
 )
 
 // Agent represents the monitor SSE agent
@@ -18,8 +19,10 @@ type Agent struct {
 	clients         map[chan string]bool
 	clientsMu       sync.RWMutex
 	monitorData     chan string
-	peakRx          int // Peak download speed in bytes/s
-	peakTx          int // Peak upload speed in bytes/s
+	peakRx          int       // Peak download speed in bytes/s
+	peakTx          int       // Peak upload speed in bytes/s
+	peakRxTimestamp time.Time // Timestamp when peak download was recorded
+	peakTxTimestamp time.Time // Timestamp when peak upload was recorded
 	peakMu          sync.RWMutex
 	tsnetServer     *tsnet.Server
 	useTailscale    bool

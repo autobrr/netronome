@@ -59,6 +59,7 @@ export function parseMonitorUsagePeriods(
     "This Hour": getCurrentHour(traffic.hour, agentNow, isUTC),
     "Last Hour": getLastHour(traffic.hour, agentNow, isUTC),
     Today: getToday(traffic.day, agentNow, isUTC),
+    "This week": getThisWeek(traffic.day, agentNow, isUTC),
     "This Month": getCurrentMonth(traffic.month, agentNow, isUTC),
     "All Time": {
       download: traffic.total.rx,
@@ -74,6 +75,7 @@ function getEmptyUsage(): Record<string, MonitorUsageSummary> {
     "This Hour": empty,
     "Last Hour": empty,
     Today: empty,
+    "This week": empty,
     "This Month": empty,
     "All Time": empty,
   };
@@ -196,6 +198,43 @@ function getToday(
     download: dayEntry.rx,
     upload: dayEntry.tx,
     total: dayEntry.rx + dayEntry.tx,
+  };
+}
+
+function getThisWeek(
+  days: Array<{
+    date: { year: number; month: number; day?: number };
+    rx: number;
+    tx: number;
+  }>,
+  now: Date,
+  isUTC: boolean = false,
+): MonitorUsageSummary {
+  // Get the current day of week (0 = Sunday, 6 = Saturday)
+  const currentDayOfWeek = isUTC ? now.getUTCDay() : now.getDay();
+  
+  // Calculate start of week (Monday)
+  const startOfWeek = new Date(now);
+  const daysFromMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
+  startOfWeek.setDate(startOfWeek.getDate() - daysFromMonday);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  let totalRx = 0;
+  let totalTx = 0;
+
+  // Sum up all days from start of week to now
+  days.forEach((day) => {
+    const dayDate = new Date(day.date.year, day.date.month - 1, day.date.day || 1);
+    if (dayDate >= startOfWeek && dayDate <= now) {
+      totalRx += day.rx;
+      totalTx += day.tx;
+    }
+  });
+
+  return {
+    download: totalRx,
+    upload: totalTx,
+    total: totalRx + totalTx,
   };
 }
 

@@ -32,7 +32,6 @@ import (
 	ts "github.com/autobrr/netronome/internal/tailscale"
 )
 
-
 // New creates a new Agent instance
 func New(cfg *config.AgentConfig) *Agent {
 	return &Agent{
@@ -61,7 +60,7 @@ func (a *Agent) Start(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to determine Tailscale method: %w", err)
 		}
-		
+
 		switch method {
 		case "host":
 			log.Info().Msg("Using host's tailscaled...")
@@ -147,7 +146,7 @@ func (a *Agent) startWithTailscale(ctx context.Context) error {
 		Hostname:  hostname,
 		AuthKey:   a.tailscaleConfig.AuthKey,
 		Ephemeral: a.tailscaleConfig.Ephemeral,
-		Logf:      func(format string, args ...interface{}) {
+		Logf: func(format string, args ...interface{}) {
 			log.Debug().Msgf("[tsnet] "+format, args...)
 		},
 	}
@@ -205,13 +204,13 @@ func (a *Agent) startWithTailscale(ctx context.Context) error {
 			logEvent := log.Info().
 				Str("hostname", hostname).
 				Int("port", port)
-			
+
 			if len(status.Self.TailscaleIPs) > 0 {
 				logEvent = logEvent.Str("tailscale_ip", status.Self.TailscaleIPs[0].String())
 			}
-			
+
 			logEvent.Msg("Monitor SSE agent listening on Tailscale network")
-			
+
 			if a.config.APIKey != "" {
 				log.Info().Msg("API key authentication enabled")
 			}
@@ -509,11 +508,14 @@ func (a *Agent) runBandwidthMonitor(ctx context.Context) {
 
 		// Track peak speeds
 		a.peakMu.Lock()
+		now := time.Now()
 		if data.Rx.Bytespersecond > a.peakRx {
 			a.peakRx = data.Rx.Bytespersecond
+			a.peakRxTimestamp = now
 		}
 		if data.Tx.Bytespersecond > a.peakTx {
 			a.peakTx = data.Tx.Bytespersecond
+			a.peakTxTimestamp = now
 		}
 		a.peakMu.Unlock()
 
@@ -688,10 +690,10 @@ func (a *Agent) getSystemInfo() (*SystemInfo, error) {
 				// Check if this is a virtual/bridge interface
 				bridgePath := fmt.Sprintf("/sys/class/net/%s/bridge", iface.Name)
 				_, isBridge := os.Stat(bridgePath)
-				
+
 				// Check for common virtual interface patterns
-				isVirtual := isBridge == nil || 
-					strings.HasPrefix(iface.Name, "vmbr") || 
+				isVirtual := isBridge == nil ||
+					strings.HasPrefix(iface.Name, "vmbr") ||
 					strings.HasPrefix(iface.Name, "br") ||
 					strings.HasPrefix(iface.Name, "virbr") ||
 					strings.HasPrefix(iface.Name, "docker") ||
@@ -699,7 +701,7 @@ func (a *Agent) getSystemInfo() (*SystemInfo, error) {
 					strings.HasPrefix(iface.Name, "tap") ||
 					strings.HasPrefix(iface.Name, "tun") ||
 					strings.Contains(iface.Name, "bond")
-				
+
 				if isVirtual {
 					// For virtual interfaces, set LinkSpeed to -1 to indicate it's virtual
 					ifaceInfo.LinkSpeed = -1
@@ -772,11 +774,13 @@ func (a *Agent) getSystemInfo() (*SystemInfo, error) {
 func (a *Agent) handlePeakStats(c *gin.Context) {
 	a.peakMu.RLock()
 	stats := PeakStats{
-		PeakRx:       a.peakRx,
-		PeakTx:       a.peakTx,
-		PeakRxString: formatBytesPerSecond(a.peakRx),
-		PeakTxString: formatBytesPerSecond(a.peakTx),
-		UpdatedAt:    time.Now(),
+		PeakRx:          a.peakRx,
+		PeakTx:          a.peakTx,
+		PeakRxString:    formatBytesPerSecond(a.peakRx),
+		PeakTxString:    formatBytesPerSecond(a.peakTx),
+		PeakRxTimestamp: a.peakRxTimestamp,
+		PeakTxTimestamp: a.peakTxTimestamp,
+		UpdatedAt:       time.Now(),
 	}
 	a.peakMu.RUnlock()
 
@@ -834,7 +838,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 		// Use the first CPU entry for model name and frequency
 		stats.CPU.Model = cpuInfo[0].ModelName
 		stats.CPU.Frequency = cpuInfo[0].Mhz
-		
+
 		log.Debug().
 			Str("model", stats.CPU.Model).
 			Float64("freq", stats.CPU.Frequency).
@@ -865,7 +869,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 	} else {
 		log.Error().Err(err).Msg("Failed to get logical CPU count")
 	}
-	
+
 	// Handle edge case for containers (like LXC) where threads might be less than cores
 	// In containers, the logical count may reflect container limits
 	if stats.CPU.Threads < stats.CPU.Cores && stats.CPU.Threads > 0 {
@@ -904,11 +908,11 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 		stats.Memory.Available = vmStat.Available
 		stats.Memory.Cached = vmStat.Cached
 		stats.Memory.Buffers = vmStat.Buffers
-		
+
 		// Get ZFS ARC size if available
 		zfsArcSize := getZFSARCSize()
 		stats.Memory.ZFSArc = zfsArcSize
-		
+
 		// Calculate used memory
 		// On Linux, the Used field from gopsutil includes cache/buffers
 		// We need to be careful about how we calculate "used" memory
@@ -923,7 +927,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 			stats.Memory.Used = vmStat.Used
 			stats.Memory.UsedPercent = vmStat.UsedPercent
 		}
-		
+
 		log.Debug().
 			Uint64("total", vmStat.Total).
 			Uint64("used", stats.Memory.Used).
@@ -957,7 +961,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 	partitions, err := disk.Partitions(true)
 	if err == nil {
 		log.Debug().Int("partition_count", len(partitions)).Msg("Got disk partitions")
-		
+
 		// Build a map of device names to SMART info
 		deviceInfoMap := make(map[string]struct{ model, serial string })
 		devicePaths := a.getDevicePaths()
@@ -975,7 +979,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 				}
 			}
 		}
-		
+
 		for _, partition := range partitions {
 			// Check if this disk should be included based on filters
 			if !a.shouldIncludeDisk(partition.Mountpoint, partition.Device, partition.Fstype) {
@@ -1001,7 +1005,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 					Msg("Skipping small disk")
 				continue
 			}
-			
+
 			diskStat := DiskStats{
 				Path:        partition.Mountpoint,
 				Device:      partition.Device,
@@ -1011,7 +1015,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 				Free:        usage.Free,
 				UsedPercent: usage.UsedPercent,
 			}
-			
+
 			// Try to find SMART info for this device
 			// First try exact match
 			if info, ok := deviceInfoMap[partition.Device]; ok {
@@ -1036,7 +1040,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 						}
 					}
 				}
-				
+
 				if info, ok := deviceInfoMap[baseDevice]; ok {
 					diskStat.Model = info.model
 					diskStat.Serial = info.serial
@@ -1171,7 +1175,7 @@ func matchPath(pattern, path string) bool {
 		prefix := strings.TrimSuffix(pattern, "*")
 		return strings.HasPrefix(path, prefix)
 	}
-	
+
 	// Check if pattern contains any glob characters
 	if strings.ContainsAny(pattern, "*?[]") {
 		// Use filepath.Match for single-component patterns
@@ -1183,7 +1187,7 @@ func matchPath(pattern, path string) bool {
 		matched, err = filepath.Match(pattern, filepath.Base(path))
 		return err == nil && matched
 	}
-	
+
 	// Otherwise, exact match
 	return pattern == path
 }
@@ -1232,7 +1236,6 @@ func (a *Agent) shouldIncludeDisk(mountpoint, device, fstype string) bool {
 	return true
 }
 
-
 // getDevicePaths returns a list of device paths to check for SMART data
 func (a *Agent) getDevicePaths() []string {
 	var devicePaths []string
@@ -1272,7 +1275,7 @@ func (a *Agent) getDevicePaths() []string {
 			if !strings.HasPrefix(name, "sd") && !strings.HasPrefix(name, "nvme") && !strings.HasPrefix(name, "hd") {
 				continue
 			}
-			
+
 			// Skip partitions (sda1, sdb2, nvme0n1p1, etc.)
 			if strings.Contains(name, "p") && len(name) > 4 {
 				continue

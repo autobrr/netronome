@@ -5,11 +5,12 @@
 
 import React, { useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowDownIcon, ArrowUpIcon, CalendarIcon } from "@heroicons/react/24/outline";
+import { ArrowDownIcon, ArrowUpIcon, CalendarIcon, ChartBarIcon } from "@heroicons/react/24/outline";
 import { MonitorAgent } from "@/api/monitor";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { MonitorBandwidthChart } from "../MonitorBandwidthChart";
 import { MonitorOfflineBanner } from "../MonitorOfflineBanner";
+import { MiniSparkline } from "../MiniSparkline";
 import { formatBytes } from "@/utils/formatBytes";
 
 interface MonitorBandwidthTabProps {
@@ -18,10 +19,25 @@ interface MonitorBandwidthTabProps {
 
 export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({ agent }) => {
   const [selectedTimeRange, setSelectedTimeRange] = useState<"6h" | "12h" | "24h" | "48h" | "7d" | "30d">("24h");
-  const { nativeData, status } = useMonitorAgent({
+  const { nativeData, status, peakStats } = useMonitorAgent({
     agent,
     includeNativeData: true,
+    includePeakStats: true,
   });
+
+  // Extract sparkline data for trend preview
+  const sparklineData = useMemo(() => {
+    if (!nativeData?.interfaces?.[0]?.traffic?.hour) {
+      return { rx: [], tx: [] };
+    }
+
+    const hourData = nativeData.interfaces[0].traffic.hour.slice(0, 24);
+
+    return {
+      rx: hourData.map((h) => h.rx).reverse(),
+      tx: hourData.map((h) => h.tx).reverse(),
+    };
+  }, [nativeData]);
 
   // Process bandwidth data based on selected time range
   const chartData = useMemo(() => {
@@ -198,6 +214,53 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({ agent 
         </div>
       )}
 
+      {/* Trend Preview with Sparklines */}
+      {sparklineData.rx.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
+        >
+          <div className="flex items-center space-x-3 mb-4">
+            <ChartBarIcon className="h-6 w-6 text-gray-400" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+              24 Hour Trend Preview
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center space-x-2">
+                  <ArrowDownIcon className="h-4 w-4 text-blue-500" />
+                  <span>Download Trend</span>
+                </p>
+                {nativeData?.interfaces?.[0]?.traffic?.hour?.[0] && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Current: {formatBytes(nativeData.interfaces[0].traffic.hour[0].rx)}/h
+                  </span>
+                )}
+              </div>
+              <MiniSparkline data={sparklineData.rx} color="blue" height={48} />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center space-x-2">
+                  <ArrowUpIcon className="h-4 w-4 text-green-500" />
+                  <span>Upload Trend</span>
+                </p>
+                {nativeData?.interfaces?.[0]?.traffic?.hour?.[0] && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Current: {formatBytes(nativeData.interfaces[0].traffic.hour[0].tx)}/h
+                  </span>
+                )}
+              </div>
+              <MiniSparkline data={sparklineData.tx} color="green" height={48} />
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Total Statistics */}
       {nativeData?.interfaces?.[0]?.traffic && (
         <motion.div
@@ -321,6 +384,107 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({ agent 
                 </div>
               </div>
             )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Peak Times and Averages */}
+      {nativeData?.interfaces?.[0]?.traffic && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+          className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
+        >
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-6">
+            Peak Times & Averages
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* Peak Times */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Peak Bandwidth</h4>
+              
+              {peakStats && (
+                <div className="space-y-3">
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-blue-600 dark:text-blue-400 flex items-center space-x-2">
+                        <ArrowDownIcon className="h-4 w-4" />
+                        <span>Peak Download</span>
+                      </span>
+                      <span className="text-sm font-bold text-gray-900 dark:text-white">
+                        {peakStats.peak_rx_string}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center space-x-2">
+                        <ArrowUpIcon className="h-4 w-4" />
+                        <span>Peak Upload</span>
+                      </span>
+                      <span className="text-sm font-bold text-gray-900 dark:text-white">
+                        {peakStats.peak_tx_string}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Averages */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Daily Averages</h4>
+              
+              {nativeData.interfaces[0].traffic.day && nativeData.interfaces[0].traffic.day.length > 0 && (() => {
+                const last7Days = nativeData.interfaces[0].traffic.day.slice(0, 7);
+                const avgRx = last7Days.reduce((sum, day) => sum + day.rx, 0) / last7Days.length;
+                const avgTx = last7Days.reduce((sum, day) => sum + day.tx, 0) / last7Days.length;
+                const avgTotal = avgRx + avgTx;
+
+                return (
+                  <div className="space-y-3">
+                    <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          Avg Daily Download
+                        </span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {formatBytes(avgRx)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          Avg Daily Upload
+                        </span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {formatBytes(avgTx)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-purple-600 dark:text-purple-400 font-medium">
+                          Avg Daily Total
+                        </span>
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">
+                          {formatBytes(avgTotal)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        Based on last 7 days
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </motion.div>
       )}
