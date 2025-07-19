@@ -7,13 +7,13 @@ import { useState, useEffect, useMemo } from "react";
 import { Container } from "@mui/material";
 import { FaGithub } from "react-icons/fa";
 import { XMarkIcon } from "@heroicons/react/20/solid";
-import { ShareModal } from "./ShareModal";
-import { TestProgress } from "./TestProgress";
-import { TabNavigation } from "../common/TabNavigation";
-import { DashboardTab } from "./DashboardTab";
-import { SpeedTestTab } from "./SpeedTestTab";
-import { TracerouteTab } from "./TracerouteTab";
-import { MonitorTab } from "../monitor/MonitorTab";
+import { ShareModal } from "./speedtest/ShareModal";
+import { TestProgress } from "./speedtest/TestProgress";
+import { TabNavigation } from "./common/TabNavigation";
+import { DashboardTab } from "./speedtest/DashboardTab";
+import { SpeedTestTab } from "./speedtest/SpeedTestTab";
+import { TracerouteTab } from "./speedtest/TracerouteTab";
+import { MonitorTab } from "./monitor/MonitorTab";
 import {
   ChartBarIcon,
   PlayIcon,
@@ -45,11 +45,11 @@ import {
 } from "@/api/speedtest";
 import { motion, AnimatePresence } from "motion/react";
 
-interface SpeedTestProps {
+interface MainProps {
   isPublic?: boolean;
 }
 
-export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
+export default function Main({ isPublic = false }: MainProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [options, setOptions] = useState<TestOptions>({
@@ -200,7 +200,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const { data: schedules = [] } = useQuery({
     queryKey: ["schedules"],
     queryFn: () => {
-      console.log("[SpeedTest] Fetching schedules...");
+      console.log("[Main] Fetching schedules...");
       return getSchedules();
     },
     refetchInterval: 30000, // Refetch every 30 seconds (same as ScheduleManager)
@@ -209,7 +209,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
   // Log when schedules data changes
   useEffect(() => {
-    console.log("[SpeedTest] Schedules data updated:", schedules);
+    console.log("[Main] Schedules data updated:", schedules);
   }, [schedules]);
 
   // Mutations
