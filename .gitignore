@@ -71,5 +71,5 @@ scripts/test-macos-agent.sh
 scripts/test-agent-manual.sh
 future_plans.md
 test-tailscale.md
-docs/tailscale_ideas.md
-docs/AGENT_UPDATE.md
+ai_docs/tailscale_ideas.md
+ai_docs/AGENT_UPDATE.md
