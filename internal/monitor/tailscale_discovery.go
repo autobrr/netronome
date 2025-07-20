@@ -210,6 +210,126 @@ func (td *TailscaleDiscovery) discoverAgents(ctx context.Context) {
 	// Look for new agents by probing all online peers
 	log.Debug().Msg("Tailscale discovery service checking for new agents")
 	
+	// First check if there's an agent running on the same host (status.Self)
+	if status.Self != nil && status.Self.Online {
+		// Check if agent exists on same host
+		selfHostname := status.Self.HostName
+		if !existingMap[selfHostname] {
+			// Try to identify if there's a Netronome agent on the same host
+			// Try multiple addresses: hostname first, then IPs
+			var infoURLs []string
+			infoURLs = append(infoURLs, fmt.Sprintf("http://%s:%d/netronome/info", selfHostname, discoveryPort))
+			
+			// Also try Tailscale IPs
+			for _, ip := range status.Self.TailscaleIPs {
+				infoURLs = append(infoURLs, fmt.Sprintf("http://%s:%d/netronome/info", ip.String(), discoveryPort))
+			}
+			
+			// Try localhost as well (in case agent is listening on all interfaces)
+			infoURLs = append(infoURLs, fmt.Sprintf("http://localhost:%d/netronome/info", discoveryPort))
+			infoURLs = append(infoURLs, fmt.Sprintf("http://127.0.0.1:%d/netronome/info", discoveryPort))
+			
+			client := &http.Client{Timeout: 3 * time.Second}
+			
+			var resp *http.Response
+			var err error
+			var successURL string
+			
+			// Try each URL until one works
+			for _, infoURL := range infoURLs {
+				resp, err = client.Get(infoURL)
+				if err == nil && resp.StatusCode == http.StatusOK {
+					successURL = strings.TrimSuffix(infoURL, "/netronome/info")
+					break
+				}
+				if resp != nil {
+					resp.Body.Close()
+				}
+			}
+			if err == nil && resp != nil && successURL != "" {
+				defer resp.Body.Close()
+				
+				if resp.StatusCode == http.StatusOK {
+					// Parse the response to verify it's a Netronome agent
+					var agentInfo struct {
+						Type     string `json:"type"`
+						Version  string `json:"version"`
+						Hostname string `json:"hostname"`
+					}
+					
+					if err := json.NewDecoder(resp.Body).Decode(&agentInfo); err == nil && agentInfo.Type == "netronome-agent" {
+						log.Info().
+							Str("hostname", selfHostname).
+							Str("successful_url", successURL).
+							Int("port", discoveryPort).
+							Str("version", agentInfo.Version).
+							Msg("Discovered Netronome agent on same host")
+
+						// Create agent URL with SSE endpoint using the successful URL
+						agentURL := successURL
+						if !strings.HasSuffix(agentURL, "/events?stream=live-data") {
+							if strings.HasSuffix(agentURL, "/") {
+								agentURL = agentURL + "events?stream=live-data"
+							} else {
+								agentURL = agentURL + "/events?stream=live-data"
+							}
+						}
+
+						// Create new agent entry
+						emptyString := ""
+						now := time.Now()
+						newAgent := &types.MonitorAgent{
+							Name:              selfHostname,
+							URL:               agentURL,
+							APIKey:            &emptyString, // User will need to set this manually if required
+							Enabled:           true, // Auto-discovered agents start enabled
+							IsTailscale:       true,
+							TailscaleHostname: &selfHostname,
+							DiscoveredAt:      &now,
+							CreatedAt:         time.Now(),
+							UpdatedAt:         time.Now(),
+						}
+
+						// Save to database
+						createdAgent, err := td.service.db.CreateMonitorAgent(ctx, newAgent)
+						if err != nil {
+							log.Error().
+								Err(err).
+								Str("hostname", selfHostname).
+								Msg("Failed to save discovered agent on same host")
+						} else {
+							log.Info().
+								Str("name", newAgent.Name).
+								Str("url", newAgent.URL).
+								Msg("Added discovered Tailscale agent on same host")
+							
+							// Start monitoring the new agent immediately
+							if err := td.service.StartAgent(createdAgent.ID); err != nil {
+								log.Error().
+									Err(err).
+									Int64("agent_id", createdAgent.ID).
+									Msg("Failed to start monitoring discovered agent")
+							} else {
+								log.Info().
+									Int64("agent_id", createdAgent.ID).
+									Str("name", createdAgent.Name).
+									Msg("Started monitoring discovered agent")
+							}
+							
+							// Broadcast update
+							td.service.broadcastFunc(types.MonitorUpdate{
+								Type: types.MonitorUpdateTypeAgentDiscovered,
+								Data: map[string]interface{}{
+									"agent": createdAgent,
+								},
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+	
 	for _, peer := range status.Peer {
 		// Skip if not online
 		if !peer.Online {
