@@ -239,11 +239,6 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
               <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white">
                 {agent.name}
               </h3>
-              {agent.discoveredAt && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                  Auto-discovered
-                </span>
-              )}
               <div className="flex items-center space-x-1.5">
                 {agent.enabled && status?.connected ? (
                   <span className="relative inline-flex h-2 w-2">
@@ -339,16 +334,18 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                 <SparklesIcon className="w-3.5 h-3.5" />
               )}
             </button>
-            <button
-              className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit();
-              }}
-              title="Edit Agent"
-            >
-              <PencilIcon className="w-3.5 h-3.5" />
-            </button>
+            {!(agent.discoveredAt && agent.isTailscale) && (
+              <button
+                className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+                title="Edit Agent"
+              >
+                <PencilIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
               className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               onClick={(e) => {

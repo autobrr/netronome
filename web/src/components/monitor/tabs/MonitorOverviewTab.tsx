@@ -14,6 +14,8 @@ import {
   ClockIcon,
   SignalIcon,
   CalendarIcon,
+  CircleStackIcon,
+  FireIcon,
 } from "@heroicons/react/24/outline";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faLinux, faApple } from "@fortawesome/free-brands-svg-icons";
@@ -31,7 +33,7 @@ const formatUptime = (seconds: number): string => {
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  
+
   if (days > 0) {
     return `${days}d ${hours}h`;
   } else if (hours > 0) {
@@ -44,12 +46,12 @@ const formatUptime = (seconds: number): string => {
 export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
   agent,
 }) => {
-  const { status, nativeData, hardwareStats, systemInfo, peakStats } = useMonitorAgent({
+  const { status, nativeData, hardwareStats, systemInfo } = useMonitorAgent({
     agent,
     includeNativeData: true,
     includeSystemInfo: true,
     includeHardwareStats: true,
-    includePeakStats: true,
+    includePeakStats: false,
   });
 
   const usage = nativeData ? parseMonitorUsagePeriods(nativeData) : null;
@@ -61,20 +63,97 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
       {/* Offline Banner */}
       {isOffline && <MonitorOfflineBanner />}
 
-      {/* Key Metrics Grid - Now 2x2 on desktop */}
+      {/* System Identity Bar */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-4 shadow-lg border border-gray-200 dark:border-gray-800"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            {/* Hostname Icon */}
+            <ServerIcon className="h-8 w-8 text-gray-600 dark:text-gray-400" />
+
+            {/* System Info */}
+            <div className="flex-1">
+              <div className="flex items-baseline space-x-3">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {systemInfo?.hostname || agent.name}
+                </h2>
+              </div>
+              {hardwareStats?.cpu && (
+                <div className="flex items-center space-x-1.5 mt-0.5">
+                  <CpuChipIcon className="h-4 w-4 text-gray-500 dark:text-gray-500" />
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {hardwareStats.cpu.model ? (
+                      <>
+                        {hardwareStats.cpu.model
+                          .replace(/\s+/g, " ")
+                          .trim()
+                          .split("@")[0]
+                          .trim()}
+                        <span className="text-gray-500 dark:text-gray-500 mx-1">
+                          •
+                        </span>
+                      </>
+                    ) : null}
+                    {hardwareStats.cpu.cores}{" "}
+                    {hardwareStats.cpu.cores === 1 ? "core" : "cores"}
+                    {hardwareStats.cpu.threads &&
+                      hardwareStats.cpu.threads !== hardwareStats.cpu.cores && (
+                        <>, {hardwareStats.cpu.threads} threads</>
+                      )}
+                    {systemInfo?.kernel && (
+                      <>
+                        {systemInfo.kernel.toLowerCase().includes("darwin") ? (
+                          <FontAwesomeIcon
+                            icon={faApple}
+                            className="h-4 w-4 text-gray-500 dark:text-gray-500 ml-2 mr-1"
+                          />
+                        ) : systemInfo.kernel
+                            .toLowerCase()
+                            .includes("linux") ? (
+                          <FontAwesomeIcon
+                            icon={faLinux}
+                            className="h-4 w-4 text-gray-500 dark:text-gray-500 ml-2 mr-1"
+                          />
+                        ) : null}
+                        <span>{systemInfo.kernel}</span>
+                      </>
+                    )}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Uptime */}
+          <div className="flex items-center space-x-2 pr-4">
+            <ClockIcon className="h-5 w-5 text-gray-400" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {systemInfo?.uptime
+                ? `Up ${formatUptime(systemInfo.uptime)}`
+                : "N/A"}
+            </span>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Network Performance Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Current Speed */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
           className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
               Current Speed
             </h3>
-            <ServerIcon className="h-5 w-5 text-gray-400" />
+            <SignalIcon className="h-5 w-5 text-gray-400" />
           </div>
           {status?.liveData ? (
             <>
@@ -102,7 +181,7 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
+          transition={{ duration: 0.3, delay: 0.15 }}
           className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
         >
           <div className="flex items-center justify-between mb-4">
@@ -136,130 +215,11 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
           )}
         </motion.div>
 
-
-        {/* System Health */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-          className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              System Health
-            </h3>
-            {systemInfo?.kernel.toLowerCase().includes("darwin") ? (
-              <FontAwesomeIcon
-                icon={faApple}
-                className="h-5 w-5 text-gray-400"
-              />
-            ) : systemInfo?.kernel.toLowerCase().includes("linux") ? (
-              <FontAwesomeIcon
-                icon={faLinux}
-                className="h-5 w-5 text-gray-400"
-              />
-            ) : (
-              <CpuChipIcon className="h-5 w-5 text-gray-400" />
-            )}
-          </div>
-          {hardwareStats ? (
-            <>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    CPU
-                  </span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {hardwareStats.cpu.usage_percent.toFixed(1)}%
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className="h-2 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${hardwareStats.cpu.usage_percent}%`,
-                      backgroundColor:
-                        hardwareStats.cpu.usage_percent < 70
-                          ? "#10B981"
-                          : hardwareStats.cpu.usage_percent < 85
-                          ? "#F59E0B"
-                          : "#EF4444",
-                    }}
-                  />
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Memory
-                  </span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {hardwareStats.memory.used_percent.toFixed(1)}%
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className="h-2 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${hardwareStats.memory.used_percent}%`,
-                      backgroundColor:
-                        hardwareStats.memory.used_percent < 70
-                          ? "#10B981"
-                          : hardwareStats.memory.used_percent < 85
-                          ? "#F59E0B"
-                          : "#EF4444",
-                    }}
-                  />
-                </div>
-                {/* Temperature Alert */}
-                {hardwareStats.temperature && hardwareStats.temperature.length > 0 && (() => {
-                  const hotSensors = hardwareStats.temperature.filter(t => t.temperature > 80);
-                  const warmSensors = hardwareStats.temperature.filter(t => t.temperature > 60 && t.temperature <= 80);
-                  
-                  if (hotSensors.length > 0) {
-                    return (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          Temperature
-                        </span>
-                        <span className="text-sm font-medium text-red-600 dark:text-red-400">
-                          {hotSensors.length} Hot
-                        </span>
-                      </div>
-                    );
-                  } else if (warmSensors.length > 0) {
-                    return (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          Temperature
-                        </span>
-                        <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                          {warmSensors.length} Warm
-                        </span>
-                      </div>
-                    );
-                  } else {
-                    return (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          Temperature
-                        </span>
-                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                          Normal
-                        </span>
-                      </div>
-                    );
-                  }
-                })()}
-              </div>
-            </>
-          ) : (
-            <p className="text-gray-500 dark:text-gray-400">No data</p>
-          )}
-        </motion.div>
         {/* This Week Usage */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
           className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
         >
           <div className="flex items-center justify-between mb-4">
@@ -292,60 +252,266 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
             <p className="text-gray-500 dark:text-gray-400">No data</p>
           )}
         </motion.div>
+
+        {/* This Month Usage */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.25 }}
+          className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              This Month
+            </h3>
+            <CalendarIcon className="h-5 w-5 text-purple-400" />
+          </div>
+          {usage?.["This Month"] ? (
+            <>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                {formatBytes(usage["This Month"].total)}
+              </p>
+              <div className="flex items-center space-x-4 text-sm">
+                <div className="flex items-center space-x-1">
+                  <ArrowDownIcon className="h-3 w-3 text-blue-500" />
+                  <span className="text-gray-600 dark:text-gray-400">
+                    {formatBytes(usage["This Month"].download)}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <ArrowUpIcon className="h-3 w-3 text-green-500" />
+                  <span className="text-gray-600 dark:text-gray-400">
+                    {formatBytes(usage["This Month"].upload)}
+                  </span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400">No data</p>
+          )}
+        </motion.div>
       </div>
 
-      {/* Quick Stats Row */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.4 }}
-        className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-            Quick Stats
-          </h3>
-          <SignalIcon className="h-5 w-5 text-gray-400" />
-        </div>
-        
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {/* Uptime */}
-          <div className="text-center">
-            <ClockIcon className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-            <p className="text-sm text-gray-600 dark:text-gray-400">Uptime</p>
-            <p className="text-lg font-bold text-gray-900 dark:text-white">
-              {systemInfo?.uptime ? formatUptime(systemInfo.uptime) : "N/A"}
-            </p>
+      {/* Resource Monitors Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* CPU Usage */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+          className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              CPU Usage
+            </h3>
+            <CpuChipIcon className="h-5 w-5 text-gray-400" />
           </div>
+          {hardwareStats?.cpu ? (
+            <div className="space-y-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {hardwareStats.cpu.usage_percent.toFixed(1)}%
+                </span>
+                {hardwareStats.cpu.load_avg &&
+                  hardwareStats.cpu.load_avg[0] && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      Load: {hardwareStats.cpu.load_avg[0].toFixed(2)}
+                    </span>
+                  )}
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                <div
+                  className="h-3 rounded-full transition-all duration-500 ease-out"
+                  style={{
+                    width: `${Math.min(hardwareStats.cpu.usage_percent, 100)}%`,
+                    backgroundColor:
+                      hardwareStats.cpu.usage_percent < 50
+                        ? "#34d399"
+                        : hardwareStats.cpu.usage_percent < 85
+                        ? "#d97706"
+                        : "#EF4444",
+                  }}
+                />
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {hardwareStats.cpu.threads} threads @{" "}
+                {hardwareStats.cpu.frequency?.toFixed(0) || "?"} MHz
+              </p>
+            </div>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400">No data</p>
+          )}
+        </motion.div>
 
-          {/* This Month Usage */}
-          <div className="text-center">
-            <ChartBarIcon className="h-8 w-8 mx-auto mb-2 text-purple-500" />
-            <p className="text-sm text-gray-600 dark:text-gray-400">This Month</p>
-            <p className="text-lg font-bold text-gray-900 dark:text-white">
-              {usage?.["This Month"] ? formatBytes(usage["This Month"].total) : "N/A"}
-            </p>
+        {/* Memory Usage */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.35 }}
+          className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              Memory Usage
+            </h3>
+            <CircleStackIcon className="h-5 w-5 text-gray-400" />
           </div>
+          {hardwareStats?.memory ? (
+            <div className="space-y-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {hardwareStats.memory.used_percent.toFixed(1)}%
+                </span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {formatBytes(hardwareStats.memory.available)} free
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                <div
+                  className="h-3 rounded-full transition-all duration-500 ease-out"
+                  style={{
+                    width: `${Math.min(
+                      hardwareStats.memory.used_percent,
+                      100
+                    )}%`,
+                    backgroundColor:
+                      hardwareStats.memory.used_percent < 50
+                        ? "#34d399"
+                        : hardwareStats.memory.used_percent < 85
+                        ? "#d97706"
+                        : "#EF4444",
+                  }}
+                />
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {formatBytes(hardwareStats.memory.used)} /{" "}
+                {formatBytes(hardwareStats.memory.total)}
+              </p>
+            </div>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400">No data</p>
+          )}
+        </motion.div>
 
-          {/* Peak Download */}
-          <div className="text-center">
-            <ArrowDownIcon className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-            <p className="text-sm text-gray-600 dark:text-gray-400">Peak Down</p>
-            <p className="text-lg font-bold text-gray-900 dark:text-white">
-              {peakStats?.peak_rx_string || "N/A"}
-            </p>
+        {/* Disk Usage */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.4 }}
+          className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              Primary Disk
+            </h3>
+            <ServerIcon className="h-5 w-5 text-gray-400" />
           </div>
+          {hardwareStats?.disks && hardwareStats.disks.length > 0 ? (
+            (() => {
+              const primaryDisk =
+                hardwareStats.disks.find((d) => d.path === "/") ||
+                hardwareStats.disks[0];
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                      {primaryDisk.used_percent.toFixed(1)}%
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {formatBytes(primaryDisk.free)} free
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                    <div
+                      className="h-3 rounded-full transition-all duration-500 ease-out"
+                      style={{
+                        width: `${Math.min(primaryDisk.used_percent, 100)}%`,
+                        backgroundColor:
+                          primaryDisk.used_percent < 70
+                            ? "#10b981"
+                            : primaryDisk.used_percent < 85
+                            ? "#eab308"
+                            : "#ef4444",
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {primaryDisk.path} • {formatBytes(primaryDisk.used)} /{" "}
+                    {formatBytes(primaryDisk.total)}
+                  </p>
+                </div>
+              );
+            })()
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400">No data</p>
+          )}
+        </motion.div>
+      </div>
 
-          {/* Peak Upload */}
-          <div className="text-center">
-            <ArrowUpIcon className="h-8 w-8 mx-auto mb-2 text-green-500" />
-            <p className="text-sm text-gray-600 dark:text-gray-400">Peak Up</p>
-            <p className="text-lg font-bold text-gray-900 dark:text-white">
-              {peakStats?.peak_tx_string || "N/A"}
-            </p>
-          </div>
-        </div>
-      </motion.div>
+      {/* Temperature Alert (only if notable) */}
+      {hardwareStats?.temperature &&
+        hardwareStats.temperature.length > 0 &&
+        (() => {
+          const hotSensors = hardwareStats.temperature.filter(
+            (t) => t.temperature > 80
+          );
+          const warmSensors = hardwareStats.temperature.filter(
+            (t) => t.temperature > 60 && t.temperature <= 80
+          );
+
+          if (hotSensors.length > 0 || warmSensors.length > 0) {
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.25 }}
+                className={`rounded-xl p-4 shadow-lg border ${
+                  hotSensors.length > 0
+                    ? "bg-red-50/95 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                    : "bg-amber-50/95 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <FireIcon
+                    className={`h-6 w-6 ${
+                      hotSensors.length > 0
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-amber-600 dark:text-amber-400"
+                    }`}
+                  />
+                  <div className="flex-1">
+                    <h4
+                      className={`font-medium ${
+                        hotSensors.length > 0
+                          ? "text-red-900 dark:text-red-100"
+                          : "text-amber-900 dark:text-amber-100"
+                      }`}
+                    >
+                      Temperature Warning
+                    </h4>
+                    <div className="flex flex-wrap gap-3 mt-1">
+                      {[...hotSensors, ...warmSensors].map((sensor, idx) => (
+                        <span
+                          key={idx}
+                          className={`text-sm ${
+                            sensor.temperature > 80
+                              ? "text-red-700 dark:text-red-300"
+                              : "text-amber-700 dark:text-amber-300"
+                          }`}
+                        >
+                          {sensor.label || sensor.sensor_key}:{" "}
+                          {sensor.temperature.toFixed(1)}°C
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          }
+          return null;
+        })()}
     </div>
   );
 };

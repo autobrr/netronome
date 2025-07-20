@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MonitorAgentList } from "./MonitorAgentList";
 import { MonitorAgentForm } from "./MonitorAgentForm";
 import { MonitorAgentDetailsTabs } from "./MonitorAgentDetailsTabs";
-import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 import {
   getMonitorAgents,
   createMonitorAgent,
@@ -210,49 +210,48 @@ export const MonitorTab: React.FC = () => {
             transition={{ duration: 0.3 }}
             className="space-y-6"
           >
-            {/* Header with back button */}
-            <div className="flex items-center gap-4">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleBack}
-                className="px-3 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg shadow-md transition-colors flex items-center gap-2"
-              >
-                <ArrowLeftIcon className="h-4 w-4" />
-                <span className="text-sm font-medium">Back</span>
-              </motion.button>
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                    {selectedAgent.name}
-                  </h2>
-                  {/* Status badge will be added by child components that have access to real-time status */}
-                  {selectedAgent && !selectedAgent.enabled && (
-                    <span className="px-3 py-1 bg-gray-500/10 border border-gray-500/30 text-gray-600 dark:text-gray-400 rounded-lg shadow-md text-xs font-medium">
-                      Disabled
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                  {selectedAgent.url}
-                </p>
+            {/* Simplified Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleBack}
+                  className="px-3 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg shadow-md transition-colors flex items-center gap-2"
+                >
+                  <ArrowLeftIcon className="h-4 w-4" />
+                  <span className="text-sm font-medium">Back</span>
+                </motion.button>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                  {selectedAgent.name}
+                </h2>
+                {selectedAgent && !selectedAgent.enabled && (
+                  <span className="px-3 py-1 bg-gray-500/10 border border-gray-500/30 text-gray-600 dark:text-gray-400 rounded-lg shadow-md text-xs font-medium">
+                    Disabled
+                  </span>
+                )}
               </div>
               <div className="flex gap-2">
+                {/* Only show edit button for non-autodiscovered agents */}
+                {!(selectedAgent.discoveredAt && selectedAgent.isTailscale) && (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => handleEditAgent(selectedAgent)}
+                    className="p-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg shadow-md transition-colors"
+                    title="Edit agent"
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </motion.button>
+                )}
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleEditAgent(selectedAgent)}
-                  className="px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg shadow-md transition-colors text-sm font-medium"
-                >
-                  Edit
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => handleDeleteAgent(selectedAgent.id)}
-                  className="px-4 py-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg shadow-md transition-colors text-sm font-medium"
+                  className="p-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg shadow-md transition-colors"
+                  title="Delete agent"
                 >
-                  Delete
+                  <TrashIcon className="h-4 w-4" />
                 </motion.button>
               </div>
             </div>

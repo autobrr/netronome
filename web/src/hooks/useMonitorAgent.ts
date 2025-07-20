@@ -50,7 +50,9 @@ export const useMonitorAgent = ({
   const nativeDataQuery = useQuery({
     queryKey: ["monitor-agent-native", agent.id],
     queryFn: () => getMonitorAgentNative(agent.id),
-    refetchInterval: agent.enabled ? MONITOR_REFRESH_INTERVALS.NATIVE_DATA : false,
+    refetchInterval: agent.enabled
+      ? MONITOR_REFRESH_INTERVALS.NATIVE_DATA
+      : false,
     staleTime: MONITOR_REFRESH_INTERVALS.NATIVE_DATA, // Keep data fresh for the full interval
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes even when unused
     enabled: agent.enabled && includeNativeData,
@@ -60,7 +62,9 @@ export const useMonitorAgent = ({
   const systemInfoQuery = useQuery<SystemInfo>({
     queryKey: ["monitor-agent-system", agent.id],
     queryFn: () => getMonitorAgentSystemInfo(agent.id),
-    refetchInterval: agent.enabled ? MONITOR_REFRESH_INTERVALS.SYSTEM_INFO : false,
+    refetchInterval: agent.enabled
+      ? MONITOR_REFRESH_INTERVALS.SYSTEM_INFO
+      : false,
     staleTime: MONITOR_REFRESH_INTERVALS.SYSTEM_INFO / 2, // Consider data fresh for half the refetch interval
     enabled: agent.enabled && includeSystemInfo,
   });
@@ -69,7 +73,9 @@ export const useMonitorAgent = ({
   const peakStatsQuery = useQuery<PeakStats>({
     queryKey: ["monitor-agent-peaks", agent.id],
     queryFn: () => getMonitorAgentPeakStats(agent.id),
-    refetchInterval: agent.enabled ? MONITOR_REFRESH_INTERVALS.PEAK_STATS : false,
+    refetchInterval: agent.enabled
+      ? MONITOR_REFRESH_INTERVALS.PEAK_STATS
+      : false,
     staleTime: MONITOR_REFRESH_INTERVALS.PEAK_STATS / 2, // Consider data fresh for half the refetch interval
     enabled: agent.enabled && includePeakStats && statusQuery.data?.connected,
   });
@@ -78,7 +84,9 @@ export const useMonitorAgent = ({
   const hardwareStatsQuery = useQuery<HardwareStats>({
     queryKey: ["monitor-agent-hardware", agent.id],
     queryFn: () => getMonitorAgentHardwareStats(agent.id),
-    refetchInterval: agent.enabled ? MONITOR_REFRESH_INTERVALS.HARDWARE_STATS : false,
+    refetchInterval: agent.enabled
+      ? MONITOR_REFRESH_INTERVALS.HARDWARE_STATS
+      : false,
     staleTime: MONITOR_REFRESH_INTERVALS.HARDWARE_STATS, // Keep data fresh for the full interval
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes even when unused
     enabled: agent.enabled && includeHardwareStats,
