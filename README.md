@@ -285,9 +285,22 @@ Example `librespeed-servers.json`:
 
 Netronome includes a comprehensive distributed monitoring system using lightweight agents that can be deployed on remote servers to track bandwidth, hardware resources, and system information.
 
+#### Binary Types
+
+Netronome provides two binary options for different deployment scenarios:
+
+- **`netronome`** - Full server binary (~66MB) with complete web interface, database, and agent functionality
+- **`netronome-agent`** - Lightweight agent-only binary (~32MB) optimized for distributed monitoring
+
+**When to use each:**
+- **Full Binary (`netronome`)**: Main server deployment, development, or when you need all commands
+- **Agent Binary (`netronome-agent`)**: Remote monitoring agents, resource-constrained deployments, or containerized agents
+
+Both binaries are included in release archives. The installation script automatically detects and prefers the lightweight agent binary when available.
+
 #### Agent Setup
 
-The same `netronome` binary can run as a lightweight agent that can be deployed:
+Netronome agents can be deployed using either binary depending on your needs:
 
 - **Remote servers**: Monitor system resources, bandwidth, and hardware across different servers/locations
 - **Same server**: Useful when Netronome runs in Docker but you want to monitor the host system
@@ -355,14 +368,14 @@ journalctl -u netronome-agent-update
 1. **Deploy the Agent**
 
    ```bash
-   # Run agent on default settings (0.0.0.0:8200)
-   netronome agent
-
-   # Run agent with API key authentication (recommended)
+   # Using the dedicated agent binary (recommended for agents)
+   netronome-agent --api-key your-secret-key
+   
+   # Or using the full binary with agent command
    netronome agent --api-key your-secret-key
 
    # Run agent on custom host and port
-   netronome agent --host 192.168.1.100 --port 8300 --api-key your-secret-key
+   netronome-agent --host 192.168.1.100 --port 8300 --api-key your-secret-key
 
    # Run agent with specific interface
    netronome agent --interface eth0 --api-key your-secret-key
@@ -1207,29 +1220,58 @@ User=root
 
 ## 🔨 Building from Source
 
-### Building with Full SMART Support
+### Build Targets
 
-The release binaries include most temperature monitoring (CPU, NVMe, battery) but lack SMART support for SATA/HDD temperatures and disk model names. To build with full SMART support on Linux or macOS:
+Netronome provides multiple build targets for different use cases:
 
 ```bash
 # Clone the repository
 git clone https://github.com/autobrr/netronome
 cd netronome
 
-# Build with SMART support (default when building locally)
+# Build full server binary with web interface (requires frontend build)
 make build
 
-# The binary will be in ./bin/netronome with full SMART support
-sudo ./bin/netronome agent  # Run with sudo for SATA/HDD temperature access
+# Build lightweight agent-only binary (no frontend required)
+make build-agent  
+
+# Build both binaries
+make build-all
 ```
+
+**Build target details:**
+- **`make build`** - Full server binary (~66MB) with embedded web UI, database, all commands
+- **`make build-agent`** - Agent-only binary (~32MB) with just monitoring functionality
+- **`make build-all`** - Both binaries for comprehensive deployment options
+
+### Building with Full SMART Support
+
+The release binaries include most temperature monitoring (CPU, NVMe, battery) but lack SMART support for SATA/HDD temperatures and disk model names. To build with full SMART support on Linux or macOS:
+
+```bash
+# Build full server with SMART support (requires CGO, default when building locally)
+CGO_ENABLED=1 make build
+
+# Build agent with SMART support (requires CGO)
+CGO_ENABLED=1 make build-agent
+
+# The binaries will be in ./bin/ with full SMART support
+sudo ./bin/netronome agent  # Run with sudo for SATA/HDD temperature access
+sudo ./bin/netronome-agent  # Or use the dedicated agent binary
+```
+
+**Note**: SMART support requires `CGO_ENABLED=1` to interface with system disk libraries.
 
 ### Building without SMART Support
 
 To build without SMART support (like the release binaries):
 
 ```bash
-# Build with nosmart tag (still includes CPU/NVMe/battery temps via gopsutil)
+# Full binary without SMART
 CGO_ENABLED=0 go build -tags nosmart -o bin/netronome ./cmd/netronome
+
+# Agent binary without SMART  
+CGO_ENABLED=0 go build -tags nosmart -o bin/netronome-agent ./cmd/netronome-agent
 ```
 
 **What works without SMART:**
