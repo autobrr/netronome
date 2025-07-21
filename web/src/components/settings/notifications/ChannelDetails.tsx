@@ -4,7 +4,6 @@
  */
 
 import React from "react";
-import { motion } from "motion/react";
 import { Switch, Button as HeadlessButton } from "@headlessui/react";
 import { BellIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
@@ -18,10 +17,6 @@ interface ChannelDetailsProps {
   isTesting: boolean;
 }
 
-const SLIDE_TRANSITION = {
-  duration: 0.3,
-} as const;
-
 export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
   channel,
   onUpdate,
@@ -31,12 +26,7 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
   isTesting,
 }) => {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={SLIDE_TRANSITION}
-      className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6"
-    >
+    <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
       <div className="flex items-start justify-between mb-6">
         <div>
           <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -46,7 +36,7 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
             Channel configuration and settings
           </p>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <HeadlessButton
             onClick={onTest}
@@ -54,11 +44,7 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
             className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isTesting ? (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-4 h-4 border-2 border-gray-300 dark:border-gray-700 border-t-blue-500 dark:border-t-blue-400 rounded-full"
-              />
+              <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-700 border-t-blue-500 dark:border-t-blue-400 rounded-full animate-spin" />
             ) : (
               <BellIcon className="w-4 h-4" />
             )}
@@ -93,7 +79,9 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
               Channel Status
             </label>
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-              {channel.enabled ? "Notifications will be sent to this channel" : "Channel is disabled"}
+              {channel.enabled
+                ? "Notifications will be sent to this channel"
+                : "Channel is disabled"}
             </p>
           </div>
           <Switch
@@ -112,21 +100,15 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
             )}
           >
             <span className="sr-only">Enable channel</span>
-            <motion.span
-              layout
-              transition={{
-                type: "spring",
-                stiffness: 700,
-                damping: 30,
-              }}
+            <span
               className={cn(
-                "inline-block h-4 w-4 rounded-full bg-white shadow-lg",
+                "inline-block h-4 w-4 rounded-full bg-white shadow-lg transition-transform duration-200",
                 channel.enabled ? "translate-x-6" : "translate-x-1"
               )}
             />
           </Switch>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };

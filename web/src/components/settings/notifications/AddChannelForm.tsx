@@ -4,9 +4,11 @@
  */
 
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import { Input, Select, Button as HeadlessButton } from "@headlessui/react";
-import { SHOUTRRR_SERVICES, type NotificationChannelInput } from "@/api/notifications";
+import {
+  SHOUTRRR_SERVICES,
+  type NotificationChannelInput,
+} from "@/api/notifications";
 
 interface AddChannelFormProps {
   onSubmit: (input: NotificationChannelInput) => void;
@@ -14,17 +16,17 @@ interface AddChannelFormProps {
   isLoading: boolean;
 }
 
-const FADE_TRANSITION = {
-  duration: 0.2,
-} as const;
-
-export const AddChannelForm: React.FC<AddChannelFormProps> = ({ onSubmit, onCancel, isLoading }) => {
+export const AddChannelForm: React.FC<AddChannelFormProps> = ({
+  onSubmit,
+  onCancel,
+  isLoading,
+}) => {
   const [name, setName] = useState("");
   const [service, setService] = useState("");
   const [url, setUrl] = useState("");
   const [showUrlHelp, setShowUrlHelp] = useState(false);
 
-  const selectedService = SHOUTRRR_SERVICES.find(s => s.value === service);
+  const selectedService = SHOUTRRR_SERVICES.find((s) => s.value === service);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +61,7 @@ export const AddChannelForm: React.FC<AddChannelFormProps> = ({ onSubmit, onCanc
           className="mt-1 w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
         >
           <option value="">Select a service...</option>
-          {SHOUTRRR_SERVICES.map(svc => (
+          {SHOUTRRR_SERVICES.map((svc) => (
             <option key={svc.value} value={svc.value}>
               {svc.label}
             </option>
@@ -88,33 +90,26 @@ export const AddChannelForm: React.FC<AddChannelFormProps> = ({ onSubmit, onCanc
           className="mt-1 w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
           required
         />
-        <AnimatePresence>
-          {showUrlHelp && selectedService && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={FADE_TRANSITION}
-              className="mt-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-lg"
-            >
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                <span className="font-medium">Format:</span> <code className="font-mono">{selectedService.example}</code>
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {showUrlHelp && selectedService && (
+          <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <p className="text-xs text-blue-700 dark:text-blue-300">
+              <span className="font-medium">Format:</span>{" "}
+              <code className="font-mono">{selectedService.example}</code>
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 pt-2">
-        <HeadlessButton 
-          type="submit" 
+        <HeadlessButton
+          type="submit"
           disabled={isLoading}
           className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? "Creating..." : "Create Channel"}
         </HeadlessButton>
-        <HeadlessButton 
-          type="button" 
+        <HeadlessButton
+          type="button"
           onClick={onCancel}
           className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors"
         >

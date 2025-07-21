@@ -3,14 +3,14 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, Fragment } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Dialog } from "@headlessui/react";
-import { 
-  Cog6ToothIcon, 
+import { Dialog, Transition } from "@headlessui/react";
+import {
+  Cog6ToothIcon,
   XMarkIcon,
   BellIcon,
-  ChevronRightIcon 
+  ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { NotificationSettings } from "./settings/NotificationSettings";
 
@@ -58,7 +58,9 @@ export const SettingsMenu: React.FC = () => {
     setShowMenu(false);
   };
 
-  const ActiveComponent = settingsSections.find(s => s.id === activeSection)?.component || NotificationSettings;
+  const ActiveComponent =
+    settingsSections.find((s) => s.id === activeSection)?.component ||
+    NotificationSettings;
 
   return (
     <>
@@ -88,7 +90,7 @@ export const SettingsMenu: React.FC = () => {
               <div className="p-1">
                 {settingsSections.map((section) => {
                   const Icon = section.icon;
-                  
+
                   return (
                     <motion.button
                       key={section.id}
@@ -111,48 +113,57 @@ export const SettingsMenu: React.FC = () => {
       </div>
 
       {/* Settings Modal */}
-      <Dialog
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        className="relative z-50"
-      >
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm"
-          aria-hidden="true"
-        />
-
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ duration: 0.2 }}
+      <Transition appear show={showModal} as={Fragment}>
+        <Dialog
+          as="div"
+          className="relative z-50"
+          onClose={() => setShowModal(false)}
+        >
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
           >
-            <Dialog.Panel className="w-full max-w-3xl md:max-w-5xl lg:max-w-6xl transform overflow-hidden rounded-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-800 shadow-2xl">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-800">
-                <Dialog.Title className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Settings
-                </Dialog.Title>
-                <motion.button
-                  onClick={() => setShowModal(false)}
-                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <XMarkIcon className="w-5 h-5" />
-                </motion.button>
-              </div>
+            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+          </Transition.Child>
 
-              <div className="p-4 sm:p-6 lg:p-8 max-h-[70vh] overflow-y-auto modal-scrollbar">
-                <ActiveComponent />
-              </div>
-            </Dialog.Panel>
-          </motion.div>
-        </div>
-      </Dialog>
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-3xl md:max-w-5xl lg:max-w-6xl transform overflow-hidden rounded-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-800 shadow-2xl">
+                  <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-800">
+                    <Dialog.Title className="text-xl font-semibold text-gray-900 dark:text-white">
+                      Settings
+                    </Dialog.Title>
+                    <button
+                      onClick={() => setShowModal(false)}
+                      className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:scale-110 active:scale-90 transition-all"
+                    >
+                      <XMarkIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="p-4 sm:p-6 lg:p-8 max-h-[70vh] overflow-y-auto modal-scrollbar">
+                    <ActiveComponent />
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </>
   );
 };

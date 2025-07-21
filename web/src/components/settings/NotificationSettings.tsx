@@ -14,9 +14,8 @@ import {
   XMarkIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
-import { 
-  notificationsApi, 
-  getEventCategoryIcon,
+import {
+  notificationsApi,
   type NotificationEvent,
   type NotificationRule,
   type NotificationRuleInput,
@@ -29,13 +28,6 @@ import {
   EventCategorySection,
   MobileNotificationView,
 } from "./notifications";
-
-// Animation configurations
-const SPRING_TRANSITION = {
-  type: "spring" as const,
-  stiffness: 500,
-  damping: 30,
-} as const;
 
 const FADE_TRANSITION = {
   duration: 0.2,
@@ -58,7 +50,9 @@ export const NotificationSettings: React.FC = () => {
   const [activeChannelId, setActiveChannelId] = useState<number | null>(null);
   const [showAddChannel, setShowAddChannel] = useState(false);
   const [testingChannelId, setTestingChannelId] = useState<number | null>(null);
-  const [pendingChanges, setPendingChanges] = useState<Map<number, RuleChange>>(new Map());
+  const [pendingChanges, setPendingChanges] = useState<Map<number, RuleChange>>(
+    new Map()
+  );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
 
@@ -77,6 +71,8 @@ export const NotificationSettings: React.FC = () => {
     queryKey: ["notification-rules", activeChannelId],
     queryFn: () => notificationsApi.getRules(activeChannelId || undefined),
     enabled: !!activeChannelId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    placeholderData: (previousData) => previousData,
   });
 
   // Mutations
@@ -94,7 +90,10 @@ export const NotificationSettings: React.FC = () => {
   });
 
   const updateChannelMutation = useMutation({
-    mutationFn: ({ id, ...input }: { id: number } & Parameters<typeof notificationsApi.updateChannel>[1]) => 
+    mutationFn: ({
+      id,
+      ...input
+    }: { id: number } & Parameters<typeof notificationsApi.updateChannel>[1]) =>
       notificationsApi.updateChannel(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notification-channels"] });
@@ -129,7 +128,10 @@ export const NotificationSettings: React.FC = () => {
   });
 
   const updateRuleMutation = useMutation({
-    mutationFn: ({ id, ...input }: { id: number } & Partial<NotificationRuleInput>) => 
+    mutationFn: ({
+      id,
+      ...input
+    }: { id: number } & Partial<NotificationRuleInput>) =>
       notificationsApi.updateRule(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notification-rules"] });
@@ -178,20 +180,18 @@ export const NotificationSettings: React.FC = () => {
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
   if (channelsLoading || eventsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-8 h-8 border-2 border-gray-300 dark:border-gray-700 border-t-blue-500 dark:border-t-blue-400 rounded-full mx-auto mb-4"
-          />
-          <p className="text-sm text-gray-600 dark:text-gray-400">Loading notification settings...</p>
+          <div className="w-8 h-8 border-2 border-gray-300 dark:border-gray-700 border-t-blue-500 dark:border-t-blue-400 rounded-full mx-auto mb-4 animate-spin" />
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Loading notification settings...
+          </p>
         </div>
       </div>
     );
@@ -214,9 +214,9 @@ export const NotificationSettings: React.FC = () => {
 
   // Helper function to get the current state of a rule (including pending changes)
   const getRuleState = (eventId: number): Partial<NotificationRule> => {
-    const existingRule = rules.find(r => r.event_id === eventId);
+    const existingRule = rules.find((r) => r.event_id === eventId);
     const pendingChange = pendingChanges.get(eventId);
-    
+
     return {
       ...existingRule,
       ...pendingChange,
@@ -224,22 +224,29 @@ export const NotificationSettings: React.FC = () => {
   };
 
   // Update a pending change
-  const updatePendingChange = (eventId: number, update: Partial<RuleChange>) => {
-    const event = events.find(e => e.id === eventId);
+  const updatePendingChange = (
+    eventId: number,
+    update: Partial<RuleChange>
+  ) => {
+    const event = events.find((e) => e.id === eventId);
     const newChanges = new Map(pendingChanges);
     const existingChange = newChanges.get(eventId) || { eventId };
-    
+
     // Merge the update with existing pending changes
     const updatedChange = { ...existingChange, ...update };
-    
+
     // If enabling a rule that supports thresholds, ensure default operator is set
-    if (update.enabled && event?.supports_threshold && !updatedChange.threshold_operator) {
-      const existingRule = rules.find(r => r.event_id === eventId);
+    if (
+      update.enabled &&
+      event?.supports_threshold &&
+      !updatedChange.threshold_operator
+    ) {
+      const existingRule = rules.find((r) => r.event_id === eventId);
       if (!existingRule?.threshold_operator) {
         updatedChange.threshold_operator = "gt";
       }
     }
-    
+
     newChanges.set(eventId, updatedChange);
     setPendingChanges(newChanges);
   };
@@ -251,14 +258,16 @@ export const NotificationSettings: React.FC = () => {
     const promises: Promise<any>[] = [];
 
     for (const [eventId, change] of pendingChanges) {
-      const existingRule = rules.find(r => r.event_id === eventId);
-      
+      const existingRule = rules.find((r) => r.event_id === eventId);
+
       if (existingRule) {
         // Update existing rule
-        promises.push(updateRuleMutation.mutateAsync({ 
-          id: existingRule.id, 
-          ...change 
-        }));
+        promises.push(
+          updateRuleMutation.mutateAsync({
+            id: existingRule.id,
+            ...change,
+          })
+        );
       } else if (change.enabled) {
         // Create new rule only if it's being enabled
         const newRule: NotificationRuleInput = {
@@ -289,12 +298,7 @@ export const NotificationSettings: React.FC = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="space-y-6"
-    >
+    <div className="space-y-6">
       {/* Header */}
       <div className="relative">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -307,7 +311,7 @@ export const NotificationSettings: React.FC = () => {
               Configure notification channels and rules for system alerts
             </p>
           </div>
-          
+
           <AnimatePresence>
             {hasUnsavedChanges && (
               <motion.div
@@ -329,63 +333,84 @@ export const NotificationSettings: React.FC = () => {
 
       {/* Mobile View */}
       {isMobileView ? (
-        <MobileNotificationView
-          channels={safeChannels}
-          activeChannel={activeChannel}
-          activeChannelId={activeChannelId}
-          setActiveChannelId={setActiveChannelId}
-          showAddChannel={showAddChannel}
-          setShowAddChannel={setShowAddChannel}
-          hasUnsavedChanges={hasUnsavedChanges}
-          pendingChanges={pendingChanges}
-          rules={rules}
-          rulesLoading={rulesLoading}
-          eventsByCategory={eventsByCategory}
-          getRuleState={getRuleState}
-          updatePendingChange={updatePendingChange}
-          saveChanges={saveChanges}
-          cancelChanges={cancelChanges}
-          createChannelMutation={createChannelMutation}
-          updateChannelMutation={updateChannelMutation}
-          testChannelMutation={testChannelMutation}
-          testingChannelId={testingChannelId}
-          setTestingChannelId={setTestingChannelId}
-          updateRuleMutation={updateRuleMutation}
-          createRuleMutation={createRuleMutation}
-        />
+        <div className="h-full">
+          <MobileNotificationView
+            channels={safeChannels}
+            activeChannel={activeChannel}
+            activeChannelId={activeChannelId}
+            setActiveChannelId={setActiveChannelId}
+            showAddChannel={showAddChannel}
+            setShowAddChannel={setShowAddChannel}
+            hasUnsavedChanges={hasUnsavedChanges}
+            pendingChanges={pendingChanges}
+            rules={rules}
+            rulesLoading={rulesLoading}
+            eventsByCategory={eventsByCategory}
+            getRuleState={getRuleState}
+            updatePendingChange={updatePendingChange}
+            saveChanges={saveChanges}
+            cancelChanges={cancelChanges}
+            createChannelMutation={createChannelMutation}
+            updateChannelMutation={updateChannelMutation}
+            deleteChannelMutation={deleteChannelMutation}
+            testChannelMutation={testChannelMutation}
+            testingChannelId={testingChannelId}
+            setTestingChannelId={setTestingChannelId}
+            updateRuleMutation={updateRuleMutation}
+            createRuleMutation={createRuleMutation}
+          />
+        </div>
       ) : (
         /* Desktop View */
         <div className="grid grid-cols-12 gap-8">
           {/* Channels Sidebar */}
-          <div className="col-span-3 space-y-4">
-            <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold text-gray-900 dark:text-white">
+          <div className="col-span-4 space-y-4">
+            <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                   Channels
                 </h4>
                 <HeadlessButton
                   onClick={() => setShowAddChannel(true)}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
                 >
                   <PlusIcon className="w-4 h-4" />
                   Add Channel
                 </HeadlessButton>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {safeChannels.map((channel) => (
                   <ChannelCard
                     key={channel.id}
                     channel={channel}
                     isActive={activeChannelId === channel.id}
                     hasUnsavedChanges={hasUnsavedChanges}
+                    onMouseEnter={() => {
+                      // Prefetch rules when hovering
+                      queryClient.prefetchQuery({
+                        queryKey: ["notification-rules", channel.id],
+                        queryFn: () => notificationsApi.getRules(channel.id),
+                        staleTime: 5 * 60 * 1000,
+                      });
+                    }}
                     onClick={() => {
-                      if (hasUnsavedChanges && activeChannelId !== channel.id) {
-                        if (confirm("You have unsaved changes. Do you want to discard them?")) {
+                      // If clicking the active channel, deselect it
+                      if (activeChannelId === channel.id) {
+                        setActiveChannelId(null);
+                      } else {
+                        // If there are unsaved changes, confirm before switching
+                        if (hasUnsavedChanges) {
+                          if (
+                            confirm(
+                              "You have unsaved changes. Do you want to discard them?"
+                            )
+                          ) {
+                            setActiveChannelId(channel.id);
+                          }
+                        } else {
                           setActiveChannelId(channel.id);
                         }
-                      } else {
-                        setActiveChannelId(channel.id);
                       }
                     }}
                   />
@@ -413,7 +438,7 @@ export const NotificationSettings: React.FC = () => {
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={SLIDE_TRANSITION}
-                  className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-4"
+                  className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6"
                 >
                   <h5 className="font-medium text-gray-900 dark:text-white mb-4">
                     Add New Channel
@@ -431,15 +456,19 @@ export const NotificationSettings: React.FC = () => {
           </div>
 
           {/* Channel Details and Rules */}
-          <div className="col-span-9">
+          <div className="col-span-8">
             {activeChannel ? (
-              <div className="space-y-6">
+              <div className="space-y-6" key={`channel-${activeChannel.id}`}>
                 {/* Channel Details */}
                 <ChannelDetails
                   channel={activeChannel}
                   onUpdate={updateChannelMutation}
                   onDelete={() => {
-                    if (confirm("Are you sure you want to delete this channel? This action cannot be undone.")) {
+                    if (
+                      confirm(
+                        "Are you sure you want to delete this channel? This action cannot be undone."
+                      )
+                    ) {
                       deleteChannelMutation.mutate(activeChannel.id);
                     }
                   }}
@@ -448,7 +477,10 @@ export const NotificationSettings: React.FC = () => {
                     testChannelMutation.mutate(activeChannel.id);
                   }}
                   isDeleting={deleteChannelMutation.isPending}
-                  isTesting={testingChannelId === activeChannel.id && testChannelMutation.isPending}
+                  isTesting={
+                    testingChannelId === activeChannel.id &&
+                    testChannelMutation.isPending
+                  }
                 />
 
                 {/* Notification Rules */}
@@ -462,7 +494,7 @@ export const NotificationSettings: React.FC = () => {
                         Choose which events trigger notifications
                       </p>
                     </div>
-                    
+
                     <AnimatePresence>
                       {hasUnsavedChanges && (
                         <motion.div
@@ -481,7 +513,10 @@ export const NotificationSettings: React.FC = () => {
                           </HeadlessButton>
                           <HeadlessButton
                             onClick={saveChanges}
-                            disabled={updateRuleMutation.isPending || createRuleMutation.isPending}
+                            disabled={
+                              updateRuleMutation.isPending ||
+                              createRuleMutation.isPending
+                            }
                             className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <CheckIcon className="w-4 h-4" />
@@ -492,18 +527,9 @@ export const NotificationSettings: React.FC = () => {
                     </AnimatePresence>
                   </div>
 
-                  {rulesLoading ? (
-                    <div className="text-center py-8">
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        className="w-6 h-6 border-2 border-gray-300 dark:border-gray-700 border-t-blue-500 dark:border-t-blue-400 rounded-full mx-auto mb-3"
-                      />
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Loading rules...</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {Object.entries(eventsByCategory).map(([category, categoryEvents]) => (
+                  <div className="space-y-4">
+                    {Object.entries(eventsByCategory).map(
+                      ([category, categoryEvents]) => (
                         <EventCategorySection
                           key={category}
                           category={category}
@@ -514,29 +540,178 @@ export const NotificationSettings: React.FC = () => {
                             updatePendingChange(eventId, input);
                           }}
                         />
-                      ))}
-                    </div>
-                  )}
+                      )
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-12">
-                <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500/10 rounded-full mb-4">
-                    <BellIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              <div className="space-y-6">
+                {/* Welcome Section */}
+                <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-8">
+                  <div className="flex items-start gap-6">
+                    <div className="flex-shrink-0">
+                      <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-500/10 rounded-full">
+                        <BellIcon className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                        Welcome to Notification Settings
+                      </h3>
+                      <p className="text-gray-600 dark:text-gray-400 mb-4">
+                        Set up notification channels to receive alerts about
+                        system events, speed tests, and monitoring updates.
+                        Netronome supports 15+ notification services through
+                        Shoutrrr.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-3 py-1 bg-gray-200/50 dark:bg-gray-800/50 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Discord
+                        </span>
+                        <span className="px-3 py-1 bg-gray-200/50 dark:bg-gray-800/50 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Telegram
+                        </span>
+                        <span className="px-3 py-1 bg-gray-200/50 dark:bg-gray-800/50 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Slack
+                        </span>
+                        <span className="px-3 py-1 bg-gray-200/50 dark:bg-gray-800/50 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Email
+                        </span>
+                        <span className="px-3 py-1 bg-gray-200/50 dark:bg-gray-800/50 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Pushover
+                        </span>
+                        <span className="px-3 py-1 bg-gray-200/50 dark:bg-gray-800/50 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300">
+                          And more...
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                    Select a Channel
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm mx-auto">
-                    Choose a notification channel from the sidebar to configure its rules and settings
+                </div>
+
+                {/* Getting Started Guide */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="flex items-center justify-center w-10 h-10 bg-emerald-500/10 rounded-lg">
+                        <span className="text-xl">1️⃣</span>
+                      </div>
+                      <h4 className="font-semibold text-gray-900 dark:text-white">
+                        Create a Channel
+                      </h4>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Click "Add Channel" in the sidebar to configure your first
+                      notification service. You'll need the service URL from
+                      your provider.
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="flex items-center justify-center w-10 h-10 bg-blue-500/10 rounded-lg">
+                        <span className="text-xl">2️⃣</span>
+                      </div>
+                      <h4 className="font-semibold text-gray-900 dark:text-white">
+                        Configure Rules
+                      </h4>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Select which events trigger notifications and set
+                      thresholds for alerts like high CPU usage or failed speed
+                      tests.
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="flex items-center justify-center w-10 h-10 bg-purple-500/10 rounded-lg">
+                        <span className="text-xl">3️⃣</span>
+                      </div>
+                      <h4 className="font-semibold text-gray-900 dark:text-white">
+                        Stay Informed
+                      </h4>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Receive real-time alerts about system performance, agent
+                      status, and network quality directly to your preferred
+                      platform.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Available Notifications */}
+                <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-4">
+                    Available Notifications
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="text-2xl">🚀</div>
+                      <div>
+                        <h5 className="font-medium text-gray-900 dark:text-white">
+                          Speed Test Events
+                        </h5>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Completed tests, failures, and performance thresholds
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="text-2xl">📡</div>
+                      <div>
+                        <h5 className="font-medium text-gray-900 dark:text-white">
+                          Packet Loss Monitoring
+                        </h5>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Network quality degradation and recovery alerts
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="text-2xl">🖥️</div>
+                      <div>
+                        <h5 className="font-medium text-gray-900 dark:text-white">
+                          Agent Monitoring
+                        </h5>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          System resource usage, online/offline status
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="text-2xl">⚡</div>
+                      <div>
+                        <h5 className="font-medium text-gray-900 dark:text-white">
+                          Resource Alerts
+                        </h5>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          CPU, memory, bandwidth, and disk usage warnings
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Call to Action */}
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6 text-center">
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                    Ready to get started? Create your first notification channel
+                    to begin receiving alerts.
                   </p>
+                  <HeadlessButton
+                    onClick={() => setShowAddChannel(true)}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    Create Your First Channel
+                  </HeadlessButton>
                 </div>
               </div>
             )}
           </div>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 };
