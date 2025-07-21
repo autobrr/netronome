@@ -41,6 +41,9 @@ make docker-run
 
 # Change password (interactive)
 ./bin/netronome change-password username
+
+# Run agent mode
+./bin/netronome agent --config config.toml
 ```
 
 ### Frontend Development
@@ -51,6 +54,7 @@ pnpm install     # Install dependencies
 pnpm dev         # Start dev server (port 5173)
 pnpm build       # Build for production
 pnpm lint        # Run ESLint
+pnpm tsc --noEmit # Type checking
 ```
 
 ### Code Formatting and Quality
@@ -112,12 +116,14 @@ The backend follows a clean architecture pattern with dependency injection:
    - **auth**: Authentication (built-in and OIDC support)
    - **broadcaster**: WebSocket/SSE for real-time updates
    - **tailscale**: Tailscale integration for secure networking
+   - **notifications**: Shoutrrr-based notification system supporting 15+ services
 
 3. **Agent Architecture**:
    - Lightweight HTTP server exposing SSE endpoints
    - Collects system metrics via gopsutil and vnstat
    - Can run standalone or integrated with Tailscale
    - Auto-discovery support for Tailscale networks
+   - Temperature sensor monitoring with per-component details
 
 4. **Database Patterns**:
    - Interface-based design for multiple backends
@@ -142,6 +148,8 @@ The frontend uses modern React patterns with TypeScript:
    - `components/common/`: Shared UI components
    - `components/speedtest/`: Speed test features
    - `components/monitor/`: System monitoring UI
+   - `components/settings/`: Configuration and settings UI
+   - `components/settings/notifications/`: Notification management components
    - `components/ui/`: Base UI components
 
 3. **State Management**:
@@ -167,6 +175,61 @@ The frontend uses modern React patterns with TypeScript:
 
 5. **Tailscale Integration**: Optional but deeply integrated, supporting both tsnet and host modes for flexible deployment
 
+6. **Notification System**: Uses Shoutrrr library for multi-service notifications with rate limiting and state-based alerts
+
+## Database Migrations
+
+The project uses a custom migration system with separate SQL files for SQLite and PostgreSQL:
+
+```
+internal/database/migrations/
+├── migrations.go        # Migration runner
+├── postgres/           # PostgreSQL migrations
+│   └── *.sql
+└── sqlite/            # SQLite migrations
+    └── *.sql
+```
+
+Key points:
+- Migrations are numbered sequentially (001, 002, etc.)
+- Each migration has a corresponding file for both SQLite and PostgreSQL
+- The system tracks applied migrations in a `schema_migrations` table
+- New features should add migrations following the existing pattern
+
+## Notification System
+
+The notification system is built on [Shoutrrr](https://github.com/containrrr/shoutrrr) and supports 15+ services:
+
+### Supported Services
+- Discord, Telegram, Slack, Teams
+- Email (SMTP), Pushover, Pushbullet
+- Gotify, Matrix, Ntfy, OpsGenie
+- Rocketchat, Zulip, Join, Mattermost
+
+### Notification Events
+1. **Speed Test Events**
+   - Test completed
+   - Test failed
+   - Speed below threshold
+   - Latency above threshold
+
+2. **Packet Loss Monitoring**
+   - Packet loss degraded (state-based)
+   - Packet loss recovered
+
+3. **Agent Monitoring**
+   - Agent online/offline
+   - CPU usage threshold
+   - Memory usage threshold
+   - Disk usage threshold
+   - Bandwidth usage threshold
+   - Temperature threshold (with sensor details)
+
+### Rate Limiting
+- Agent metric notifications: 1 hour cooldown
+- Packet loss: State-based (only on state change)
+- Speed tests: Per test completion
+
 ## Development Guidelines
 
 ### Code Standards
@@ -177,6 +240,39 @@ The frontend uses modern React patterns with TypeScript:
 - **Frontend Development**: Before writing any frontend-code, make sure to read through the ai_docs/style-guide.md first, so you familiarize yourself with our style. This is a crucial step.
 - **Import Paths**: Always use the `@` alias for imports in frontend code (e.g., `@/components/...` instead of relative paths like `../components/...`)
 
+### Testing Approach
+
+1. **Backend Testing**
+   - Unit tests for business logic
+   - Integration tests for database operations
+   - Mock interfaces for external dependencies
+   - Use testify for assertions
+
+2. **Frontend Testing**
+   - Component testing with React Testing Library
+   - Type safety with TypeScript
+   - Linting with ESLint
+
+### Common Patterns
+
+1. **Error Handling**
+   - Return errors from functions, don't panic
+   - Use structured logging with zerolog
+   - Wrap errors with context using `fmt.Errorf`
+
+2. **API Responses**
+   - Consistent JSON structure
+   - Proper HTTP status codes
+   - Error messages in `error` field
+
+3. **Database Operations**
+   - Use transactions for multi-step operations
+   - Always use parameterized queries
+   - Handle null values appropriately
+
 ## Additional Notes
 
 - **Please read CLAUDE.local.md before writing commits or PRs.**
+- The project uses semantic versioning
+- All new features should include appropriate tests
+- Documentation updates are expected with feature changes
