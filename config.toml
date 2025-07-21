@@ -76,3 +76,20 @@ privileged_mode = true
 [monitor]
 enabled = true
 reconnect_interval = "30s"
+
+[tailscale]
+enabled = true
+method = "auto"  # "auto" (default), "host", or "tsnet"
+
+# TSNet settings (used when method="tsnet" or auto-detected)
+# auth_key = ""  # Required for tsnet mode - if not provided, uses host's tailscaled
+# hostname = ""  # Custom hostname (optional)
+# ephemeral = false  # Remove on shutdown
+# state_dir = "~/.config/netronome/tsnet"  # Directory for tsnet state
+# control_url = ""  # For Headscale (optional)
+
+# Server discovery settings
+auto_discover = true
+discovery_interval = "1m"
+discovery_port = 8200
+# discovery_prefix = ""  # Only discover agents with this prefix (optional)

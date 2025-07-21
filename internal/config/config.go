@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/rs/zerolog/log"
@@ -48,6 +49,7 @@ type Config struct {
 	PacketLoss    PacketLossConfig   `toml:"packetloss"`
 	Agent         AgentConfig        `toml:"agent"`
 	Monitor       MonitorConfig      `toml:"monitor"`
+	Tailscale     TailscaleConfig    `toml:"tailscale"`
 }
 
 type DatabaseConfig struct {
@@ -154,6 +156,48 @@ type AgentConfig struct {
 type MonitorConfig struct {
 	Enabled           bool   `toml:"enabled" env:"MONITOR_ENABLED"`
 	ReconnectInterval string `toml:"reconnect_interval" env:"MONITOR_RECONNECT_INTERVAL"`
+}
+
+type TailscaleConfig struct {
+	// Core settings
+	Enabled    bool   `toml:"enabled" env:"TAILSCALE_ENABLED"`
+	Method     string `toml:"method" env:"TAILSCALE_METHOD"`       // "auto", "host", or "tsnet"
+	AuthKey    string `toml:"auth_key" env:"TAILSCALE_AUTH_KEY"`   // Required for tsnet mode
+	
+	// TSNet-specific settings
+	Hostname   string `toml:"hostname" env:"TAILSCALE_HOSTNAME"`     // Custom hostname (optional)
+	Ephemeral  bool   `toml:"ephemeral" env:"TAILSCALE_EPHEMERAL"`   // Remove on shutdown
+	StateDir   string `toml:"state_dir" env:"TAILSCALE_STATE_DIR"`   // State directory
+	ControlURL string `toml:"control_url" env:"TAILSCALE_CONTROL_URL"` // For Headscale
+	
+	// Agent settings
+	AgentPort  int    `toml:"agent_port" env:"TAILSCALE_AGENT_PORT"` // Port for agent to listen on
+	
+	// Server discovery settings
+	AutoDiscover      bool   `toml:"auto_discover" env:"TAILSCALE_AUTO_DISCOVER"`
+	DiscoveryInterval string `toml:"discovery_interval" env:"TAILSCALE_DISCOVERY_INTERVAL"`
+	DiscoveryPort     int    `toml:"discovery_port" env:"TAILSCALE_DISCOVERY_PORT"`
+	DiscoveryPrefix   string `toml:"discovery_prefix" env:"TAILSCALE_DISCOVERY_PREFIX"`
+	
+	// Deprecated fields (for backward compatibility)
+	PreferHost     bool                   `toml:"prefer_host" env:"TAILSCALE_PREFER_HOST"`
+	Agent          TailscaleAgentConfig   `toml:"agent"`
+	Monitor        TailscaleMonitorConfig `toml:"monitor"`
+}
+
+// Deprecated - kept for backward compatibility
+type TailscaleAgentConfig struct {
+	Enabled       bool `toml:"enabled" env:"TAILSCALE_AGENT_ENABLED"`
+	AcceptRoutes  bool `toml:"accept_routes" env:"TAILSCALE_AGENT_ACCEPT_ROUTES"`
+	Port          int  `toml:"port" env:"TAILSCALE_AGENT_PORT"`
+}
+
+// Deprecated - kept for backward compatibility
+type TailscaleMonitorConfig struct {
+	AutoDiscover      bool   `toml:"auto_discover" env:"TAILSCALE_MONITOR_AUTO_DISCOVER"`
+	DiscoveryInterval string `toml:"discovery_interval" env:"TAILSCALE_MONITOR_DISCOVERY_INTERVAL"`
+	DiscoveryPrefix   string `toml:"discovery_prefix" env:"TAILSCALE_MONITOR_DISCOVERY_PREFIX"`
+	DiscoveryPort     int    `toml:"discovery_port" env:"TAILSCALE_MONITOR_DISCOVERY_PORT"`
 }
 
 func isRunningInContainer() bool {
@@ -263,6 +307,32 @@ func New() *Config {
 			Enabled:           true,
 			ReconnectInterval: "30s",
 		},
+		Tailscale: TailscaleConfig{
+			Enabled:           false,
+			Method:            "auto",
+			AuthKey:           "",
+			Hostname:          "",
+			Ephemeral:         false,
+			StateDir:          "~/.config/netronome/tsnet",
+			ControlURL:        "",
+			AgentPort:         8200,
+			AutoDiscover:      true,
+			DiscoveryInterval: "5m",
+			DiscoveryPort:     8200,
+			DiscoveryPrefix:   "",
+			// Deprecated fields - kept for compatibility during migration
+			Agent: TailscaleAgentConfig{
+				Enabled:      false,
+				AcceptRoutes: true,
+				Port:         8200,
+			},
+			Monitor: TailscaleMonitorConfig{
+				AutoDiscover:      true,
+				DiscoveryInterval: "5m",
+				DiscoveryPrefix:   "",
+				DiscoveryPort:     8200,
+			},
+		},
 	}
 }
 
@@ -348,6 +418,7 @@ func (c *Config) loadFromEnv() error {
 	c.loadPacketLossFromEnv()
 	c.loadAgentFromEnv()
 	c.loadMonitorFromEnv()
+	c.loadTailscaleFromEnv()
 	return nil
 }
 
@@ -585,6 +656,18 @@ func (c *Config) loadAgentFromEnv() {
 	if v := getEnv("AGENT_API_KEY"); v != "" {
 		c.Agent.APIKey = v
 	}
+	if v := getEnv("AGENT_DISK_INCLUDES"); v != "" {
+		c.Agent.DiskIncludes = strings.Split(v, ",")
+		for i := range c.Agent.DiskIncludes {
+			c.Agent.DiskIncludes[i] = strings.TrimSpace(c.Agent.DiskIncludes[i])
+		}
+	}
+	if v := getEnv("AGENT_DISK_EXCLUDES"); v != "" {
+		c.Agent.DiskExcludes = strings.Split(v, ",")
+		for i := range c.Agent.DiskExcludes {
+			c.Agent.DiskExcludes[i] = strings.TrimSpace(c.Agent.DiskExcludes[i])
+		}
+	}
 }
 
 func (c *Config) loadMonitorFromEnv() {
@@ -596,6 +679,10 @@ func (c *Config) loadMonitorFromEnv() {
 	if v := getEnv("MONITOR_RECONNECT_INTERVAL"); v != "" {
 		c.Monitor.ReconnectInterval = v
 	}
+}
+
+func (c *Config) loadTailscaleFromEnv() {
+	c.Tailscale.loadFromEnv()
 }
 
 func (c *Config) WriteToml(w io.Writer) error {
@@ -919,6 +1006,71 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 
+	// Tailscale section
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Tailscale integration for secure agent-to-server communication"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "[tailscale]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.Tailscale.Enabled); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "method = \"%s\" # \"auto\" (default), \"host\", or \"tsnet\"\n", cfg.Tailscale.Method); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# TSNet settings (used when method=\"tsnet\" or auto-detected)"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# auth_key = \"\" # Required for tsnet mode"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# hostname = \"\" # Custom hostname (optional)"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "# ephemeral = %v # Remove on shutdown\n", cfg.Tailscale.Ephemeral); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "# state_dir = \"%s\" # Directory for tsnet state\n", cfg.Tailscale.StateDir); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# control_url = \"\" # For Headscale (optional)"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Agent settings"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "agent_port = %d # Port for agent to listen on (0 = use agent's port)\n", cfg.Tailscale.AgentPort); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Server discovery settings"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "auto_discover = %v # Auto-discover Tailscale agents\n", cfg.Tailscale.AutoDiscover); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "discovery_interval = \"%s\" # How often to check for new agents\n", cfg.Tailscale.DiscoveryInterval); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "discovery_port = %d # Port to probe for agents\n", cfg.Tailscale.DiscoveryPort); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "# discovery_prefix = \"\" # Only discover agents with this prefix (optional)\n"); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1028,4 +1180,235 @@ func EnsureConfig(configPath string) (string, error) {
 
 func getEnv(key string) string {
 	return os.Getenv(EnvPrefix + key)
+}
+
+// GetEffectiveMethod returns the effective Tailscale method based on configuration
+func (t *TailscaleConfig) GetEffectiveMethod() (string, error) {
+	if !t.Enabled {
+		return "", nil
+	}
+
+	switch t.Method {
+	case "auto":
+		// Auto-detect based on auth key presence
+		if t.AuthKey != "" {
+			return "tsnet", nil
+		}
+		return "host", nil
+	case "host":
+		return "host", nil
+	case "tsnet":
+		// TSNet requires auth key
+		if t.AuthKey == "" {
+			return "", fmt.Errorf("auth_key is required when method is 'tsnet'")
+		}
+		return "tsnet", nil
+	default:
+		return "", fmt.Errorf("invalid method: %s", t.Method)
+	}
+}
+
+// Validate checks if the Tailscale configuration is valid
+func (t *TailscaleConfig) Validate() error {
+	if !t.Enabled {
+		return nil
+	}
+
+	// Validate method
+	if t.Method != "auto" && t.Method != "host" && t.Method != "tsnet" {
+		return fmt.Errorf("invalid method: %s", t.Method)
+	}
+
+	// Check if tsnet requires auth key
+	method, err := t.GetEffectiveMethod()
+	if err != nil {
+		return err
+	}
+	_ = method
+
+	// Validate ports
+	if t.AgentPort < 0 || t.AgentPort > 65535 {
+		return fmt.Errorf("invalid agent port: %d", t.AgentPort)
+	}
+
+	if t.DiscoveryPort < 0 || t.DiscoveryPort > 65535 {
+		return fmt.Errorf("invalid discovery port: %d", t.DiscoveryPort)
+	}
+
+	// Validate discovery interval if auto-discover is enabled
+	if t.AutoDiscover && t.DiscoveryInterval != "" {
+		if _, err := time.ParseDuration(t.DiscoveryInterval); err != nil {
+			return fmt.Errorf("invalid discovery interval: %s", t.DiscoveryInterval)
+		}
+	}
+
+	return nil
+}
+
+// MigrateFromOldFormat migrates from the old dual-section format to the new unified format
+func (t *TailscaleConfig) MigrateFromOldFormat() TailscaleConfig {
+	result := *t // Copy current config
+
+	// If Method is not set, determine from old fields
+	if result.Method == "" {
+		if t.PreferHost {
+			result.Method = "host"
+		} else if t.AuthKey != "" {
+			result.Method = "tsnet"
+		} else {
+			result.Method = "host" // Default to host
+		}
+	}
+
+	// Migrate agent settings
+	if t.Agent.Enabled && result.AgentPort == 0 {
+		result.AgentPort = t.Agent.Port
+	}
+
+	// Migrate monitor settings
+	if result.AutoDiscover == false && t.Monitor.AutoDiscover {
+		result.AutoDiscover = t.Monitor.AutoDiscover
+	}
+	if result.DiscoveryInterval == "" && t.Monitor.DiscoveryInterval != "" {
+		result.DiscoveryInterval = t.Monitor.DiscoveryInterval
+	}
+	if result.DiscoveryPort == 0 && t.Monitor.DiscoveryPort != 0 {
+		result.DiscoveryPort = t.Monitor.DiscoveryPort
+	}
+	if result.DiscoveryPrefix == "" && t.Monitor.DiscoveryPrefix != "" {
+		result.DiscoveryPrefix = t.Monitor.DiscoveryPrefix
+	}
+
+	return result
+}
+
+// IsAgentMode returns true if Tailscale is enabled for agent connectivity
+func (t *TailscaleConfig) IsAgentMode() bool {
+	if !t.Enabled {
+		return false
+	}
+
+	method, err := t.GetEffectiveMethod()
+	if err != nil {
+		return false
+	}
+
+	return method == "host" || method == "tsnet"
+}
+
+// IsServerDiscoveryMode returns true if Tailscale server discovery is enabled
+func (t *TailscaleConfig) IsServerDiscoveryMode() bool {
+	return t.Enabled && t.AutoDiscover
+}
+
+// loadFromEnv is a method to load environment variables for TailscaleConfig
+func (t *TailscaleConfig) loadFromEnv() {
+	// Core settings
+	if v := getEnv("TAILSCALE_ENABLED"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			t.Enabled = enabled
+		}
+	}
+	if v := getEnv("TAILSCALE_METHOD"); v != "" {
+		t.Method = v
+	}
+	// Always handle AUTH_KEY even if empty to allow clearing
+	if v, exists := os.LookupEnv(EnvPrefix + "TAILSCALE_AUTH_KEY"); exists {
+		t.AuthKey = v
+	}
+	
+	// TSNet settings
+	if v := getEnv("TAILSCALE_HOSTNAME"); v != "" {
+		t.Hostname = v
+	}
+	if v := getEnv("TAILSCALE_EPHEMERAL"); v != "" {
+		if ephemeral, err := strconv.ParseBool(v); err == nil {
+			t.Ephemeral = ephemeral
+		}
+	}
+	if v := getEnv("TAILSCALE_STATE_DIR"); v != "" {
+		t.StateDir = v
+	}
+	if v := getEnv("TAILSCALE_CONTROL_URL"); v != "" {
+		t.ControlURL = v
+	}
+	
+	// Agent settings
+	if v := getEnv("TAILSCALE_AGENT_PORT"); v != "" {
+		if port, err := strconv.Atoi(v); err == nil {
+			t.AgentPort = port
+		}
+	}
+	
+	// Server discovery settings
+	if v := getEnv("TAILSCALE_AUTO_DISCOVER"); v != "" {
+		if auto, err := strconv.ParseBool(v); err == nil {
+			t.AutoDiscover = auto
+		}
+	}
+	if v := getEnv("TAILSCALE_DISCOVERY_INTERVAL"); v != "" {
+		t.DiscoveryInterval = v
+	}
+	if v := getEnv("TAILSCALE_DISCOVERY_PORT"); v != "" {
+		if port, err := strconv.Atoi(v); err == nil {
+			t.DiscoveryPort = port
+		}
+	}
+	if v := getEnv("TAILSCALE_DISCOVERY_PREFIX"); v != "" {
+		t.DiscoveryPrefix = v
+	}
+	
+	// Deprecated fields - still support for backward compatibility
+	if v := getEnv("TAILSCALE_PREFER_HOST"); v != "" {
+		if preferHost, err := strconv.ParseBool(v); err == nil {
+			t.PreferHost = preferHost
+			// If prefer_host is true and method wasn't explicitly set, use "host"
+			if preferHost && getEnv("TAILSCALE_METHOD") == "" {
+				t.Method = "host"
+			}
+		}
+	}
+	if v := getEnv("TAILSCALE_AGENT_ENABLED"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			t.Agent.Enabled = enabled
+		}
+	}
+	if v := getEnv("TAILSCALE_AGENT_ACCEPT_ROUTES"); v != "" {
+		if accept, err := strconv.ParseBool(v); err == nil {
+			t.Agent.AcceptRoutes = accept
+		}
+	}
+	if v := getEnv("TAILSCALE_AGENT_PORT"); v != "" {
+		if port, err := strconv.Atoi(v); err == nil {
+			t.Agent.Port = port
+			// Also set new field if not already set
+			if t.AgentPort == 0 {
+				t.AgentPort = port
+			}
+		}
+	}
+	if v := getEnv("TAILSCALE_MONITOR_AUTO_DISCOVER"); v != "" {
+		if auto, err := strconv.ParseBool(v); err == nil {
+			t.Monitor.AutoDiscover = auto
+			// Also set new field
+			t.AutoDiscover = auto
+		}
+	}
+	if v := getEnv("TAILSCALE_MONITOR_DISCOVERY_INTERVAL"); v != "" {
+		t.Monitor.DiscoveryInterval = v
+		// Also set new field
+		t.DiscoveryInterval = v
+	}
+	if v := getEnv("TAILSCALE_MONITOR_DISCOVERY_PORT"); v != "" {
+		if port, err := strconv.Atoi(v); err == nil {
+			t.Monitor.DiscoveryPort = port
+			// Also set new field
+			t.DiscoveryPort = port
+		}
+	}
+	if v := getEnv("TAILSCALE_MONITOR_DISCOVERY_PREFIX"); v != "" {
+		t.Monitor.DiscoveryPrefix = v
+		// Also set new field
+		t.DiscoveryPrefix = v
+	}
 }

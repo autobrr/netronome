@@ -19,6 +19,7 @@ import { formatBytes } from "@/utils/formatBytes";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { MonitorUsageModal } from "./MonitorUsageModal";
 import { MONITOR_REFRESH_INTERVALS } from "@/constants/monitorRefreshIntervals";
+import { TailscaleLogo } from "@/components/icons/TailscaleLogo";
 
 interface FeaturedMonitorWidgetProps {
   onNavigateToMonitor: (agentId?: number) => void;
@@ -143,6 +144,13 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
             <h3 className="font-semibold text-gray-900 dark:text-white truncate text-base">
               {agent.name}
             </h3>
+            {/* Tailscale indicator */}
+            {agent.isTailscale && (
+              <TailscaleLogo
+                className="h-4 w-4 flex-shrink-0"
+                title="Connected through Tailscale"
+              />
+            )}
             {/* System Stats */}
             {hardwareStats && (
               <div className="flex items-center gap-1">

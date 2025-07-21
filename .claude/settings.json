@@ -15,5 +15,18 @@
       "Bash(touch:*)"
     ],
     "deny": []
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run .claude/hooks/notification.py --notify"
+          }
+        ]
+      }
+    ]
   }
 }

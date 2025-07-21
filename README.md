@@ -17,6 +17,7 @@ Netronome (Network Metronome) is a modern network performance testing and monito
   - [Configuration File](#configuration-file-configtoml)
     - [LibreSpeed Configuration](#librespeed-configuration)
   - [System Monitoring](#system-monitoring)
+  - [Tailscale Integration](#tailscale-integration)
   - [Environment Variables](#environment-variables)
   - [Database](#database)
   - [Authentication](#authentication)
@@ -164,6 +165,8 @@ If running Docker manually, add the capability:
 docker run --cap-add=NET_RAW -p 7575:7575 -v ./netronome:/data ghcr.io/autobrr/netronome:latest
 ```
 
+**Tailscale Sidecar Setup**: For running Netronome with a Tailscale sidecar container for secure networking and agent discovery, see our [Docker Tailscale Sidecar Guide](docs/docker-tailscale-sidecar.md).
+
 **Note about MTR without NET_RAW**: When MTR runs without the NET_RAW capability (unprivileged mode), it falls back to UDP mode instead of ICMP. UDP mode may show higher packet loss than ICMP because:
 
 - Some routers prioritize ICMP traffic over UDP
@@ -228,6 +231,23 @@ webhook_url = ""
 ping_threshold = 30
 upload_threshold = 200
 download_threshold = 200
+
+[tailscale]
+enabled = false
+method = "auto"  # "auto" (default), "host", or "tsnet"
+
+# TSNet settings (used when method="tsnet" or auto-detected)
+# auth_key = ""  # Required for tsnet mode
+# hostname = ""  # Custom hostname (optional)
+# ephemeral = false  # Remove on shutdown
+# state_dir = "~/.config/netronome/tsnet"  # Directory for tsnet state
+# control_url = ""  # For Headscale (optional)
+
+# Server discovery settings
+auto_discover = true  # Auto-discover Tailscale agents
+discovery_interval = "5m"  # How often to check for new agents
+discovery_port = 8200  # Port to probe for agents
+# discovery_prefix = ""  # Only discover agents with this prefix (optional)
 ```
 
 #### LibreSpeed Configuration
@@ -352,6 +372,15 @@ journalctl -u netronome-agent-update
 
    # Exclude certain disk mounts from monitoring
    netronome agent --disk-exclude /boot --disk-exclude /tmp
+
+   # Use host's existing tailscaled (if available)
+   netronome agent --tailscale --tailscale-method host
+
+   # Create separate tsnet instance (requires auth key)
+   netronome agent --tailscale --tailscale-method tsnet --tailscale-auth-key tskey-auth-xxx
+
+   # Let it auto-detect (uses host if no auth key, tsnet if auth key provided)
+   netronome agent --tailscale
 
    # Run with config file
    netronome agent --config /path/to/config.toml
@@ -482,6 +511,271 @@ Netronome fetches bandwidth data directly from vnstat's native JSON output, ensu
 
 This ensures accurate and unambiguous representation of bandwidth data.
 
+### Tailscale Integration
+
+Netronome includes native Tailscale support, allowing agents to securely connect through Tailscale's mesh VPN without exposing ports or configuring NAT/firewall rules.
+
+#### Key Features
+
+- **Smart Auto-Detection**: Automatically chooses between creating tsnet instances or using host's tailscaled
+- **Simplified Configuration**: Single `[tailscale]` section with intelligent defaults
+- **Zero-configuration Networking**: Agents automatically connect through Tailscale's encrypted mesh network
+- **Automatic Discovery**: Server automatically discovers ALL Netronome agents on configured port
+- **Port-based Discovery**: Simply run agents on the configured port and they're automatically found
+- **Flexible Deployment**: Use isolated tsnet instances OR leverage existing host tailscaled
+- **Visual Indicators**: UI shows shield icons and badges for Tailscale-connected agents
+- **Mixed Mode Support**: Run both Tailscale and traditional HTTP agents simultaneously
+- **Defense in Depth**: Combine Tailscale network isolation with API key authentication
+
+#### Quick Start
+
+##### For Agents
+
+1. **Get a Tailscale Auth Key**
+   - Visit https://login.tailscale.com/admin/settings/keys
+   - Create a new auth key (reusable recommended for multiple agents)
+
+2. **Start Agent with Tailscale**
+   ```bash
+   # Basic Tailscale agent (creates tsnet instance)
+   ./bin/netronome agent --tailscale --tailscale-auth-key tskey-auth-YOUR-KEY
+
+   # Use host's existing tailscaled (no new machine in Tailscale)
+   ./bin/netronome agent --tailscale --tailscale-method host
+
+   # With custom hostname (any name works - no prefix required!)
+   ./bin/netronome agent --tailscale --tailscale-hostname "webserver-prod" \
+     --tailscale-auth-key tskey-auth-YOUR-KEY
+
+   # Ephemeral agent (removes from Tailscale on shutdown)
+   ./bin/netronome agent --tailscale --tailscale-ephemeral \
+     --tailscale-auth-key tskey-auth-YOUR-KEY
+
+   # With API key for additional security
+   ./bin/netronome agent --tailscale --api-key "secret123" \
+     --tailscale-auth-key tskey-auth-YOUR-KEY
+   ```
+
+3. **Using the Installation Script**
+   ```bash
+   # The install script supports Tailscale configuration
+   curl -sL https://netrono.me/install-agent | bash
+   # Follow prompts to enable Tailscale during setup
+   ```
+
+##### For Server
+
+The server's Tailscale configuration intelligently chooses between using the host's tailscaled or creating a tsnet instance based on your configuration:
+
+Add to your server's `config.toml`:
+```toml
+[tailscale]
+enabled = true              # Enable Tailscale support
+method = "auto"             # auto, host, or tsnet (default: auto)
+# auth_key = ""             # Required only for tsnet mode
+# hostname = ""             # Optional custom hostname
+
+# Server discovery settings
+auto_discover = true        # Auto-discover Tailscale agents
+discovery_interval = "5m"   # How often to check for new agents
+discovery_port = 8200       # Port to probe for agents
+```
+
+**How auto-detection works:**
+- If `auth_key` is provided → Uses tsnet (creates new Tailscale node)
+- If `auth_key` is empty → Uses host's tailscaled (no new node)
+- Set `method = "host"` to force using host's tailscaled
+- Set `method = "tsnet"` to force tsnet (requires auth_key)
+
+4. **Start the Server**
+   ```bash
+   ./bin/netronome serve
+   ```
+
+#### Configuration Options
+
+##### Unified Configuration (Agent or Server)
+
+```toml
+[tailscale]
+enabled = false             # Enable Tailscale support
+method = "auto"             # "auto" (default), "host", or "tsnet"
+
+# TSNet settings (used when method="tsnet" or auto-detected)
+auth_key = ""               # Required for tsnet mode
+hostname = ""               # Custom hostname (optional)
+ephemeral = false           # Remove on shutdown
+state_dir = "~/.config/netronome/tsnet"  # Directory for tsnet state
+control_url = ""            # For Headscale (optional)
+
+# Server discovery settings
+auto_discover = true        # Auto-discover Tailscale agents
+discovery_interval = "5m"   # How often to check for new agents
+discovery_port = 8200       # Port to probe for agents (agents must be listening on this port)
+# discovery_prefix = ""     # Only discover agents with this prefix (optional)
+```
+
+**Important**: Agents must be running on the `discovery_port` (default 8200) to be automatically discovered. Start your agents with `--port 8200` or configure `[agent] port = 8200`.
+
+**Note**: The old `[tailscale.agent]` and `[tailscale.monitor]` sections are deprecated but still supported for backward compatibility.
+
+#### Environment Variables
+
+All Tailscale settings can be configured via environment variables:
+
+```bash
+# Core settings
+export NETRONOME__TAILSCALE_ENABLED=true
+export NETRONOME__TAILSCALE_METHOD="auto"  # or "host" or "tsnet"
+export NETRONOME__TAILSCALE_AUTH_KEY="tskey-auth-YOUR-KEY"
+export NETRONOME__TAILSCALE_HOSTNAME="netronome-agent-web01"
+export NETRONOME__TAILSCALE_EPHEMERAL=true
+
+# Agent settings
+export NETRONOME__TAILSCALE_AGENT_PORT=8200
+
+# Server discovery
+export NETRONOME__TAILSCALE_AUTO_DISCOVER=true
+export NETRONOME__TAILSCALE_DISCOVERY_INTERVAL="2m"
+export NETRONOME__TAILSCALE_DISCOVERY_PORT=8200
+```
+
+#### How It Works
+
+1. **Agent Side**:
+   - **Auto mode**: Automatically uses tsnet if auth_key provided, otherwise uses host
+   - **With tsnet**: Creates isolated instance in configured state directory
+   - **With host tailscaled**: Uses existing tailscaled daemon
+   - Joins your Tailscale network with any hostname
+   - Listens on the Tailscale network interface (100.x.x.x)
+   - Regular HTTP/SSE endpoints work normally through Tailscale
+   - Responds to `/netronome/info` for automatic identification
+
+2. **Server Side**:
+   - **Auto mode**: Automatically uses tsnet if auth_key provided, otherwise uses host
+   - **With host tailscaled**: Discovery works using existing connection
+   - **With tsnet**: Creates separate instance for discovery
+   - Periodically scans all peers and probes configured discovery port
+   - Identifies Netronome agents via `/netronome/info` endpoint
+   - Automatically creates monitor entries for discovered agents
+   - Uses Tailscale hostnames for reliable connectivity
+
+3. **Discovery Process**:
+   ```
+   Server → Scans all Tailscale peers
+         → Probes each peer on port 8200
+         → Checks /netronome/info endpoint
+         → Auto-adds verified Netronome agents
+   ```
+
+4. **Network Flow**:
+   ```
+   Agent (tailscale) → Tailscale Network (encrypted) → Server
+   ```
+
+#### Important: Existing Tailscale Installations
+
+**Q: What if my server/agent already has tailscaled running?**
+
+**A: You have several options:**
+
+- **For Agents**:
+  1. **Use host's tailscaled** (recommended): `netronome agent --tailscale --tailscale-method host`
+     - No new machine in Tailscale admin
+     - Uses existing connection
+     - Automatically discovered on configured port
+  
+  2. **Create separate tsnet**: `netronome agent --tailscale --tailscale-auth-key tskey-xxx`
+     - Creates new machine in Tailscale admin
+     - Completely isolated from system tailscaled
+  
+  3. **Let it auto-detect**: `netronome agent --tailscale`
+     - Uses host if no auth key provided
+     - Creates tsnet if auth key provided
+
+- **For Server**:
+  1. **Let it auto-detect**: Set `enabled = true` without auth_key to use host
+  2. **Force host mode**: Set `method = "host"` to always use host's tailscaled
+  3. **Create tsnet**: Provide auth_key to create separate instance
+
+**Q: How do I avoid creating extra machines in Tailscale?**
+
+**A: Simply don't provide an auth key:**
+```bash
+# Agent will automatically use host's tailscaled
+netronome agent --tailscale
+# or explicitly:
+netronome agent --tailscale --tailscale-method host
+
+# Server will automatically use host's tailscaled
+[tailscale]
+enabled = true
+# No auth_key = uses host automatically
+```
+
+#### Visual Indicators
+
+The UI provides clear indicators for Tailscale connectivity:
+
+- 🛡️ **Shield Icon**: Agent is connected via Tailscale
+- **Auto-discovered Badge**: Agent was found via Tailscale discovery
+- **Connection Info**: Shows Tailscale hostname in agent details
+
+#### Troubleshooting
+
+**Agent not discovered?**
+- Check agent is running on port 8200 (default discovery port)
+- Verify both server and agent are on same Tailnet
+- Check logs: `grep -i tailscale /path/to/netronome.log`
+- Ensure discovery is enabled on server
+- Test manually: `curl http://<agent-hostname>:8200/netronome/info`
+
+**Connection issues?**
+- Verify Tailscale connectivity: `tailscale ping <agent-hostname>`
+- Check agent is listening: `curl http://<agent-hostname>:8200/health`
+- Ensure no firewall blocking Tailscale (100.64.0.0/10)
+
+**Want to use existing tailscaled instead?**
+- For agents: Run without `--tailscale` flag, access via host's Tailscale hostname
+- For server: Skip `[tailscale]` config, manually add agents
+- Both approaches work perfectly!
+
+#### Security Considerations
+
+- **Network Isolation**: Tailscale provides encrypted point-to-point connections
+- **No Port Exposure**: Agents don't need public ports or NAT configuration
+- **Access Control**: Use Tailscale ACLs to restrict agent access
+- **API Keys**: Combine with API authentication for defense in depth
+- **Ephemeral Nodes**: Use `--tailscale-ephemeral` for temporary agents
+
+#### Advanced Usage
+
+##### Headscale Support
+
+For self-hosted Tailscale control servers:
+
+```bash
+netronome agent --tailscale \
+  --tailscale-control-url "https://headscale.example.com" \
+  --tailscale-auth-key "YOUR-HEADSCALE-KEY"
+```
+
+##### Multiple Tailnets
+
+Run agents on different Tailnets by using separate state directories:
+
+```bash
+# Production Tailnet
+netronome agent --tailscale \
+  --tailscale-state-dir ~/.config/netronome/tailscale-prod \
+  --tailscale-auth-key "PROD-KEY"
+
+# Development Tailnet  
+netronome agent --tailscale \
+  --tailscale-state-dir ~/.config/netronome/tailscale-dev \
+  --tailscale-auth-key "DEV-KEY"
+```
+
 ### Environment Variables
 
 | Variable                                            | Description                                                       | Default                                      | Required               |
@@ -535,6 +829,18 @@ This ensures accurate and unambiguous representation of bandwidth data.
 | `NETRONOME__AGENT_DISK_EXCLUDES`                    | Comma-separated list of disk mounts to exclude                    | ``                                           | No                     |
 | `NETRONOME__MONITOR_ENABLED`                        | Enable monitor client service in main server                      | `true`                                       | No                     |
 | `NETRONOME__MONITOR_RECONNECT_INTERVAL`             | Reconnection interval for monitor agent connections               | `30s`                                        | No                     |
+| `NETRONOME__TAILSCALE_ENABLED`                      | Enable Tailscale integration                                      | `false`                                      | No                     |
+| `NETRONOME__TAILSCALE_METHOD`                       | Tailscale method: auto, host, or tsnet                           | `auto`                                       | No                     |
+| `NETRONOME__TAILSCALE_AUTH_KEY`                     | Tailscale auth key (required for tsnet mode)                     | ``                                           | When method is tsnet   |
+| `NETRONOME__TAILSCALE_HOSTNAME`                     | Custom Tailscale hostname (auto-generated if empty)              | ``                                           | No                     |
+| `NETRONOME__TAILSCALE_EPHEMERAL`                    | Remove from Tailscale network on shutdown                         | `false`                                      | No                     |
+| `NETRONOME__TAILSCALE_STATE_DIR`                    | Directory for tsnet state                                         | `~/.config/netronome/tsnet`                  | No                     |
+| `NETRONOME__TAILSCALE_CONTROL_URL`                  | Custom control server URL (for Headscale)                         | ``                                           | No                     |
+| `NETRONOME__TAILSCALE_AGENT_PORT`                   | Port for agent to listen on Tailscale network                     | `8200`                                       | No                     |
+| `NETRONOME__TAILSCALE_AUTO_DISCOVER`                | Enable automatic Tailscale agent discovery                        | `true`                                       | No                     |
+| `NETRONOME__TAILSCALE_DISCOVERY_INTERVAL`           | How often to scan for new Tailscale agents                       | `5m`                                         | No                     |
+| `NETRONOME__TAILSCALE_DISCOVERY_PORT`               | Port to probe for Netronome agents                               | `8200`                                       | No                     |
+| `NETRONOME__TAILSCALE_DISCOVERY_PREFIX`             | Optional hostname prefix filter                                   | ``                                           | No                     |
 
 ### Database
 

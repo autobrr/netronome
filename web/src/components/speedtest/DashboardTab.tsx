@@ -122,8 +122,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </div>
       )}
 
-      {/* Featured Vnstat Widget - only show if callback is provided */}
-      {onNavigateToVnstat && (
+      {/* Featured Vnstat Widget - only show if callback is provided and not public */}
+      {onNavigateToVnstat && !isPublic && (
         <FeaturedMonitorWidget onNavigateToMonitor={onNavigateToVnstat} />
       )}
 
@@ -196,7 +196,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </motion.div>
       )}
 
-      {/* Speed History Chart */}
+      {/* Speedtest History Chart */}
       {hasAnyTests && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -214,7 +214,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </motion.div>
       )}
 
-      {/* Recent Tests Summary */}
+      {/* Recent Speedtests Summary */}
       {tests.length > 0 && (
         <Disclosure defaultOpen={isRecentTestsOpen}>
           {({ open }) => {
@@ -233,7 +233,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   } text-left`}
                 >
                   <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
-                    Recent Tests
+                    Recent Speedtests
                   </h2>
                   <ChevronDownIcon
                     className={`${

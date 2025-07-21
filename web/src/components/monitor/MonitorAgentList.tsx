@@ -19,6 +19,7 @@ import { SparklesIcon as SparklesIconSolid } from "@heroicons/react/24/solid";
 import { MonitorAgent } from "@/api/monitor";
 import { AgentIcon } from "@/utils/agentIcons";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
+import { TailscaleLogo } from "../icons/TailscaleLogo";
 
 interface MonitorAgentListProps {
   agents: MonitorAgent[];
@@ -262,14 +263,25 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               <div className="flex items-center gap-1.5 min-w-0">
-                {agent.apiKey ? (
+                {agent.isTailscale ? (
+                  <>
+                    <TailscaleLogo
+                      className="h-4 w-4 flex-shrink-0"
+                      title="Connected through Tailscale"
+                    />
+                    <LockClosedIcon
+                      className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
+                      title="Encrypted via Tailscale"
+                    />
+                  </>
+                ) : agent.apiKey ? (
                   <LockClosedIcon
-                    className="h-3 w-3 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
+                    className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
                     title="Authentication enabled"
                   />
                 ) : (
                   <LockOpenIcon
-                    className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0"
+                    className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500 flex-shrink-0"
                     title="No authentication"
                   />
                 )}
@@ -322,16 +334,18 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
                 <SparklesIcon className="w-3.5 h-3.5" />
               )}
             </button>
-            <button
-              className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit();
-              }}
-              title="Edit Agent"
-            >
-              <PencilIcon className="w-3.5 h-3.5" />
-            </button>
+            {!(agent.discoveredAt && agent.isTailscale) && (
+              <button
+                className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+                title="Edit Agent"
+              >
+                <PencilIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
               className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               onClick={(e) => {

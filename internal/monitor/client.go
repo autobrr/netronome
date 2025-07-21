@@ -43,9 +43,11 @@ type Client struct {
 
 // Service manages all monitoring clients
 type Service struct {
-	db            database.Service
-	config        *config.MonitorConfig
-	broadcastFunc func(types.MonitorUpdate)
+	db               database.Service
+	config           *config.MonitorConfig
+	tailscaleConfig  *config.TailscaleConfig
+	broadcastFunc    func(types.MonitorUpdate)
+	tailscaleDiscovery *TailscaleDiscovery
 
 	clientsMu sync.RWMutex
 	clients   map[int64]*Client
@@ -75,6 +77,29 @@ func NewService(db database.Service, cfg *config.MonitorConfig, broadcastFunc fu
 	}
 }
 
+// NewServiceWithTailscale creates a new monitor service with Tailscale support
+func NewServiceWithTailscale(db database.Service, cfg *config.MonitorConfig, tsCfg *config.TailscaleConfig, broadcastFunc func(types.MonitorUpdate)) *Service {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	service := &Service{
+		db:              db,
+		config:          cfg,
+		tailscaleConfig: tsCfg,
+		broadcastFunc:   broadcastFunc,
+		clients:         make(map[int64]*Client),
+		ctx:             ctx,
+		cancel:          cancel,
+	}
+
+	// Create Tailscale discovery if auto-discover is enabled
+	// This works with both host and tsnet modes
+	if tsCfg != nil && tsCfg.IsServerDiscoveryMode() {
+		service.tailscaleDiscovery = NewTailscaleDiscovery(tsCfg, service)
+	}
+
+	return service
+}
+
 // Start starts the monitor service
 func (s *Service) Start() error {
 	if !s.config.Enabled {
@@ -100,6 +125,15 @@ func (s *Service) Start() error {
 	// Start background collection tasks
 	s.startBackgroundCollectors()
 
+	// Start Tailscale discovery if enabled
+	if s.tailscaleDiscovery != nil {
+		if err := s.tailscaleDiscovery.Start(s.ctx); err != nil {
+			log.Error().Err(err).Msg("Failed to start Tailscale discovery")
+		} else {
+			log.Info().Msg("Tailscale discovery service started")
+		}
+	}
+
 	// Do an initial collection for all connected agents
 	go func() {
 		// Wait a bit for agents to connect
@@ -117,6 +151,11 @@ func (s *Service) Stop() {
 	log.Info().Msg("Stopping monitor service")
 
 	s.cancel()
+
+	// Stop Tailscale discovery if running
+	if s.tailscaleDiscovery != nil {
+		s.tailscaleDiscovery.Stop()
+	}
 
 	// Stop background collectors
 	s.stopBackgroundCollectors()
@@ -986,4 +1025,16 @@ func (c *Client) fetchInitialPeakStats() {
 	} else {
 		log.Debug().Int64("agent_id", c.agent.ID).Msg("Stored initial peak stats")
 	}
+}
+
+// GetTailscaleStatus returns the Tailscale status from the discovery service
+func (s *Service) GetTailscaleStatus() (map[string]interface{}, error) {
+	if s.tailscaleDiscovery == nil {
+		return map[string]interface{}{
+			"enabled": false,
+			"status": "Tailscale discovery not configured",
+		}, nil
+	}
+
+	return s.tailscaleDiscovery.GetTailscaleStatus()
 }

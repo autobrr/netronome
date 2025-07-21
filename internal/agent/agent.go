@@ -26,10 +26,11 @@ import (
 	"github.com/shirou/gopsutil/v4/load"
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/sensors"
+	"tailscale.com/tsnet"
 
 	"github.com/autobrr/netronome/internal/config"
+	ts "github.com/autobrr/netronome/internal/tailscale"
 )
-
 
 // New creates a new Agent instance
 func New(cfg *config.AgentConfig) *Agent {
@@ -40,8 +41,38 @@ func New(cfg *config.AgentConfig) *Agent {
 	}
 }
 
+// NewWithTailscale creates a new Agent instance with Tailscale support
+func NewWithTailscale(cfg *config.AgentConfig, tsCfg *config.TailscaleConfig) *Agent {
+	return &Agent{
+		config:          cfg,
+		tailscaleConfig: tsCfg,
+		clients:         make(map[chan string]bool),
+		monitorData:     make(chan string, 100),
+		useTailscale:    tsCfg != nil && tsCfg.IsAgentMode(),
+	}
+}
+
 // Start starts the agent server
 func (a *Agent) Start(ctx context.Context) error {
+	// If Tailscale is enabled, determine method
+	if a.useTailscale && a.tailscaleConfig != nil {
+		method, err := a.tailscaleConfig.GetEffectiveMethod()
+		if err != nil {
+			return fmt.Errorf("failed to determine Tailscale method: %w", err)
+		}
+
+		switch method {
+		case "host":
+			log.Info().Msg("Using host's tailscaled...")
+			return a.startWithHostTailscale(ctx)
+		case "tsnet":
+			log.Info().Msg("Using embedded tsnet...")
+			return a.startWithTailscale(ctx)
+		default:
+			return fmt.Errorf("unexpected Tailscale method: %s", method)
+		}
+	}
+
 	// Start bandwidth monitoring
 	go a.runBandwidthMonitor(ctx)
 
@@ -80,6 +111,252 @@ func (a *Agent) Start(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// startWithTailscale starts the agent server with Tailscale
+func (a *Agent) startWithTailscale(ctx context.Context) error {
+	// Start bandwidth monitoring
+	go a.runBandwidthMonitor(ctx)
+
+	// Start broadcaster
+	go a.broadcaster(ctx)
+
+	// Configure tsnet
+	hostname := a.tailscaleConfig.Hostname
+	if hostname == "" {
+		// Generate default hostname
+		sysHostname, _ := os.Hostname()
+		hostname = fmt.Sprintf("netronome-agent-%s", sysHostname)
+	}
+
+	// Expand state directory path
+	stateDir := a.tailscaleConfig.StateDir
+	if strings.HasPrefix(stateDir, "~/") {
+		home, _ := os.UserHomeDir()
+		stateDir = filepath.Join(home, stateDir[2:])
+	}
+
+	// Create state directory if it doesn't exist
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		return fmt.Errorf("failed to create tsnet state directory: %w", err)
+	}
+
+	a.tsnetServer = &tsnet.Server{
+		Dir:       stateDir,
+		Hostname:  hostname,
+		AuthKey:   a.tailscaleConfig.AuthKey,
+		Ephemeral: a.tailscaleConfig.Ephemeral,
+		Logf: func(format string, args ...interface{}) {
+			log.Debug().Msgf("[tsnet] "+format, args...)
+		},
+	}
+
+	// Set control URL if specified
+	if a.tailscaleConfig.ControlURL != "" {
+		a.tsnetServer.ControlURL = a.tailscaleConfig.ControlURL
+	}
+
+	// Start tsnet server
+	log.Info().Str("hostname", hostname).Msg("Starting Tailscale node...")
+	if err := a.tsnetServer.Start(); err != nil {
+		return fmt.Errorf("failed to start tsnet: %w", err)
+	}
+
+	// Set up routes
+	router := a.setupRoutes()
+
+	// Listen on Tailscale network
+	port := a.config.Port
+	if a.tailscaleConfig.AgentPort > 0 {
+		port = a.tailscaleConfig.AgentPort
+	}
+	ln, err := a.tsnetServer.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return fmt.Errorf("failed to listen on Tailscale: %w", err)
+	}
+
+	server := &http.Server{
+		Handler: router,
+	}
+
+	// Handle graceful shutdown
+	go func() {
+		<-ctx.Done()
+		log.Info().Msg("Shutting down Tailscale agent server...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Error().Err(err).Msg("Failed to gracefully shutdown server")
+		}
+		if a.tsnetServer != nil {
+			a.tsnetServer.Close()
+		}
+	}()
+
+	localClient, err := a.tsnetServer.LocalClient()
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to get Tailscale local client")
+	} else {
+		status, err := localClient.Status(ctx)
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to get Tailscale status")
+		} else if status.Self != nil {
+			logEvent := log.Info().
+				Str("hostname", hostname).
+				Int("port", port)
+
+			if len(status.Self.TailscaleIPs) > 0 {
+				logEvent = logEvent.Str("tailscale_ip", status.Self.TailscaleIPs[0].String())
+			}
+
+			logEvent.Msg("Monitor SSE agent listening on Tailscale network")
+
+			if a.config.APIKey != "" {
+				log.Info().Msg("API key authentication enabled")
+			}
+		}
+	}
+
+	if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("failed to serve: %w", err)
+	}
+
+	return nil
+}
+
+// startWithHostTailscale starts the agent using the host's existing tailscaled
+func (a *Agent) startWithHostTailscale(ctx context.Context) error {
+	// Start bandwidth monitoring
+	go a.runBandwidthMonitor(ctx)
+	// Start broadcaster
+	go a.broadcaster(ctx)
+
+	// Get host tailscale client
+	hostClient, err := ts.GetHostClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to host tailscaled: %w", err)
+	}
+
+	// Get our tailscale status
+	hostname, ips, err := ts.GetSelfInfo(hostClient)
+	if err != nil {
+		return fmt.Errorf("failed to get Tailscale info: %w", err)
+	}
+
+	log.Info().
+		Str("hostname", hostname).
+		Strs("tailscale_ips", ips).
+		Msg("Using host's tailscaled for agent")
+
+	// Start normal server but bind to Tailscale IP
+	router := a.setupRoutes()
+	server := &http.Server{
+		Handler: router,
+	}
+
+	// Listen on Tailscale network
+	port := a.config.Port
+	if a.tailscaleConfig.AgentPort > 0 {
+		port = a.tailscaleConfig.AgentPort
+	}
+	ln, err := ts.ListenOnTailscale(hostClient, port)
+	if err != nil {
+		// Fallback to all interfaces if we can't bind to specific Tailscale IP
+		log.Warn().Err(err).Msg("Failed to bind to Tailscale IP, using all interfaces")
+		addr := fmt.Sprintf("%s:%d", a.config.Host, port)
+		ln, err = net.Listen("tcp", addr)
+		if err != nil {
+			return fmt.Errorf("failed to listen: %w", err)
+		}
+	}
+
+	// Set up graceful shutdown
+	go func() {
+		<-ctx.Done()
+		log.Info().Msg("Shutting down agent server...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Error().Err(err).Msg("Failed to gracefully shutdown server")
+		}
+	}()
+
+	log.Info().
+		Str("address", ln.Addr().String()).
+		Int("port", port).
+		Msg("Monitor SSE agent listening via host's tailscaled")
+
+	if a.config.APIKey != "" {
+		log.Info().Msg("API key authentication enabled")
+	}
+
+	if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("failed to serve: %w", err)
+	}
+
+	return nil
+}
+
+// GetTailscaleStatus returns the current Tailscale connection status
+func (a *Agent) GetTailscaleStatus() (map[string]interface{}, error) {
+	if !a.useTailscale || a.tailscaleConfig == nil {
+		return map[string]interface{}{
+			"enabled": false,
+			"status":  "disabled",
+		}, nil
+	}
+
+	method, _ := a.tailscaleConfig.GetEffectiveMethod()
+	result := map[string]interface{}{
+		"enabled": true,
+		"method":  method,
+	}
+
+	// Handle tsnet mode
+	if method == "tsnet" && a.tsnetServer != nil {
+		localClient, err := a.tsnetServer.LocalClient()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Tailscale local client: %w", err)
+		}
+
+		status, err := localClient.Status(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Tailscale status: %w", err)
+		}
+
+		result["hostname"] = a.tsnetServer.Hostname
+
+		if status.Self != nil {
+			var ips []string
+			for _, ip := range status.Self.TailscaleIPs {
+				ips = append(ips, ip.String())
+			}
+			result["tailscale_ips"] = ips
+			result["online"] = status.Self.Online
+			result["status"] = "connected"
+		} else {
+			result["status"] = "connecting"
+		}
+	} else if method == "host" {
+		// Handle host mode
+		hostClient, err := ts.GetHostClient()
+		if err != nil {
+			result["status"] = "host_unavailable"
+			result["error"] = err.Error()
+		} else {
+			hostname, ips, err := ts.GetSelfInfo(hostClient)
+			if err != nil {
+				result["status"] = "error"
+				result["error"] = err.Error()
+			} else {
+				result["hostname"] = hostname
+				result["tailscale_ips"] = ips
+				result["status"] = "connected"
+			}
+		}
+	}
+
+	return result, nil
 }
 
 // handleSSE handles SSE connections
@@ -231,11 +508,14 @@ func (a *Agent) runBandwidthMonitor(ctx context.Context) {
 
 		// Track peak speeds
 		a.peakMu.Lock()
+		now := time.Now()
 		if data.Rx.Bytespersecond > a.peakRx {
 			a.peakRx = data.Rx.Bytespersecond
+			a.peakRxTimestamp = now
 		}
 		if data.Tx.Bytespersecond > a.peakTx {
 			a.peakTx = data.Tx.Bytespersecond
+			a.peakTxTimestamp = now
 		}
 		a.peakMu.Unlock()
 
@@ -410,10 +690,10 @@ func (a *Agent) getSystemInfo() (*SystemInfo, error) {
 				// Check if this is a virtual/bridge interface
 				bridgePath := fmt.Sprintf("/sys/class/net/%s/bridge", iface.Name)
 				_, isBridge := os.Stat(bridgePath)
-				
+
 				// Check for common virtual interface patterns
-				isVirtual := isBridge == nil || 
-					strings.HasPrefix(iface.Name, "vmbr") || 
+				isVirtual := isBridge == nil ||
+					strings.HasPrefix(iface.Name, "vmbr") ||
 					strings.HasPrefix(iface.Name, "br") ||
 					strings.HasPrefix(iface.Name, "virbr") ||
 					strings.HasPrefix(iface.Name, "docker") ||
@@ -421,7 +701,7 @@ func (a *Agent) getSystemInfo() (*SystemInfo, error) {
 					strings.HasPrefix(iface.Name, "tap") ||
 					strings.HasPrefix(iface.Name, "tun") ||
 					strings.Contains(iface.Name, "bond")
-				
+
 				if isVirtual {
 					// For virtual interfaces, set LinkSpeed to -1 to indicate it's virtual
 					ifaceInfo.LinkSpeed = -1
@@ -494,11 +774,13 @@ func (a *Agent) getSystemInfo() (*SystemInfo, error) {
 func (a *Agent) handlePeakStats(c *gin.Context) {
 	a.peakMu.RLock()
 	stats := PeakStats{
-		PeakRx:       a.peakRx,
-		PeakTx:       a.peakTx,
-		PeakRxString: formatBytesPerSecond(a.peakRx),
-		PeakTxString: formatBytesPerSecond(a.peakTx),
-		UpdatedAt:    time.Now(),
+		PeakRx:          a.peakRx,
+		PeakTx:          a.peakTx,
+		PeakRxString:    formatBytesPerSecond(a.peakRx),
+		PeakTxString:    formatBytesPerSecond(a.peakTx),
+		PeakRxTimestamp: a.peakRxTimestamp,
+		PeakTxTimestamp: a.peakTxTimestamp,
+		UpdatedAt:       time.Now(),
 	}
 	a.peakMu.RUnlock()
 
@@ -556,7 +838,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 		// Use the first CPU entry for model name and frequency
 		stats.CPU.Model = cpuInfo[0].ModelName
 		stats.CPU.Frequency = cpuInfo[0].Mhz
-		
+
 		log.Debug().
 			Str("model", stats.CPU.Model).
 			Float64("freq", stats.CPU.Frequency).
@@ -587,7 +869,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 	} else {
 		log.Error().Err(err).Msg("Failed to get logical CPU count")
 	}
-	
+
 	// Handle edge case for containers (like LXC) where threads might be less than cores
 	// In containers, the logical count may reflect container limits
 	if stats.CPU.Threads < stats.CPU.Cores && stats.CPU.Threads > 0 {
@@ -626,11 +908,11 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 		stats.Memory.Available = vmStat.Available
 		stats.Memory.Cached = vmStat.Cached
 		stats.Memory.Buffers = vmStat.Buffers
-		
+
 		// Get ZFS ARC size if available
 		zfsArcSize := getZFSARCSize()
 		stats.Memory.ZFSArc = zfsArcSize
-		
+
 		// Calculate used memory
 		// On Linux, the Used field from gopsutil includes cache/buffers
 		// We need to be careful about how we calculate "used" memory
@@ -645,7 +927,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 			stats.Memory.Used = vmStat.Used
 			stats.Memory.UsedPercent = vmStat.UsedPercent
 		}
-		
+
 		log.Debug().
 			Uint64("total", vmStat.Total).
 			Uint64("used", stats.Memory.Used).
@@ -679,7 +961,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 	partitions, err := disk.Partitions(true)
 	if err == nil {
 		log.Debug().Int("partition_count", len(partitions)).Msg("Got disk partitions")
-		
+
 		// Build a map of device names to SMART info
 		deviceInfoMap := make(map[string]struct{ model, serial string })
 		devicePaths := a.getDevicePaths()
@@ -697,7 +979,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 				}
 			}
 		}
-		
+
 		for _, partition := range partitions {
 			// Check if this disk should be included based on filters
 			if !a.shouldIncludeDisk(partition.Mountpoint, partition.Device, partition.Fstype) {
@@ -723,7 +1005,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 					Msg("Skipping small disk")
 				continue
 			}
-			
+
 			diskStat := DiskStats{
 				Path:        partition.Mountpoint,
 				Device:      partition.Device,
@@ -733,7 +1015,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 				Free:        usage.Free,
 				UsedPercent: usage.UsedPercent,
 			}
-			
+
 			// Try to find SMART info for this device
 			// First try exact match
 			if info, ok := deviceInfoMap[partition.Device]; ok {
@@ -758,7 +1040,7 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 						}
 					}
 				}
-				
+
 				if info, ok := deviceInfoMap[baseDevice]; ok {
 					diskStat.Model = info.model
 					diskStat.Serial = info.serial
@@ -893,7 +1175,7 @@ func matchPath(pattern, path string) bool {
 		prefix := strings.TrimSuffix(pattern, "*")
 		return strings.HasPrefix(path, prefix)
 	}
-	
+
 	// Check if pattern contains any glob characters
 	if strings.ContainsAny(pattern, "*?[]") {
 		// Use filepath.Match for single-component patterns
@@ -905,7 +1187,7 @@ func matchPath(pattern, path string) bool {
 		matched, err = filepath.Match(pattern, filepath.Base(path))
 		return err == nil && matched
 	}
-	
+
 	// Otherwise, exact match
 	return pattern == path
 }
@@ -954,7 +1236,6 @@ func (a *Agent) shouldIncludeDisk(mountpoint, device, fstype string) bool {
 	return true
 }
 
-
 // getDevicePaths returns a list of device paths to check for SMART data
 func (a *Agent) getDevicePaths() []string {
 	var devicePaths []string
@@ -994,7 +1275,7 @@ func (a *Agent) getDevicePaths() []string {
 			if !strings.HasPrefix(name, "sd") && !strings.HasPrefix(name, "nvme") && !strings.HasPrefix(name, "hd") {
 				continue
 			}
-			
+
 			// Skip partitions (sda1, sdb2, nvme0n1p1, etc.)
 			if strings.Contains(name, "p") && len(name) > 4 {
 				continue

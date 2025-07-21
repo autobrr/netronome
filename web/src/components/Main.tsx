@@ -7,13 +7,13 @@ import { useState, useEffect, useMemo } from "react";
 import { Container } from "@mui/material";
 import { FaGithub } from "react-icons/fa";
 import { XMarkIcon } from "@heroicons/react/20/solid";
-import { ShareModal } from "./ShareModal";
-import { TestProgress } from "./TestProgress";
-import { TabNavigation } from "../common/TabNavigation";
-import { DashboardTab } from "./DashboardTab";
-import { SpeedTestTab } from "./SpeedTestTab";
-import { TracerouteTab } from "./TracerouteTab";
-import { MonitorTab } from "../monitor/MonitorTab";
+import { ShareModal } from "./speedtest/ShareModal";
+import { TestProgress } from "./speedtest/TestProgress";
+import { TabNavigation } from "./common/TabNavigation";
+import { DashboardTab } from "./speedtest/DashboardTab";
+import { SpeedTestTab } from "./speedtest/SpeedTestTab";
+import { TracerouteTab } from "./speedtest/TracerouteTab";
+import { MonitorTab } from "./monitor/MonitorTab";
 import {
   ChartBarIcon,
   PlayIcon,
@@ -29,7 +29,6 @@ import {
   PaginatedResponse,
   Schedule,
 } from "@/types/types";
-import logo from "@/assets/logo_small.png";
 import {
   useQuery,
   useMutation,
@@ -46,11 +45,11 @@ import {
 } from "@/api/speedtest";
 import { motion, AnimatePresence } from "motion/react";
 
-interface SpeedTestProps {
+interface MainProps {
   isPublic?: boolean;
 }
 
-export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
+export default function Main({ isPublic = false }: MainProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [options, setOptions] = useState<TestOptions>({
@@ -69,7 +68,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const [selectedServers, setSelectedServers] = useState<Server[]>([]);
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
-    "idle",
+    "idle"
   );
   const [timeRange, setTimeRange] = useState<TimeRange>(() => {
     const saved = localStorage.getItem("speedtest-time-range");
@@ -130,7 +129,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
   const allServers = useMemo(
     () => [...speedtestServers, ...librespeedServers],
-    [speedtestServers, librespeedServers],
+    [speedtestServers, librespeedServers]
   );
 
   const servers = useMemo(() => {
@@ -147,7 +146,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
       return response as PaginatedResponse<SpeedTestResult>;
     },
     getNextPageParam: (
-      lastPage: PaginatedResponse<SpeedTestResult> | undefined,
+      lastPage: PaginatedResponse<SpeedTestResult> | undefined
     ) => {
       if (!lastPage?.data) return undefined;
       if (lastPage.data.length < lastPage.limit) return undefined;
@@ -161,7 +160,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const history = useMemo(() => {
     if (!historyData?.pages) return [];
     return historyData.pages.flatMap(
-      (page) => page?.data ?? [],
+      (page) => page?.data ?? []
     ) as SpeedTestResult[];
   }, [historyData]);
 
@@ -181,7 +180,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
   const allTimeHistory = useMemo(() => {
     if (!allTimeHistoryData?.pages) return [];
     return allTimeHistoryData.pages.flatMap(
-      (page) => page?.data ?? [],
+      (page) => page?.data ?? []
     ) as SpeedTestResult[];
   }, [allTimeHistoryData]);
 
@@ -194,14 +193,14 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     return history && history.length > 0
       ? history[0]
       : allTimeHistory.length > 0
-        ? allTimeHistory[0]
-        : null;
+      ? allTimeHistory[0]
+      : null;
   }, [history, allTimeHistory]);
 
   const { data: schedules = [] } = useQuery({
     queryKey: ["schedules"],
     queryFn: () => {
-      console.log("[SpeedTest] Fetching schedules...");
+      console.log("[Main] Fetching schedules...");
       return getSchedules();
     },
     refetchInterval: 30000, // Refetch every 30 seconds (same as ScheduleManager)
@@ -210,7 +209,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
   // Log when schedules data changes
   useEffect(() => {
-    console.log("[SpeedTest] Schedules data updated:", schedules);
+    console.log("[Main] Schedules data updated:", schedules);
   }, [schedules]);
 
   // Mutations
@@ -299,7 +298,7 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
     } catch (error) {
       console.error("Error running test:", error);
       setError(
-        error instanceof Error ? error.message : "An unknown error occurred",
+        error instanceof Error ? error.message : "An unknown error occurred"
       );
       setTestStatus("idle");
     } finally {
@@ -387,40 +386,16 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
 
   return (
     <div className="min-h-screen">
-      <Container maxWidth="xl" className="pb-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-center md:justify-between mb-8 pt-8 relative">
-          <div className="flex items-center gap-3">
-            <img
-              src={logo}
-              alt="netronome Logo"
-              className="h-12 w-12 select-none pointer-events-none"
-              draggable="false"
-            />
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white select-none">
-                Netronome
-              </h1>
-              <h2 className="text-sm font-medium text-gray-600 dark:text-gray-300 select-none">
-                Network Performance Testing
-              </h2>
-            </div>
+      <Container maxWidth="xl" className="pb-8 pt-20 md:pt-14">
+        {/* Test Progress - Always visible when running */}
+        {(testStatus === "running" || scheduledTestRunning) && progress !== null && (
+          <div className="flex justify-center mb-6 mt-8 md:mt-0">
+            <TestProgress progress={progress} />
           </div>
+        )}
 
-          {(testStatus === "running" || scheduledTestRunning) &&
-            progress !== null && (
-              <>
-                {/* Desktop: absolute positioned at top */}
-                <div className="hidden md:flex absolute inset-x-0 top-10 justify-center">
-                  <TestProgress progress={progress} />
-                </div>
-                {/* Mobile: below the header */}
-                <div className="md:hidden mt-8 flex justify-center">
-                  <TestProgress progress={progress} />
-                </div>
-              </>
-            )}
-        </div>
+        {/* Header - Now just an empty spacer */}
+        <div className="mb-8" />
 
         {/* Share Modal */}
         <ShareModal
@@ -530,7 +505,10 @@ export default function SpeedTest({ isPublic = false }: SpeedTestProps) {
                 onNavigateToVnstat={(agentId?: number) => {
                   handleTabChange("monitor");
                   if (agentId) {
-                    sessionStorage.setItem("netronome-preselect-agent", agentId.toString());
+                    sessionStorage.setItem(
+                      "netronome-preselect-agent",
+                      agentId.toString()
+                    );
                   }
                 }}
               />
