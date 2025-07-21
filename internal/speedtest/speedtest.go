@@ -23,6 +23,7 @@ type Service interface {
 	RunTraceroute(ctx context.Context, host string) (*TracerouteResult, error)
 	SetBroadcastUpdate(broadcastUpdate func(types.SpeedUpdate))
 	SetBroadcastTracerouteUpdate(broadcastUpdate func(types.TracerouteUpdate))
+	GetNotifier() *notifications.Notifier
 }
 
 type service struct {
@@ -67,6 +68,10 @@ func (s *service) SetBroadcastUpdate(broadcastUpdate func(types.SpeedUpdate)) {
 
 func (s *service) SetBroadcastTracerouteUpdate(broadcastUpdate func(types.TracerouteUpdate)) {
 	s.broadcastTracerouteUpdate = broadcastUpdate
+}
+
+func (s *service) GetNotifier() *notifications.Notifier {
+	return s.notifier
 }
 
 func (s *service) GetLibrespeedServers() ([]ServerResponse, error) {

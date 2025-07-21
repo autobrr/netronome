@@ -79,6 +79,7 @@ type Service interface {
 	DeletePacketLossMonitor(monitorID int64) error
 	GetPacketLossMonitors() ([]*types.PacketLossMonitor, error)
 	GetPacketLossResults(monitorID int64, limit int) ([]*types.PacketLossResult, error)
+	UpdatePacketLossMonitorState(monitorID int64, state string) error
 
 	// Monitor operations
 	CreateMonitorAgent(ctx context.Context, agent *types.MonitorAgent) (*types.MonitorAgent, error)
@@ -107,6 +108,9 @@ type Service interface {
 	GetMonitorLatestSnapshot(ctx context.Context, agentID int64, periodType string) (*types.MonitorHistoricalSnapshot, error)
 	
 	CleanupMonitorData(ctx context.Context) error
+
+	// Embed NotificationService interface
+	NotificationService
 }
 
 type service struct {

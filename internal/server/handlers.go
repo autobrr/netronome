@@ -13,8 +13,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
+	"github.com/autobrr/netronome/internal/notifications"
 	"github.com/autobrr/netronome/internal/types"
 )
+
 
 func (s *Server) handleSpeedTest(c *gin.Context) {
 	var opts types.TestOptions
@@ -40,6 +42,33 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 
 	result, err := s.speedtest.RunTest(ctx, &opts)
 	if err != nil {
+		// Send failed notification before returning error
+		if s.notifier != nil {
+			// Create a failed result for notification
+			failedResult := &notifications.SpeedTestResult{
+				ServerName: "Unknown", // Default server name for failed tests
+				Provider: "speedtest", // Default provider
+				Failed: true,
+			}
+			
+			// Try to set server name from options
+			if len(opts.ServerIDs) > 0 {
+				failedResult.ServerName = opts.ServerIDs[0]
+			}
+			
+			// Determine provider from test type
+			if opts.UseIperf {
+				failedResult.Provider = "iperf"
+			} else if opts.UseLibrespeed {
+				failedResult.Provider = "librespeed"
+			}
+			
+			notifyErr := s.notifier.SendSpeedTestNotification(failedResult)
+			if notifyErr != nil {
+				log.Error().Err(notifyErr).Msg("Failed to send speedtest failure notification")
+			}
+		}
+		
 		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to run speed test: %w", err))
 		return

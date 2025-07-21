@@ -22,11 +22,17 @@ import (
 	"github.com/autobrr/netronome/internal/types"
 )
 
+// Notifier interface for sending notifications
+type Notifier interface {
+	SendAgentNotification(agentName string, eventType string, value *float64) error
+}
+
 // Client represents an SSE client connection to a monitor agent
 type Client struct {
 	agent         *types.MonitorAgent
 	db            database.Service
 	broadcastFunc func(types.MonitorUpdate)
+	notifier      Notifier
 
 	mu        sync.Mutex
 	connected bool
@@ -39,6 +45,12 @@ type Client struct {
 	peakTx          int64
 	peakRxTimestamp time.Time
 	peakTxTimestamp time.Time
+
+	// Resource state tracking for notifications
+	lastCPUNotificationTime    time.Time
+	lastMemoryNotificationTime time.Time
+	lastDiskNotificationTime   time.Time
+	lastBandwidthNotificationTime time.Time
 }
 
 // Service manages all monitoring clients
@@ -48,9 +60,11 @@ type Service struct {
 	tailscaleConfig  *config.TailscaleConfig
 	broadcastFunc    func(types.MonitorUpdate)
 	tailscaleDiscovery *TailscaleDiscovery
+	notifier         Notifier
 
 	clientsMu sync.RWMutex
 	clients   map[int64]*Client
+	agentStates map[int64]bool // Track connection state per agent
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -64,21 +78,23 @@ type Service struct {
 }
 
 // NewService creates a new monitor service
-func NewService(db database.Service, cfg *config.MonitorConfig, broadcastFunc func(types.MonitorUpdate)) *Service {
+func NewService(db database.Service, cfg *config.MonitorConfig, broadcastFunc func(types.MonitorUpdate), notifier Notifier) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Service{
 		db:            db,
 		config:        cfg,
 		broadcastFunc: broadcastFunc,
+		notifier:      notifier,
 		clients:       make(map[int64]*Client),
+		agentStates:   make(map[int64]bool),
 		ctx:           ctx,
 		cancel:        cancel,
 	}
 }
 
 // NewServiceWithTailscale creates a new monitor service with Tailscale support
-func NewServiceWithTailscale(db database.Service, cfg *config.MonitorConfig, tsCfg *config.TailscaleConfig, broadcastFunc func(types.MonitorUpdate)) *Service {
+func NewServiceWithTailscale(db database.Service, cfg *config.MonitorConfig, tsCfg *config.TailscaleConfig, broadcastFunc func(types.MonitorUpdate), notifier Notifier) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	service := &Service{
@@ -86,7 +102,9 @@ func NewServiceWithTailscale(db database.Service, cfg *config.MonitorConfig, tsC
 		config:          cfg,
 		tailscaleConfig: tsCfg,
 		broadcastFunc:   broadcastFunc,
+		notifier:        notifier,
 		clients:         make(map[int64]*Client),
+		agentStates:     make(map[int64]bool),
 		ctx:             ctx,
 		cancel:          cancel,
 	}
@@ -182,6 +200,60 @@ func (s *Service) Stop() {
 	log.Info().Msg("Monitor service stopped")
 }
 
+// broadcastWithNotification wraps the broadcast function and handles notifications
+func (s *Service) broadcastWithNotification(update types.MonitorUpdate) {
+	// Don't send notifications if the service is shutting down
+	select {
+	case <-s.ctx.Done():
+		// Service is shutting down, just broadcast without notifications
+		s.broadcastFunc(update)
+		return
+	default:
+	}
+
+	// Get previous connection state
+	s.clientsMu.Lock()
+	wasConnected, exists := s.agentStates[update.AgentID]
+	if !exists {
+		// If no previous state, assume it was connected
+		wasConnected = true
+	}
+	s.agentStates[update.AgentID] = update.Connected
+	s.clientsMu.Unlock()
+
+	// Check if agent went offline or came back online
+	if wasConnected && !update.Connected {
+		// Agent went offline
+		log.Warn().
+			Int64("agentID", update.AgentID).
+			Str("agentName", update.AgentName).
+			Msg("Agent went offline")
+		
+		if s.notifier != nil {
+			err := s.notifier.SendAgentNotification(update.AgentName, database.NotificationEventAgentOffline, nil)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to send agent offline notification")
+			}
+		}
+	} else if !wasConnected && update.Connected {
+		// Agent came back online
+		log.Info().
+			Int64("agentID", update.AgentID).
+			Str("agentName", update.AgentName).
+			Msg("Agent came back online")
+		
+		if s.notifier != nil {
+			err := s.notifier.SendAgentNotification(update.AgentName, database.NotificationEventAgentOnline, nil)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to send agent online notification")
+			}
+		}
+	}
+
+	// Always broadcast the update
+	s.broadcastFunc(update)
+}
+
 // StartAgent starts monitoring a specific agent
 func (s *Service) StartAgent(agentID int64) error {
 	// Get agent from database
@@ -201,7 +273,8 @@ func (s *Service) StartAgent(agentID int64) error {
 	client := &Client{
 		agent:         agent,
 		db:            s.db,
-		broadcastFunc: s.broadcastFunc,
+		broadcastFunc: s.broadcastWithNotification,
+		notifier:      s.notifier,
 	}
 
 	// Start monitoring
@@ -462,6 +535,28 @@ func (c *Client) processData(data string) {
 
 	// Update peak stats if this is a new peak
 	c.updatePeakStats(rxBytes, txBytes)
+
+	// Check bandwidth threshold for notifications
+	if c.notifier != nil {
+		// Convert bytes per second to Mbps for threshold checking
+		totalBandwidthMbps := float64(rxBytes+txBytes) * 8 / 1_000_000
+		
+		// Rate limit notifications to once per hour
+		notificationCooldown := 1 * time.Hour
+		now := time.Now()
+		
+		if totalBandwidthMbps > 0 && now.Sub(c.lastBandwidthNotificationTime) > notificationCooldown {
+			if err := c.notifier.SendAgentNotification(
+				c.agent.Name,
+				database.NotificationEventAgentHighBandwidth,
+				&totalBandwidthMbps,
+			); err != nil {
+				log.Error().Err(err).Msg("Failed to send high bandwidth notification")
+			} else {
+				c.lastBandwidthNotificationTime = now
+			}
+		}
+	}
 }
 
 // updatePeakStats updates peak bandwidth statistics if current values are higher
@@ -779,6 +874,60 @@ func (s *Service) fetchHardwareStats(client *Client) error {
 
 	if err := s.db.SaveMonitorResourceStats(client.ctx, client.agent.ID, stats); err != nil {
 		return fmt.Errorf("failed to store resource stats: %w", err)
+	}
+
+	// Check thresholds and send notifications if needed
+	if client.notifier != nil {
+		// Rate limit notifications to once per hour per type
+		notificationCooldown := 1 * time.Hour
+		now := time.Now()
+
+		// Check CPU usage threshold
+		// The notification service will check if CPU exceeds the configured threshold
+		if hardwareStats.CPU.UsagePercent > 0 && now.Sub(client.lastCPUNotificationTime) > notificationCooldown {
+			if err := client.notifier.SendAgentNotification(
+				client.agent.Name,
+				database.NotificationEventAgentHighCPU,
+				&hardwareStats.CPU.UsagePercent,
+			); err != nil {
+				log.Error().Err(err).Msg("Failed to send high CPU notification")
+			} else {
+				client.lastCPUNotificationTime = now
+			}
+		}
+
+		// Check memory usage threshold
+		if hardwareStats.Memory.UsedPercent > 0 && now.Sub(client.lastMemoryNotificationTime) > notificationCooldown {
+			if err := client.notifier.SendAgentNotification(
+				client.agent.Name,
+				database.NotificationEventAgentHighMemory,
+				&hardwareStats.Memory.UsedPercent,
+			); err != nil {
+				log.Error().Err(err).Msg("Failed to send high memory notification")
+			} else {
+				client.lastMemoryNotificationTime = now
+			}
+		}
+
+		// Check disk usage thresholds - find highest usage
+		var highestDiskUsage float64
+		for _, disk := range hardwareStats.Disks {
+			if disk.UsedPercent > highestDiskUsage {
+				highestDiskUsage = disk.UsedPercent
+			}
+		}
+
+		if highestDiskUsage > 0 && now.Sub(client.lastDiskNotificationTime) > notificationCooldown {
+			if err := client.notifier.SendAgentNotification(
+				client.agent.Name,
+				database.NotificationEventAgentLowDisk,
+				&highestDiskUsage,
+			); err != nil {
+				log.Error().Err(err).Msg("Failed to send low disk notification")
+			} else {
+				client.lastDiskNotificationTime = now
+			}
+		}
 	}
 
 	return nil

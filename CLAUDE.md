@@ -91,6 +91,82 @@ cd web && pnpm lint
 cd web && pnpm tsc --noEmit
 ```
 
+## High-Level Architecture
+
+### Backend Architecture (Go)
+
+The backend follows a clean architecture pattern with dependency injection:
+
+1. **Entry Point** (`cmd/netronome/main.go`): CLI commands using Cobra
+   - `serve`: Runs the web server
+   - `agent`: Runs the monitoring agent
+   - `generate-config`: Creates default configuration
+   - User management commands
+
+2. **Core Services** (`internal/`):
+   - **server**: HTTP server using Gin framework, handles routing and middleware
+   - **database**: Data persistence layer with SQLite/PostgreSQL support via interfaces
+   - **speedtest**: Core speed testing logic (iperf3, librespeed, speedtest.net)
+   - **monitor**: System monitoring and agent management
+   - **scheduler**: Cron-like scheduling for automated tests
+   - **auth**: Authentication (built-in and OIDC support)
+   - **broadcaster**: WebSocket/SSE for real-time updates
+   - **tailscale**: Tailscale integration for secure networking
+
+3. **Agent Architecture**:
+   - Lightweight HTTP server exposing SSE endpoints
+   - Collects system metrics via gopsutil and vnstat
+   - Can run standalone or integrated with Tailscale
+   - Auto-discovery support for Tailscale networks
+
+4. **Database Patterns**:
+   - Interface-based design for multiple backends
+   - Migrations in `internal/database/migrations/`
+   - Squirrel query builder for complex queries
+   - Separate implementations for SQLite and PostgreSQL
+
+### Frontend Architecture (React + TypeScript)
+
+The frontend uses modern React patterns with TypeScript:
+
+1. **Core Stack**:
+   - React 19 with TypeScript
+   - TanStack Query for data fetching and caching
+   - TanStack Router for routing
+   - Tailwind CSS v4 for styling
+   - Motion (framer-motion) for animations
+   - Vite for bundling
+
+2. **Component Organization**:
+   - `components/auth/`: Authentication components
+   - `components/common/`: Shared UI components
+   - `components/speedtest/`: Speed test features
+   - `components/monitor/`: System monitoring UI
+   - `components/ui/`: Base UI components
+
+3. **State Management**:
+   - Local state with useState for component state
+   - TanStack Query for server state
+   - localStorage for user preferences
+   - Context API for authentication
+
+4. **API Integration** (`api/`):
+   - Type-safe API clients
+   - Error handling and retry logic
+   - WebSocket/SSE connections for real-time data
+
+### Key Architectural Decisions
+
+1. **Embedded Frontend**: Frontend is built and embedded into the Go binary for single-file deployment
+
+2. **Real-time Updates**: Uses Server-Sent Events (SSE) for live monitoring data and WebSocket for speed test progress
+
+3. **Plugin Architecture**: Speed test providers implement common interfaces, making it easy to add new providers
+
+4. **Agent-Based Monitoring**: Distributed architecture where agents can be deployed separately from the main server
+
+5. **Tailscale Integration**: Optional but deeply integrated, supporting both tsnet and host modes for flexible deployment
+
 ## Development Guidelines
 
 ### Code Standards

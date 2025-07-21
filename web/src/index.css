@@ -186,6 +186,46 @@
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent; /* Very subtle light color for thumb */
   }
+
+  /* Modal-specific scrollbar styles */
+  .modal-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .modal-scrollbar::-webkit-scrollbar-track {
+    background: var(--color-gray-100);
+  }
+
+  .dark .modal-scrollbar::-webkit-scrollbar-track {
+    background: var(--color-gray-900);
+  }
+
+  .modal-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--color-gray-300);
+    border-radius: 9999px;
+  }
+
+  .dark .modal-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--color-gray-700);
+  }
+
+  .modal-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gray-400);
+  }
+
+  .dark .modal-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gray-600);
+  }
+
+  /* Firefox modal scrollbar */
+  .modal-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-gray-300) var(--color-gray-100);
+  }
+
+  .dark .modal-scrollbar {
+    scrollbar-color: var(--color-gray-700) var(--color-gray-900);
+  }
 }
 
 @keyframes fadeIn {

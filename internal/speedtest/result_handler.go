@@ -92,6 +92,36 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 
 func (h *DefaultResultHandler) SendNotification(result *types.SpeedTestResult) {
 	if h.notifier != nil {
-		h.notifier.SendNotification(result)
+		// Convert types.SpeedTestResult to notifications.SpeedTestResult
+		notifResult := &notifications.SpeedTestResult{
+			ServerName: result.ServerName,
+			Provider:   result.TestType,
+			Download:   result.DownloadSpeed,
+			Upload:     result.UploadSpeed,
+			Ping:       parsePingValue(result.Latency),
+			Jitter:     getJitterValue(result.Jitter),
+			PacketLoss: result.PacketLoss,
+			ISP:        "", // ISP not available in types.SpeedTestResult
+			Failed:     false, // Assuming successful test if we got here
+		}
+		h.notifier.SendSpeedTestNotification(notifResult)
 	}
+}
+
+// parsePingValue extracts the numeric ping value from a latency string like "10.5ms"
+func parsePingValue(latency string) float64 {
+	if latency == "" {
+		return 0
+	}
+	var value float64
+	fmt.Sscanf(latency, "%fms", &value)
+	return value
+}
+
+// getJitterValue safely dereferences a jitter pointer
+func getJitterValue(jitter *float64) float64 {
+	if jitter == nil {
+		return 0
+	}
+	return *jitter
 }

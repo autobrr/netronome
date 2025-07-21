@@ -12,12 +12,16 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   className?: string;
   children: React.ReactNode;
   isLoading?: boolean;
+  size?: "sm" | "md" | "lg";
+  variant?: "primary" | "secondary" | "danger";
 }
 
 export const Button = ({
   className,
   children,
   isLoading,
+  size = "md",
+  variant = "primary",
   ...props
 }: ButtonProps) => {
   const [scope, animate] = useAnimate();
@@ -66,7 +70,15 @@ export const Button = ({
       whileTap={{ scale: 0.98 }}
       ref={scope}
       className={cn(
-        "px-6 py-2 rounded-lg font-medium transition-colors border shadow-md flex items-center gap-2 min-w-[100px] justify-center",
+        "rounded-lg font-medium transition-colors border shadow-md flex items-center gap-2 justify-center",
+        // Size variants
+        size === "sm" && "px-3 py-1 text-sm min-w-[80px]",
+        size === "md" && "px-6 py-2 min-w-[100px]",
+        size === "lg" && "px-8 py-3 text-lg min-w-[120px]",
+        // Color variants
+        variant === "primary" && "bg-blue-500 hover:bg-blue-600 text-white border-blue-600",
+        variant === "secondary" && "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white border-gray-300 dark:border-gray-600",
+        variant === "danger" && "bg-red-500 hover:bg-red-600 text-white border-red-600",
         className
       )}
       {...buttonProps}
