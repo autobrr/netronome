@@ -95,6 +95,7 @@ const (
 	NotificationEventAgentLowDisk       = "disk_space_low"
 	NotificationEventAgentHighCPU       = "cpu_high"
 	NotificationEventAgentHighMemory    = "memory_high"
+	NotificationEventAgentHighTemp      = "temperature_high"
 )
 
 // ThresholdOperator constants

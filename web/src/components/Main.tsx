@@ -55,7 +55,6 @@ export default function Main({ isPublic = false }: MainProps) {
   const [options, setOptions] = useState<TestOptions>({
     enableDownload: true,
     enableUpload: true,
-    enablePacketLoss: true,
     enableJitter: true,
     multiServer: false,
     useIperf: false,
@@ -387,12 +386,23 @@ export default function Main({ isPublic = false }: MainProps) {
   return (
     <div className="min-h-screen">
       <Container maxWidth="xl" className="pb-8 pt-20 md:pt-14">
-        {/* Test Progress - Always visible when running */}
-        {(testStatus === "running" || scheduledTestRunning) && progress !== null && (
-          <div className="flex justify-center mb-6 mt-8 md:mt-0">
-            <TestProgress progress={progress} />
-          </div>
-        )}
+        {/* Test Progress - Container always present to prevent layout shift */}
+        <div className="flex justify-center mb-6 mt-8 md:mt-0 min-h-[20px]">
+          <AnimatePresence mode="wait">
+            {(testStatus === "running" || scheduledTestRunning) &&
+              progress !== null && (
+                <motion.div
+                  key="test-progress"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <TestProgress progress={progress} />
+                </motion.div>
+              )}
+          </AnimatePresence>
+        </div>
 
         {/* Header - Now just an empty spacer */}
         <div className="mb-8" />

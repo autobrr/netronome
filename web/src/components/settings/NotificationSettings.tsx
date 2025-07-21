@@ -13,6 +13,9 @@ import {
   CheckIcon,
   XMarkIcon,
   ExclamationTriangleIcon,
+  RocketLaunchIcon,
+  SignalIcon,
+  ComputerDesktopIcon,
 } from "@heroicons/react/24/outline";
 import {
   notificationsApi,
@@ -506,7 +509,7 @@ export const NotificationSettings: React.FC = () => {
                         >
                           <HeadlessButton
                             onClick={cancelChanges}
-                            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors"
                           >
                             <XMarkIcon className="w-4 h-4" />
                             Cancel
@@ -517,7 +520,7 @@ export const NotificationSettings: React.FC = () => {
                               updateRuleMutation.isPending ||
                               createRuleMutation.isPending
                             }
-                            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <CheckIcon className="w-4 h-4" />
                             Save Changes
@@ -594,7 +597,7 @@ export const NotificationSettings: React.FC = () => {
                   <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="flex items-center justify-center w-10 h-10 bg-emerald-500/10 rounded-lg">
-                        <span className="text-xl">1️⃣</span>
+                        <span className="text-lg font-semibold text-emerald-700 dark:text-emerald-400">1</span>
                       </div>
                       <h4 className="font-semibold text-gray-900 dark:text-white">
                         Create a Channel
@@ -610,7 +613,7 @@ export const NotificationSettings: React.FC = () => {
                   <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="flex items-center justify-center w-10 h-10 bg-blue-500/10 rounded-lg">
-                        <span className="text-xl">2️⃣</span>
+                        <span className="text-lg font-semibold text-blue-700 dark:text-blue-400">2</span>
                       </div>
                       <h4 className="font-semibold text-gray-900 dark:text-white">
                         Configure Rules
@@ -626,7 +629,7 @@ export const NotificationSettings: React.FC = () => {
                   <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="flex items-center justify-center w-10 h-10 bg-purple-500/10 rounded-lg">
-                        <span className="text-xl">3️⃣</span>
+                        <span className="text-lg font-semibold text-purple-700 dark:text-purple-400">3</span>
                       </div>
                       <h4 className="font-semibold text-gray-900 dark:text-white">
                         Stay Informed
@@ -645,9 +648,13 @@ export const NotificationSettings: React.FC = () => {
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-4">
                     Available Notifications
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="flex items-start gap-3">
-                      <div className="text-2xl">🚀</div>
+                      <div className="flex-shrink-0">
+                        <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-500/10 rounded-lg">
+                          <RocketLaunchIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                        </div>
+                      </div>
                       <div>
                         <h5 className="font-medium text-gray-900 dark:text-white">
                           Speed Test Events
@@ -658,7 +665,11 @@ export const NotificationSettings: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <div className="text-2xl">📡</div>
+                      <div className="flex-shrink-0">
+                        <div className="inline-flex items-center justify-center w-12 h-12 bg-emerald-500/10 rounded-lg">
+                          <SignalIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                      </div>
                       <div>
                         <h5 className="font-medium text-gray-900 dark:text-white">
                           Packet Loss Monitoring
@@ -669,24 +680,17 @@ export const NotificationSettings: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <div className="text-2xl">🖥️</div>
-                      <div>
-                        <h5 className="font-medium text-gray-900 dark:text-white">
-                          Agent Monitoring
-                        </h5>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          System resource usage, online/offline status
-                        </p>
+                      <div className="flex-shrink-0">
+                        <div className="inline-flex items-center justify-center w-12 h-12 bg-purple-500/10 rounded-lg">
+                          <ComputerDesktopIcon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="text-2xl">⚡</div>
                       <div>
                         <h5 className="font-medium text-gray-900 dark:text-white">
-                          Resource Alerts
+                          System Monitoring
                         </h5>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          CPU, memory, bandwidth, and disk usage warnings
+                          Agent status, CPU, memory, disk, bandwidth, and temperature alerts
                         </p>
                       </div>
                     </div>
@@ -701,7 +705,7 @@ export const NotificationSettings: React.FC = () => {
                   </p>
                   <HeadlessButton
                     onClick={() => setShowAddChannel(true)}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
                   >
                     <PlusIcon className="w-4 h-4" />
                     Create Your First Channel

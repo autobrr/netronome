@@ -88,3 +88,40 @@ AFTER UPDATE ON notification_rules
 BEGIN
     UPDATE notification_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
+
+-- Add state tracking to packet loss monitors
+ALTER TABLE packet_loss_monitors ADD COLUMN last_state TEXT DEFAULT 'unknown';
+ALTER TABLE packet_loss_monitors ADD COLUMN last_state_change TIMESTAMP;
+
+-- Update existing monitors to have an initial state
+UPDATE packet_loss_monitors SET last_state = 'unknown' WHERE last_state IS NULL;
+
+-- Remove packet_loss from speed_tests table
+-- SQLite doesn't support DROP COLUMN directly, so we need to recreate the table
+-- Create new table without packet_loss column
+CREATE TABLE speed_tests_new (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_name TEXT NOT NULL,
+    server_id TEXT NOT NULL,
+    download_speed REAL NOT NULL,
+    upload_speed REAL NOT NULL,
+    latency TEXT NOT NULL,
+    jitter REAL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    test_type TEXT,
+    is_scheduled BOOLEAN DEFAULT 0,
+    server_host TEXT
+);
+
+-- Copy data from old table (excluding packet_loss and cv)
+-- Note: cv column may or may not exist depending on SQLite version (DROP COLUMN was added in 3.35.0)
+-- This query handles both cases by explicitly selecting only the columns we want
+INSERT INTO speed_tests_new (id, server_name, server_id, download_speed, upload_speed, latency, jitter, created_at, test_type, is_scheduled, server_host)
+SELECT id, server_name, server_id, download_speed, upload_speed, latency, jitter, created_at, test_type, is_scheduled, server_host
+FROM speed_tests;
+
+-- Drop old table
+DROP TABLE speed_tests;
+
+-- Rename new table
+ALTER TABLE speed_tests_new RENAME TO speed_tests;

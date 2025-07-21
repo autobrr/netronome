@@ -70,7 +70,7 @@ export const Button = ({
       whileTap={{ scale: 0.98 }}
       ref={scope}
       className={cn(
-        "rounded-lg font-medium transition-colors border shadow-md flex items-center gap-2 justify-center",
+        "rounded-lg font-medium transition-colors border shadow-md flex items-center justify-center gap-2",
         // Size variants
         size === "sm" && "px-3 py-1 text-sm min-w-[80px]",
         size === "md" && "px-6 py-2 min-w-[100px]",
@@ -83,10 +83,8 @@ export const Button = ({
       )}
       {...buttonProps}
     >
-      <div className="flex items-center gap-2">
-        <Loader />
-        <span>{children}</span>
-      </div>
+      <Loader />
+      {children}
     </motion.button>
   );
 };

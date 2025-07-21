@@ -259,7 +259,6 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		Str("provider", selectedServer.Sponsor).
 		Str("server_url", selectedServer.URL).
 		Str("latency", result.Latency).
-		Float64("packet_loss", result.PacketLoss).
 		Float64("download_mbps", result.DownloadSpeed).
 		Float64("upload_mbps", result.UploadSpeed).
 		Msg("Speedtest.net test complete")

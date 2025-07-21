@@ -85,7 +85,7 @@ func (n *Notifier) SendNotification(category, eventType string, message string, 
 				Msg("Rule has no channel associated, skipping")
 			continue
 		}
-		
+
 		if rule.Channel.URL != "" {
 			tempNotifier, err := shoutrrr.CreateSender(rule.Channel.URL)
 			if err != nil {
@@ -118,7 +118,7 @@ func (n *Notifier) SendNotification(category, eventType string, message string, 
 					realErrors = append(realErrors, err)
 				}
 			}
-			
+
 			if len(realErrors) > 0 {
 				lastError = realErrors[0]
 				errMsg := realErrors[0].Error()
@@ -158,8 +158,7 @@ func (n *Notifier) SendNotification(category, eventType string, message string, 
 func (n *Notifier) SendSpeedTestNotification(result *SpeedTestResult) error {
 	// Check for various conditions
 	if result.Failed {
-		message := fmt.Sprintf("❌ **Speed Test Failed**\n\nProvider: %s\nServer: %s\nError: Test failed to complete",
-			result.Provider, result.ServerName)
+		message := fmt.Sprintf("[FAIL] Speed Test Failed - Provider: **%s** | Server: **%s**", result.Provider, result.ServerName)
 		return n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestFailed, message, nil)
 	}
 
@@ -196,55 +195,71 @@ func (n *Notifier) SendSpeedTestNotification(result *SpeedTestResult) error {
 // SendPacketLossNotification sends a packet loss notification
 func (n *Notifier) SendPacketLossNotification(monitorName string, host string, packetLoss float64, isDown bool, isRecovered bool) error {
 	if isRecovered {
-		message := fmt.Sprintf("✅ **Monitor Recovered**\n\nMonitor: %s\nHost: %s\nStatus: Back Online",
-			monitorName, host)
+		message := fmt.Sprintf("[OK] Monitor Recovered - **%s** | Host: **%s** | Back Online", monitorName, host)
 		return n.SendNotification(database.NotificationCategoryPacketLoss, database.NotificationEventPacketLossRecovered, message, nil)
 	}
 
 	if isDown {
-		message := fmt.Sprintf("🔴 **Monitor Down**\n\nMonitor: %s\nHost: %s\nStatus: Unreachable (100%% packet loss)",
-			monitorName, host)
+		message := fmt.Sprintf("[DOWN] Monitor Down - **%s** | Host: **%s** | Unreachable (100%% packet loss)", monitorName, host)
 		return n.SendNotification(database.NotificationCategoryPacketLoss, database.NotificationEventPacketLossDown, message, nil)
 	}
 
 	// High packet loss
-	message := fmt.Sprintf("⚠️ **High Packet Loss**\n\nMonitor: %s\nHost: %s\nPacket Loss: %.1f%%",
-		monitorName, host, packetLoss)
+	message := fmt.Sprintf("[!] High Packet Loss - **%s** | Host: **%s** | Loss: **%.1f%%**", monitorName, host, packetLoss)
 	return n.SendNotification(database.NotificationCategoryPacketLoss, database.NotificationEventPacketLossHigh, message, &packetLoss)
 }
 
 // SendAgentNotification sends an agent-related notification
+// For temperature notifications, agentName can include sensor info in format "agent|sensor"
 func (n *Notifier) SendAgentNotification(agentName string, eventType string, value *float64) error {
 	var message string
 	
+	// Parse agent name and optional sensor info
+	parts := strings.Split(agentName, "|")
+	actualAgentName := parts[0]
+	sensorInfo := ""
+	if len(parts) > 1 {
+		sensorInfo = parts[1]
+	}
+
 	switch eventType {
 	case database.NotificationEventAgentOffline:
-		message = fmt.Sprintf("🔴 **Agent Offline**\n\nAgent: %s\nStatus: Connection lost", agentName)
+		message = fmt.Sprintf("[OFFLINE] Agent Offline - **%s** | Connection lost", actualAgentName)
 	case database.NotificationEventAgentOnline:
-		message = fmt.Sprintf("✅ **Agent Online**\n\nAgent: %s\nStatus: Connection restored", agentName)
+		message = fmt.Sprintf("[ONLINE] Agent Online - **%s** | Connection restored", actualAgentName)
 	case database.NotificationEventAgentHighBandwidth:
 		if value != nil {
-			message = fmt.Sprintf("📈 **High Bandwidth Usage**\n\nAgent: %s\nBandwidth: %.1f Mbps", agentName, *value)
+			message = fmt.Sprintf("[!] High Bandwidth Usage - Agent: **%s** | Bandwidth: **%.1f Mbps**", actualAgentName, *value)
 		} else {
-			message = fmt.Sprintf("📈 **High Bandwidth Usage**\n\nAgent: %s\nBandwidth: Unknown", agentName)
+			message = fmt.Sprintf("[!] High Bandwidth Usage - Agent: **%s** | Bandwidth: **Unknown**", actualAgentName)
 		}
 	case database.NotificationEventAgentLowDisk:
 		if value != nil {
-			message = fmt.Sprintf("💾 **Low Disk Space**\n\nAgent: %s\nDisk Usage: %.1f%%", agentName, *value)
+			message = fmt.Sprintf("[DISK] Low Disk Space - Agent: **%s** | Disk Usage: **%.1f%%**", actualAgentName, *value)
 		} else {
-			message = fmt.Sprintf("💾 **Low Disk Space**\n\nAgent: %s\nDisk Usage: Unknown", agentName)
+			message = fmt.Sprintf("[DISK] Low Disk Space - Agent: **%s** | Disk Usage: **Unknown**", actualAgentName)
 		}
 	case database.NotificationEventAgentHighCPU:
 		if value != nil {
-			message = fmt.Sprintf("🔥 **High CPU Usage**\n\nAgent: %s\nCPU: %.1f%%", agentName, *value)
+			message = fmt.Sprintf("[CPU] High CPU Usage - Agent: **%s** | CPU: **%.1f%%**", actualAgentName, *value)
 		} else {
-			message = fmt.Sprintf("🔥 **High CPU Usage**\n\nAgent: %s\nCPU: Unknown", agentName)
+			message = fmt.Sprintf("[CPU] High CPU Usage - Agent: **%s** | CPU: **Unknown**", actualAgentName)
 		}
 	case database.NotificationEventAgentHighMemory:
 		if value != nil {
-			message = fmt.Sprintf("🧠 **High Memory Usage**\n\nAgent: %s\nMemory: %.1f%%", agentName, *value)
+			message = fmt.Sprintf("[MEM] High Memory Usage - Agent: **%s** | Memory: **%.1f%%**", actualAgentName, *value)
 		} else {
-			message = fmt.Sprintf("🧠 **High Memory Usage**\n\nAgent: %s\nMemory: Unknown", agentName)
+			message = fmt.Sprintf("[MEM] High Memory Usage - Agent: **%s** | Memory: **Unknown**", actualAgentName)
+		}
+	case database.NotificationEventAgentHighTemp:
+		if value != nil {
+			if sensorInfo != "" {
+				message = fmt.Sprintf("[TEMP] High Temperature - Agent: **%s** | **%s: %.1f°C**", actualAgentName, sensorInfo, *value)
+			} else {
+				message = fmt.Sprintf("[TEMP] High Temperature - Agent: **%s** | Temperature: **%.1f°C**", actualAgentName, *value)
+			}
+		} else {
+			message = fmt.Sprintf("[TEMP] High Temperature - Agent: **%s** | Temperature: **Unknown**", actualAgentName)
 		}
 	default:
 		return fmt.Errorf("unknown agent event type: %s", eventType)
@@ -259,9 +274,8 @@ func (n *Notifier) SendAgentNotification(agentName string, eventType string, val
 
 // SendTestNotification sends a test notification
 func (n *Notifier) SendTestNotification() error {
-	title := "Netronome Test"
-	message := fmt.Sprintf("✅ **%s**\n\nThis is a test notification from Netronome. If you received this, your notifications are working correctly!", title)
-	
+	message := "[TEST] Netronome Test - Your notifications are working correctly!"
+
 	if n.router != nil {
 		errs := n.router.Send(message, nil)
 		if len(errs) > 0 {
@@ -269,7 +283,7 @@ func (n *Notifier) SendTestNotification() error {
 		}
 		return nil
 	}
-	
+
 	return fmt.Errorf("no router configured")
 }
 
@@ -278,42 +292,47 @@ func (n *Notifier) formatSpeedTestMessage(result *SpeedTestResult) string {
 	var sb strings.Builder
 
 	if result.Failed {
-		sb.WriteString("❌ **Speed Test Failed**\n\n")
-	} else {
-		sb.WriteString("📊 **Speed Test Results**\n\n")
+		sb.WriteString("[FAIL] Speed Test Failed")
+		if result.ServerName != "" {
+			sb.WriteString(fmt.Sprintf(" - Server: **%s**", result.ServerName))
+		}
+		if result.Provider != "" {
+			sb.WriteString(fmt.Sprintf(" | Provider: **%s**", result.Provider))
+		}
+		sb.WriteString("\nThe speed test failed to complete.")
+		return sb.String()
 	}
 
+	sb.WriteString("[SPEEDTEST] Speed Test Results")
 	if result.ServerName != "" {
-		sb.WriteString(fmt.Sprintf("**Server:** %s\n", result.ServerName))
+		sb.WriteString(fmt.Sprintf(" - **%s**", result.ServerName))
 	}
 	if result.Provider != "" {
-		sb.WriteString(fmt.Sprintf("**Provider:** %s\n", result.Provider))
+		sb.WriteString(fmt.Sprintf(" (%s)", result.Provider))
 	}
-	
 	sb.WriteString("\n")
 
-	if !result.Failed {
-		if result.Download > 0 {
-			sb.WriteString(fmt.Sprintf("⬇️ **Download:** %.2f Mbps\n", result.Download))
-		}
-		if result.Upload > 0 {
-			sb.WriteString(fmt.Sprintf("⬆️ **Upload:** %.2f Mbps\n", result.Upload))
-		}
-		if result.Ping > 0 {
-			sb.WriteString(fmt.Sprintf("📶 **Ping:** %.2f ms\n", result.Ping))
-		}
-		if result.Jitter > 0 {
-			sb.WriteString(fmt.Sprintf("📊 **Jitter:** %.2f ms\n", result.Jitter))
-		}
-		if result.PacketLoss >= 0 {
-			sb.WriteString(fmt.Sprintf("📉 **Packet Loss:** %.1f%%\n", result.PacketLoss))
-		}
-	} else {
-		sb.WriteString("The speed test failed to complete.\n")
+	// Results in compact format
+	var metrics []string
+	if result.Download > 0 {
+		metrics = append(metrics, fmt.Sprintf("↓ **%.2f Mbps**", result.Download))
+	}
+	if result.Upload > 0 {
+		metrics = append(metrics, fmt.Sprintf("↑ **%.2f Mbps**", result.Upload))
+	}
+	if result.Ping > 0 {
+		metrics = append(metrics, fmt.Sprintf("Ping: **%.2f ms**", result.Ping))
+	}
+	if result.Jitter > 0 {
+		metrics = append(metrics, fmt.Sprintf("Jitter: **%.2f ms**", result.Jitter))
+	}
+
+	if len(metrics) > 0 {
+		sb.WriteString(strings.Join(metrics, " | "))
 	}
 
 	if result.ISP != "" {
-		sb.WriteString(fmt.Sprintf("\n**ISP:** %s", result.ISP))
+		sb.WriteString(fmt.Sprintf("\nISP: **%s**", result.ISP))
 	}
 
 	return sb.String()
@@ -354,7 +373,6 @@ type SpeedTestResult struct {
 	Upload     float64
 	Ping       float64
 	Jitter     float64
-	PacketLoss float64
 	ISP        string
 	Failed     bool
 }

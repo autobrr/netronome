@@ -51,6 +51,7 @@ type Client struct {
 	lastMemoryNotificationTime time.Time
 	lastDiskNotificationTime   time.Time
 	lastBandwidthNotificationTime time.Time
+	lastTempNotificationTime   time.Time
 }
 
 // Service manages all monitoring clients
@@ -926,6 +927,80 @@ func (s *Service) fetchHardwareStats(client *Client) error {
 				log.Error().Err(err).Msg("Failed to send low disk notification")
 			} else {
 				client.lastDiskNotificationTime = now
+			}
+		}
+
+		// Check temperature thresholds - find highest temperature with sensor details
+		var highestTemp float64
+		var highestTempSensor string
+		var highestTempLabel string
+		
+		// Log temperature sensor data for debugging
+		log.Debug().
+			Int("temp_sensor_count", len(hardwareStats.Temperature)).
+			Str("agent", client.agent.Name).
+			Msg("Processing temperature sensors for notifications")
+		
+		for _, temp := range hardwareStats.Temperature {
+			log.Debug().
+				Str("sensor_key", temp.SensorKey).
+				Str("label", temp.Label).
+				Float64("temperature", temp.Temperature).
+				Msg("Temperature sensor data")
+				
+			if temp.Temperature > highestTemp {
+				highestTemp = temp.Temperature
+				highestTempSensor = temp.SensorKey
+				highestTempLabel = temp.Label
+			}
+		}
+
+		if highestTemp > 0 && now.Sub(client.lastTempNotificationTime) > notificationCooldown {
+			// Build sensor info for notification
+			sensorInfo := highestTempSensor
+			if highestTempLabel != "" {
+				sensorInfo = highestTempLabel
+			}
+			
+			// If we still don't have sensor info, use a generic label
+			if sensorInfo == "" {
+				sensorInfo = "Unknown Sensor"
+				log.Warn().
+					Str("agent", client.agent.Name).
+					Msg("Temperature sensor has no label or key")
+			}
+			
+			// Log what we're about to send
+			log.Info().
+				Str("agent", client.agent.Name).
+				Str("sensor_key", highestTempSensor).
+				Str("sensor_label", highestTempLabel).
+				Str("sensor_info", sensorInfo).
+				Float64("temperature", highestTemp).
+				Msg("Preparing temperature notification")
+			
+			// Build agent name with sensor info for temperature notifications
+			agentNameWithSensor := fmt.Sprintf("%s|%s", client.agent.Name, sensorInfo)
+			
+			log.Info().
+				Str("agent_with_sensor", agentNameWithSensor).
+				Str("sensor_info", sensorInfo).
+				Msg("Sending temperature notification with sensor details")
+			
+			// Send notification with sensor info embedded in agent name
+			if err := client.notifier.SendAgentNotification(
+				agentNameWithSensor,
+				database.NotificationEventAgentHighTemp,
+				&highestTemp,
+			); err != nil {
+				log.Error().Err(err).Msg("Failed to send high temperature notification")
+			} else {
+				client.lastTempNotificationTime = now
+				log.Info().
+					Str("agent", client.agent.Name).
+					Str("sensor", sensorInfo).
+					Float64("temperature", highestTemp).
+					Msg("Temperature notification sent successfully with sensor details")
 			}
 		}
 	}

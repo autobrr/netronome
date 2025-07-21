@@ -33,7 +33,6 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 		Float64("download_speed", result.DownloadSpeed).
 		Float64("upload_speed", result.UploadSpeed).
 		Str("latency", result.Latency).
-		Float64("packet_loss", result.PacketLoss).
 		Float64("jitter", result.Jitter).
 		Msg("Preparing to save test results to database")
 
@@ -65,7 +64,6 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 		DownloadSpeed: result.DownloadSpeed,
 		UploadSpeed:   result.UploadSpeed,
 		Latency:       result.Latency,
-		PacketLoss:    result.PacketLoss,
 		Jitter:        jitterPtr,
 		IsScheduled:   opts.IsScheduled,
 	})
@@ -100,7 +98,6 @@ func (h *DefaultResultHandler) SendNotification(result *types.SpeedTestResult) {
 			Upload:     result.UploadSpeed,
 			Ping:       parsePingValue(result.Latency),
 			Jitter:     getJitterValue(result.Jitter),
-			PacketLoss: result.PacketLoss,
 			ISP:        "", // ISP not available in types.SpeedTestResult
 			Failed:     false, // Assuming successful test if we got here
 		}

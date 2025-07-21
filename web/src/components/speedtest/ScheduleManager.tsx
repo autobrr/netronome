@@ -260,7 +260,6 @@ export default function ScheduleManager({
       options: {
         enableDownload: true,
         enableUpload: true,
-        enablePacketLoss: true,
         serverIds: selectedServers.map((s) => s.id),
         useIperf: isIperfServer,
         useLibrespeed: isLibrespeedServer,
@@ -607,8 +606,8 @@ export default function ScheduleManager({
                                               disabled
                                                 ? "opacity-50 cursor-not-allowed text-gray-500 dark:text-gray-500"
                                                 : focus
-                                                  ? "bg-blue-500/10 text-blue-600 dark:text-blue-200"
-                                                  : "text-gray-700 dark:text-gray-300"
+                                                ? "bg-blue-500/10 text-blue-600 dark:text-blue-200"
+                                                : "text-gray-700 dark:text-gray-300"
                                             }`
                                           }
                                         >
@@ -726,13 +725,12 @@ export default function ScheduleManager({
                                           (opt) => opt.value === interval
                                         )?.label
                                       : exactTimes.length === 1
-                                        ? `Daily at ${
-                                            timeOptions.find(
-                                              (opt) =>
-                                                opt.value === exactTimes[0]
-                                            )?.label
-                                          }`
-                                        : `Daily at ${exactTimes.length} times`}
+                                      ? `Daily at ${
+                                          timeOptions.find(
+                                            (opt) => opt.value === exactTimes[0]
+                                          )?.label
+                                        }`
+                                      : `Daily at ${exactTimes.length} times`}
                                   </span>
                                 </>
                               )}

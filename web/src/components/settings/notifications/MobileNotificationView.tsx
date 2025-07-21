@@ -181,7 +181,7 @@ export const MobileNotificationView: React.FC<MobileNotificationViewProps> = ({
                       testingChannelId === channel.id &&
                       testChannelMutation.isPending
                     }
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {testingChannelId === channel.id &&
                     testChannelMutation.isPending ? (
@@ -204,7 +204,7 @@ export const MobileNotificationView: React.FC<MobileNotificationViewProps> = ({
                       }
                     }}
                     disabled={deleteChannelMutation.isPending}
-                    className="p-1.5 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center p-1.5 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <TrashIcon className="w-4 h-4" />
                   </HeadlessButton>
@@ -276,7 +276,7 @@ export const MobileNotificationView: React.FC<MobileNotificationViewProps> = ({
                 <div className="flex items-center gap-2">
                   <HeadlessButton
                     onClick={cancelChanges}
-                    className="flex-1 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                    className="flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors"
                   >
                     Cancel
                   </HeadlessButton>
@@ -286,7 +286,7 @@ export const MobileNotificationView: React.FC<MobileNotificationViewProps> = ({
                       updateRuleMutation.isPending ||
                       createRuleMutation.isPending
                     }
-                    className="flex-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Save Changes
                   </HeadlessButton>

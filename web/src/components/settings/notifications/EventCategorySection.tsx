@@ -4,8 +4,13 @@
  */
 
 import React, { useState } from "react";
-import { ChevronRightIcon } from "@heroicons/react/24/outline";
-import { getEventCategoryIcon } from "@/api/notifications";
+import { 
+  ChevronRightIcon,
+  RocketLaunchIcon,
+  SignalIcon,
+  ComputerDesktopIcon,
+  BellIcon
+} from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import { EventRuleItem } from "./EventRuleItem";
 import type {
@@ -32,10 +37,29 @@ export const EventCategorySection: React.FC<EventCategorySectionProps> = ({
   getRuleState,
   onUpdateRule,
 }) => {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
-  const categoryIcon = getEventCategoryIcon(category);
+  
+  // Get category icon component
+  const getCategoryIcon = () => {
+    switch (category) {
+      case "speedtest":
+        return <RocketLaunchIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />;
+      case "packetloss":
+        return <SignalIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" />;
+      case "agent":
+        return <ComputerDesktopIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />;
+      default:
+        return <BellIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />;
+    }
+  };
+  
+  // Count enabled rules
+  const enabledCount = events.filter(event => {
+    const ruleState = getRuleState(event.id);
+    return ruleState.enabled === true;
+  }).length;
 
   // Category-specific styling
   const categoryStyles = {
@@ -57,14 +81,23 @@ export const EventCategorySection: React.FC<EventCategorySectionProps> = ({
         className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-colors rounded-t-lg"
       >
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{categoryIcon}</span>
+          <div className="flex-shrink-0">
+            {getCategoryIcon()}
+          </div>
           <div className="text-left">
             <h5 className="font-semibold text-gray-900 dark:text-white">
               {categoryTitle}
             </h5>
             <p className="text-xs text-gray-600 dark:text-gray-400">
-              {events.length} {events.length === 1 ? "event" : "events"}{" "}
-              available
+              {enabledCount > 0 ? (
+                <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                  {enabledCount} of {events.length} rules enabled
+                </span>
+              ) : (
+                <span>
+                  {events.length} {events.length === 1 ? "event" : "events"} available
+                </span>
+              )}
             </p>
           </div>
         </div>

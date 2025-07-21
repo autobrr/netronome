@@ -84,12 +84,10 @@ func (r *IperfRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Re
 	var downloadSpeed, uploadSpeed float64
 	var jitterMs *float64
 	var latency string = "0ms"
-	var packetLoss float64 = 0.0
 
 	// Use ping results if available
 	if r.pingResult != nil {
 		latency = r.pingResult.FormatLatency()
-		packetLoss = r.pingResult.PacketLoss
 	}
 
 	if opts.EnableDownload {
@@ -135,7 +133,6 @@ func (r *IperfRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Re
 		DownloadSpeed: downloadSpeed,
 		UploadSpeed:   uploadSpeed,
 		Latency:       latency,
-		PacketLoss:    packetLoss,
 		Jitter:        jitterFloat,
 		Download:      downloadSpeed,
 		Upload:        uploadSpeed,

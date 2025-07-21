@@ -96,3 +96,13 @@ DROP TRIGGER IF EXISTS update_notification_rules_updated_at ON notification_rule
 CREATE TRIGGER update_notification_rules_updated_at 
 BEFORE UPDATE ON notification_rules 
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Add state tracking to packet loss monitors
+ALTER TABLE packet_loss_monitors ADD COLUMN IF NOT EXISTS last_state TEXT DEFAULT 'unknown';
+ALTER TABLE packet_loss_monitors ADD COLUMN IF NOT EXISTS last_state_change TIMESTAMP;
+
+-- Update existing monitors to have an initial state
+UPDATE packet_loss_monitors SET last_state = 'unknown' WHERE last_state IS NULL;
+
+-- Remove packet_loss from speed_tests table
+ALTER TABLE speed_tests DROP COLUMN IF EXISTS packet_loss;

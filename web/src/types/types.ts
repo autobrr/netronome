@@ -27,7 +27,6 @@ export interface SpeedTestResult {
   uploadSpeed: number;
   latency: string;
   jitter?: number;
-  packetLoss?: number;
   createdAt: string;
 }
 
@@ -54,7 +53,6 @@ export interface Schedule {
   options: {
     enableDownload: boolean;
     enableUpload: boolean;
-    enablePacketLoss: boolean;
     serverIds: string[];
     useIperf: boolean;
     useLibrespeed?: boolean;
@@ -65,7 +63,6 @@ export interface Schedule {
 export interface TestOptions {
   enableDownload: boolean;
   enableUpload: boolean;
-  enablePacketLoss: boolean;
   enableJitter: boolean;
   multiServer: boolean;
   useIperf: boolean;

@@ -7,7 +7,6 @@ export interface SpeedTestOptions {
   serverIds: string[];
   enableDownload?: boolean;
   enableUpload?: boolean;
-  enablePacketLoss?: boolean;
   useIperf?: boolean;
   useLibrespeed?: boolean;
   serverHost?: string;
