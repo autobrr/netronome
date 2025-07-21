@@ -80,10 +80,7 @@ builds:
     binary: netronome-agent
 
 archives:
-  - id: netronome
-    builds:
-      - netronome
-      - netronome-agent
+  - id: netronome-full
     format_overrides:
       - goos: windows
         formats: ["zip"]
@@ -93,6 +90,9 @@ archives:
       {{- .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
 
 release:
   prerelease: auto
