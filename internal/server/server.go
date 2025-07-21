@@ -18,10 +18,11 @@ import (
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/handlers"
+	"github.com/autobrr/netronome/internal/monitor"
+	"github.com/autobrr/netronome/internal/notifications"
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
-	"github.com/autobrr/netronome/internal/monitor"
 	"github.com/autobrr/netronome/web"
 )
 
@@ -35,6 +36,7 @@ type Server struct {
 	db                   database.Service
 	scheduler            scheduler.Service
 	auth                 *AuthHandler
+	notifier             *notifications.Notifier
 	mu                   sync.RWMutex
 	lastUpdate           *types.SpeedUpdate
 	lastTracerouteUpdate *types.TracerouteUpdate
@@ -43,7 +45,7 @@ type Server struct {
 	config               *config.Config
 }
 
-func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config, packetLossService *speedtest.PacketLossService, monitorService *monitor.Service) *Server {
+func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config, packetLossService *speedtest.PacketLossService, monitorService *monitor.Service, notifier *notifications.Notifier) *Server {
 	// Set Gin mode from config
 	if cfg.Server.GinMode != "" {
 		gin.SetMode(cfg.Server.GinMode)
@@ -83,10 +85,11 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 		Router:            router,
 		speedtest:         speedtest,
 		packetLossService: packetLossService,
-		monitorService:     monitorService,
+		monitorService:    monitorService,
 		db:                db,
 		scheduler:         scheduler,
 		auth:              NewAuthHandler(db, oidcConfig, cfg.Session.Secret, cfg.Auth.Whitelist),
+		notifier:          notifier,
 		lastUpdate:        &types.SpeedUpdate{},
 		config:            cfg,
 	}
@@ -272,6 +275,22 @@ func (s *Server) RegisterRoutes() {
 				protected.GET("/monitor/agents/:id/peaks", monitorHandler.GetAgentPeakStats)
 				protected.GET("/monitor/tailscale/status", monitorHandler.GetTailscaleStatus)
 			}
+
+			// Notification routes
+			protected.GET("/notifications/channels", s.handleGetNotificationChannels)
+			protected.POST("/notifications/channels", s.handleCreateNotificationChannel)
+			protected.PUT("/notifications/channels/:id", s.handleUpdateNotificationChannel)
+			protected.DELETE("/notifications/channels/:id", s.handleDeleteNotificationChannel)
+			
+			protected.GET("/notifications/events", s.handleGetNotificationEvents)
+			
+			protected.GET("/notifications/rules", s.handleGetNotificationRules)
+			protected.POST("/notifications/rules", s.handleCreateNotificationRule)
+			protected.PUT("/notifications/rules/:id", s.handleUpdateNotificationRule)
+			protected.DELETE("/notifications/rules/:id", s.handleDeleteNotificationRule)
+			
+			protected.POST("/notifications/test", s.handleTestNotification)
+			protected.GET("/notifications/history", s.handleGetNotificationHistory)
 		}
 	}
 

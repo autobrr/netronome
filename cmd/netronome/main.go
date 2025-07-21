@@ -24,11 +24,11 @@ import (
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/logger"
+	"github.com/autobrr/netronome/internal/monitor"
 	"github.com/autobrr/netronome/internal/notifications"
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/server"
 	"github.com/autobrr/netronome/internal/speedtest"
-	"github.com/autobrr/netronome/internal/monitor"
 )
 
 var (
@@ -222,7 +222,10 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 
 	// create notifier
-	notifier := notifications.NewNotifier(&cfg.Notifications)
+	notifier, err := notifications.NewNotifier(db)
+	if err != nil {
+		return fmt.Errorf("failed to create notifier: %w", err)
+	}
 
 	// create server handler with all services
 	speedtestSvc := speedtest.New(db, cfg.SpeedTest, notifier, cfg)
@@ -243,7 +246,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	schedulerSvc := scheduler.New(db, speedtestSvc, packetLossService, notifier)
 
 	// create server handler with packet loss service and monitor service
-	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService, monitorService)
+	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService, monitorService, notifier)
 
 	speedtestSvc.SetBroadcastUpdate(serverHandler.BroadcastUpdate)
 	speedtestSvc.SetBroadcastTracerouteUpdate(serverHandler.BroadcastTracerouteUpdate)
@@ -261,11 +264,11 @@ func runServer(cmd *cobra.Command, args []string) error {
 		// Use Tailscale-enabled service if auto-discovery is enabled
 		// This works with both host and tsnet modes
 		if cfg.Tailscale.IsServerDiscoveryMode() {
-			monitorService = monitor.NewServiceWithTailscale(db, &cfg.Monitor, &cfg.Tailscale, serverHandler.BroadcastMonitorUpdate)
+			monitorService = monitor.NewServiceWithTailscale(db, &cfg.Monitor, &cfg.Tailscale, serverHandler.BroadcastMonitorUpdate, notifier)
 			method, _ := cfg.Tailscale.GetEffectiveMethod()
 			log.Info().Str("method", method).Msg("Monitor service created with Tailscale discovery support")
 		} else {
-			monitorService = monitor.NewService(db, &cfg.Monitor, serverHandler.BroadcastMonitorUpdate)
+			monitorService = monitor.NewService(db, &cfg.Monitor, serverHandler.BroadcastMonitorUpdate, notifier)
 		}
 		serverHandler.SetMonitorService(monitorService)
 
@@ -459,12 +462,12 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	} else {
 		cfg = config.New()
 	}
-	
+
 	// Override log level from command line flag if provided
 	if cmd.Flags().Changed("log-level") && logLevel != "" {
 		cfg.Logging.Level = logLevel
 	}
-	
+
 	// Initialize logger with config settings
 	logger.Init(cfg.Logging, cfg.Server, false)
 
@@ -515,7 +518,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		if cmd.Flags().Changed("tailscale-method") {
 			cfg.Tailscale.Method = tailscaleMethod
 		}
-		
+
 		agentService = agent.NewWithTailscale(&cfg.Agent, &cfg.Tailscale)
 		log.Info().Msg("Starting agent with Tailscale support")
 	} else {

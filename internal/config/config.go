@@ -122,12 +122,13 @@ type SessionConfig struct {
 }
 
 type NotificationConfig struct {
-	Enabled           bool    `toml:"enabled" env:"NOTIFICATIONS_ENABLED"`
-	WebhookURL        string  `toml:"webhook_url" env:"NOTIFICATIONS_WEBHOOK_URL"`
-	PingThreshold     float64 `toml:"ping_threshold" env:"NOTIFICATIONS_PING_THRESHOLD"`
-	UploadThreshold   float64 `toml:"upload_threshold" env:"NOTIFICATIONS_UPLOAD_THRESHOLD"`
-	DownloadThreshold float64 `toml:"download_threshold" env:"NOTIFICATIONS_DOWNLOAD_THRESHOLD"`
-	DiscordMentionID  string  `toml:"discord_mention_id" env:"NOTIFICATIONS_DISCORD_MENTION_ID"`
+	Enabled           bool     `toml:"enabled" env:"NOTIFICATIONS_ENABLED"`
+	WebhookURL        string   `toml:"webhook_url" env:"NOTIFICATIONS_WEBHOOK_URL"`                 // Legacy support
+	WebhookURLs       []string `toml:"webhook_urls" env:"NOTIFICATIONS_WEBHOOK_URLS" envSeparator:","` // Shoutrrr URLs
+	PingThreshold     float64  `toml:"ping_threshold" env:"NOTIFICATIONS_PING_THRESHOLD"`
+	UploadThreshold   float64  `toml:"upload_threshold" env:"NOTIFICATIONS_UPLOAD_THRESHOLD"`
+	DownloadThreshold float64  `toml:"download_threshold" env:"NOTIFICATIONS_DOWNLOAD_THRESHOLD"`
+	DiscordMentionID  string   `toml:"discord_mention_id" env:"NOTIFICATIONS_DISCORD_MENTION_ID"`     // Deprecated
 }
 
 type GeoIPConfig struct {

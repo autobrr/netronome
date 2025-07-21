@@ -1035,26 +1035,78 @@ This is why MTR shows both metrics - overall connectivity health (most important
 
 ### Notifications
 
-Netronome can send notifications to a webhook URL after each speed test. This is useful for integrating with services like Discord, Slack, or any other service that accepts webhooks.
+Netronome uses [Shoutrrr](https://containrrr.dev/shoutrrr/) to support 15+ notification services including Discord, Gotify, Telegram, Slack, Email, and more. Notifications are sent when speed test or packet loss thresholds are breached.
 
-To enable notifications, you need to set the following in your `config.toml` or as environment variables:
+#### Configuration
 
 ```toml
 [notifications]
 enabled = true
-webhook_url = "your-webhook-url"
-ping_threshold = 30
-upload_threshold = 200
-download_threshold = 200
-discord_mention_id = ""
+ping_threshold = 30      # ms - alert if ping exceeds this
+upload_threshold = 200   # Mbps - alert if upload is below this
+download_threshold = 200 # Mbps - alert if download is below this
+
+# Multiple notification services can be configured
+webhook_urls = [
+    "discord://TOKEN@WEBHOOK_ID",
+    "gotify://hostname/TOKEN",
+    "telegram://TOKEN@telegram?chats=@channel",
+    "pushover://shoutrrr:APPTOKEN@USERKEY",
+    "smtp://username:password@smtp.gmail.com:587/?from=sender@gmail.com&to=recipient@example.com"
+]
+
+# Legacy Discord webhook (auto-converted to Shoutrrr format)
+# webhook_url = "https://discord.com/api/webhooks/ID/TOKEN"
 ```
 
-- `enabled` - Enable or disable notifications
-- `webhook_url` - The webhook URL to send notifications to
-- `ping_threshold` - The ping threshold in ms. If the ping is higher than this value, a notification will be sent.
-- `upload_threshold` - The upload threshold in Mbps. If the upload speed is lower than this value, a notification will be sent.
-- `download_threshold` - The download threshold in Mbps. If the download speed is lower than this value, a notification will be sent.
-- `discord_mention_id` - Optional. A Discord user ID or role ID to mention when an alert is triggered. For example, `123456789012345678` for a user or `&123456789012345678` for a role.
+#### Supported Services
+
+- **Discord**: `discord://token@webhookid`
+- **Gotify**: `gotify://hostname/token`
+- **Telegram**: `telegram://token@telegram?chats=@channel`
+- **Pushover**: `pushover://shoutrrr:apptoken@userkey`
+- **Slack**: `slack://hook:token@channel`
+- **Teams**: `teams://group@tenant/altid/groupowner`
+- **Email (SMTP)**: `smtp://username:password@host:port/?from=sender&to=recipient`
+- **Ntfy**: `ntfy://hostname/topic`
+- **Matrix**: `matrix://username:password@hostname:port/roomid`
+- **Bark**: `bark://devicekey@hostname`
+- **Zulip**: `zulip://botmail:botkey@hostname/stream/topic`
+- **Join (Android)**: `join://apikey/device`
+- **IFTTT**: `ifttt://key?event=event_name`
+- **Generic Webhook**: `generic://example.com/webhook`
+- [And more...](https://containrrr.dev/shoutrrr/v0.8/services/overview/)
+
+#### Examples
+
+**Discord with custom settings:**
+```toml
+webhook_urls = ["discord://TOKEN@ID?username=Netronome&avatar=https://example.com/avatar.png"]
+```
+
+**Multiple services:**
+```toml
+webhook_urls = [
+    "discord://TOKEN@WEBHOOK_ID",
+    "telegram://TOKEN@telegram?chats=@monitoring",
+    "smtp://alerts@gmail.com:pass@smtp.gmail.com:587/?from=alerts@gmail.com&to=admin@example.com"
+]
+```
+
+#### Testing Notifications
+
+You can test your notification configuration via the API:
+```bash
+curl -X POST "http://localhost:7575/api/notifications/test?url=discord://TOKEN@ID"
+```
+
+#### Migration from Legacy Discord Webhooks
+
+If you're using the old `webhook_url` format with a Discord webhook, it will be automatically converted to the Shoutrrr format:
+- Old: `webhook_url = "https://discord.com/api/webhooks/123/ABC"`
+- Auto-converted to: `discord://ABC@123`
+
+We recommend updating your configuration to use the new `webhook_urls` array for multiple notification services.
 
 ### CLI Commands
 

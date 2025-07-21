@@ -17,7 +17,6 @@ type Result struct {
 	DownloadSpeed float64   `json:"downloadSpeed"`
 	UploadSpeed   float64   `json:"uploadSpeed"`
 	Latency       string    `json:"latency"`
-	PacketLoss    float64   `json:"packetLoss"`
 	Jitter        float64   `json:"jitter"`
 	Error         string    `json:"error,omitempty"`
 	Download      float64   `json:"-"`

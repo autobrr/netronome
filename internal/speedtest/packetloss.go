@@ -710,9 +710,57 @@ func (s *PacketLossService) processResults(monitor *PacketLossMonitor, stats *pr
 		})
 	}
 
-	// Check threshold and send notification if needed
-	if s.notifier != nil && stats.PacketLoss > monitor.Threshold {
-		s.sendPacketLossAlert(monitor, stats, usedMTR, hopCount)
+	// Check notification conditions and track state
+	if s.notifier != nil && s.db != nil {
+		// Get full monitor from database to check state
+		dbMonitor, err := s.db.GetPacketLossMonitor(monitor.ID)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Int64("monitorID", monitor.ID).
+				Msg("Failed to get monitor from database for state tracking")
+			return
+		}
+
+		// Determine current state
+		var currentState string
+		if stats.PacketLoss >= 100.0 {
+			currentState = "down"
+		} else if stats.PacketLoss > monitor.Threshold {
+			currentState = "threshold_exceeded"
+		} else {
+			currentState = "ok"
+		}
+
+		// Get previous state from database
+		previousState := dbMonitor.LastState
+		if previousState == "" {
+			previousState = "unknown"
+		}
+
+		// Determine state transitions and send appropriate notifications
+		if previousState != currentState {
+			// State has changed
+			if currentState == "down" {
+				// Monitor went down
+				s.sendPacketLossNotification(monitor, stats, database.NotificationEventPacketLossDown)
+			} else if currentState == "threshold_exceeded" {
+				// Threshold exceeded (but not down)
+				s.sendPacketLossNotification(monitor, stats, database.NotificationEventPacketLossHigh)
+			} else if currentState == "ok" && (previousState == "down" || previousState == "threshold_exceeded") {
+				// Monitor recovered
+				s.sendPacketLossNotification(monitor, stats, database.NotificationEventPacketLossRecovered)
+			}
+
+			// Update state in database
+			if err := s.db.UpdatePacketLossMonitorState(monitor.ID, currentState); err != nil {
+				log.Error().
+					Err(err).
+					Int64("monitorID", monitor.ID).
+					Str("state", currentState).
+					Msg("Failed to update monitor state")
+			}
+		}
 	}
 
 	// Update monitor schedule if scheduler is available
@@ -735,38 +783,33 @@ func (s *PacketLossService) processResults(monitor *PacketLossMonitor, stats *pr
 	}
 }
 
-// sendPacketLossAlert sends a notification for high packet loss
-func (s *PacketLossService) sendPacketLossAlert(monitor *PacketLossMonitor, stats *probing.Statistics, usedMTR bool, hopCount int) {
-
+// sendPacketLossNotification sends a notification for packet loss events
+func (s *PacketLossService) sendPacketLossNotification(monitor *PacketLossMonitor, stats *probing.Statistics, eventType string) {
 	// Create packet loss notification data
 	monitorName := monitor.Name
 	if monitorName == "" {
 		monitorName = monitor.Host
 	}
 
-	notification := &notifications.PacketLossNotification{
-		MonitorName: monitorName,
-		Host:        monitor.Host,
-		PacketLoss:  stats.PacketLoss,
-		Threshold:   monitor.Threshold,
-		AvgRTT:      float64(stats.AvgRtt.Milliseconds()),
-		MinRTT:      float64(stats.MinRtt.Milliseconds()),
-		MaxRTT:      float64(stats.MaxRtt.Milliseconds()),
-		PacketsSent: stats.PacketsSent,
-		PacketsRecv: stats.PacketsRecv,
-		UsedMTR:     usedMTR,
-		HopCount:    hopCount,
+	// Determine if monitor is down or recovered
+	isDown := eventType == database.NotificationEventPacketLossDown
+	isRecovered := eventType == database.NotificationEventPacketLossRecovered
+
+	// Send notification with appropriate parameters
+	if err := s.notifier.SendPacketLossNotification(monitorName, monitor.Host, stats.PacketLoss, isDown, isRecovered); err != nil {
+		log.Error().
+			Err(err).
+			Int64("monitorID", monitor.ID).
+			Str("eventType", eventType).
+			Msg("Failed to send packet loss notification")
+	} else {
+		log.Info().
+			Int64("monitorID", monitor.ID).
+			Str("host", monitor.Host).
+			Float64("packetLoss", stats.PacketLoss).
+			Str("eventType", eventType).
+			Msg("Packet loss notification sent")
 	}
-
-	// Send notification
-	s.notifier.SendPacketLossNotification(notification)
-
-	log.Warn().
-		Int64("monitorID", monitor.ID).
-		Str("host", monitor.Host).
-		Float64("packetLoss", stats.PacketLoss).
-		Float64("threshold", monitor.Threshold).
-		Msg("Packet loss threshold exceeded, notification sent")
 }
 
 // GetMonitorStatus returns the current status of a monitor

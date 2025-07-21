@@ -11,6 +11,7 @@ import { initializeDarkMode } from "@/utils/darkMode";
 import { useAuth } from "@/context/auth";
 import { DonateModal } from "@/components/DonateModal";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
+import { SettingsMenu } from "@/components/SettingsMenu";
 import logo from "@/assets/logo_small.png";
 
 function App() {
@@ -53,6 +54,7 @@ function App() {
               <HeartIcon className="h-6 w-6" />
             </button>
             <DarkModeToggle />
+            <SettingsMenu />
             <button
               onClick={() => logout()}
               className="text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-blue-400"

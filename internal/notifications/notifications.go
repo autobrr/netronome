@@ -4,25 +4,377 @@
 package notifications
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"strconv"
 	"strings"
 
+	"github.com/containrrr/shoutrrr"
+	"github.com/containrrr/shoutrrr/pkg/router"
 	"github.com/rs/zerolog/log"
 
-	"github.com/autobrr/netronome/internal/config"
-	"github.com/autobrr/netronome/internal/types"
+	"github.com/autobrr/netronome/internal/database"
 )
 
 type Notifier struct {
-	Cfg *config.NotificationConfig
+	db     database.NotificationService
+	router *router.ServiceRouter
 }
 
-func NewNotifier(cfg *config.NotificationConfig) *Notifier {
-	return &Notifier{Cfg: cfg}
+// NewNotifier creates a new notifier with database support
+func NewNotifier(db database.NotificationService) (*Notifier, error) {
+	return &Notifier{
+		db: db,
+	}, nil
+}
+
+// NewNotifierFromURLs creates a temporary notifier for testing
+func NewNotifierFromURLs(urls []string) (*Notifier, error) {
+	if len(urls) == 0 {
+		return &Notifier{}, nil
+	}
+
+	r, err := shoutrrr.CreateSender(urls...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create shoutrrr router: %w", err)
+	}
+
+	return &Notifier{
+		router: r,
+	}, nil
+}
+
+// SendNotification sends a notification for a specific event
+func (n *Notifier) SendNotification(category, eventType string, message string, value *float64) error {
+	if n.db == nil {
+		// For temporary notifiers (like testing), use the router directly
+		if n.router != nil {
+			errs := n.router.Send(message, nil)
+			if len(errs) > 0 {
+				return errs[0]
+			}
+			return nil
+		}
+		return fmt.Errorf("no database or router configured")
+	}
+
+	// Get enabled rules for this event
+	rules, err := n.db.GetEnabledRulesForEvent(category, eventType)
+	if err != nil {
+		return fmt.Errorf("failed to get notification rules: %w", err)
+	}
+
+	if len(rules) == 0 {
+		return nil
+	}
+
+	var lastError error
+	successCount := 0
+
+	for _, rule := range rules {
+		// Check threshold if applicable
+		if value != nil && rule.ThresholdValue != nil {
+			if !n.db.CheckThreshold(&rule, *value) {
+				continue
+			}
+		}
+
+		// Send notification
+		if rule.Channel == nil {
+			log.Warn().
+				Int64("ruleID", rule.ID).
+				Int64("channelID", rule.ChannelID).
+				Msg("Rule has no channel associated, skipping")
+			continue
+		}
+
+		if rule.Channel.URL != "" {
+			tempNotifier, err := shoutrrr.CreateSender(rule.Channel.URL)
+			if err != nil {
+				lastError = err
+				errMsg := err.Error()
+				if logErr := n.db.LogNotification(rule.ChannelID, rule.EventID, false, &errMsg, &message); logErr != nil {
+					log.Error().Err(logErr).Msg("Failed to log notification error")
+				}
+				log.Error().
+					Err(err).
+					Int64("channelID", rule.ChannelID).
+					Msg("Failed to create notifier for channel")
+				continue
+			}
+
+			if tempNotifier == nil {
+				lastError = fmt.Errorf("notifier is nil")
+				errMsg := "notifier is nil"
+				if logErr := n.db.LogNotification(rule.ChannelID, rule.EventID, false, &errMsg, &message); logErr != nil {
+					log.Error().Err(logErr).Msg("Failed to log notification error")
+				}
+				continue
+			}
+
+			errs := tempNotifier.Send(message, nil)
+			// Filter out nil errors from the slice
+			var realErrors []error
+			for _, err := range errs {
+				if err != nil {
+					realErrors = append(realErrors, err)
+				}
+			}
+
+			if len(realErrors) > 0 {
+				lastError = realErrors[0]
+				errMsg := realErrors[0].Error()
+				if logErr := n.db.LogNotification(rule.ChannelID, rule.EventID, false, &errMsg, &message); logErr != nil {
+					log.Error().Err(logErr).Msg("Failed to log notification error")
+				}
+				log.Error().
+					Err(realErrors[0]).
+					Int64("channelID", rule.ChannelID).
+					Msg("Failed to send notification")
+			} else {
+				successCount++
+				if logErr := n.db.LogNotification(rule.ChannelID, rule.EventID, true, nil, &message); logErr != nil {
+					log.Error().Err(logErr).Msg("Failed to log notification success")
+				}
+			}
+		}
+	}
+
+	if successCount == 0 && lastError != nil {
+		return fmt.Errorf("failed to send any notifications: %w", lastError)
+	}
+
+	if successCount > 0 {
+		log.Info().
+			Int("sent", successCount).
+			Int("total", len(rules)).
+			Str("category", category).
+			Str("eventType", eventType).
+			Msg("Notifications sent")
+	}
+
+	return nil
+}
+
+// SendSpeedTestNotification sends a speed test notification
+func (n *Notifier) SendSpeedTestNotification(result *SpeedTestResult) error {
+	// Check for various conditions
+	if result.Failed {
+		message := fmt.Sprintf("[FAIL] Speed Test Failed - Provider: **%s** | Server: **%s**", result.Provider, result.ServerName)
+		return n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestFailed, message, nil)
+	}
+
+	// Always send completion notification
+	message := n.formatSpeedTestMessage(result)
+	if err := n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestComplete, message, nil); err != nil {
+		log.Error().Err(err).Msg("Failed to send speed test completion notification")
+	}
+
+	// Check thresholds
+	if result.Ping > 0 {
+		if err := n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestPingHigh, message, &result.Ping); err != nil {
+			log.Error().Err(err).Msg("Failed to send high ping notification")
+		}
+	}
+
+	if result.Download > 0 {
+		downloadMbps := result.Download
+		if err := n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestDownloadLow, message, &downloadMbps); err != nil {
+			log.Error().Err(err).Msg("Failed to send low download notification")
+		}
+	}
+
+	if result.Upload > 0 {
+		uploadMbps := result.Upload
+		if err := n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestUploadLow, message, &uploadMbps); err != nil {
+			log.Error().Err(err).Msg("Failed to send low upload notification")
+		}
+	}
+
+	return nil
+}
+
+// SendPacketLossNotification sends a packet loss notification
+func (n *Notifier) SendPacketLossNotification(monitorName string, host string, packetLoss float64, isDown bool, isRecovered bool) error {
+	if isRecovered {
+		message := fmt.Sprintf("[OK] Monitor Recovered - **%s** | Host: **%s** | Back Online", monitorName, host)
+		return n.SendNotification(database.NotificationCategoryPacketLoss, database.NotificationEventPacketLossRecovered, message, nil)
+	}
+
+	if isDown {
+		message := fmt.Sprintf("[DOWN] Monitor Down - **%s** | Host: **%s** | Unreachable (100%% packet loss)", monitorName, host)
+		return n.SendNotification(database.NotificationCategoryPacketLoss, database.NotificationEventPacketLossDown, message, nil)
+	}
+
+	// High packet loss
+	message := fmt.Sprintf("[!] High Packet Loss - **%s** | Host: **%s** | Loss: **%.1f%%**", monitorName, host, packetLoss)
+	return n.SendNotification(database.NotificationCategoryPacketLoss, database.NotificationEventPacketLossHigh, message, &packetLoss)
+}
+
+// SendAgentNotification sends an agent-related notification
+// For temperature notifications, agentName can include sensor info in format "agent|sensor"
+func (n *Notifier) SendAgentNotification(agentName string, eventType string, value *float64) error {
+	var message string
+	
+	// Parse agent name and optional sensor info
+	parts := strings.Split(agentName, "|")
+	actualAgentName := parts[0]
+	sensorInfo := ""
+	if len(parts) > 1 {
+		sensorInfo = parts[1]
+	}
+
+	switch eventType {
+	case database.NotificationEventAgentOffline:
+		message = fmt.Sprintf("[OFFLINE] Agent Offline - **%s** | Connection lost", actualAgentName)
+	case database.NotificationEventAgentOnline:
+		message = fmt.Sprintf("[ONLINE] Agent Online - **%s** | Connection restored", actualAgentName)
+	case database.NotificationEventAgentHighBandwidth:
+		if value != nil {
+			message = fmt.Sprintf("[!] High Bandwidth Usage - Agent: **%s** | Bandwidth: **%.1f Mbps**", actualAgentName, *value)
+		} else {
+			message = fmt.Sprintf("[!] High Bandwidth Usage - Agent: **%s** | Bandwidth: **Unknown**", actualAgentName)
+		}
+	case database.NotificationEventAgentLowDisk:
+		if value != nil {
+			message = fmt.Sprintf("[DISK] Low Disk Space - Agent: **%s** | Disk Usage: **%.1f%%**", actualAgentName, *value)
+		} else {
+			message = fmt.Sprintf("[DISK] Low Disk Space - Agent: **%s** | Disk Usage: **Unknown**", actualAgentName)
+		}
+	case database.NotificationEventAgentHighCPU:
+		if value != nil {
+			message = fmt.Sprintf("[CPU] High CPU Usage - Agent: **%s** | CPU: **%.1f%%**", actualAgentName, *value)
+		} else {
+			message = fmt.Sprintf("[CPU] High CPU Usage - Agent: **%s** | CPU: **Unknown**", actualAgentName)
+		}
+	case database.NotificationEventAgentHighMemory:
+		if value != nil {
+			message = fmt.Sprintf("[MEM] High Memory Usage - Agent: **%s** | Memory: **%.1f%%**", actualAgentName, *value)
+		} else {
+			message = fmt.Sprintf("[MEM] High Memory Usage - Agent: **%s** | Memory: **Unknown**", actualAgentName)
+		}
+	case database.NotificationEventAgentHighTemp:
+		if value != nil {
+			if sensorInfo != "" {
+				message = fmt.Sprintf("[TEMP] High Temperature - Agent: **%s** | **%s: %.1f°C**", actualAgentName, sensorInfo, *value)
+			} else {
+				message = fmt.Sprintf("[TEMP] High Temperature - Agent: **%s** | Temperature: **%.1f°C**", actualAgentName, *value)
+			}
+		} else {
+			message = fmt.Sprintf("[TEMP] High Temperature - Agent: **%s** | Temperature: **Unknown**", actualAgentName)
+		}
+	default:
+		return fmt.Errorf("unknown agent event type: %s", eventType)
+	}
+
+	if message == "" {
+		return fmt.Errorf("empty notification message for event type: %s", eventType)
+	}
+
+	return n.SendNotification(database.NotificationCategoryAgent, eventType, message, value)
+}
+
+// SendTestNotification sends a test notification
+func (n *Notifier) SendTestNotification() error {
+	message := "[TEST] Netronome Test - Your notifications are working correctly!"
+
+	if n.router != nil {
+		errs := n.router.Send(message, nil)
+		if len(errs) > 0 {
+			return errs[0]
+		}
+		return nil
+	}
+
+	return fmt.Errorf("no router configured")
+}
+
+// formatSpeedTestMessage formats a speed test result into a notification message
+func (n *Notifier) formatSpeedTestMessage(result *SpeedTestResult) string {
+	var sb strings.Builder
+
+	if result.Failed {
+		sb.WriteString("[FAIL] Speed Test Failed")
+		if result.ServerName != "" {
+			sb.WriteString(fmt.Sprintf(" - Server: **%s**", result.ServerName))
+		}
+		if result.Provider != "" {
+			sb.WriteString(fmt.Sprintf(" | Provider: **%s**", result.Provider))
+		}
+		sb.WriteString("\nThe speed test failed to complete.")
+		return sb.String()
+	}
+
+	sb.WriteString("[SPEEDTEST] Speed Test Results")
+	if result.ServerName != "" {
+		sb.WriteString(fmt.Sprintf(" - **%s**", result.ServerName))
+	}
+	if result.Provider != "" {
+		sb.WriteString(fmt.Sprintf(" (%s)", result.Provider))
+	}
+	sb.WriteString("\n")
+
+	// Results in compact format
+	var metrics []string
+	if result.Download > 0 {
+		metrics = append(metrics, fmt.Sprintf("↓ **%.2f Mbps**", result.Download))
+	}
+	if result.Upload > 0 {
+		metrics = append(metrics, fmt.Sprintf("↑ **%.2f Mbps**", result.Upload))
+	}
+	if result.Ping > 0 {
+		metrics = append(metrics, fmt.Sprintf("Ping: **%.2f ms**", result.Ping))
+	}
+	if result.Jitter > 0 {
+		metrics = append(metrics, fmt.Sprintf("Jitter: **%.2f ms**", result.Jitter))
+	}
+
+	if len(metrics) > 0 {
+		sb.WriteString(strings.Join(metrics, " | "))
+	}
+
+	if result.ISP != "" {
+		sb.WriteString(fmt.Sprintf("\nISP: **%s**", result.ISP))
+	}
+
+	return sb.String()
+}
+
+// MigrateDiscordWebhook converts an old Discord webhook URL to Shoutrrr format
+func MigrateDiscordWebhook(webhookURL string) string {
+	if webhookURL == "" {
+		return ""
+	}
+
+	// Already in Shoutrrr format
+	if strings.HasPrefix(webhookURL, "discord://") {
+		return webhookURL
+	}
+
+	// Parse Discord webhook URL
+	// Format: https://discord.com/api/webhooks/{id}/{token}
+	if strings.Contains(webhookURL, "discord.com/api/webhooks/") ||
+		strings.Contains(webhookURL, "discordapp.com/api/webhooks/") {
+		parts := strings.Split(webhookURL, "/")
+		if len(parts) >= 2 {
+			token := parts[len(parts)-1]
+			id := parts[len(parts)-2]
+			return fmt.Sprintf("discord://%s@%s", token, id)
+		}
+	}
+
+	// Return as-is if we can't parse it
+	return webhookURL
+}
+
+// SpeedTestResult represents the result of a speed test
+type SpeedTestResult struct {
+	ServerName string
+	Provider   string
+	Download   float64
+	Upload     float64
+	Ping       float64
+	Jitter     float64
+	ISP        string
+	Failed     bool
 }
 
 // PacketLossNotification represents packet loss monitoring data for notifications
@@ -38,160 +390,4 @@ type PacketLossNotification struct {
 	PacketsRecv int
 	UsedMTR     bool
 	HopCount    int
-}
-
-func (n *Notifier) SendNotification(result *types.SpeedTestResult) {
-	if !n.Cfg.Enabled || n.Cfg.WebhookURL == "" {
-		return
-	}
-
-	alerts := n.checkThresholds(result)
-
-	// Only send notification if there are threshold breaches
-	if len(alerts) > 0 {
-		payload := n.buildPayload(result, alerts)
-
-		if err := n.sendWebhook(payload); err != nil {
-			log.Error().Err(err).Msg("Failed to send notification")
-		}
-	}
-}
-
-func (n *Notifier) checkThresholds(result *types.SpeedTestResult) []string {
-	var alerts []string
-
-	latency, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimSuffix(result.Latency, "ms")), 64)
-	if err != nil {
-		log.Warn().Err(err).Msg("could not parse latency")
-	} else {
-		if latency > n.Cfg.PingThreshold {
-			alerts = append(alerts, fmt.Sprintf("Ping is above threshold: %.2f > %.2f ms", latency, n.Cfg.PingThreshold))
-		}
-	}
-
-	if result.DownloadSpeed < n.Cfg.DownloadThreshold {
-		alerts = append(alerts, fmt.Sprintf("Download speed is below threshold: %.2f < %.2f Mbps", result.DownloadSpeed, n.Cfg.DownloadThreshold))
-	}
-	if result.UploadSpeed < n.Cfg.UploadThreshold {
-		alerts = append(alerts, fmt.Sprintf("Upload speed is below threshold: %.2f < %.2f Mbps", result.UploadSpeed, n.Cfg.UploadThreshold))
-	}
-
-	return alerts
-}
-
-func (n *Notifier) buildPayload(result *types.SpeedTestResult, alerts []string) map[string]interface{} {
-	testType := result.TestType
-	if testType == "speedtest" {
-		testType = "speedtest.net"
-	}
-
-	serverName := fmt.Sprintf("%s (%s)", result.ServerName, testType)
-
-	embed := map[string]interface{}{
-		"title":       "Speed Test Results",
-		"description": "A summary of the latest speed test results.",
-		"color":       0x00ff00, // Green
-		"fields": []map[string]interface{}{
-			{"name": "Server", "value": serverName, "inline": false},
-			{"name": "Ping", "value": fmt.Sprintf("%v", result.Latency), "inline": false},
-			{"name": "Download", "value": fmt.Sprintf("%.2f Mbps", result.DownloadSpeed), "inline": true},
-			{"name": "Upload", "value": fmt.Sprintf("%.2f Mbps", result.UploadSpeed), "inline": true},
-		},
-	}
-
-	content := ""
-	if len(alerts) > 0 {
-		embed["color"] = 0xff0000 // Red
-		embed["fields"] = append(embed["fields"].([]map[string]interface{}), map[string]interface{}{
-			"name":  "Alerts",
-			"value": "- " + strings.Join(alerts, "\n- "),
-		})
-		if n.Cfg.DiscordMentionID != "" {
-			content = fmt.Sprintf("<@%s>", n.Cfg.DiscordMentionID)
-		}
-	}
-
-	return map[string]interface{}{
-		"content": content,
-		"embeds":  []map[string]interface{}{embed},
-	}
-}
-
-func (n *Notifier) sendWebhook(payload map[string]interface{}) error {
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("failed to marshal payload: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", n.Cfg.WebhookURL, bytes.NewBuffer(jsonPayload))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("webhook returned non-success status code: %d", resp.StatusCode)
-	}
-
-	log.Info().Msg("Notification sent successfully")
-	return nil
-}
-
-// SendPacketLossNotification sends a notification specifically for packet loss monitoring
-func (n *Notifier) SendPacketLossNotification(data *PacketLossNotification) {
-	if !n.Cfg.Enabled || n.Cfg.WebhookURL == "" {
-		return
-	}
-
-	// Build packet loss specific payload
-	payload := n.buildPacketLossPayload(data)
-
-	if err := n.sendWebhook(payload); err != nil {
-		log.Error().Err(err).Msg("Failed to send packet loss notification")
-	}
-}
-
-// buildPacketLossPayload creates a Discord/webhook payload for packet loss alerts
-func (n *Notifier) buildPacketLossPayload(data *PacketLossNotification) map[string]interface{} {
-	// Determine test mode string
-	testMode := "Ping"
-	if data.UsedMTR {
-		testMode = fmt.Sprintf("MTR (%d hops)", data.HopCount)
-	}
-
-	// Create embed fields
-	fields := []map[string]interface{}{
-		{"name": "Monitor", "value": data.MonitorName, "inline": false},
-		{"name": "Host", "value": data.Host, "inline": false},
-		{"name": "Packet Loss", "value": fmt.Sprintf("%.1f%% (threshold: %.1f%%)", data.PacketLoss, data.Threshold), "inline": false},
-		{"name": "Average RTT", "value": fmt.Sprintf("%.1fms", data.AvgRTT), "inline": true},
-		{"name": "Min/Max RTT", "value": fmt.Sprintf("%.1fms / %.1fms", data.MinRTT, data.MaxRTT), "inline": true},
-		{"name": "Packets", "value": fmt.Sprintf("%d/%d received", data.PacketsRecv, data.PacketsSent), "inline": false},
-		{"name": "Test Mode", "value": testMode, "inline": true},
-	}
-
-	embed := map[string]interface{}{
-		"title":       "Packet Loss Alert",
-		"description": fmt.Sprintf("Monitor \"%s\" has exceeded the packet loss threshold", data.MonitorName),
-		"color":       0xff0000, // Red for alert
-		"fields":      fields,
-	}
-
-	// Add mention if configured
-	content := ""
-	if n.Cfg.DiscordMentionID != "" {
-		content = fmt.Sprintf("<@%s>", n.Cfg.DiscordMentionID)
-	}
-
-	return map[string]interface{}{
-		"content": content,
-		"embeds":  []map[string]interface{}{embed},
-	}
 }
