@@ -418,6 +418,60 @@ else
     echo "Disk excludes: none (auto-selected)"
 fi
 
+# Get Tailscale configuration
+echo ""
+TAILSCALE_ENABLED="false"
+TAILSCALE_METHOD=""
+TAILSCALE_AUTH_KEY=""
+TAILSCALE_HOSTNAME=""
+
+if [ "$INTERACTIVE_MODE" = true ]; then
+    print_color $YELLOW "Tailscale Configuration (optional):"
+    print_color $YELLOW "Tailscale provides secure, encrypted connectivity without exposing ports to the internet."
+    echo ""
+    
+    read -p "Do you want to enable Tailscale for secure connectivity? (y/n): " ENABLE_TAILSCALE < "$INPUT_SOURCE"
+    if [ "$ENABLE_TAILSCALE" = "y" ] || [ "$ENABLE_TAILSCALE" = "Y" ]; then
+        TAILSCALE_ENABLED="true"
+        
+        echo ""
+        print_color $YELLOW "Tailscale Method:"
+        print_color $YELLOW "1. Use host's existing Tailscale (no new machine in Tailscale admin)"
+        print_color $YELLOW "2. Create dedicated Tailscale node (requires auth key)"
+        echo ""
+        
+        read -p "Select method [1-2]: " TAILSCALE_METHOD_OPTION < "$INPUT_SOURCE"
+        case $TAILSCALE_METHOD_OPTION in
+            1)
+                TAILSCALE_METHOD="host"
+                print_color $GREEN "Using host's existing Tailscale connection"
+                ;;
+            2)
+                TAILSCALE_METHOD="tsnet"
+                echo ""
+                read -p "Enter your Tailscale auth key (required): " TAILSCALE_AUTH_KEY < "$INPUT_SOURCE"
+                if [ -z "$TAILSCALE_AUTH_KEY" ]; then
+                    print_color $RED "Auth key is required for tsnet mode"
+                    TAILSCALE_ENABLED="false"
+                    TAILSCALE_METHOD=""
+                fi
+                ;;
+            *)
+                print_color $RED "Invalid option, Tailscale will not be configured"
+                TAILSCALE_ENABLED="false"
+                ;;
+        esac
+        
+        if [ "$TAILSCALE_ENABLED" = "true" ]; then
+            echo ""
+            read -p "Enter custom Tailscale hostname (leave empty for default): " TAILSCALE_HOSTNAME < "$INPUT_SOURCE"
+        fi
+    fi
+else
+    # Non-interactive mode - Tailscale disabled by default
+    echo "Tailscale: disabled (auto-selected)"
+fi
+
 # Create user if it doesn't exist
 create_user $USER_NAME
 
@@ -483,6 +537,28 @@ disk_excludes = $DISK_EXCLUDES
 [logging]
 level = "info"
 EOF
+
+# Add Tailscale configuration if enabled
+if [ "$TAILSCALE_ENABLED" = "true" ]; then
+    sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
+
+[tailscale]
+enabled = true
+method = "$TAILSCALE_METHOD"
+EOF
+    
+    if [ "$TAILSCALE_METHOD" = "tsnet" ]; then
+        sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
+auth_key = "$TAILSCALE_AUTH_KEY"
+EOF
+    fi
+    
+    if [ -n "$TAILSCALE_HOSTNAME" ]; then
+        sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
+hostname = "$TAILSCALE_HOSTNAME"
+EOF
+    fi
+fi
 
 if [ "$OS" = "darwin" ]; then
     sudo chown $USER_NAME:staff $CONFIG_DIR/agent.toml

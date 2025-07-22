@@ -29,6 +29,7 @@ import (
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/server"
 	"github.com/autobrr/netronome/internal/speedtest"
+	appversion "github.com/autobrr/netronome/internal/version"
 )
 
 var (
@@ -136,6 +137,7 @@ func init() {
 
 func main() {
 	// Initialize version information with build-time values
+	appversion.Set(version, buildTime, commit)
 	SetVersion(version, buildTime, commit)
 
 	if err := rootCmd.Execute(); err != nil {
