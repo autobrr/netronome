@@ -58,21 +58,6 @@ asn_database_path = "./GeoLite2-ASN.mmdb"
 #default_time_range = "1w"
 #default_limit = 20
 
-[notifications]
-enabled = true
-ping_threshold = 30      # ms - alert if ping exceeds this
-upload_threshold = 200   # Mbps - alert if upload is below this
-download_threshold = 200 # Mbps - alert if download is below this
-
-# Shoutrrr notification URLs - supports Discord, Gotify, Telegram, Slack, etc.
-webhook_urls = [
-    # "discord://TOKEN@WEBHOOK_ID",
-    # "gotify://hostname/TOKEN",
-    # "telegram://TOKEN@telegram?chats=@channel",
-    # "smtp://username:password@smtp.example.com:587/?from=sender@example.com&to=recipient@example.com"
-]
-
-
 [packetloss]
 enabled = true
 default_interval = 3600

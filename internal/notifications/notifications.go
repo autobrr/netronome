@@ -162,11 +162,8 @@ func (n *Notifier) SendSpeedTestNotification(result *SpeedTestResult) error {
 		return n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestFailed, message, nil)
 	}
 
-	// Always send completion notification
+	// Format message for all notifications
 	message := n.formatSpeedTestMessage(result)
-	if err := n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestComplete, message, nil); err != nil {
-		log.Error().Err(err).Msg("Failed to send speed test completion notification")
-	}
 
 	// Check thresholds
 	if result.Ping > 0 {
@@ -213,7 +210,7 @@ func (n *Notifier) SendPacketLossNotification(monitorName string, host string, p
 // For temperature notifications, agentName can include sensor info in format "agent|sensor"
 func (n *Notifier) SendAgentNotification(agentName string, eventType string, value *float64) error {
 	var message string
-	
+
 	// Parse agent name and optional sensor info
 	parts := strings.Split(agentName, "|")
 	actualAgentName := parts[0]
