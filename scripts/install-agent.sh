@@ -328,96 +328,6 @@ else
     echo "Interface: ${INTERFACE:-all} (auto-selected)"
 fi
 
-# Get API key
-echo ""
-print_color $YELLOW "API Key Configuration:"
-print_color $YELLOW "1. Generate a random API key"
-print_color $YELLOW "2. Enter your own API key"
-print_color $YELLOW "3. No authentication (not recommended)"
-echo ""
-if [ "$INTERACTIVE_MODE" = true ]; then
-    # Interactive mode - read from terminal
-    read -p "Select an option [1-3]: " API_KEY_OPTION < "$INPUT_SOURCE"
-else
-    # Non-interactive mode - default to generating a random API key
-    API_KEY_OPTION="1"
-    echo "Selected option: $API_KEY_OPTION (auto-selected: Generate random API key)"
-fi
-
-case $API_KEY_OPTION in
-    1)
-        API_KEY=$(generate_api_key)
-        print_color $GREEN "Generated API Key: $API_KEY"
-        print_color $YELLOW "⚠️  Save this key! You'll need it when adding the agent in Netronome."
-        ;;
-    2)
-        if [ "$INTERACTIVE_MODE" = true ]; then
-            read -p "Enter your API key: " API_KEY < "$INPUT_SOURCE"
-        else
-            # In non-interactive mode, we can't get custom API key, fall back to generated
-            API_KEY=$(generate_api_key)
-            print_color $YELLOW "Cannot input custom API key in non-interactive mode, generated: $API_KEY"
-        fi
-        ;;
-    3)
-        API_KEY=""
-        print_color $YELLOW "⚠️  Warning: Agent will run without authentication!"
-        ;;
-    *)
-        print_color $RED "Invalid option"
-        exit 1
-        ;;
-esac
-
-# Get host and port
-echo ""
-if [ "$INTERACTIVE_MODE" = true ]; then
-    # Interactive mode - read from terminal
-    read -p "Enter the host/IP to listen on (default: $DEFAULT_HOST): " HOST < "$INPUT_SOURCE"
-    HOST=${HOST:-$DEFAULT_HOST}
-    
-    read -p "Enter the port number (default: $DEFAULT_PORT): " PORT < "$INPUT_SOURCE"
-    PORT=${PORT:-$DEFAULT_PORT}
-else
-    # Non-interactive mode - use defaults
-    HOST=$DEFAULT_HOST
-    PORT=$DEFAULT_PORT
-    echo "Host: $HOST (auto-selected)"
-    echo "Port: $PORT (auto-selected)"
-fi
-
-# Get disk filtering configuration
-echo ""
-if [ "$INTERACTIVE_MODE" = true ]; then
-    print_color $YELLOW "Disk Monitoring Configuration (optional):"
-    print_color $YELLOW "You can specify additional disk mounts to monitor or exclude certain mounts."
-    echo ""
-    
-    # Disk includes
-    read -p "Enter disk mounts to include (comma-separated, e.g., /mnt/storage,/mnt/backup): " DISK_INCLUDES_INPUT < "$INPUT_SOURCE"
-    if [ -n "$DISK_INCLUDES_INPUT" ]; then
-        # Convert comma-separated list to TOML array format
-        DISK_INCLUDES=$(echo "$DISK_INCLUDES_INPUT" | sed 's/,/", "/g' | sed 's/^/["/' | sed 's/$/"]/')
-    else
-        DISK_INCLUDES="[]"
-    fi
-    
-    # Disk excludes
-    read -p "Enter disk mounts to exclude (comma-separated, e.g., /boot,/tmp): " DISK_EXCLUDES_INPUT < "$INPUT_SOURCE"
-    if [ -n "$DISK_EXCLUDES_INPUT" ]; then
-        # Convert comma-separated list to TOML array format
-        DISK_EXCLUDES=$(echo "$DISK_EXCLUDES_INPUT" | sed 's/,/", "/g' | sed 's/^/["/' | sed 's/$/"]/')
-    else
-        DISK_EXCLUDES="[]"
-    fi
-else
-    # Non-interactive mode - use defaults
-    DISK_INCLUDES="[]"
-    DISK_EXCLUDES="[]"
-    echo "Disk includes: none (auto-selected)"
-    echo "Disk excludes: none (auto-selected)"
-fi
-
 # Get Tailscale configuration
 echo ""
 TAILSCALE_ENABLED="false"
@@ -470,6 +380,108 @@ if [ "$INTERACTIVE_MODE" = true ]; then
 else
     # Non-interactive mode - Tailscale disabled by default
     echo "Tailscale: disabled (auto-selected)"
+fi
+
+# Get API key
+echo ""
+print_color $YELLOW "API Key Configuration:"
+print_color $YELLOW "1. Generate a random API key"
+print_color $YELLOW "2. Enter your own API key"
+print_color $YELLOW "3. No authentication (not recommended)"
+echo ""
+if [ "$INTERACTIVE_MODE" = true ]; then
+    # Interactive mode - read from terminal
+    read -p "Select an option [1-3]: " API_KEY_OPTION < "$INPUT_SOURCE"
+else
+    # Non-interactive mode - default to generating a random API key
+    API_KEY_OPTION="1"
+    echo "Selected option: $API_KEY_OPTION (auto-selected: Generate random API key)"
+fi
+
+case $API_KEY_OPTION in
+    1)
+        API_KEY=$(generate_api_key)
+        print_color $GREEN "Generated API Key: $API_KEY"
+        print_color $YELLOW "⚠️  Save this key! You'll need it when adding the agent in Netronome."
+        ;;
+    2)
+        if [ "$INTERACTIVE_MODE" = true ]; then
+            read -p "Enter your API key: " API_KEY < "$INPUT_SOURCE"
+        else
+            # In non-interactive mode, we can't get custom API key, fall back to generated
+            API_KEY=$(generate_api_key)
+            print_color $YELLOW "Cannot input custom API key in non-interactive mode, generated: $API_KEY"
+        fi
+        ;;
+    3)
+        API_KEY=""
+        print_color $YELLOW "⚠️  Warning: Agent will run without authentication!"
+        ;;
+    *)
+        print_color $RED "Invalid option"
+        exit 1
+        ;;
+esac
+
+# Get host and port
+echo ""
+if [ "$TAILSCALE_METHOD" = "host" ]; then
+    # For Tailscale host mode, check if tailscale is available
+    HOST="127.0.0.1"
+    PORT=$DEFAULT_PORT
+    
+    # Check if tailscale is available on the host
+    if command -v tailscale &> /dev/null && tailscale status &> /dev/null; then
+        print_color $GREEN "Tailscale detected on host - agent will be accessible through your Tailscale network"
+    else
+        print_color $YELLOW "⚠️  Tailscale not detected on host - agent will listen on $HOST:$PORT"
+        print_color $YELLOW "Make sure to install and configure Tailscale before starting the agent"
+    fi
+elif [ "$INTERACTIVE_MODE" = true ]; then
+    # Interactive mode - read from terminal
+    read -p "Enter the host/IP to listen on (default: $DEFAULT_HOST): " HOST < "$INPUT_SOURCE"
+    HOST=${HOST:-$DEFAULT_HOST}
+    
+    read -p "Enter the port number (default: $DEFAULT_PORT): " PORT < "$INPUT_SOURCE"
+    PORT=${PORT:-$DEFAULT_PORT}
+else
+    # Non-interactive mode - use defaults
+    HOST=$DEFAULT_HOST
+    PORT=$DEFAULT_PORT
+    echo "Host: $HOST (auto-selected)"
+    echo "Port: $PORT (auto-selected)"
+fi
+
+# Get disk filtering configuration
+echo ""
+if [ "$INTERACTIVE_MODE" = true ]; then
+    print_color $YELLOW "Disk Monitoring Configuration (optional):"
+    print_color $YELLOW "You can specify additional disk mounts to monitor or exclude certain mounts."
+    echo ""
+    
+    # Disk includes
+    read -p "Enter disk mounts to include (comma-separated, e.g., /mnt/storage,/mnt/backup): " DISK_INCLUDES_INPUT < "$INPUT_SOURCE"
+    if [ -n "$DISK_INCLUDES_INPUT" ]; then
+        # Convert comma-separated list to TOML array format
+        DISK_INCLUDES=$(echo "$DISK_INCLUDES_INPUT" | sed 's/,/", "/g' | sed 's/^/["/' | sed 's/$/"]/')
+    else
+        DISK_INCLUDES="[]"
+    fi
+    
+    # Disk excludes
+    read -p "Enter disk mounts to exclude (comma-separated, e.g., /boot,/tmp): " DISK_EXCLUDES_INPUT < "$INPUT_SOURCE"
+    if [ -n "$DISK_EXCLUDES_INPUT" ]; then
+        # Convert comma-separated list to TOML array format
+        DISK_EXCLUDES=$(echo "$DISK_EXCLUDES_INPUT" | sed 's/,/", "/g' | sed 's/^/["/' | sed 's/$/"]/')
+    else
+        DISK_EXCLUDES="[]"
+    fi
+else
+    # Non-interactive mode - use defaults
+    DISK_INCLUDES="[]"
+    DISK_EXCLUDES="[]"
+    echo "Disk includes: none (auto-selected)"
+    echo "Disk excludes: none (auto-selected)"
 fi
 
 # Create user if it doesn't exist
