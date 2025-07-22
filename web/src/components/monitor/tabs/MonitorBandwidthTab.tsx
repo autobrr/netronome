@@ -49,7 +49,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
             timeFormat: "hour" as const,
           };
         return {
-          data: traffic.hour.slice(0, 6).map((hour) => ({
+          data: traffic.hour.slice(-6).map((hour) => ({
             time: new Date(
               hour.date.year,
               hour.date.month - 1,
@@ -71,7 +71,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
             timeFormat: "hour" as const,
           };
         return {
-          data: traffic.hour.slice(0, 12).map((hour) => ({
+          data: traffic.hour.slice(-12).map((hour) => ({
             time: new Date(
               hour.date.year,
               hour.date.month - 1,
@@ -93,7 +93,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
             timeFormat: "hour" as const,
           };
         return {
-          data: traffic.hour.slice(0, 24).map((hour) => ({
+          data: traffic.hour.slice(-24).map((hour) => ({
             time: new Date(
               hour.date.year,
               hour.date.month - 1,
@@ -115,7 +115,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
             timeFormat: "hour" as const,
           };
         return {
-          data: traffic.hour.slice(0, 48).map((hour) => ({
+          data: traffic.hour.slice(-48).map((hour) => ({
             time: new Date(
               hour.date.year,
               hour.date.month - 1,
