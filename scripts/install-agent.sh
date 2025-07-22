@@ -383,45 +383,52 @@ else
 fi
 
 # Get API key
-echo ""
-print_color $YELLOW "API Key Configuration:"
-print_color $YELLOW "1. Generate a random API key"
-print_color $YELLOW "2. Enter your own API key"
-print_color $YELLOW "3. No authentication (not recommended)"
-echo ""
-if [ "$INTERACTIVE_MODE" = true ]; then
-    # Interactive mode - read from terminal
-    read -p "Select an option [1-3]: " API_KEY_OPTION < "$INPUT_SOURCE"
+if [ "$TAILSCALE_ENABLED" = "true" ]; then
+    # Skip API key configuration for Tailscale
+    API_KEY=""
+    echo ""
+    print_color $GREEN "✓ Tailscale authentication enabled - no API key needed"
 else
-    # Non-interactive mode - default to generating a random API key
-    API_KEY_OPTION="1"
-    echo "Selected option: $API_KEY_OPTION (auto-selected: Generate random API key)"
-fi
+    echo ""
+    print_color $YELLOW "API Key Configuration:"
+    print_color $YELLOW "1. Generate a random API key"
+    print_color $YELLOW "2. Enter your own API key"
+    print_color $YELLOW "3. No authentication (not recommended)"
+    echo ""
+    if [ "$INTERACTIVE_MODE" = true ]; then
+        # Interactive mode - read from terminal
+        read -p "Select an option [1-3]: " API_KEY_OPTION < "$INPUT_SOURCE"
+    else
+        # Non-interactive mode - default to generating a random API key
+        API_KEY_OPTION="1"
+        echo "Selected option: $API_KEY_OPTION (auto-selected: Generate random API key)"
+    fi
 
-case $API_KEY_OPTION in
-    1)
-        API_KEY=$(generate_api_key)
-        print_color $GREEN "Generated API Key: $API_KEY"
-        print_color $YELLOW "⚠️  Save this key! You'll need it when adding the agent in Netronome."
-        ;;
-    2)
-        if [ "$INTERACTIVE_MODE" = true ]; then
-            read -p "Enter your API key: " API_KEY < "$INPUT_SOURCE"
-        else
-            # In non-interactive mode, we can't get custom API key, fall back to generated
+    case $API_KEY_OPTION in
+        1)
             API_KEY=$(generate_api_key)
-            print_color $YELLOW "Cannot input custom API key in non-interactive mode, generated: $API_KEY"
-        fi
-        ;;
-    3)
-        API_KEY=""
-        print_color $YELLOW "⚠️  Warning: Agent will run without authentication!"
-        ;;
-    *)
-        print_color $RED "Invalid option"
-        exit 1
-        ;;
-esac
+            print_color $GREEN "Generated API Key: $API_KEY"
+            print_color $YELLOW "⚠️  Save this key! You'll need it when adding the agent in Netronome."
+            ;;
+        2)
+            if [ "$INTERACTIVE_MODE" = true ]; then
+                read -p "Enter your API key: " API_KEY < "$INPUT_SOURCE"
+            else
+                # In non-interactive mode, we can't get custom API key, fall back to generated
+                API_KEY=$(generate_api_key)
+                print_color $YELLOW "Cannot input custom API key in non-interactive mode, generated: $API_KEY"
+            fi
+            ;;
+        3)
+            API_KEY=""
+            print_color $YELLOW "⚠️  Warning: Agent will run without authentication!"
+            ;;
+        *)
+            print_color $RED "Invalid option"
+            exit 1
+            ;;
+    esac
+fi
 
 # Get host and port
 echo ""
