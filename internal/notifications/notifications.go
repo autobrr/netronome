@@ -42,6 +42,29 @@ func NewNotifierFromURLs(urls []string) (*Notifier, error) {
 	}, nil
 }
 
+// getThresholdForEvent retrieves the threshold value for a specific event from the database
+func (n *Notifier) getThresholdForEvent(category, eventType string) *float64 {
+	if n.db == nil {
+		return nil
+	}
+
+	// Get enabled rules for this event
+	rules, err := n.db.GetEnabledRulesForEvent(category, eventType)
+	if err != nil {
+		log.Error().Err(err).Str("category", category).Str("eventType", eventType).Msg("Failed to get notification rules for threshold")
+		return nil
+	}
+
+	// Return the first enabled rule's threshold value
+	for _, rule := range rules {
+		if rule.ThresholdValue != nil {
+			return rule.ThresholdValue
+		}
+	}
+
+	return nil
+}
+
 // SendNotification sends a notification for a specific event
 func (n *Notifier) SendNotification(category, eventType string, message string, value *float64) error {
 	if n.db == nil {
@@ -162,29 +185,35 @@ func (n *Notifier) SendSpeedTestNotification(result *SpeedTestResult) error {
 		return n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestFailed, message, nil)
 	}
 
-	// Always send completion notification
-	message := n.formatSpeedTestMessage(result)
-	if err := n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestComplete, message, nil); err != nil {
-		log.Error().Err(err).Msg("Failed to send speed test completion notification")
+	// Send test completion notification
+	completeMessage := n.formatSpeedTestMessage(result)
+	if err := n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestComplete, completeMessage, nil); err != nil {
+		log.Error().Err(err).Msg("Failed to send speed test complete notification")
 	}
 
-	// Check thresholds
+	// Check thresholds and send specific messages for violations
 	if result.Ping > 0 {
-		if err := n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestPingHigh, message, &result.Ping); err != nil {
+		pingThreshold := n.getThresholdForEvent(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestPingHigh)
+		pingMessage := n.formatHighPingMessage(result, pingThreshold)
+		if err := n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestPingHigh, pingMessage, &result.Ping); err != nil {
 			log.Error().Err(err).Msg("Failed to send high ping notification")
 		}
 	}
 
 	if result.Download > 0 {
 		downloadMbps := result.Download
-		if err := n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestDownloadLow, message, &downloadMbps); err != nil {
+		downloadThreshold := n.getThresholdForEvent(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestDownloadLow)
+		downloadMessage := n.formatLowDownloadMessage(result, downloadThreshold)
+		if err := n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestDownloadLow, downloadMessage, &downloadMbps); err != nil {
 			log.Error().Err(err).Msg("Failed to send low download notification")
 		}
 	}
 
 	if result.Upload > 0 {
 		uploadMbps := result.Upload
-		if err := n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestUploadLow, message, &uploadMbps); err != nil {
+		uploadThreshold := n.getThresholdForEvent(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestUploadLow)
+		uploadMessage := n.formatLowUploadMessage(result, uploadThreshold)
+		if err := n.SendNotification(database.NotificationCategorySpeedtest, database.NotificationEventSpeedtestUploadLow, uploadMessage, &uploadMbps); err != nil {
 			log.Error().Err(err).Msg("Failed to send low upload notification")
 		}
 	}
@@ -205,7 +234,13 @@ func (n *Notifier) SendPacketLossNotification(monitorName string, host string, p
 	}
 
 	// High packet loss
-	message := fmt.Sprintf("[!] High Packet Loss - **%s** | Host: **%s** | Loss: **%.1f%%**", monitorName, host, packetLoss)
+	threshold := n.getThresholdForEvent(database.NotificationCategoryPacketLoss, database.NotificationEventPacketLossHigh)
+	var message string
+	if threshold != nil {
+		message = fmt.Sprintf("[!] High Packet Loss - **%s** | Host: **%s** | Loss: **%.1f%%** (threshold: %.0f%%)", monitorName, host, packetLoss, *threshold)
+	} else {
+		message = fmt.Sprintf("[!] High Packet Loss - **%s** | Host: **%s** | Loss: **%.1f%%**", monitorName, host, packetLoss)
+	}
 	return n.SendNotification(database.NotificationCategoryPacketLoss, database.NotificationEventPacketLossHigh, message, &packetLoss)
 }
 
@@ -213,7 +248,7 @@ func (n *Notifier) SendPacketLossNotification(monitorName string, host string, p
 // For temperature notifications, agentName can include sensor info in format "agent|sensor"
 func (n *Notifier) SendAgentNotification(agentName string, eventType string, value *float64) error {
 	var message string
-	
+
 	// Parse agent name and optional sensor info
 	parts := strings.Split(agentName, "|")
 	actualAgentName := parts[0]
@@ -222,6 +257,9 @@ func (n *Notifier) SendAgentNotification(agentName string, eventType string, val
 		sensorInfo = parts[1]
 	}
 
+	// Get threshold for the event type
+	threshold := n.getThresholdForEvent(database.NotificationCategoryAgent, eventType)
+
 	switch eventType {
 	case database.NotificationEventAgentOffline:
 		message = fmt.Sprintf("[OFFLINE] Agent Offline - **%s** | Connection lost", actualAgentName)
@@ -229,34 +267,58 @@ func (n *Notifier) SendAgentNotification(agentName string, eventType string, val
 		message = fmt.Sprintf("[ONLINE] Agent Online - **%s** | Connection restored", actualAgentName)
 	case database.NotificationEventAgentHighBandwidth:
 		if value != nil {
-			message = fmt.Sprintf("[!] High Bandwidth Usage - Agent: **%s** | Bandwidth: **%.1f Mbps**", actualAgentName, *value)
+			if threshold != nil {
+				message = fmt.Sprintf("[!] High Bandwidth Usage - Agent: **%s** | Bandwidth: **%.1f Mbps** (threshold: %.0f Mbps)", actualAgentName, *value, *threshold)
+			} else {
+				message = fmt.Sprintf("[!] High Bandwidth Usage - Agent: **%s** | Bandwidth: **%.1f Mbps**", actualAgentName, *value)
+			}
 		} else {
 			message = fmt.Sprintf("[!] High Bandwidth Usage - Agent: **%s** | Bandwidth: **Unknown**", actualAgentName)
 		}
 	case database.NotificationEventAgentLowDisk:
 		if value != nil {
-			message = fmt.Sprintf("[DISK] Low Disk Space - Agent: **%s** | Disk Usage: **%.1f%%**", actualAgentName, *value)
+			if threshold != nil {
+				message = fmt.Sprintf("[DISK] Low Disk Space - Agent: **%s** | Disk Usage: **%.1f%%** (threshold: %.0f%%)", actualAgentName, *value, *threshold)
+			} else {
+				message = fmt.Sprintf("[DISK] Low Disk Space - Agent: **%s** | Disk Usage: **%.1f%%**", actualAgentName, *value)
+			}
 		} else {
 			message = fmt.Sprintf("[DISK] Low Disk Space - Agent: **%s** | Disk Usage: **Unknown**", actualAgentName)
 		}
 	case database.NotificationEventAgentHighCPU:
 		if value != nil {
-			message = fmt.Sprintf("[CPU] High CPU Usage - Agent: **%s** | CPU: **%.1f%%**", actualAgentName, *value)
+			if threshold != nil {
+				message = fmt.Sprintf("[CPU] High CPU Usage - Agent: **%s** | CPU: **%.1f%%** (threshold: %.0f%%)", actualAgentName, *value, *threshold)
+			} else {
+				message = fmt.Sprintf("[CPU] High CPU Usage - Agent: **%s** | CPU: **%.1f%%**", actualAgentName, *value)
+			}
 		} else {
 			message = fmt.Sprintf("[CPU] High CPU Usage - Agent: **%s** | CPU: **Unknown**", actualAgentName)
 		}
 	case database.NotificationEventAgentHighMemory:
 		if value != nil {
-			message = fmt.Sprintf("[MEM] High Memory Usage - Agent: **%s** | Memory: **%.1f%%**", actualAgentName, *value)
+			if threshold != nil {
+				message = fmt.Sprintf("[MEM] High Memory Usage - Agent: **%s** | Memory: **%.1f%%** (threshold: %.0f%%)", actualAgentName, *value, *threshold)
+			} else {
+				message = fmt.Sprintf("[MEM] High Memory Usage - Agent: **%s** | Memory: **%.1f%%**", actualAgentName, *value)
+			}
 		} else {
 			message = fmt.Sprintf("[MEM] High Memory Usage - Agent: **%s** | Memory: **Unknown**", actualAgentName)
 		}
 	case database.NotificationEventAgentHighTemp:
 		if value != nil {
 			if sensorInfo != "" {
-				message = fmt.Sprintf("[TEMP] High Temperature - Agent: **%s** | **%s: %.1f°C**", actualAgentName, sensorInfo, *value)
+				if threshold != nil {
+					message = fmt.Sprintf("[TEMP] High Temperature - Agent: **%s** | **%s: %.1f°C** (threshold: %.0f°C)", actualAgentName, sensorInfo, *value, *threshold)
+				} else {
+					message = fmt.Sprintf("[TEMP] High Temperature - Agent: **%s** | **%s: %.1f°C**", actualAgentName, sensorInfo, *value)
+				}
 			} else {
-				message = fmt.Sprintf("[TEMP] High Temperature - Agent: **%s** | Temperature: **%.1f°C**", actualAgentName, *value)
+				if threshold != nil {
+					message = fmt.Sprintf("[TEMP] High Temperature - Agent: **%s** | Temperature: **%.1f°C** (threshold: %.0f°C)", actualAgentName, *value, *threshold)
+				} else {
+					message = fmt.Sprintf("[TEMP] High Temperature - Agent: **%s** | Temperature: **%.1f°C**", actualAgentName, *value)
+				}
 			}
 		} else {
 			message = fmt.Sprintf("[TEMP] High Temperature - Agent: **%s** | Temperature: **Unknown**", actualAgentName)
@@ -335,6 +397,120 @@ func (n *Notifier) formatSpeedTestMessage(result *SpeedTestResult) string {
 		sb.WriteString(fmt.Sprintf("\nISP: **%s**", result.ISP))
 	}
 
+	return sb.String()
+}
+
+// formatLowDownloadMessage formats a notification message for download speed below threshold
+func (n *Notifier) formatLowDownloadMessage(result *SpeedTestResult, threshold *float64) string {
+	var sb strings.Builder
+	sb.WriteString("[!] Low Download Speed Detected")
+	
+	if result.ServerName != "" {
+		sb.WriteString(fmt.Sprintf(" - **%s**", result.ServerName))
+	}
+	if result.Provider != "" {
+		sb.WriteString(fmt.Sprintf(" (%s)", result.Provider))
+	}
+	sb.WriteString("\n")
+	
+	// Show the low download speed prominently with threshold if available
+	if threshold != nil {
+		sb.WriteString(fmt.Sprintf("Download: **%.2f Mbps** (threshold: %.0f Mbps)", result.Download, *threshold))
+	} else {
+		sb.WriteString(fmt.Sprintf("Download: **%.2f Mbps**", result.Download))
+	}
+	
+	// Add other metrics for context
+	var otherMetrics []string
+	if result.Upload > 0 {
+		otherMetrics = append(otherMetrics, fmt.Sprintf("↑ %.2f Mbps", result.Upload))
+	}
+	if result.Ping > 0 {
+		otherMetrics = append(otherMetrics, fmt.Sprintf("Ping: %.2f ms", result.Ping))
+	}
+	
+	if len(otherMetrics) > 0 {
+		sb.WriteString(" | ")
+		sb.WriteString(strings.Join(otherMetrics, " | "))
+	}
+	
+	return sb.String()
+}
+
+// formatLowUploadMessage formats a notification message for upload speed below threshold
+func (n *Notifier) formatLowUploadMessage(result *SpeedTestResult, threshold *float64) string {
+	var sb strings.Builder
+	sb.WriteString("[!] Low Upload Speed Detected")
+	
+	if result.ServerName != "" {
+		sb.WriteString(fmt.Sprintf(" - **%s**", result.ServerName))
+	}
+	if result.Provider != "" {
+		sb.WriteString(fmt.Sprintf(" (%s)", result.Provider))
+	}
+	sb.WriteString("\n")
+	
+	// Show the low upload speed prominently with threshold if available
+	if threshold != nil {
+		sb.WriteString(fmt.Sprintf("Upload: **%.2f Mbps** (threshold: %.0f Mbps)", result.Upload, *threshold))
+	} else {
+		sb.WriteString(fmt.Sprintf("Upload: **%.2f Mbps**", result.Upload))
+	}
+	
+	// Add other metrics for context
+	var otherMetrics []string
+	if result.Download > 0 {
+		otherMetrics = append(otherMetrics, fmt.Sprintf("↓ %.2f Mbps", result.Download))
+	}
+	if result.Ping > 0 {
+		otherMetrics = append(otherMetrics, fmt.Sprintf("Ping: %.2f ms", result.Ping))
+	}
+	
+	if len(otherMetrics) > 0 {
+		sb.WriteString(" | ")
+		sb.WriteString(strings.Join(otherMetrics, " | "))
+	}
+	
+	return sb.String()
+}
+
+// formatHighPingMessage formats a notification message for ping above threshold
+func (n *Notifier) formatHighPingMessage(result *SpeedTestResult, threshold *float64) string {
+	var sb strings.Builder
+	sb.WriteString("[!] High Ping Detected")
+	
+	if result.ServerName != "" {
+		sb.WriteString(fmt.Sprintf(" - **%s**", result.ServerName))
+	}
+	if result.Provider != "" {
+		sb.WriteString(fmt.Sprintf(" (%s)", result.Provider))
+	}
+	sb.WriteString("\n")
+	
+	// Show the high ping prominently with threshold if available
+	if threshold != nil {
+		sb.WriteString(fmt.Sprintf("Ping: **%.2f ms** (threshold: %.0f ms)", result.Ping, *threshold))
+	} else {
+		sb.WriteString(fmt.Sprintf("Ping: **%.2f ms**", result.Ping))
+	}
+	
+	// Add other metrics for context
+	var otherMetrics []string
+	if result.Download > 0 {
+		otherMetrics = append(otherMetrics, fmt.Sprintf("↓ %.2f Mbps", result.Download))
+	}
+	if result.Upload > 0 {
+		otherMetrics = append(otherMetrics, fmt.Sprintf("↑ %.2f Mbps", result.Upload))
+	}
+	if result.Jitter > 0 {
+		otherMetrics = append(otherMetrics, fmt.Sprintf("Jitter: %.2f ms", result.Jitter))
+	}
+	
+	if len(otherMetrics) > 0 {
+		sb.WriteString(" | ")
+		sb.WriteString(strings.Join(otherMetrics, " | "))
+	}
+	
 	return sb.String()
 }
 

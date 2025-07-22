@@ -7,6 +7,7 @@ toolchain go1.24.5
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/anatol/smart.go v0.0.0-20241126061019-f03d79b340d2
+	github.com/containrrr/shoutrrr v0.8.0
 	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/creativeprojects/go-selfupdate v1.5.0
 	github.com/gin-gonic/gin v1.10.1
@@ -48,7 +49,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.13 // indirect
 	github.com/aws/smithy-go v1.22.2 // indirect
 	github.com/coder/websocket v1.8.12 // indirect
-	github.com/containrrr/shoutrrr v0.8.0 // indirect
 	github.com/coreos/go-iptables v0.7.1-0.20240112124308-65c67c9f46e6 // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/dblohm7/wingoes v0.0.0-20240119213807-a09d6be7affa // indirect
