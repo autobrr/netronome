@@ -232,18 +232,15 @@ export const MonitorTab: React.FC = () => {
                 )}
               </div>
               <div className="flex gap-2">
-                {/* Only show edit button for non-autodiscovered agents */}
-                {!(selectedAgent.discoveredAt && selectedAgent.isTailscale) && (
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleEditAgent(selectedAgent)}
-                    className="p-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg shadow-md transition-colors"
-                    title="Edit agent"
-                  >
-                    <PencilIcon className="h-4 w-4" />
-                  </motion.button>
-                )}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleEditAgent(selectedAgent)}
+                  className="p-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg shadow-md transition-colors"
+                  title="Edit agent"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}

@@ -31,6 +31,9 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
     enabled: true,
   });
   const [showApiKey, setShowApiKey] = useState(false);
+  
+  // Check if this is a Tailscale auto-discovered agent
+  const isAutoDiscoveredTailscale = !!(agent?.discoveredAt && agent?.isTailscale);
 
   useEffect(() => {
     if (agent) {
@@ -110,7 +113,7 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
                     as="h3"
                     className="text-lg font-medium text-gray-900 dark:text-white"
                   >
-                    {agent ? "Edit Agent" : "Add Agent"}
+                    {agent ? (agent.isTailscale ? "Edit Monitoring Settings" : "Edit Agent") : "Add Agent"}
                   </Dialog.Title>
                   <button
                     onClick={onCancel}
@@ -141,6 +144,11 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
                               {new Date(agent.discoveredAt).toLocaleDateString()}
                             </p>
                           )}
+                          {isAutoDiscoveredTailscale && (
+                            <p className="text-xs text-blue-600 dark:text-blue-200 mt-1">
+                              Connection details are managed by Tailscale. Only monitoring can be toggled.
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -161,9 +169,10 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
                       }
-                      className="mt-1 block w-full px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"
+                      className="mt-1 block w-full px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="Remote Server"
                       required
+                      disabled={isAutoDiscoveredTailscale}
                     />
                   </div>
 
@@ -179,64 +188,67 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
                       id="url"
                       value={formData.url}
                       onChange={(e) => handleUrlChange(e.target.value)}
-                      className="mt-1 block w-full px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"
+                      className="mt-1 block w-full px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="http://192.168.1.100:8200"
                       required
+                      disabled={isAutoDiscoveredTailscale}
                     />
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       Enter the base URL of the monitor agent
                     </p>
                   </div>
 
-                  <div>
-                    <label
-                      htmlFor="apiKey"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      API Key (Optional)
-                    </label>
-                    <div className="mt-1 relative">
-                      <input
-                        type={showApiKey ? "text" : "password"}
-                        id="apiKey"
-                        value={formData.apiKey || ""}
-                        data-1p-ignore
-                        onChange={(e) =>
-                          setFormData({ ...formData, apiKey: e.target.value })
-                        }
-                        className="block w-full pr-10 px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"
-                        placeholder={
-                          agent?.apiKey === "configured"
-                            ? "API key is configured"
-                            : "Leave empty for no authentication"
-                        }
-                      />
-                      <button
-                        type="button"
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                        onClick={() => setShowApiKey(!showApiKey)}
+                  {!isAutoDiscoveredTailscale && (
+                    <div>
+                      <label
+                        htmlFor="apiKey"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                       >
-                        {showApiKey ? (
-                          <EyeSlashIcon className="h-5 w-5 text-gray-400" />
-                        ) : (
-                          <EyeIcon className="h-5 w-5 text-gray-400" />
-                        )}
-                      </button>
+                        API Key (Optional)
+                      </label>
+                      <div className="mt-1 relative">
+                        <input
+                          type={showApiKey ? "text" : "password"}
+                          id="apiKey"
+                          value={formData.apiKey || ""}
+                          data-1p-ignore
+                          onChange={(e) =>
+                            setFormData({ ...formData, apiKey: e.target.value })
+                          }
+                          className="block w-full pr-10 px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"
+                          placeholder={
+                            agent?.apiKey === "configured"
+                              ? "API key is configured"
+                              : "Leave empty for no authentication"
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                        >
+                          {showApiKey ? (
+                            <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                          ) : (
+                            <EyeIcon className="h-5 w-5 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          If set, the agent will require this API key for
+                          authentication
+                        </p>
+                        <button
+                          type="button"
+                          onClick={generateApiKey}
+                          className="text-xs text-blue-600 hover:text-blue-500 dark:text-blue-400"
+                        >
+                          Generate Random Key
+                        </button>
+                      </div>
                     </div>
-                    <div className="mt-1 flex items-center justify-between">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        If set, the agent will require this API key for
-                        authentication
-                      </p>
-                      <button
-                        type="button"
-                        onClick={generateApiKey}
-                        className="text-xs text-blue-600 hover:text-blue-500 dark:text-blue-400"
-                      >
-                        Generate Random Key
-                      </button>
-                    </div>
-                  </div>
+                  )}
 
                   <div className="space-y-3">
                     <div className="flex items-center">
