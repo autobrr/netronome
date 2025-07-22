@@ -9,18 +9,20 @@ import (
 	"runtime/debug"
 
 	"github.com/spf13/cobra"
+
+	appversion "github.com/autobrr/netronome/internal/version"
 )
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("netronome version: %s\n", version)
-		if commit != "unknown" {
-			fmt.Printf("Git commit:        %s\n", commit)
+		fmt.Printf("netronome version: %s\n", appversion.Version)
+		if appversion.Commit != "unknown" {
+			fmt.Printf("Git commit:        %s\n", appversion.Commit)
 		}
-		if buildTime != "unknown" {
-			fmt.Printf("Build time:        %s\n", buildTime)
+		if appversion.BuildTime != "unknown" {
+			fmt.Printf("Build time:        %s\n", appversion.BuildTime)
 		}
 		fmt.Printf("Go version:        %s\n", runtime.Version())
 		fmt.Printf("OS/Arch:           %s/%s\n", runtime.GOOS, runtime.GOARCH)
@@ -34,9 +36,7 @@ func SetVersion(v, bt, c string) {
 			v = info.Main.Version
 		}
 	}
-	version = v
-	buildTime = bt
-	commit = c
+	appversion.Set(v, bt, c)
 }
 
 func init() {
