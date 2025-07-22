@@ -32,11 +32,13 @@ Netronome (Network Metronome) is a modern network performance testing and monito
 ## ✨ Features
 
 - **Speed Testing**
+
   - Support for Speedtest.net, iperf3 servers, and LibreSpeed
   - Real-time test progress visualization
   - Latency and jitter measurements
 
 - **Network Diagnostics**
+
   - **Unified Interface**: Seamless switching between single traceroute tests and continuous monitoring
   - **Traceroute**: Real-time hop discovery with cross-platform support (Linux/macOS/Windows)
   - **Packet Loss Monitoring**: Continuous ICMP ping monitoring with flexible scheduling options
@@ -46,6 +48,7 @@ Netronome (Network Metronome) is a modern network performance testing and monito
   - **Cross-tab Navigation**: Easy flow between traceroute results and monitor creation
 
 - **Comprehensive System Monitoring**
+
   - **Distributed Agent Architecture**: Deploy lightweight agents on remote servers for complete system visibility
   - **Real-time SSE Streaming**: Live system metrics via Server-Sent Events
   - **Multi-server Support**: Monitor multiple servers from one centralized dashboard
@@ -56,18 +59,21 @@ Netronome (Network Metronome) is a modern network performance testing and monito
   - **Auto-reconnection**: Agents automatically reconnect with exponential backoff
 
 - **Monitoring & Visualization**
+
   - **Speed Test History**: Interactive charts with customizable time ranges (1d, 3d, 1w, 1m, all)
   - **Packet Loss Trends**: Historical packet loss and RTT monitoring with performance charts
   - **Real-time Status**: Live monitoring status with progress tracking and health indicators
   - **Monitor Management**: Start/stop/edit monitors with schedule badge visualization
 
 - **Scheduling & Automation**
+
   - **Speed Tests**: Automated testing with flexible cron-like scheduling
   - **Packet Loss Monitors**: Interval-based (10 seconds to 24 hours) or exact-time scheduling
   - **Auto-start Option**: "Start monitoring immediately" for new monitors
   - **Multiple Schedule Types**: Choose between regular intervals or daily exact times
 
 - **Modern Interface**
+
   - **Responsive Design**: Optimized for both desktop and mobile devices
   - **Real-time Progress**: Live updates for iperf3 tests with animated progress indicators
   - **Dark Mode**: Fully optimized dark theme with consistent styling
@@ -225,12 +231,6 @@ timeout = 10
 country_database_path = ""
 asn_database_path = ""
 
-[notifications]
-enabled = false
-webhook_url = ""
-ping_threshold = 30
-upload_threshold = 200
-download_threshold = 200
 
 [tailscale]
 enabled = false
@@ -472,7 +472,7 @@ systemctl start netronome-agent
 The monitoring agents provide comprehensive system visibility:
 
 - **Bandwidth Monitoring**: Real-time network usage via vnstat integration
-- **Hardware Statistics**: 
+- **Hardware Statistics**:
   - CPU usage percentage and load averages
   - Memory and swap usage
   - Disk usage across all mounted filesystems
@@ -494,6 +494,7 @@ The agent supports flexible disk filtering to customize which filesystems are mo
 - **Default Behavior**: Special filesystems (`/snap/*`, `/run/*`, tmpfs, devfs, squashfs) are excluded unless explicitly included
 
 Examples:
+
 ```bash
 # Monitor /mnt/storage even if it's a special filesystem type
 netronome agent --disk-include /mnt/storage
@@ -545,10 +546,12 @@ Netronome includes native Tailscale support, allowing agents to securely connect
 ##### For Agents
 
 1. **Get a Tailscale Auth Key**
+
    - Visit https://login.tailscale.com/admin/settings/keys
    - Create a new auth key (reusable recommended for multiple agents)
 
 2. **Start Agent with Tailscale**
+
    ```bash
    # Basic Tailscale agent (creates tsnet instance)
    ./bin/netronome agent --tailscale --tailscale-auth-key tskey-auth-YOUR-KEY
@@ -581,6 +584,7 @@ Netronome includes native Tailscale support, allowing agents to securely connect
 The server's Tailscale configuration intelligently chooses between using the host's tailscaled or creating a tsnet instance based on your configuration:
 
 Add to your server's `config.toml`:
+
 ```toml
 [tailscale]
 enabled = true              # Enable Tailscale support
@@ -595,6 +599,7 @@ discovery_port = 8200       # Port to probe for agents
 ```
 
 **How auto-detection works:**
+
 - If `auth_key` is provided → Uses tsnet (creates new Tailscale node)
 - If `auth_key` is empty → Uses host's tailscaled (no new node)
 - Set `method = "host"` to force using host's tailscaled
@@ -656,6 +661,7 @@ export NETRONOME__TAILSCALE_DISCOVERY_PORT=8200
 #### How It Works
 
 1. **Agent Side**:
+
    - **Auto mode**: Automatically uses tsnet if auth_key provided, otherwise uses host
    - **With tsnet**: Creates isolated instance in configured state directory
    - **With host tailscaled**: Uses existing tailscaled daemon
@@ -665,6 +671,7 @@ export NETRONOME__TAILSCALE_DISCOVERY_PORT=8200
    - Responds to `/netronome/info` for automatic identification
 
 2. **Server Side**:
+
    - **Auto mode**: Automatically uses tsnet if auth_key provided, otherwise uses host
    - **With host tailscaled**: Discovery works using existing connection
    - **With tsnet**: Creates separate instance for discovery
@@ -674,6 +681,7 @@ export NETRONOME__TAILSCALE_DISCOVERY_PORT=8200
    - Uses Tailscale hostnames for reliable connectivity
 
 3. **Discovery Process**:
+
    ```
    Server → Scans all Tailscale peers
          → Probes each peer on port 8200
@@ -693,15 +701,18 @@ export NETRONOME__TAILSCALE_DISCOVERY_PORT=8200
 **A: You have several options:**
 
 - **For Agents**:
+
   1. **Use host's tailscaled** (recommended): `netronome agent --tailscale --tailscale-method host`
+
      - No new machine in Tailscale admin
      - Uses existing connection
      - Automatically discovered on configured port
-  
+
   2. **Create separate tsnet**: `netronome agent --tailscale --tailscale-auth-key tskey-xxx`
+
      - Creates new machine in Tailscale admin
      - Completely isolated from system tailscaled
-  
+
   3. **Let it auto-detect**: `netronome agent --tailscale`
      - Uses host if no auth key provided
      - Creates tsnet if auth key provided
@@ -714,6 +725,7 @@ export NETRONOME__TAILSCALE_DISCOVERY_PORT=8200
 **Q: How do I avoid creating extra machines in Tailscale?**
 
 **A: Simply don't provide an auth key:**
+
 ```bash
 # Agent will automatically use host's tailscaled
 netronome agent --tailscale
@@ -737,6 +749,7 @@ The UI provides clear indicators for Tailscale connectivity:
 #### Troubleshooting
 
 **Agent not discovered?**
+
 - Check agent is running on port 8200 (default discovery port)
 - Verify both server and agent are on same Tailnet
 - Check logs: `grep -i tailscale /path/to/netronome.log`
@@ -744,11 +757,13 @@ The UI provides clear indicators for Tailscale connectivity:
 - Test manually: `curl http://<agent-hostname>:8200/netronome/info`
 
 **Connection issues?**
+
 - Verify Tailscale connectivity: `tailscale ping <agent-hostname>`
 - Check agent is listening: `curl http://<agent-hostname>:8200/health`
 - Ensure no firewall blocking Tailscale (100.64.0.0/10)
 
 **Want to use existing tailscaled instead?**
+
 - For agents: Run without `--tailscale` flag, access via host's Tailscale hostname
 - For server: Skip `[tailscale]` config, manually add agents
 - Both approaches work perfectly!
@@ -783,7 +798,7 @@ netronome agent --tailscale \
   --tailscale-state-dir ~/.config/netronome/tailscale-prod \
   --tailscale-auth-key "PROD-KEY"
 
-# Development Tailnet  
+# Development Tailnet
 netronome agent --tailscale \
   --tailscale-state-dir ~/.config/netronome/tailscale-dev \
   --tailscale-auth-key "DEV-KEY"
@@ -791,75 +806,70 @@ netronome agent --tailscale \
 
 ### Environment Variables
 
-| Variable                                            | Description                                                       | Default                                      | Required               |
-| --------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------- | ---------------------- |
-| `NETRONOME__HOST`                                   | Server host                                                       | `127.0.0.1`                                  | No                     |
-| `NETRONOME__PORT`                                   | Server port                                                       | `7575`                                       | No                     |
-| `NETRONOME__GIN_MODE`                               | Gin framework mode (`debug`/`release`)                            | `release`                                    | No                     |
-| `NETRONOME__DB_TYPE`                                | Database type (`sqlite`/`postgres`)                               | `sqlite`                                     | No                     |
-| `NETRONOME__DB_PATH`                                | SQLite database file path                                         | `./netronome.db`                             | Only for SQLite        |
-| `NETRONOME__DB_HOST`                                | PostgreSQL host                                                   | `localhost`                                  | Only for PostgreSQL    |
-| `NETRONOME__DB_PORT`                                | PostgreSQL port                                                   | `5432`                                       | Only for PostgreSQL    |
-| `NETRONOME__DB_USER`                                | PostgreSQL user                                                   | `postgres`                                   | Only for PostgreSQL    |
-| `NETRONOME__DB_PASSWORD`                            | PostgreSQL password                                               | -                                            | Only for PostgreSQL    |
-| `NETRONOME__DB_NAME`                                | PostgreSQL database name                                          | `netronome`                                  | Only for PostgreSQL    |
-| `NETRONOME__DB_SSLMODE`                             | PostgreSQL SSL mode                                               | `disable`                                    | Only for PostgreSQL    |
-| `NETRONOME__IPERF_TEST_DURATION`                    | Duration of iPerf tests in seconds                                | `10`                                         | No                     |
-| `NETRONOME__IPERF_PARALLEL_CONNS`                   | Number of parallel iPerf connections                              | `4`                                          | No                     |
-| `NETRONOME__IPERF_TIMEOUT`                          | Timeout for iperf3 tests in seconds                               | `60`                                         | No                     |
-| `NETRONOME__IPERF_PING_COUNT`                       | Number of ping packets to send for iperf3 tests                   | `5`                                          | No                     |
-| `NETRONOME__IPERF_PING_INTERVAL`                    | Interval between ping packets in milliseconds for iperf3 tests    | `1000`                                       | No                     |
-| `NETRONOME__IPERF_PING_TIMEOUT`                     | Timeout for ping tests in seconds for iperf3 tests                | `10`                                         | No                     |
-| `NETRONOME__SPEEDTEST_TIMEOUT`                      | Speedtest timeout in seconds                                      | `30`                                         | No                     |
-| `NETRONOME__LOG_LEVEL`                              | Log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`/`panic`) | `info`                                       | No                     |
-| `NETRONOME__OIDC_ISSUER`                            | OpenID Connect issuer URL                                         | -                                            | Only for OIDC          |
-| `NETRONOME__OIDC_CLIENT_ID`                         | OpenID Connect client ID                                          | -                                            | Only for OIDC          |
-| `NETRONOME__OIDC_CLIENT_SECRET`                     | OpenID Connect client secret                                      | -                                            | Only for OIDC          |
-| `NETRONOME__OIDC_REDIRECT_URL`                      | OpenID Connect redirect URL                                       | http://localhost:7575/api/auth/oidc/callback | Only for OIDC          |
-| `NETRONOME__DEFAULT_PAGE`                           | Default page number for pagination                                | `1`                                          | No                     |
-| `NETRONOME__DEFAULT_PAGE_SIZE`                      | Default page size for pagination                                  | `20`                                         | No                     |
-| `NETRONOME__MAX_PAGE_SIZE`                          | Maximum page size for pagination                                  | `100`                                        | No                     |
-| `NETRONOME__DEFAULT_TIME_RANGE`                     | Default time range for data queries                               | `1w`                                         | No                     |
-| `NETRONOME__DEFAULT_LIMIT`                          | Default limit for data queries                                    | `20`                                         | No                     |
-| `NETRONOME__SESSION_SECRET`                         | Session secret for authentication                                 | -                                            | No                     |
-| `NETRONOME__NOTIFICATIONS_ENABLED`                  | Enable or disable notifications                                   | `false`                                      | No                     |
-| `NETRONOME__NOTIFICATIONS_WEBHOOK_URL`              | Webhook URL for notifications                                     | -                                            | Only for Notifications |
-| `NETRONOME__NOTIFICATIONS_PING_THRESHOLD`           | Ping threshold in ms for notifications                            | `30`                                         | No                     |
-| `NETRONOME__NOTIFICATIONS_UPLOAD_THRESHOLD`         | Upload threshold in Mbps for notifications                        | `200`                                        | No                     |
-| `NETRONOME__NOTIFICATIONS_DOWNLOAD_THRESHOLD`       | Download threshold in Mbps for notifications                      | `200`                                        | No                     |
-| `NETRONOME__NOTIFICATIONS_DISCORD_MENTION_ID`       | Discord user/role ID to mention on alerts                         | -                                            | No                     |
-| `NETRONOME__AUTH_WHITELIST`                         | Whitelist for authentication                                      | -                                            | No                     |
-| `NETRONOME__GEOIP_COUNTRY_DATABASE_PATH`            | Path to GeoLite2-Country.mmdb file                                | -                                            | No                     |
-| `NETRONOME__GEOIP_ASN_DATABASE_PATH`                | Path to GeoLite2-ASN.mmdb file                                    | -                                            | No                     |
-| `NETRONOME__PACKETLOSS_ENABLED`                     | Enable packet loss monitoring feature                             | `true`                                       | No                     |
-| `NETRONOME__PACKETLOSS_MAX_CONCURRENT_MONITORS`     | Maximum number of monitors that can run simultaneously            | `10`                                         | No                     |
-| `NETRONOME__PACKETLOSS_PRIVILEGED_MODE`             | Use privileged ICMP mode for better accuracy                      | `false`                                      | No                     |
-| `NETRONOME__PACKETLOSS_RESTORE_MONITORS_ON_STARTUP` | **WARNING**: Immediately run ALL enabled monitors on startup      | `false`                                      | No                     |
-| `NETRONOME__AGENT_HOST`                             | Agent server bind address                                         | `0.0.0.0`                                    | No                     |
-| `NETRONOME__AGENT_PORT`                             | Agent server port                                                 | `8200`                                       | No                     |
-| `NETRONOME__AGENT_INTERFACE`                        | Network interface for agent to monitor (empty for all)            | ``                                           | No                     |
-| `NETRONOME__AGENT_DISK_INCLUDES`                    | Comma-separated list of disk mounts to include                    | ``                                           | No                     |
-| `NETRONOME__AGENT_DISK_EXCLUDES`                    | Comma-separated list of disk mounts to exclude                    | ``                                           | No                     |
-| `NETRONOME__MONITOR_ENABLED`                        | Enable monitor client service in main server                      | `true`                                       | No                     |
-| `NETRONOME__MONITOR_RECONNECT_INTERVAL`             | Reconnection interval for monitor agent connections               | `30s`                                        | No                     |
-| `NETRONOME__TAILSCALE_ENABLED`                      | Enable Tailscale integration                                      | `false`                                      | No                     |
-| `NETRONOME__TAILSCALE_METHOD`                       | Tailscale method: auto, host, or tsnet                           | `auto`                                       | No                     |
-| `NETRONOME__TAILSCALE_AUTH_KEY`                     | Tailscale auth key (required for tsnet mode)                     | ``                                           | When method is tsnet   |
-| `NETRONOME__TAILSCALE_HOSTNAME`                     | Custom Tailscale hostname (auto-generated if empty)              | ``                                           | No                     |
-| `NETRONOME__TAILSCALE_EPHEMERAL`                    | Remove from Tailscale network on shutdown                         | `false`                                      | No                     |
-| `NETRONOME__TAILSCALE_STATE_DIR`                    | Directory for tsnet state                                         | `~/.config/netronome/tsnet`                  | No                     |
-| `NETRONOME__TAILSCALE_CONTROL_URL`                  | Custom control server URL (for Headscale)                         | ``                                           | No                     |
-| `NETRONOME__TAILSCALE_AGENT_PORT`                   | Port for agent to listen on Tailscale network                     | `8200`                                       | No                     |
-| `NETRONOME__TAILSCALE_AUTO_DISCOVER`                | Enable automatic Tailscale agent discovery                        | `true`                                       | No                     |
-| `NETRONOME__TAILSCALE_DISCOVERY_INTERVAL`           | How often to scan for new Tailscale agents                       | `5m`                                         | No                     |
-| `NETRONOME__TAILSCALE_DISCOVERY_PORT`               | Port to probe for Netronome agents                               | `8200`                                       | No                     |
-| `NETRONOME__TAILSCALE_DISCOVERY_PREFIX`             | Optional hostname prefix filter                                   | ``                                           | No                     |
+| Variable                                            | Description                                                       | Default                                      | Required             |
+| --------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------- | -------------------- |
+| `NETRONOME__HOST`                                   | Server host                                                       | `127.0.0.1`                                  | No                   |
+| `NETRONOME__PORT`                                   | Server port                                                       | `7575`                                       | No                   |
+| `NETRONOME__GIN_MODE`                               | Gin framework mode (`debug`/`release`)                            | `release`                                    | No                   |
+| `NETRONOME__DB_TYPE`                                | Database type (`sqlite`/`postgres`)                               | `sqlite`                                     | No                   |
+| `NETRONOME__DB_PATH`                                | SQLite database file path                                         | `./netronome.db`                             | Only for SQLite      |
+| `NETRONOME__DB_HOST`                                | PostgreSQL host                                                   | `localhost`                                  | Only for PostgreSQL  |
+| `NETRONOME__DB_PORT`                                | PostgreSQL port                                                   | `5432`                                       | Only for PostgreSQL  |
+| `NETRONOME__DB_USER`                                | PostgreSQL user                                                   | `postgres`                                   | Only for PostgreSQL  |
+| `NETRONOME__DB_PASSWORD`                            | PostgreSQL password                                               | -                                            | Only for PostgreSQL  |
+| `NETRONOME__DB_NAME`                                | PostgreSQL database name                                          | `netronome`                                  | Only for PostgreSQL  |
+| `NETRONOME__DB_SSLMODE`                             | PostgreSQL SSL mode                                               | `disable`                                    | Only for PostgreSQL  |
+| `NETRONOME__IPERF_TEST_DURATION`                    | Duration of iPerf tests in seconds                                | `10`                                         | No                   |
+| `NETRONOME__IPERF_PARALLEL_CONNS`                   | Number of parallel iPerf connections                              | `4`                                          | No                   |
+| `NETRONOME__IPERF_TIMEOUT`                          | Timeout for iperf3 tests in seconds                               | `60`                                         | No                   |
+| `NETRONOME__IPERF_PING_COUNT`                       | Number of ping packets to send for iperf3 tests                   | `5`                                          | No                   |
+| `NETRONOME__IPERF_PING_INTERVAL`                    | Interval between ping packets in milliseconds for iperf3 tests    | `1000`                                       | No                   |
+| `NETRONOME__IPERF_PING_TIMEOUT`                     | Timeout for ping tests in seconds for iperf3 tests                | `10`                                         | No                   |
+| `NETRONOME__SPEEDTEST_TIMEOUT`                      | Speedtest timeout in seconds                                      | `30`                                         | No                   |
+| `NETRONOME__LOG_LEVEL`                              | Log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`/`panic`) | `info`                                       | No                   |
+| `NETRONOME__OIDC_ISSUER`                            | OpenID Connect issuer URL                                         | -                                            | Only for OIDC        |
+| `NETRONOME__OIDC_CLIENT_ID`                         | OpenID Connect client ID                                          | -                                            | Only for OIDC        |
+| `NETRONOME__OIDC_CLIENT_SECRET`                     | OpenID Connect client secret                                      | -                                            | Only for OIDC        |
+| `NETRONOME__OIDC_REDIRECT_URL`                      | OpenID Connect redirect URL                                       | http://localhost:7575/api/auth/oidc/callback | Only for OIDC        |
+| `NETRONOME__DEFAULT_PAGE`                           | Default page number for pagination                                | `1`                                          | No                   |
+| `NETRONOME__DEFAULT_PAGE_SIZE`                      | Default page size for pagination                                  | `20`                                         | No                   |
+| `NETRONOME__MAX_PAGE_SIZE`                          | Maximum page size for pagination                                  | `100`                                        | No                   |
+| `NETRONOME__DEFAULT_TIME_RANGE`                     | Default time range for data queries                               | `1w`                                         | No                   |
+| `NETRONOME__DEFAULT_LIMIT`                          | Default limit for data queries                                    | `20`                                         | No                   |
+| `NETRONOME__SESSION_SECRET`                         | Session secret for authentication                                 | -                                            | No                   |
+| `NETRONOME__AUTH_WHITELIST`                         | Whitelist for authentication                                      | -                                            | No                   |
+| `NETRONOME__GEOIP_COUNTRY_DATABASE_PATH`            | Path to GeoLite2-Country.mmdb file                                | -                                            | No                   |
+| `NETRONOME__GEOIP_ASN_DATABASE_PATH`                | Path to GeoLite2-ASN.mmdb file                                    | -                                            | No                   |
+| `NETRONOME__PACKETLOSS_ENABLED`                     | Enable packet loss monitoring feature                             | `true`                                       | No                   |
+| `NETRONOME__PACKETLOSS_MAX_CONCURRENT_MONITORS`     | Maximum number of monitors that can run simultaneously            | `10`                                         | No                   |
+| `NETRONOME__PACKETLOSS_PRIVILEGED_MODE`             | Use privileged ICMP mode for better accuracy                      | `false`                                      | No                   |
+| `NETRONOME__PACKETLOSS_RESTORE_MONITORS_ON_STARTUP` | **WARNING**: Immediately run ALL enabled monitors on startup      | `false`                                      | No                   |
+| `NETRONOME__AGENT_HOST`                             | Agent server bind address                                         | `0.0.0.0`                                    | No                   |
+| `NETRONOME__AGENT_PORT`                             | Agent server port                                                 | `8200`                                       | No                   |
+| `NETRONOME__AGENT_INTERFACE`                        | Network interface for agent to monitor (empty for all)            | ``                                           | No                   |
+| `NETRONOME__AGENT_DISK_INCLUDES`                    | Comma-separated list of disk mounts to include                    | ``                                           | No                   |
+| `NETRONOME__AGENT_DISK_EXCLUDES`                    | Comma-separated list of disk mounts to exclude                    | ``                                           | No                   |
+| `NETRONOME__MONITOR_ENABLED`                        | Enable monitor client service in main server                      | `true`                                       | No                   |
+| `NETRONOME__MONITOR_RECONNECT_INTERVAL`             | Reconnection interval for monitor agent connections               | `30s`                                        | No                   |
+| `NETRONOME__TAILSCALE_ENABLED`                      | Enable Tailscale integration                                      | `false`                                      | No                   |
+| `NETRONOME__TAILSCALE_METHOD`                       | Tailscale method: auto, host, or tsnet                            | `auto`                                       | No                   |
+| `NETRONOME__TAILSCALE_AUTH_KEY`                     | Tailscale auth key (required for tsnet mode)                      | ``                                           | When method is tsnet |
+| `NETRONOME__TAILSCALE_HOSTNAME`                     | Custom Tailscale hostname (auto-generated if empty)               | ``                                           | No                   |
+| `NETRONOME__TAILSCALE_EPHEMERAL`                    | Remove from Tailscale network on shutdown                         | `false`                                      | No                   |
+| `NETRONOME__TAILSCALE_STATE_DIR`                    | Directory for tsnet state                                         | `~/.config/netronome/tsnet`                  | No                   |
+| `NETRONOME__TAILSCALE_CONTROL_URL`                  | Custom control server URL (for Headscale)                         | ``                                           | No                   |
+| `NETRONOME__TAILSCALE_AGENT_PORT`                   | Port for agent to listen on Tailscale network                     | `8200`                                       | No                   |
+| `NETRONOME__TAILSCALE_AUTO_DISCOVER`                | Enable automatic Tailscale agent discovery                        | `true`                                       | No                   |
+| `NETRONOME__TAILSCALE_DISCOVERY_INTERVAL`           | How often to scan for new Tailscale agents                        | `5m`                                         | No                   |
+| `NETRONOME__TAILSCALE_DISCOVERY_PORT`               | Port to probe for Netronome agents                                | `8200`                                       | No                   |
+| `NETRONOME__TAILSCALE_DISCOVERY_PREFIX`             | Optional hostname prefix filter                                   | ``                                           | No                   |
 
 ### Database
 
 Netronome supports two database backends:
 
 1. **SQLite** (Default)
+
    - No additional setup required
 
 2. **PostgreSQL**
@@ -879,10 +889,12 @@ Netronome supports two database backends:
 Netronome supports two authentication methods:
 
 1. **Built-in Authentication**
+
    - Username/password authentication
    - Default option if no OIDC is configured
 
 2. **OpenID Connect (OIDC)**
+
    - Integration with identity providers (Google, Okta, Auth0, Keycloak, Pocket-ID, Authelia, Authentik etc.)
    - PKCE support
    - Configure via environment variables:
@@ -989,6 +1001,7 @@ Netronome can display country flags and ASN information in traceroute results us
 #### Setup Instructions
 
 1. **Get a MaxMind License Key**
+
    - Sign up for a free account at [MaxMind](https://www.maxmind.com/en/geolite2/signup)
    - Generate a license key in your account dashboard
 
@@ -1048,29 +1061,17 @@ This is why MTR shows both metrics - overall connectivity health (most important
 
 ### Notifications
 
-Netronome uses [Shoutrrr](https://containrrr.dev/shoutrrr/) to support 15+ notification services including Discord, Gotify, Telegram, Slack, Email, and more. Notifications are sent when speed test or packet loss thresholds are breached.
+Notifications in Netronome are now managed entirely through the web interface. The system supports 15+ notification services through [Shoutrrr](https://containrrr.dev/shoutrrr/) including Discord, Gotify, Telegram, Slack, Email, and more.
 
 #### Configuration
 
-```toml
-[notifications]
-enabled = true
-ping_threshold = 30      # ms - alert if ping exceeds this
-upload_threshold = 200   # Mbps - alert if upload is below this
-download_threshold = 200 # Mbps - alert if download is below this
+To configure notifications:
 
-# Multiple notification services can be configured
-webhook_urls = [
-    "discord://TOKEN@WEBHOOK_ID",
-    "gotify://hostname/TOKEN",
-    "telegram://TOKEN@telegram?chats=@channel",
-    "pushover://shoutrrr:APPTOKEN@USERKEY",
-    "smtp://username:password@smtp.gmail.com:587/?from=sender@gmail.com&to=recipient@example.com"
-]
-
-# Legacy Discord webhook (auto-converted to Shoutrrr format)
-# webhook_url = "https://discord.com/api/webhooks/ID/TOKEN"
-```
+1. Navigate to **Settings > Notifications** in the web interface
+2. Click "Add Notification" to create a new notification service
+3. Configure the service URL and settings
+4. Set up triggers for different events (speed tests, packet loss, agent metrics)
+5. Test your configuration using the test button
 
 #### Supported Services
 
@@ -1090,36 +1091,20 @@ webhook_urls = [
 - **Generic Webhook**: `generic://example.com/webhook`
 - [And more...](https://containrrr.dev/shoutrrr/v0.8/services/overview/)
 
-#### Examples
+#### Notification Events
 
-**Discord with custom settings:**
-```toml
-webhook_urls = ["discord://TOKEN@ID?username=Netronome&avatar=https://example.com/avatar.png"]
-```
+Netronome can trigger notifications for:
 
-**Multiple services:**
-```toml
-webhook_urls = [
-    "discord://TOKEN@WEBHOOK_ID",
-    "telegram://TOKEN@telegram?chats=@monitoring",
-    "smtp://alerts@gmail.com:pass@smtp.gmail.com:587/?from=alerts@gmail.com&to=admin@example.com"
-]
-```
+- **Speed Test Events**: Test completion, failures, threshold breaches
+- **Packet Loss Monitoring**: State changes (degraded/recovered)
+- **Agent Metrics**: CPU, memory, disk, bandwidth, and temperature thresholds
 
 #### Testing Notifications
 
-You can test your notification configuration via the API:
-```bash
-curl -X POST "http://localhost:7575/api/notifications/test?url=discord://TOKEN@ID"
-```
+You can test notifications via:
 
-#### Migration from Legacy Discord Webhooks
-
-If you're using the old `webhook_url` format with a Discord webhook, it will be automatically converted to the Shoutrrr format:
-- Old: `webhook_url = "https://discord.com/api/webhooks/123/ABC"`
-- Auto-converted to: `discord://ABC@123`
-
-We recommend updating your configuration to use the new `webhook_urls` array for multiple notification services.
+- The web interface test button in Settings > Notifications
+- The API endpoint: `curl -X POST "http://localhost:7575/api/notifications/test?url=discord://TOKEN@ID"`
 
 ### CLI Commands
 
@@ -1168,13 +1153,15 @@ Netronome supports comprehensive temperature monitoring across multiple platform
 
 A: Disk temperature monitoring has several requirements:
 
-1. **Platform Support**: 
+1. **Platform Support**:
+
    - **Linux**: Full SMART support for SATA and NVMe drives
    - **macOS**: NVMe drives only (SATA drives not supported)
    - **Windows**: No SMART support (uses stub implementation)
    - **Other platforms**: No SMART support
 
-2. **Build Requirements**: 
+2. **Build Requirements**:
+
    - Release binaries are built without SMART support but still include:
      - CPU temperature monitoring (all platforms)
      - NVMe temperature monitoring (via gopsutil)
@@ -1275,12 +1262,14 @@ CGO_ENABLED=0 go build -tags nosmart -o bin/netronome-agent ./cmd/netronome-agen
 ```
 
 **What works without SMART:**
+
 - ✅ CPU temperature monitoring (all cores, packages)
-- ✅ NVMe temperature monitoring 
+- ✅ NVMe temperature monitoring
 - ✅ Battery temperature monitoring
 - ✅ Other system sensors via gopsutil
 
 **What requires SMART (Linux/macOS only):**
+
 - ❌ SATA/HDD temperature monitoring
 - ❌ Disk model and serial number display
 

@@ -36,20 +36,19 @@ const (
 
 // Config represents the application configuration
 type Config struct {
-	Database      DatabaseConfig     `toml:"database"`
-	Server        ServerConfig       `toml:"server"`
-	Logging       LoggingConfig      `toml:"logging"`
-	Auth          AuthConfig         `toml:"auth"`
-	OIDC          OIDCConfig         `toml:"oidc"`
-	SpeedTest     SpeedTestConfig    `toml:"speedtest"`
-	GeoIP         GeoIPConfig        `toml:"geoip"`
-	Pagination    PaginationConfig   `toml:"pagination"`
-	Session       SessionConfig      `toml:"session"`
-	Notifications NotificationConfig `toml:"notifications"`
-	PacketLoss    PacketLossConfig   `toml:"packetloss"`
-	Agent         AgentConfig        `toml:"agent"`
-	Monitor       MonitorConfig      `toml:"monitor"`
-	Tailscale     TailscaleConfig    `toml:"tailscale"`
+	Database   DatabaseConfig   `toml:"database"`
+	Server     ServerConfig     `toml:"server"`
+	Logging    LoggingConfig    `toml:"logging"`
+	Auth       AuthConfig       `toml:"auth"`
+	OIDC       OIDCConfig       `toml:"oidc"`
+	SpeedTest  SpeedTestConfig  `toml:"speedtest"`
+	GeoIP      GeoIPConfig      `toml:"geoip"`
+	Pagination PaginationConfig `toml:"pagination"`
+	Session    SessionConfig    `toml:"session"`
+	PacketLoss PacketLossConfig `toml:"packetloss"`
+	Agent      AgentConfig      `toml:"agent"`
+	Monitor    MonitorConfig    `toml:"monitor"`
+	Tailscale  TailscaleConfig  `toml:"tailscale"`
 }
 
 type DatabaseConfig struct {
@@ -121,16 +120,6 @@ type SessionConfig struct {
 	Secret string `toml:"session_secret" env:"SESSION_SECRET"`
 }
 
-type NotificationConfig struct {
-	Enabled           bool     `toml:"enabled" env:"NOTIFICATIONS_ENABLED"`
-	WebhookURL        string   `toml:"webhook_url" env:"NOTIFICATIONS_WEBHOOK_URL"`                 // Legacy support
-	WebhookURLs       []string `toml:"webhook_urls" env:"NOTIFICATIONS_WEBHOOK_URLS" envSeparator:","` // Shoutrrr URLs
-	PingThreshold     float64  `toml:"ping_threshold" env:"NOTIFICATIONS_PING_THRESHOLD"`
-	UploadThreshold   float64  `toml:"upload_threshold" env:"NOTIFICATIONS_UPLOAD_THRESHOLD"`
-	DownloadThreshold float64  `toml:"download_threshold" env:"NOTIFICATIONS_DOWNLOAD_THRESHOLD"`
-	DiscordMentionID  string   `toml:"discord_mention_id" env:"NOTIFICATIONS_DISCORD_MENTION_ID"`     // Deprecated
-}
-
 type GeoIPConfig struct {
 	CountryDatabasePath string `toml:"country_database_path" env:"GEOIP_COUNTRY_DATABASE_PATH"`
 	ASNDatabasePath     string `toml:"asn_database_path" env:"GEOIP_ASN_DATABASE_PATH"`
@@ -161,36 +150,36 @@ type MonitorConfig struct {
 
 type TailscaleConfig struct {
 	// Core settings
-	Enabled    bool   `toml:"enabled" env:"TAILSCALE_ENABLED"`
-	Method     string `toml:"method" env:"TAILSCALE_METHOD"`       // "auto", "host", or "tsnet"
-	AuthKey    string `toml:"auth_key" env:"TAILSCALE_AUTH_KEY"`   // Required for tsnet mode
-	
+	Enabled bool   `toml:"enabled" env:"TAILSCALE_ENABLED"`
+	Method  string `toml:"method" env:"TAILSCALE_METHOD"`     // "auto", "host", or "tsnet"
+	AuthKey string `toml:"auth_key" env:"TAILSCALE_AUTH_KEY"` // Required for tsnet mode
+
 	// TSNet-specific settings
-	Hostname   string `toml:"hostname" env:"TAILSCALE_HOSTNAME"`     // Custom hostname (optional)
-	Ephemeral  bool   `toml:"ephemeral" env:"TAILSCALE_EPHEMERAL"`   // Remove on shutdown
-	StateDir   string `toml:"state_dir" env:"TAILSCALE_STATE_DIR"`   // State directory
+	Hostname   string `toml:"hostname" env:"TAILSCALE_HOSTNAME"`       // Custom hostname (optional)
+	Ephemeral  bool   `toml:"ephemeral" env:"TAILSCALE_EPHEMERAL"`     // Remove on shutdown
+	StateDir   string `toml:"state_dir" env:"TAILSCALE_STATE_DIR"`     // State directory
 	ControlURL string `toml:"control_url" env:"TAILSCALE_CONTROL_URL"` // For Headscale
-	
+
 	// Agent settings
-	AgentPort  int    `toml:"agent_port" env:"TAILSCALE_AGENT_PORT"` // Port for agent to listen on
-	
+	AgentPort int `toml:"agent_port" env:"TAILSCALE_AGENT_PORT"` // Port for agent to listen on
+
 	// Server discovery settings
 	AutoDiscover      bool   `toml:"auto_discover" env:"TAILSCALE_AUTO_DISCOVER"`
 	DiscoveryInterval string `toml:"discovery_interval" env:"TAILSCALE_DISCOVERY_INTERVAL"`
 	DiscoveryPort     int    `toml:"discovery_port" env:"TAILSCALE_DISCOVERY_PORT"`
 	DiscoveryPrefix   string `toml:"discovery_prefix" env:"TAILSCALE_DISCOVERY_PREFIX"`
-	
+
 	// Deprecated fields (for backward compatibility)
-	PreferHost     bool                   `toml:"prefer_host" env:"TAILSCALE_PREFER_HOST"`
-	Agent          TailscaleAgentConfig   `toml:"agent"`
-	Monitor        TailscaleMonitorConfig `toml:"monitor"`
+	PreferHost bool                   `toml:"prefer_host" env:"TAILSCALE_PREFER_HOST"`
+	Agent      TailscaleAgentConfig   `toml:"agent"`
+	Monitor    TailscaleMonitorConfig `toml:"monitor"`
 }
 
 // Deprecated - kept for backward compatibility
 type TailscaleAgentConfig struct {
-	Enabled       bool `toml:"enabled" env:"TAILSCALE_AGENT_ENABLED"`
-	AcceptRoutes  bool `toml:"accept_routes" env:"TAILSCALE_AGENT_ACCEPT_ROUTES"`
-	Port          int  `toml:"port" env:"TAILSCALE_AGENT_PORT"`
+	Enabled      bool `toml:"enabled" env:"TAILSCALE_AGENT_ENABLED"`
+	AcceptRoutes bool `toml:"accept_routes" env:"TAILSCALE_AGENT_ACCEPT_ROUTES"`
+	Port         int  `toml:"port" env:"TAILSCALE_AGENT_PORT"`
 }
 
 // Deprecated - kept for backward compatibility
@@ -280,14 +269,6 @@ func New() *Config {
 		GeoIP: GeoIPConfig{
 			CountryDatabasePath: "",
 			ASNDatabasePath:     "",
-		},
-		Notifications: NotificationConfig{
-			Enabled:           false,
-			WebhookURL:        "",
-			PingThreshold:     30,
-			UploadThreshold:   200,
-			DownloadThreshold: 200,
-			DiscordMentionID:  "",
 		},
 		PacketLoss: PacketLossConfig{
 			Enabled:                  true,
@@ -415,7 +396,6 @@ func (c *Config) loadFromEnv() error {
 	c.loadPaginationFromEnv()
 	c.loadSessionFromEnv()
 	c.loadGeoIPFromEnv()
-	c.loadNotificationsFromEnv()
 	c.loadPacketLossFromEnv()
 	c.loadAgentFromEnv()
 	c.loadMonitorFromEnv()
@@ -577,35 +557,6 @@ func (c *Config) loadGeoIPFromEnv() {
 	}
 	if v := getEnv("GEOIP_ASN_DATABASE_PATH"); v != "" {
 		c.GeoIP.ASNDatabasePath = v
-	}
-}
-
-func (c *Config) loadNotificationsFromEnv() {
-	if v := getEnv("NOTIFICATIONS_ENABLED"); v != "" {
-		if enabled, err := strconv.ParseBool(v); err == nil {
-			c.Notifications.Enabled = enabled
-		}
-	}
-	if v := getEnv("NOTIFICATIONS_WEBHOOK_URL"); v != "" {
-		c.Notifications.WebhookURL = v
-	}
-	if v := getEnv("NOTIFICATIONS_PING_THRESHOLD"); v != "" {
-		if threshold, err := strconv.ParseFloat(v, 64); err == nil {
-			c.Notifications.PingThreshold = threshold
-		}
-	}
-	if v := getEnv("NOTIFICATIONS_UPLOAD_THRESHOLD"); v != "" {
-		if threshold, err := strconv.ParseFloat(v, 64); err == nil {
-			c.Notifications.UploadThreshold = threshold
-		}
-	}
-	if v := getEnv("NOTIFICATIONS_DOWNLOAD_THRESHOLD"); v != "" {
-		if threshold, err := strconv.ParseFloat(v, 64); err == nil {
-			c.Notifications.DownloadThreshold = threshold
-		}
-	}
-	if v := getEnv("NOTIFICATIONS_DISCORD_MENTION_ID"); v != "" {
-		c.Notifications.DiscordMentionID = v
 	}
 }
 
@@ -918,32 +869,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "#asn_database_path = \"/path/to/GeoLite2-ASN.mmdb\"\n"); err != nil {
-		return err
-	}
-
-	// Notifications section
-	if _, err := fmt.Fprintln(w, ""); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, "[notifications]"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.Notifications.Enabled); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "webhook_url = \"%s\"\n", cfg.Notifications.WebhookURL); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "ping_threshold = %v\n", cfg.Notifications.PingThreshold); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "upload_threshold = %v\n", cfg.Notifications.UploadThreshold); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "download_threshold = %v\n", cfg.Notifications.DownloadThreshold); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "discord_mention_id = \"%s\"\n", cfg.Notifications.DiscordMentionID); err != nil {
 		return err
 	}
 
@@ -1317,7 +1242,7 @@ func (t *TailscaleConfig) loadFromEnv() {
 	if v, exists := os.LookupEnv(EnvPrefix + "TAILSCALE_AUTH_KEY"); exists {
 		t.AuthKey = v
 	}
-	
+
 	// TSNet settings
 	if v := getEnv("TAILSCALE_HOSTNAME"); v != "" {
 		t.Hostname = v
@@ -1333,14 +1258,14 @@ func (t *TailscaleConfig) loadFromEnv() {
 	if v := getEnv("TAILSCALE_CONTROL_URL"); v != "" {
 		t.ControlURL = v
 	}
-	
+
 	// Agent settings
 	if v := getEnv("TAILSCALE_AGENT_PORT"); v != "" {
 		if port, err := strconv.Atoi(v); err == nil {
 			t.AgentPort = port
 		}
 	}
-	
+
 	// Server discovery settings
 	if v := getEnv("TAILSCALE_AUTO_DISCOVER"); v != "" {
 		if auto, err := strconv.ParseBool(v); err == nil {
@@ -1358,7 +1283,7 @@ func (t *TailscaleConfig) loadFromEnv() {
 	if v := getEnv("TAILSCALE_DISCOVERY_PREFIX"); v != "" {
 		t.DiscoveryPrefix = v
 	}
-	
+
 	// Deprecated fields - still support for backward compatibility
 	if v := getEnv("TAILSCALE_PREFER_HOST"); v != "" {
 		if preferHost, err := strconv.ParseBool(v); err == nil {
