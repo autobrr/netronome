@@ -292,8 +292,12 @@ if [ "$UPDATE" = true ]; then
         if [ "$OS" = "darwin" ]; then
             if sudo launchctl list | grep -q $SERVICE_NAME; then
                 print_color $YELLOW "Restarting agent service..."
-                sudo launchctl unload /Library/LaunchDaemons/$SERVICE_NAME.plist
-                sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.plist
+                # Use modern launchctl commands
+                sudo launchctl kickstart -k system/$SERVICE_NAME || {
+                    # Fallback to traditional method if kickstart fails
+                    sudo launchctl unload /Library/LaunchDaemons/$SERVICE_NAME.plist
+                    sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.plist
+                }
                 print_color $GREEN "Service restarted"
             fi
         else
@@ -414,6 +418,10 @@ if [ "$INTERACTIVE_MODE" = true ]; then
     fi
 else
     # Non-interactive mode - Tailscale disabled by default
+    TAILSCALE_ENABLED="false"
+    TAILSCALE_METHOD=""
+    TAILSCALE_AUTH_KEY=""
+    TAILSCALE_HOSTNAME=""
     echo "Tailscale: disabled (auto-selected)"
 fi
 
@@ -569,23 +577,11 @@ if [ "$INTERACTIVE_MODE" = true ]; then
                 ;;
         esac
         
-        if [ "$TAILSCALE_ENABLED" = "true" ]; then
-            echo ""
-            read -p "Enable Tailscale funnel for public access? (y/n): " ENABLE_FUNNEL < "$INPUT_SOURCE"
-            if [ "$ENABLE_FUNNEL" = "y" ] || [ "$ENABLE_FUNNEL" = "Y" ]; then
-                TAILSCALE_FUNNEL="true"
-            else
-                TAILSCALE_FUNNEL="false"
-            fi
-        else
-            TAILSCALE_FUNNEL="false"
-        fi
     else
         TAILSCALE_ENABLED="false"
         TAILSCALE_MODE=""
         TAILSCALE_AUTH_KEY=""
         TAILSCALE_HOSTNAME=""
-        TAILSCALE_FUNNEL="false"
     fi
 else
     # Non-interactive mode - disable Tailscale by default
@@ -593,7 +589,6 @@ else
     TAILSCALE_MODE=""
     TAILSCALE_AUTH_KEY=""
     TAILSCALE_HOSTNAME=""
-    TAILSCALE_FUNNEL="false"
     echo "Tailscale: disabled (auto-selected)"
 fi
 
@@ -700,8 +695,6 @@ auth_key = \"$TAILSCALE_AUTH_KEY\""
 hostname = \"$TAILSCALE_HOSTNAME\""
     fi
     
-    TAILSCALE_CONFIG="$TAILSCALE_CONFIG
-funnel = $TAILSCALE_FUNNEL"
 fi
 
 sudo tee $CONFIG_DIR/agent.toml > /dev/null << EOF
@@ -802,6 +795,8 @@ EOF
     
     # Load the service
     print_color $YELLOW "\nStarting service..."
+    # Use modern launchctl command with fallback
+    sudo launchctl bootstrap system /Library/LaunchDaemons/$SERVICE_NAME.plist 2>/dev/null || \
     sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.plist
     
     # Check if service is running
@@ -872,10 +867,7 @@ if [ "$SERVICE_RUNNING" = true ]; then
         print_color $GREEN "API Key: $API_KEY"
     fi
     if [ "$TAILSCALE_ENABLED" = "true" ]; then
-        print_color $GREEN "Tailscale: enabled ($TAILSCALE_MODE mode)"
-        if [ "$TAILSCALE_FUNNEL" = "true" ]; then
-            print_color $GREEN "Tailscale Funnel: enabled"
-        fi
+        print_color $GREEN "Tailscale: enabled ($TAILSCALE_METHOD mode)"
     fi
     print_color $YELLOW "\nAdd this agent in Netronome with the above URL and API key."
     
@@ -887,8 +879,9 @@ if [ "$SERVICE_RUNNING" = true ]; then
     if [ "$OS" = "darwin" ]; then
         echo "View logs:        tail -f /tmp/netronome-agent.log"
         echo "Check status:     sudo launchctl list | grep $SERVICE_NAME"
-        echo "Stop service:     sudo launchctl unload /Library/LaunchDaemons/$SERVICE_NAME.plist"
-        echo "Start service:    sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.plist"
+        echo "Restart service:  sudo launchctl kickstart -k system/$SERVICE_NAME"
+        echo "Stop service:     sudo launchctl bootout system /Library/LaunchDaemons/$SERVICE_NAME.plist"
+        echo "Start service:    sudo launchctl bootstrap system /Library/LaunchDaemons/$SERVICE_NAME.plist"
     else
         echo "View logs:        journalctl -u $SERVICE_NAME -f"
         echo "Check status:     systemctl status $SERVICE_NAME"
@@ -951,6 +944,8 @@ if [ "$SERVICE_RUNNING" = true ]; then
 </plist>
 EOF
             
+            # Use modern launchctl command with fallback
+            sudo launchctl bootstrap system /Library/LaunchDaemons/$SERVICE_NAME.update.plist 2>/dev/null || \
             sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.update.plist
             print_color $GREEN "✅ Automatic daily updates enabled!"
             print_color $YELLOW "Updates will run daily at 3:00 AM."
