@@ -591,6 +591,36 @@ print_color $YELLOW "\nCreating service..."
 
 if [ "$OS" = "darwin" ]; then
     # Create launchd plist for macOS
+    # Build the arguments array
+    PLIST_ARGS="        <string>$INSTALL_DIR/netronome</string>
+        <string>agent</string>
+        <string>--config</string>
+        <string>$CONFIG_DIR/agent.toml</string>"
+    
+    # Add Tailscale flags if enabled
+    if [ "$TAILSCALE_ENABLED" = "true" ]; then
+        PLIST_ARGS="$PLIST_ARGS
+        <string>--tailscale</string>"
+        
+        if [ "$TAILSCALE_METHOD" = "host" ]; then
+            PLIST_ARGS="$PLIST_ARGS
+        <string>--tailscale-method</string>
+        <string>host</string>"
+        elif [ "$TAILSCALE_METHOD" = "tsnet" ]; then
+            PLIST_ARGS="$PLIST_ARGS
+        <string>--tailscale-method</string>
+        <string>tsnet</string>
+        <string>--tailscale-auth-key</string>
+        <string>$TAILSCALE_AUTH_KEY</string>"
+            
+            if [ -n "$TAILSCALE_HOSTNAME" ]; then
+                PLIST_ARGS="$PLIST_ARGS
+        <string>--tailscale-hostname</string>
+        <string>$TAILSCALE_HOSTNAME</string>"
+            fi
+        fi
+    fi
+    
     sudo tee /Library/LaunchDaemons/$SERVICE_NAME.plist > /dev/null << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -600,10 +630,7 @@ if [ "$OS" = "darwin" ]; then
     <string>$SERVICE_NAME</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$INSTALL_DIR/netronome</string>
-        <string>agent</string>
-        <string>--config</string>
-        <string>$CONFIG_DIR/agent.toml</string>
+$PLIST_ARGS
     </array>
     <key>UserName</key>
     <string>$USER_NAME</string>
@@ -642,6 +669,24 @@ EOF
     fi
 else
     # Create systemd service for Linux
+    # Build the ExecStart command
+    EXEC_START="$INSTALL_DIR/netronome agent --config $CONFIG_DIR/agent.toml"
+    
+    # Add Tailscale flags if enabled
+    if [ "$TAILSCALE_ENABLED" = "true" ]; then
+        EXEC_START="$EXEC_START --tailscale"
+        
+        if [ "$TAILSCALE_METHOD" = "host" ]; then
+            EXEC_START="$EXEC_START --tailscale-method host"
+        elif [ "$TAILSCALE_METHOD" = "tsnet" ]; then
+            EXEC_START="$EXEC_START --tailscale-method tsnet --tailscale-auth-key '$TAILSCALE_AUTH_KEY'"
+            
+            if [ -n "$TAILSCALE_HOSTNAME" ]; then
+                EXEC_START="$EXEC_START --tailscale-hostname '$TAILSCALE_HOSTNAME'"
+            fi
+        fi
+    fi
+    
     cat > /etc/systemd/system/$SERVICE_NAME.service << EOF
 [Unit]
 Description=Netronome vnstat Agent
@@ -652,7 +697,7 @@ Wants=network-online.target
 Type=simple
 User=$USER_NAME
 Group=$USER_NAME
-ExecStart=$INSTALL_DIR/netronome agent --config $CONFIG_DIR/agent.toml
+ExecStart=$EXEC_START
 Restart=always
 RestartSec=10
 
