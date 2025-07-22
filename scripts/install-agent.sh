@@ -363,50 +363,123 @@ else
     echo "Interface: ${INTERFACE:-all} (auto-selected)"
 fi
 
-# Get API key
+# Get Tailscale configuration
 echo ""
-print_color $YELLOW "API Key Configuration:"
-print_color $YELLOW "1. Generate a random API key"
-print_color $YELLOW "2. Enter your own API key"
-print_color $YELLOW "3. No authentication (not recommended)"
-echo ""
+TAILSCALE_ENABLED="false"
+TAILSCALE_METHOD=""
+TAILSCALE_AUTH_KEY=""
+TAILSCALE_HOSTNAME=""
+
 if [ "$INTERACTIVE_MODE" = true ]; then
-    # Interactive mode - read from terminal
-    read -p "Select an option [1-3]: " API_KEY_OPTION < "$INPUT_SOURCE"
+    print_color $YELLOW "Tailscale Configuration (optional):"
+    print_color $YELLOW "Tailscale provides secure, encrypted connectivity without exposing ports to the internet."
+    echo ""
+    
+    read -p "Do you want to enable Tailscale for secure connectivity? (y/n): " ENABLE_TAILSCALE < "$INPUT_SOURCE"
+    if [ "$ENABLE_TAILSCALE" = "y" ] || [ "$ENABLE_TAILSCALE" = "Y" ]; then
+        TAILSCALE_ENABLED="true"
+        
+        echo ""
+        print_color $YELLOW "Tailscale Method:"
+        print_color $YELLOW "1. Use host's existing Tailscale (no new machine in Tailscale admin)"
+        print_color $YELLOW "2. Create dedicated Tailscale node (requires auth key)"
+        echo ""
+        
+        read -p "Select method [1-2]: " TAILSCALE_METHOD_OPTION < "$INPUT_SOURCE"
+        case $TAILSCALE_METHOD_OPTION in
+            1)
+                TAILSCALE_METHOD="host"
+                print_color $GREEN "Using host's existing Tailscale connection"
+                ;;
+            2)
+                TAILSCALE_METHOD="tsnet"
+                echo ""
+                read -p "Enter your Tailscale auth key (required): " TAILSCALE_AUTH_KEY < "$INPUT_SOURCE"
+                if [ -z "$TAILSCALE_AUTH_KEY" ]; then
+                    print_color $RED "Auth key is required for tsnet mode"
+                    TAILSCALE_ENABLED="false"
+                    TAILSCALE_METHOD=""
+                fi
+                ;;
+            *)
+                print_color $RED "Invalid option, Tailscale will not be configured"
+                TAILSCALE_ENABLED="false"
+                ;;
+        esac
+        
+        if [ "$TAILSCALE_ENABLED" = "true" ]; then
+            echo ""
+            read -p "Enter custom Tailscale hostname (leave empty for default): " TAILSCALE_HOSTNAME < "$INPUT_SOURCE"
+        fi
+    fi
 else
-    # Non-interactive mode - default to generating a random API key
-    API_KEY_OPTION="1"
-    echo "Selected option: $API_KEY_OPTION (auto-selected: Generate random API key)"
+    # Non-interactive mode - Tailscale disabled by default
+    echo "Tailscale: disabled (auto-selected)"
 fi
 
-case $API_KEY_OPTION in
-    1)
-        API_KEY=$(generate_api_key)
-        print_color $GREEN "Generated API Key: $API_KEY"
-        print_color $YELLOW "⚠️  Save this key! You'll need it when adding the agent in Netronome."
-        ;;
-    2)
-        if [ "$INTERACTIVE_MODE" = true ]; then
-            read -p "Enter your API key: " API_KEY < "$INPUT_SOURCE"
-        else
-            # In non-interactive mode, we can't get custom API key, fall back to generated
+# Get API key
+if [ "$TAILSCALE_ENABLED" = "true" ]; then
+    # Skip API key configuration for Tailscale
+    API_KEY=""
+    echo ""
+    print_color $GREEN "✓ Tailscale authentication enabled - no API key needed"
+else
+    echo ""
+    print_color $YELLOW "API Key Configuration:"
+    print_color $YELLOW "1. Generate a random API key"
+    print_color $YELLOW "2. Enter your own API key"
+    print_color $YELLOW "3. No authentication (not recommended)"
+    echo ""
+    if [ "$INTERACTIVE_MODE" = true ]; then
+        # Interactive mode - read from terminal
+        read -p "Select an option [1-3]: " API_KEY_OPTION < "$INPUT_SOURCE"
+    else
+        # Non-interactive mode - default to generating a random API key
+        API_KEY_OPTION="1"
+        echo "Selected option: $API_KEY_OPTION (auto-selected: Generate random API key)"
+    fi
+
+    case $API_KEY_OPTION in
+        1)
             API_KEY=$(generate_api_key)
-            print_color $YELLOW "Cannot input custom API key in non-interactive mode, generated: $API_KEY"
-        fi
-        ;;
-    3)
-        API_KEY=""
-        print_color $YELLOW "⚠️  Warning: Agent will run without authentication!"
-        ;;
-    *)
-        print_color $RED "Invalid option"
-        exit 1
-        ;;
-esac
+            print_color $GREEN "Generated API Key: $API_KEY"
+            print_color $YELLOW "⚠️  Save this key! You'll need it when adding the agent in Netronome."
+            ;;
+        2)
+            if [ "$INTERACTIVE_MODE" = true ]; then
+                read -p "Enter your API key: " API_KEY < "$INPUT_SOURCE"
+            else
+                # In non-interactive mode, we can't get custom API key, fall back to generated
+                API_KEY=$(generate_api_key)
+                print_color $YELLOW "Cannot input custom API key in non-interactive mode, generated: $API_KEY"
+            fi
+            ;;
+        3)
+            API_KEY=""
+            print_color $YELLOW "⚠️  Warning: Agent will run without authentication!"
+            ;;
+        *)
+            print_color $RED "Invalid option"
+            exit 1
+            ;;
+    esac
+fi
 
 # Get host and port
 echo ""
-if [ "$INTERACTIVE_MODE" = true ]; then
+if [ "$TAILSCALE_METHOD" = "host" ]; then
+    # For Tailscale host mode, check if tailscale is available
+    HOST="127.0.0.1"
+    PORT=$DEFAULT_PORT
+    
+    # Check if tailscale is available on the host
+    if command -v tailscale &> /dev/null && tailscale status &> /dev/null; then
+        print_color $GREEN "Tailscale detected on host - agent will be accessible through your Tailscale network"
+    else
+        print_color $YELLOW "⚠️  Tailscale not detected on host - agent will listen on $HOST:$PORT"
+        print_color $YELLOW "Make sure to install and configure Tailscale before starting the agent"
+    fi
+elif [ "$INTERACTIVE_MODE" = true ]; then
     # Interactive mode - read from terminal
     read -p "Enter the host/IP to listen on (default: $DEFAULT_HOST): " HOST < "$INPUT_SOURCE"
     HOST=${HOST:-$DEFAULT_HOST}
@@ -645,6 +718,28 @@ disk_excludes = $DISK_EXCLUDES$TAILSCALE_CONFIG
 [logging]
 level = "info"
 EOF
+
+# Add Tailscale configuration if enabled
+if [ "$TAILSCALE_ENABLED" = "true" ]; then
+    sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
+
+[tailscale]
+enabled = true
+method = "$TAILSCALE_METHOD"
+EOF
+    
+    if [ "$TAILSCALE_METHOD" = "tsnet" ]; then
+        sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
+auth_key = "$TAILSCALE_AUTH_KEY"
+EOF
+    fi
+    
+    if [ -n "$TAILSCALE_HOSTNAME" ]; then
+        sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
+hostname = "$TAILSCALE_HOSTNAME"
+EOF
+    fi
+fi
 
 if [ "$OS" = "darwin" ]; then
     sudo chown $USER_NAME:staff $CONFIG_DIR/agent.toml

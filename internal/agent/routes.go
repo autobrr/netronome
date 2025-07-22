@@ -8,6 +8,8 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/autobrr/netronome/internal/version"
 )
 
 // setupRoutes configures all HTTP routes for the agent
@@ -82,13 +84,20 @@ func (a *Agent) handleRoot(c *gin.Context) {
 
 // handleInfo handles the agent identification endpoint for discovery
 func (a *Agent) handleInfo(c *gin.Context) {
-	// Get hostname
 	hostname, _ := os.Hostname()
-	
+
+	usingTailscale := false
+	if a.tailscaleConfig != nil && a.tailscaleConfig.Enabled {
+		usingTailscale = true
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"type":     "netronome-agent",
-		"version":  "1.0.0", // TODO: Use actual version
-		"hostname": hostname,
+		"type":            "netronome-agent",
+		"version":         version.Version,
+		"hostname":        hostname,
+		"listening_host":  a.config.Host,
+		"listening_port":  a.config.Port,
+		"using_tailscale": usingTailscale,
 	})
 }
 
