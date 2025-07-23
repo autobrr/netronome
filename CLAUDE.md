@@ -7,8 +7,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Build and Development
 
 ```bash
-# Build entire application (frontend + backend)
+# Build full server with web interface (requires frontend build)
 make build
+
+# Build lightweight agent-only binary (no frontend required)
+make build-agent
+
+# Build both binaries
+make build-all
 
 # Development mode with live reload (requires tmux)
 make dev
@@ -42,8 +48,11 @@ make docker-run
 # Change password (interactive)
 ./bin/netronome change-password username
 
-# Run agent mode
+# Run agent mode (using full binary)
 ./bin/netronome agent --config config.toml
+
+# Run agent mode (using dedicated agent binary)
+./bin/netronome-agent --config config.toml
 ```
 
 ### Frontend Development
@@ -101,13 +110,20 @@ cd web && pnpm tsc --noEmit
 
 The backend follows a clean architecture pattern with dependency injection:
 
-1. **Entry Point** (`cmd/netronome/main.go`): CLI commands using Cobra
-   - `serve`: Runs the web server
-   - `agent`: Runs the monitoring agent
-   - `generate-config`: Creates default configuration
-   - User management commands
+1. **Entry Points**:
+
+   - **`cmd/netronome/main.go`**: Full server binary with all CLI commands using Cobra
+     - `serve`: Runs the web server
+     - `agent`: Runs the monitoring agent
+     - `generate-config`: Creates default configuration
+     - User management commands
+   - **`cmd/netronome-agent/main.go`**: Lightweight agent-only binary (32MB vs 66MB)
+     - Single-purpose agent functionality
+     - Same CLI flags as `netronome agent` command
+     - Optimized for distributed monitoring deployments
 
 2. **Core Services** (`internal/`):
+
    - **server**: HTTP server using Gin framework, handles routing and middleware
    - **database**: Data persistence layer with SQLite/PostgreSQL support via interfaces
    - **speedtest**: Core speed testing logic (iperf3, librespeed, speedtest.net)
@@ -119,6 +135,7 @@ The backend follows a clean architecture pattern with dependency injection:
    - **notifications**: Shoutrrr-based notification system supporting 15+ services
 
 3. **Agent Architecture**:
+
    - Lightweight HTTP server exposing SSE endpoints
    - Collects system metrics via gopsutil and vnstat
    - Can run standalone or integrated with Tailscale
@@ -136,6 +153,7 @@ The backend follows a clean architecture pattern with dependency injection:
 The frontend uses modern React patterns with TypeScript:
 
 1. **Core Stack**:
+
    - React 19 with TypeScript
    - TanStack Query for data fetching and caching
    - TanStack Router for routing
@@ -144,6 +162,7 @@ The frontend uses modern React patterns with TypeScript:
    - Vite for bundling
 
 2. **Component Organization**:
+
    - `components/auth/`: Authentication components
    - `components/common/`: Shared UI components
    - `components/speedtest/`: Speed test features
@@ -153,6 +172,7 @@ The frontend uses modern React patterns with TypeScript:
    - `components/ui/`: Base UI components
 
 3. **State Management**:
+
    - Local state with useState for component state
    - TanStack Query for server state
    - localStorage for user preferences
@@ -177,6 +197,10 @@ The frontend uses modern React patterns with TypeScript:
 
 6. **Notification System**: Uses Shoutrrr library for multi-service notifications with rate limiting and state-based alerts
 
+7. **Dual Binary Architecture**: Two binaries for different deployment scenarios:
+   - `netronome`: Full server (66MB) with web UI, database, all commands
+   - `netronome-agent`: Agent-only (32MB) optimized for monitoring deployments
+
 ## Database Migrations
 
 The project uses a custom migration system with separate SQL files for SQLite and PostgreSQL:
@@ -191,6 +215,7 @@ internal/database/migrations/
 ```
 
 Key points:
+
 - Migrations are numbered sequentially (001, 002, etc.)
 - Each migration has a corresponding file for both SQLite and PostgreSQL
 - The system tracks applied migrations in a `schema_migrations` table
@@ -201,19 +226,23 @@ Key points:
 The notification system is built on [Shoutrrr](https://github.com/containrrr/shoutrrr) and supports 15+ services:
 
 ### Supported Services
+
 - Discord, Telegram, Slack, Teams
 - Email (SMTP), Pushover, Pushbullet
 - Gotify, Matrix, Ntfy, OpsGenie
 - Rocketchat, Zulip, Join, Mattermost
 
 ### Notification Events
+
 1. **Speed Test Events**
+
    - Test completed
    - Test failed
    - Speed below threshold
    - Latency above threshold
 
 2. **Packet Loss Monitoring**
+
    - Packet loss degraded (state-based)
    - Packet loss recovered
 
@@ -226,6 +255,7 @@ The notification system is built on [Shoutrrr](https://github.com/containrrr/sho
    - Temperature threshold (with sensor details)
 
 ### Rate Limiting
+
 - Agent metric notifications: 1 hour cooldown
 - Packet loss: State-based (only on state change)
 - Speed tests: Per test completion
@@ -243,6 +273,7 @@ The notification system is built on [Shoutrrr](https://github.com/containrrr/sho
 ### Testing Approach
 
 1. **Backend Testing**
+
    - Unit tests for business logic
    - Integration tests for database operations
    - Mock interfaces for external dependencies
@@ -256,11 +287,13 @@ The notification system is built on [Shoutrrr](https://github.com/containrrr/sho
 ### Common Patterns
 
 1. **Error Handling**
+
    - Return errors from functions, don't panic
    - Use structured logging with zerolog
    - Wrap errors with context using `fmt.Errorf`
 
 2. **API Responses**
+
    - Consistent JSON structure
    - Proper HTTP status codes
    - Error messages in `error` field
@@ -269,6 +302,10 @@ The notification system is built on [Shoutrrr](https://github.com/containrrr/sho
    - Use transactions for multi-step operations
    - Always use parameterized queries
    - Handle null values appropriately
+
+## Future Improvements
+
+- Add serve and funnel support to the netronome serve command if its setup with tailscale tsnet mode
 
 ## Additional Notes
 
