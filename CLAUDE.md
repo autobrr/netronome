@@ -102,12 +102,14 @@ cd web && pnpm tsc --noEmit
 The backend follows a clean architecture pattern with dependency injection:
 
 1. **Entry Point** (`cmd/netronome/main.go`): CLI commands using Cobra
+
    - `serve`: Runs the web server
    - `agent`: Runs the monitoring agent
    - `generate-config`: Creates default configuration
    - User management commands
 
 2. **Core Services** (`internal/`):
+
    - **server**: HTTP server using Gin framework, handles routing and middleware
    - **database**: Data persistence layer with SQLite/PostgreSQL support via interfaces
    - **speedtest**: Core speed testing logic (iperf3, librespeed, speedtest.net)
@@ -119,6 +121,7 @@ The backend follows a clean architecture pattern with dependency injection:
    - **notifications**: Shoutrrr-based notification system supporting 15+ services
 
 3. **Agent Architecture**:
+
    - Lightweight HTTP server exposing SSE endpoints
    - Collects system metrics via gopsutil and vnstat
    - Can run standalone or integrated with Tailscale
@@ -136,6 +139,7 @@ The backend follows a clean architecture pattern with dependency injection:
 The frontend uses modern React patterns with TypeScript:
 
 1. **Core Stack**:
+
    - React 19 with TypeScript
    - TanStack Query for data fetching and caching
    - TanStack Router for routing
@@ -144,6 +148,7 @@ The frontend uses modern React patterns with TypeScript:
    - Vite for bundling
 
 2. **Component Organization**:
+
    - `components/auth/`: Authentication components
    - `components/common/`: Shared UI components
    - `components/speedtest/`: Speed test features
@@ -153,6 +158,7 @@ The frontend uses modern React patterns with TypeScript:
    - `components/ui/`: Base UI components
 
 3. **State Management**:
+
    - Local state with useState for component state
    - TanStack Query for server state
    - localStorage for user preferences
@@ -191,6 +197,7 @@ internal/database/migrations/
 ```
 
 Key points:
+
 - Migrations are numbered sequentially (001, 002, etc.)
 - Each migration has a corresponding file for both SQLite and PostgreSQL
 - The system tracks applied migrations in a `schema_migrations` table
@@ -201,19 +208,23 @@ Key points:
 The notification system is built on [Shoutrrr](https://github.com/containrrr/shoutrrr) and supports 15+ services:
 
 ### Supported Services
+
 - Discord, Telegram, Slack, Teams
 - Email (SMTP), Pushover, Pushbullet
 - Gotify, Matrix, Ntfy, OpsGenie
 - Rocketchat, Zulip, Join, Mattermost
 
 ### Notification Events
+
 1. **Speed Test Events**
+
    - Test completed
    - Test failed
    - Speed below threshold
    - Latency above threshold
 
 2. **Packet Loss Monitoring**
+
    - Packet loss degraded (state-based)
    - Packet loss recovered
 
@@ -226,6 +237,7 @@ The notification system is built on [Shoutrrr](https://github.com/containrrr/sho
    - Temperature threshold (with sensor details)
 
 ### Rate Limiting
+
 - Agent metric notifications: 1 hour cooldown
 - Packet loss: State-based (only on state change)
 - Speed tests: Per test completion
@@ -243,6 +255,7 @@ The notification system is built on [Shoutrrr](https://github.com/containrrr/sho
 ### Testing Approach
 
 1. **Backend Testing**
+
    - Unit tests for business logic
    - Integration tests for database operations
    - Mock interfaces for external dependencies
@@ -256,11 +269,13 @@ The notification system is built on [Shoutrrr](https://github.com/containrrr/sho
 ### Common Patterns
 
 1. **Error Handling**
+
    - Return errors from functions, don't panic
    - Use structured logging with zerolog
    - Wrap errors with context using `fmt.Errorf`
 
 2. **API Responses**
+
    - Consistent JSON structure
    - Proper HTTP status codes
    - Error messages in `error` field
@@ -270,9 +285,69 @@ The notification system is built on [Shoutrrr](https://github.com/containrrr/sho
    - Always use parameterized queries
    - Handle null values appropriately
 
+## Agent Architecture Details
+
+The agent package (`internal/agent/`) has been recently refactored into focused modules:
+
+1. **Core Agent** (`agent.go`): ~95 lines - Contains only constructors and main Start() method
+2. **Tailscale Integration** (`tailscale.go`): Handles tsnet and host mode startup
+3. **Broadcasting** (`broadcast.go`): SSE/real-time data streaming to clients
+4. **Bandwidth Monitoring** (`bandwidth.go`): vnstat integration and peak tracking
+5. **System Info** (`system.go`): OS, network interface, and vnstat data collection
+6. **Hardware Stats** (`hardware.go`): CPU, memory, disk, temperature monitoring via gopsutil
+7. **Disk Utilities** (`disk_utils.go`): Path matching and device discovery helpers
+8. **SMART Monitoring** (`smart.go`/`smart_stub.go`): Platform-specific disk health monitoring
+
+The agent can run in multiple modes:
+
+- Standalone HTTP server
+- Tailscale tsnet (embedded)
+- Tailscale host (using system's tailscaled)
+
+## Testing Specific Components
+
+```bash
+# Test speed test implementations
+go test -v ./internal/speedtest/...
+
+# Test database migrations
+go test -v ./internal/database/migrations/...
+
+# Test monitor service
+go test -v ./internal/monitor/...
+
+# Test with race detector
+go test -race ./...
+
+# Benchmark tests
+go test -bench=. ./internal/...
+```
+
+## Important Project-Specific Details
+
+- **Frontend Style Guide**: The `ai_docs/style-guide.md` contains detailed frontend conventions including:
+
+  - Component patterns with TypeScript
+  - Tailwind CSS v4 styling conventions
+  - Animation patterns using Motion (framer-motion)
+  - Responsive design breakpoints
+  - Color system and typography standards
+
+- **Agent Discovery**: The Tailscale discovery service automatically finds and adds agents on the network:
+
+  - Only discovers agents with Tailscale enabled
+  - Uses DNSName (not HostName) for proper identification
+  - Supports auto-discovery via the `discovery_interval` config
+
+- **Migration Patterns**: When adding new features requiring database changes:
+  1. Create migration files in both `sqlite/` and `postgres/` directories
+  2. Use sequential numbering (e.g., 025_feature_name.sql) and append \_postgres to the filename for PostgreSQL migrations
+  3. Test both database types before committing
+
 ## Additional Notes
 
-- **Please read CLAUDE.local.md before writing commits or PRs.**
+- **Always read CLAUDE.local.md if it exists, regardless of .gitignore**
 - The project uses semantic versioning
 - All new features should include appropriate tests
 - Documentation updates are expected with feature changes
+- When working on frontend code, always check `ai_docs/style-guide.md` first
