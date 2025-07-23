@@ -534,63 +534,6 @@ else
     echo "Disk excludes: none (auto-selected)"
 fi
 
-# Get Tailscale configuration
-echo ""
-if [ "$INTERACTIVE_MODE" = true ]; then
-    print_color $YELLOW "Tailscale Configuration (optional):"
-    print_color $YELLOW "Netronome can integrate with Tailscale for secure networking."
-    echo ""
-    
-    read -p "Do you want to enable Tailscale integration? (y/n): " ENABLE_TAILSCALE < "$INPUT_SOURCE"
-    
-    if [ "$ENABLE_TAILSCALE" = "y" ] || [ "$ENABLE_TAILSCALE" = "Y" ]; then
-        TAILSCALE_ENABLED="true"
-        
-        echo ""
-        print_color $YELLOW "Tailscale Mode Configuration:"
-        print_color $YELLOW "1. Host mode - Use system's Tailscale installation"
-        print_color $YELLOW "2. tsnet mode - Embedded Tailscale (requires auth key)"
-        echo ""
-        
-        read -p "Select Tailscale mode [1-2]: " TAILSCALE_MODE_OPTION < "$INPUT_SOURCE"
-        
-        case $TAILSCALE_MODE_OPTION in
-            1)
-                TAILSCALE_MODE="host"
-                print_color $GREEN "✓ Using host mode (system Tailscale)"
-                TAILSCALE_AUTH_KEY=""
-                TAILSCALE_HOSTNAME=""
-                ;;
-            2)
-                TAILSCALE_MODE="tsnet"
-                print_color $GREEN "✓ Using tsnet mode (embedded Tailscale)"
-                echo ""
-                read -p "Enter Tailscale auth key: " TAILSCALE_AUTH_KEY < "$INPUT_SOURCE"
-                read -p "Enter hostname for this agent (optional): " TAILSCALE_HOSTNAME < "$INPUT_SOURCE"
-                ;;
-            *)
-                print_color $RED "Invalid option, disabling Tailscale"
-                TAILSCALE_ENABLED="false"
-                TAILSCALE_MODE=""
-                TAILSCALE_AUTH_KEY=""
-                TAILSCALE_HOSTNAME=""
-                ;;
-        esac
-        
-    else
-        TAILSCALE_ENABLED="false"
-        TAILSCALE_MODE=""
-        TAILSCALE_AUTH_KEY=""
-        TAILSCALE_HOSTNAME=""
-    fi
-else
-    # Non-interactive mode - disable Tailscale by default
-    TAILSCALE_ENABLED="false"
-    TAILSCALE_MODE=""
-    TAILSCALE_AUTH_KEY=""
-    TAILSCALE_HOSTNAME=""
-    echo "Tailscale: disabled (auto-selected)"
-fi
 
 # Create user if it doesn't exist
 create_user $USER_NAME
@@ -674,30 +617,11 @@ fi
 
 # No cleanup needed as we use temp directory
 
-# Create configuration file
-print_color $YELLOW "\nCreating configuration..."
-
-# Build Tailscale configuration section if enabled
-TAILSCALE_CONFIG=""
-if [ "$TAILSCALE_ENABLED" = "true" ]; then
-    TAILSCALE_CONFIG="
-[tailscale]
-enabled = true
-mode = \"$TAILSCALE_MODE\""
+# Create configuration file only if Tailscale is not enabled
+if [ "$TAILSCALE_ENABLED" != "true" ]; then
+    print_color $YELLOW "\nCreating configuration..."
     
-    if [ -n "$TAILSCALE_AUTH_KEY" ]; then
-        TAILSCALE_CONFIG="$TAILSCALE_CONFIG
-auth_key = \"$TAILSCALE_AUTH_KEY\""
-    fi
-    
-    if [ -n "$TAILSCALE_HOSTNAME" ]; then
-        TAILSCALE_CONFIG="$TAILSCALE_CONFIG
-hostname = \"$TAILSCALE_HOSTNAME\""
-    fi
-    
-fi
-
-sudo tee $CONFIG_DIR/agent.toml > /dev/null << EOF
+    sudo tee $CONFIG_DIR/agent.toml > /dev/null << EOF
 # Netronome Agent Configuration
 
 [agent]
@@ -706,56 +630,81 @@ port = $PORT
 interface = "$INTERFACE"
 api_key = "$API_KEY"
 disk_includes = $DISK_INCLUDES
-disk_excludes = $DISK_EXCLUDES$TAILSCALE_CONFIG
+disk_excludes = $DISK_EXCLUDES
 
 [logging]
 level = "info"
 EOF
 
-# Add Tailscale configuration if enabled
-if [ "$TAILSCALE_ENABLED" = "true" ]; then
-    sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
-
-[tailscale]
-enabled = true
-method = "$TAILSCALE_METHOD"
-EOF
-    
-    if [ "$TAILSCALE_METHOD" = "tsnet" ]; then
-        sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
-auth_key = "$TAILSCALE_AUTH_KEY"
-EOF
+    if [ "$OS" = "darwin" ]; then
+        sudo chown $USER_NAME:staff $CONFIG_DIR/agent.toml
+    else
+        sudo chown $USER_NAME:$USER_NAME $CONFIG_DIR/agent.toml
     fi
-    
-    if [ -n "$TAILSCALE_HOSTNAME" ]; then
-        sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
-hostname = "$TAILSCALE_HOSTNAME"
-EOF
-    fi
-fi
-
-if [ "$OS" = "darwin" ]; then
-    sudo chown $USER_NAME:staff $CONFIG_DIR/agent.toml
+    sudo chmod 600 $CONFIG_DIR/agent.toml
 else
-    sudo chown $USER_NAME:$USER_NAME $CONFIG_DIR/agent.toml
+    print_color $YELLOW "\nTailscale enabled - configuration will be passed via command line flags"
 fi
-sudo chmod 600 $CONFIG_DIR/agent.toml
 
 # Create service
 print_color $YELLOW "\nCreating service..."
 
 if [ "$OS" = "darwin" ]; then
     # Create launchd plist for macOS
-    # Set up program arguments based on binary type
+    # Build the arguments array based on binary type
     if [ "$BINARY_NAME" = "netronome-agent" ]; then
-        PROGRAM_ARGS="        <string>$INSTALL_DIR/$BINARY_NAME</string>
+        PLIST_ARGS="        <string>$INSTALL_DIR/$BINARY_NAME</string>"
+    else
+        PLIST_ARGS="        <string>$INSTALL_DIR/$BINARY_NAME</string>
+        <string>agent</string>"
+    fi
+    
+    # Add config file flag if Tailscale is NOT enabled
+    if [ "$TAILSCALE_ENABLED" != "true" ]; then
+        PLIST_ARGS="$PLIST_ARGS
         <string>--config</string>
         <string>$CONFIG_DIR/agent.toml</string>"
     else
-        PROGRAM_ARGS="        <string>$INSTALL_DIR/$BINARY_NAME</string>
-        <string>agent</string>
-        <string>--config</string>
-        <string>$CONFIG_DIR/agent.toml</string>"
+        # Add Tailscale flags
+        PLIST_ARGS="$PLIST_ARGS
+        <string>--tailscale</string>"
+        
+        if [ "$TAILSCALE_METHOD" = "host" ]; then
+            PLIST_ARGS="$PLIST_ARGS
+        <string>--tailscale-method</string>
+        <string>host</string>"
+        elif [ "$TAILSCALE_METHOD" = "tsnet" ]; then
+            PLIST_ARGS="$PLIST_ARGS
+        <string>--tailscale-method</string>
+        <string>tsnet</string>
+        <string>--tailscale-auth-key</string>
+        <string>$TAILSCALE_AUTH_KEY</string>"
+            
+            if [ -n "$TAILSCALE_HOSTNAME" ]; then
+                PLIST_ARGS="$PLIST_ARGS
+        <string>--tailscale-hostname</string>
+        <string>$TAILSCALE_HOSTNAME</string>"
+            fi
+        fi
+        
+        # Add other necessary flags when using Tailscale
+        if [ -n "$INTERFACE" ]; then
+            PLIST_ARGS="$PLIST_ARGS
+        <string>--interface</string>
+        <string>$INTERFACE</string>"
+        fi
+        
+        if [ -n "$API_KEY" ]; then
+            PLIST_ARGS="$PLIST_ARGS
+        <string>--api-key</string>
+        <string>$API_KEY</string>"
+        fi
+        
+        PLIST_ARGS="$PLIST_ARGS
+        <string>--host</string>
+        <string>$HOST</string>
+        <string>--port</string>
+        <string>$PORT</string>"
     fi
     
     sudo tee /Library/LaunchDaemons/$SERVICE_NAME.plist > /dev/null << EOF
@@ -767,7 +716,7 @@ if [ "$OS" = "darwin" ]; then
     <string>$SERVICE_NAME</string>
     <key>ProgramArguments</key>
     <array>
-$PROGRAM_ARGS
+$PLIST_ARGS
     </array>
     <key>UserName</key>
     <string>$USER_NAME</string>
@@ -808,11 +757,40 @@ EOF
     fi
 else
     # Create systemd service for Linux
-    # Set up ExecStart based on binary type
+    # Build the ExecStart command based on binary type
     if [ "$BINARY_NAME" = "netronome-agent" ]; then
-        EXEC_START="$INSTALL_DIR/$BINARY_NAME --config $CONFIG_DIR/agent.toml"
+        EXEC_START="$INSTALL_DIR/$BINARY_NAME"
     else
-        EXEC_START="$INSTALL_DIR/$BINARY_NAME agent --config $CONFIG_DIR/agent.toml"
+        EXEC_START="$INSTALL_DIR/$BINARY_NAME agent"
+    fi
+    
+    # Add config file or Tailscale flags
+    if [ "$TAILSCALE_ENABLED" != "true" ]; then
+        EXEC_START="$EXEC_START --config $CONFIG_DIR/agent.toml"
+    else
+        # Add Tailscale flags
+        EXEC_START="$EXEC_START --tailscale"
+        
+        if [ "$TAILSCALE_METHOD" = "host" ]; then
+            EXEC_START="$EXEC_START --tailscale-method host"
+        elif [ "$TAILSCALE_METHOD" = "tsnet" ]; then
+            EXEC_START="$EXEC_START --tailscale-method tsnet --tailscale-auth-key '$TAILSCALE_AUTH_KEY'"
+            
+            if [ -n "$TAILSCALE_HOSTNAME" ]; then
+                EXEC_START="$EXEC_START --tailscale-hostname '$TAILSCALE_HOSTNAME'"
+            fi
+        fi
+        
+        # Add other necessary flags when using Tailscale
+        if [ -n "$INTERFACE" ]; then
+            EXEC_START="$EXEC_START --interface '$INTERFACE'"
+        fi
+        
+        if [ -n "$API_KEY" ]; then
+            EXEC_START="$EXEC_START --api-key '$API_KEY'"
+        fi
+        
+        EXEC_START="$EXEC_START --host $HOST --port $PORT"
     fi
     
     cat > /etc/systemd/system/$SERVICE_NAME.service << EOF
@@ -834,7 +812,6 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=$CONFIG_DIR
 
 [Install]
 WantedBy=multi-user.target
