@@ -66,17 +66,17 @@ func (td *TailscaleDiscovery) Start(ctx context.Context) error {
 // startHostMode initializes discovery using host's tailscaled
 func (td *TailscaleDiscovery) startHostMode(ctx context.Context) error {
 	log.Info().Msg("Using host's tailscaled for discovery...")
-	
+
 	hostClient, err := tailscale.GetHostClient()
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to connect to host's tailscaled, discovery will not work")
 		return nil // Don't fail startup, just disable discovery
 	}
-	
+
 	td.tailscaleClient = hostClient
 	td.mode = tailscale.ModeHost
 	log.Info().Msg("Successfully connected to host's tailscaled for discovery")
-	
+
 	td.startDiscoveryTimer(ctx)
 	return nil
 }
@@ -122,10 +122,10 @@ func (td *TailscaleDiscovery) startTsnetMode(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get tsnet client: %w", err)
 	}
-	
+
 	td.tailscaleClient = client
 	td.mode = tailscale.ModeTsnet
-	
+
 	td.startDiscoveryTimer(ctx)
 	return nil
 }
@@ -213,7 +213,7 @@ func (td *TailscaleDiscovery) discoverAgents(ctx context.Context) {
 
 	// Check each peer
 	client := &http.Client{Timeout: 3 * time.Second}
-	
+
 	for _, peer := range peersToCheck {
 		// Skip if already exists
 		if existingTailscaleAgents[peer.HostName] {
@@ -256,7 +256,7 @@ func (td *TailscaleDiscovery) buildPeersList(status *ipnstate.Status) []struct {
 		if !peer.Online {
 			continue
 		}
-		
+
 		hostname := td.extractHostname(peer.DNSName, peer.HostName)
 		peersToCheck = append(peersToCheck, struct {
 			HostName string
@@ -268,7 +268,7 @@ func (td *TailscaleDiscovery) buildPeersList(status *ipnstate.Status) []struct {
 			Online:   true,
 		})
 	}
-	
+
 	return peersToCheck
 }
 
@@ -277,12 +277,12 @@ func (td *TailscaleDiscovery) extractHostname(dnsName, hostName string) string {
 	if dnsName == "" {
 		return hostName
 	}
-	
+
 	// Trim the MagicDNS suffix to get just the machine name
 	if idx := strings.Index(dnsName, "."); idx > 0 {
 		return dnsName[:idx]
 	}
-	
+
 	return dnsName
 }
 
@@ -294,7 +294,7 @@ func (td *TailscaleDiscovery) tryDiscoverAgent(ctx context.Context, client *http
 }, discoveryPort int) {
 	// Check if this is a Netronome agent with Tailscale enabled
 	infoURL := fmt.Sprintf("http://%s:%d/netronome/info", peer.HostName, discoveryPort)
-	
+
 	resp, err := client.Get(infoURL)
 	if err != nil {
 		// Not a Netronome agent or not reachable
@@ -380,7 +380,7 @@ func (td *TailscaleDiscovery) createAndSaveAgent(ctx context.Context, peer struc
 			Msg("Failed to start monitoring discovered agent")
 		return
 	}
-	
+
 	log.Info().
 		Int64("agent_id", createdAgent.ID).
 		Str("name", createdAgent.Name).
@@ -429,7 +429,9 @@ func (td *TailscaleDiscovery) GetTailscaleStatus() (map[string]interface{}, erro
 	}
 	result["tailscale_ips"] = ips
 	result["online"] = status.Self.Online
-	result["magic_dns_suffix"] = status.MagicDNSSuffix
+	if status.CurrentTailnet != nil {
+		result["magic_dns_suffix"] = status.CurrentTailnet.MagicDNSSuffix
+	}
 
 	// Count discovered agents
 	discoveredCount := 0
