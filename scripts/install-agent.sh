@@ -687,6 +687,18 @@ else
         fi
     fi
     
+    # Determine user based on Tailscale configuration
+    if [ "$TAILSCALE_ENABLED" = "true" ] && [ "$TAILSCALE_METHOD" = "tsnet" ]; then
+        SERVICE_USER="root"
+        SERVICE_GROUP="root"
+        # Add tsnet state directory to ReadWritePaths
+        READWRITE_PATHS="$CONFIG_DIR /root/.config/netronome"
+    else
+        SERVICE_USER="$USER_NAME"
+        SERVICE_GROUP="$USER_NAME"
+        READWRITE_PATHS="$CONFIG_DIR"
+    fi
+    
     cat > /etc/systemd/system/$SERVICE_NAME.service << EOF
 [Unit]
 Description=Netronome vnstat Agent
@@ -695,8 +707,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=$USER_NAME
-Group=$USER_NAME
+User=$SERVICE_USER
+Group=$SERVICE_GROUP
 ExecStart=$EXEC_START
 Restart=always
 RestartSec=10
@@ -706,7 +718,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=$CONFIG_DIR
+ReadWritePaths=$READWRITE_PATHS
 
 [Install]
 WantedBy=multi-user.target
