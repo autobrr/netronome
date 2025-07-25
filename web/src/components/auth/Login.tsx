@@ -111,7 +111,7 @@ export default function Login() {
         {oidcEnabled ? (
           <button
             onClick={() => handleOIDCLogin()}
-            className="w-full flex justify-center items-center mt-12 py-2 px-4 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-825 text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-450 focus:outline-none focus:ring-1 focus:ring-gray-300 dark:focus:ring-gray-700"
+            className="w-full flex justify-center items-center mt-12 py-2 px-4 border border-gray-300 dark:border-gray-900 rounded-md shadow-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-825 text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-450 focus:outline-none focus:ring-1 focus:ring-gray-300 dark:focus:ring-gray-700"
           >
             <span
               className="group relative inline-block"
