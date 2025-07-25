@@ -272,6 +272,35 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 		return
 	}
 
+	// If OIDC is configured, check if this is a valid OIDC token first
+	if h.oidc != nil {
+		// Extract the actual token regardless of how it's stored
+		actualToken := signedToken
+		
+		// Handle memory-only sessions (no session_secret)
+		if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
+			actualToken = strings.TrimPrefix(signedToken, auth.MemoryOnlyPrefix)
+		} else if h.sessionSecret != "" {
+			// Handle signed tokens (with session_secret)
+			// Try to verify and extract the raw token
+			if rawToken, err := auth.VerifyToken(signedToken, h.sessionSecret); err == nil {
+				actualToken = rawToken
+			}
+		}
+		
+		// Check if it's a JWT and verify with OIDC
+		if isJWT(actualToken) {
+			if err := h.oidc.VerifyToken(c.Request.Context(), actualToken); err == nil {
+				h.refreshSession(c, signedToken)
+				c.JSON(http.StatusOK, gin.H{
+					"message": "Token is valid",
+					"type":    "oidc",
+				})
+				return
+			}
+		}
+	}
+
 	// check if it's a memory session
 	if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
 		if !h.isValidMemorySession(signedToken) {
@@ -288,16 +317,6 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 		}
 	}
 
-	if h.oidc != nil {
-		if err := h.oidc.VerifyToken(c.Request.Context(), signedToken); err == nil {
-			h.refreshSession(c, signedToken)
-			c.JSON(http.StatusOK, gin.H{
-				"message": "Token is valid",
-				"type":    "oidc",
-			})
-			return
-		}
-	}
 
 	var username string
 	err = h.db.QueryRow(c.Request.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
@@ -360,6 +379,37 @@ func (h *AuthHandler) GetUserInfo(c *gin.Context) {
 		return
 	}
 
+	// If OIDC is configured, check if this is a valid OIDC token first
+	if h.oidc != nil {
+		// Extract the actual token regardless of how it's stored
+		actualToken := signedToken
+		
+		// Handle memory-only sessions (no session_secret)
+		if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
+			actualToken = strings.TrimPrefix(signedToken, auth.MemoryOnlyPrefix)
+		} else if h.sessionSecret != "" {
+			// Handle signed tokens (with session_secret)
+			// Try to verify and extract the raw token
+			if rawToken, err := auth.VerifyToken(signedToken, h.sessionSecret); err == nil {
+				actualToken = rawToken
+			}
+		}
+		
+		// Check if it's a JWT and verify with OIDC
+		if isJWT(actualToken) {
+			claims, err := h.oidc.GetClaims(c.Request.Context(), actualToken)
+			if err == nil {
+				c.JSON(http.StatusOK, gin.H{
+					"user": gin.H{
+						"id":       0, // OIDC users don't have local IDs
+						"username": claims.Subject,
+					},
+				})
+				return
+			}
+		}
+	}
+
 	// check if it's a memory session
 	if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
 		if !h.isValidMemorySession(signedToken) {
@@ -376,19 +426,6 @@ func (h *AuthHandler) GetUserInfo(c *gin.Context) {
 		}
 	}
 
-	// try oidc first
-	if h.oidc != nil {
-		claims, err := h.oidc.GetClaims(c.Request.Context(), signedToken)
-		if err == nil {
-			c.JSON(http.StatusOK, gin.H{
-				"user": gin.H{
-					"id":       0, // OIDC users don't have local IDs
-					"username": claims.Subject,
-				},
-			})
-			return
-		}
-	}
 
 	// fall back to regular user lookup
 	username := c.GetString("username")
@@ -470,9 +507,26 @@ func RequireAuth(db database.Service, oidc *auth.OIDCConfig, sessionSecret strin
 
 		// if oidc is configured, try to verify the token
 		if oidc != nil {
-			if err := oidc.VerifyToken(c.Request.Context(), signedToken); err == nil {
-				c.Next()
-				return
+			// Extract the actual token regardless of how it's stored
+			actualToken := signedToken
+			
+			// Handle memory-only sessions (no session_secret)
+			if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
+				actualToken = strings.TrimPrefix(signedToken, auth.MemoryOnlyPrefix)
+			} else if sessionSecret != "" {
+				// Handle signed tokens (with session_secret)
+				// Try to verify and extract the raw token
+				if rawToken, err := auth.VerifyToken(signedToken, sessionSecret); err == nil {
+					actualToken = rawToken
+				}
+			}
+			
+			// Check if it's a JWT and verify with OIDC
+			if isJWT(actualToken) {
+				if err := oidc.VerifyToken(c.Request.Context(), actualToken); err == nil {
+					c.Next()
+					return
+				}
 			}
 		}
 
