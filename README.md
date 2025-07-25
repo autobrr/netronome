@@ -95,12 +95,6 @@ Netronome requires the following external tools for full functionality:
 - **librespeed-cli** - Required for LibreSpeed testing (automatically included in Docker)
 - **traceroute** - Required for network diagnostics (automatically included in Docker, usually pre-installed on most systems)
 
-### Required for Development
-
-- **air** - Go live reload tool for `make watch` command
-- **tmux** - Terminal multiplexer for `make dev` command
-- **pnpm** - Package manager for frontend dependencies
-
 ## 🚀 Getting Started
 
 ### Linux Generic
@@ -121,7 +115,7 @@ Run with root or sudo. If you do not have root, or are on a shared system, place
 tar -C /usr/local/bin -xzf netronome*.tar.gz
 ```
 
-This will extract both netronome and netronomectl to /usr/local/bin. Note: If the command fails, prefix it with sudo and re-run again.
+This will extract netronome to /usr/local/bin. Note: If the command fails, prefix it with sudo and re-run again.
 Systemd (Recommended)
 
 On Linux-based systems, it is recommended to run netronome as a sort of service with auto-restarting capabilities, in order to account for potential downtime. The most common way is to do it via systemd.
@@ -163,23 +157,7 @@ If you are not running a reverse proxy change host in the config.toml to 0.0.0.0
 
 For containerized deployment see [docker-compose.yml](docker-compose.yml) and [docker-compose.postgres.yml](docker-compose.postgres.yml).
 
-**Important:** The Docker container requires the `NET_RAW` capability for MTR and privileged ping operations to work properly. This is already configured in the provided docker-compose files.
-
-If running Docker manually, add the capability:
-
-```bash
-docker run --cap-add=NET_RAW -p 7575:7575 -v ./netronome:/data ghcr.io/autobrr/netronome:latest
-```
-
 **Tailscale Sidecar Setup**: For running Netronome with a Tailscale sidecar container for secure networking and agent discovery, see our [Docker Tailscale Sidecar Guide](docs/docker-tailscale-sidecar.md).
-
-**Note about MTR without NET_RAW**: When MTR runs without the NET_RAW capability (unprivileged mode), it falls back to UDP mode instead of ICMP. UDP mode may show higher packet loss than ICMP because:
-
-- Some routers prioritize ICMP traffic over UDP
-- Firewalls may rate-limit or drop UDP packets more aggressively
-- UDP packets may be treated as lower priority during network congestion
-
-For the most accurate packet loss measurements, ensure the container has NET_RAW capability or run netronome with sudo/root privileges.
 
 ## ⚙️ Configuration
 
@@ -191,64 +169,7 @@ Netronome can be configured using a TOML file. Generate a default configuration:
 netronome generate-config
 ```
 
-This will create a `config.toml` file with default settings:
-
-```toml
-# Netronome Configuration
-
-[database]
-type = "sqlite"
-path = "netronome.db"
-
-[server]
-host = "127.0.0.1"
-port = 7575
-base_url = ""
-
-[logging]
-level = "info"
-
-[oidc]
-issuer = ""
-client_id = ""
-client_secret = ""
-redirect_url = ""
-
-[speedtest]
-timeout = 30
-
-[speedtest.iperf]
-test_duration = 10
-parallel_conns = 4
-timeout = 30
-
-[speedtest.iperf.ping]
-count = 5
-interval = 1000
-timeout = 10
-
-[geoip]
-country_database_path = ""
-asn_database_path = ""
-
-
-[tailscale]
-enabled = false
-method = "auto"  # "auto" (default), "host", or "tsnet"
-
-# TSNet settings (used when method="tsnet" or auto-detected)
-# auth_key = ""  # Required for tsnet mode
-# hostname = ""  # Custom hostname (optional)
-# ephemeral = false  # Remove on shutdown
-# state_dir = "~/.config/netronome/tsnet"  # Directory for tsnet state
-# control_url = ""  # For Headscale (optional)
-
-# Server discovery settings
-auto_discover = true  # Auto-discover Tailscale agents
-discovery_interval = "5m"  # How often to check for new agents
-discovery_port = 8200  # Port to probe for agents
-# discovery_prefix = ""  # Only discover agents with this prefix (optional)
-```
+This will create a `config.toml` file with default settings.
 
 #### LibreSpeed Configuration
 
