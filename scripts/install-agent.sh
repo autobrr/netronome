@@ -316,30 +316,13 @@ fi
 # Get network interface
 print_color $YELLOW "\nAvailable network interfaces:"
 interfaces=$(get_network_interfaces)
-# Store interfaces in an array for number selection (portable method)
-IFS=$'\n' read -r -d '' -a interface_array <<< "$interfaces" || true
 echo "$interfaces" | nl -w2 -s'. '
 
 echo ""
+print_color $YELLOW "Type the interface name from the list above (e.g., eth0, ens18, etc.)"
 if [ "$INTERACTIVE_MODE" = true ]; then
     # Interactive mode - read from terminal
-    read -p "Enter the interface number or name (e.g., 1 or eth0, leave empty for all): " INTERFACE_INPUT < "$INPUT_SOURCE"
-    
-    # Check if input is a number
-    if [[ "$INTERFACE_INPUT" =~ ^[0-9]+$ ]]; then
-        # Convert number to interface name
-        index=$((INTERFACE_INPUT - 1))
-        if [ $index -ge 0 ] && [ $index -lt ${#interface_array[@]} ]; then
-            INTERFACE="${interface_array[$index]}"
-            print_color $GREEN "Selected interface: $INTERFACE"
-        else
-            print_color $RED "Invalid interface number. Using all interfaces."
-            INTERFACE=""
-        fi
-    else
-        # Use the input as interface name directly
-        INTERFACE="$INTERFACE_INPUT"
-    fi
+    read -p "Enter the interface name to monitor (leave empty for all): " INTERFACE < "$INPUT_SOURCE"
 else
     # Non-interactive mode - default to all interfaces
     INTERFACE=""
