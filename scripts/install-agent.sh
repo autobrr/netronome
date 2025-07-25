@@ -316,8 +316,8 @@ fi
 # Get network interface
 print_color $YELLOW "\nAvailable network interfaces:"
 interfaces=$(get_network_interfaces)
-# Store interfaces in an array for number selection
-readarray -t interface_array <<< "$interfaces"
+# Store interfaces in an array for number selection (portable method)
+IFS=$'\n' read -r -d '' -a interface_array <<< "$interfaces" || true
 echo "$interfaces" | nl -w2 -s'. '
 
 echo ""
