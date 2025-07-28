@@ -47,6 +47,7 @@ interface DataTableProps<TData, TValue> {
   showPagination?: boolean
   showColumnVisibility?: boolean
   showRowSelection?: boolean
+  showHeaders?: boolean
   onRowSelectionChange?: (selectedRows: Row<TData>[]) => void
   onRowClick?: (row: TData) => void
   pageSize?: number
@@ -63,6 +64,7 @@ export function DataTable<TData, TValue>({
   showPagination = true,
   showColumnVisibility = true,
   showRowSelection = false,
+  showHeaders = true,
   onRowSelectionChange,
   onRowClick,
   pageSize = 10,
@@ -186,24 +188,26 @@ export function DataTable<TData, TValue>({
       
       <div className="rounded-md border border-gray-300 dark:border-gray-800">
         <Table className={tableClassName}>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
+          {showHeaders && (
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    return (
+                      <TableHead key={header.id}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    )
+                  })}
+                </TableRow>
+              ))}
+            </TableHeader>
+          )}
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (

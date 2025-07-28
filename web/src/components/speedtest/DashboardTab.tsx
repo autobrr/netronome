@@ -200,24 +200,24 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     <div className="space-y-6">
       {/* No History Available message */}
       {!hasAnyTests && (
-        <div className="max-w-xl mx-auto bg-gray-50/95 dark:bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900">
-          <div className="text-center space-y-4">
+        <div className="max-w-xl mx-auto bg-gray-50/95 dark:bg-gray-850/95 p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900">
+          <div className="text-center space-y-3 sm:space-y-4">
             <div>
-              <h2 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">
+              <h2 className="text-gray-900 dark:text-white text-lg sm:text-xl font-semibold mb-1 sm:mb-2">
                 No History Available
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
                 Start monitoring your network performance
               </p>
             </div>
 
-            {/* Empty Chart Visualization */}
-            <div className="my-6">
-              <div className="flex items-end justify-center gap-2 h-24">
+            {/* Empty Chart Visualization - more compact on mobile */}
+            <div className="my-4 sm:my-6">
+              <div className="flex items-end justify-center gap-1 sm:gap-2 h-16 sm:h-24">
                 {[40, 60, 35, 70, 45, 55, 65].map((height, i) => (
                   <div
                     key={i}
-                    className="w-8 bg-gray-300/50 dark:bg-gray-700/50 rounded-t-sm transition-all duration-500"
+                    className="w-6 sm:w-8 bg-gray-300/50 dark:bg-gray-700/50 rounded-t-sm transition-all duration-500"
                     style={{ height: `${height}%`, opacity: 0.3 + i * 0.1 }}
                   />
                 ))}
@@ -230,7 +230,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 Go to the{" "}
                 <button
                   onClick={onNavigateToSpeedTest}
-                  className="inline-flex items-center mx-1 px-2 py-1 rounded-lg transition-colors text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20"
+                  className="inline-flex items-center mx-1 px-3 py-2 sm:px-2 sm:py-1 min-h-[44px] sm:min-h-0 rounded-lg transition-colors text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 touch-manipulation"
                   disabled={!onNavigateToSpeedTest}
                 >
                   Speed Test tab
@@ -270,7 +270,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 : "N/A"}
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 cursor-default relative">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 cursor-default relative">
             <MetricCard
               icon={<IoIosPulse className="w-5 h-5 text-amber-500" />}
               title="Latency"
@@ -302,14 +302,14 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               }
             />
 
-            {/* Floating Share Button over Jitter Card */}
+            {/* Floating Share Button positioned on the grid */}
             {!isPublic && onShareClick && (
               <motion.button
                 onClick={onShareClick}
-                className="absolute top-3 right-3 p-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 hover:border-blue-500/50 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-all duration-200 backdrop-blur-sm z-10 opacity-80 hover:opacity-100"
+                className="absolute top-2 right-2 sm:top-3 sm:right-3 p-3 sm:p-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 hover:border-blue-500/50 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-all duration-200 backdrop-blur-sm z-10 opacity-80 hover:opacity-100 touch-manipulation flex items-center justify-center"
                 aria-label="Share public speed test page"
               >
-                <FaShare className="w-2.5 h-2.5" />
+                <FaShare className="w-3.5 h-3.5 sm:w-2.5 sm:h-2.5" />
               </motion.button>
             )}
           </div>
@@ -395,31 +395,33 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
     >
       <CollapsibleTrigger
         className={cn(
-          "flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95",
+          "flex justify-between items-center w-full px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-50/95 dark:bg-gray-850/95",
           isRecentTestsOpen ? "rounded-t-xl" : "rounded-xl",
           "shadow-lg border border-gray-200 dark:border-gray-800",
           isRecentTestsOpen ? "border-b-0" : "",
-          "text-left transition-all duration-200 hover:bg-gray-100/95 dark:hover:bg-gray-800/95"
+          "text-left transition-all duration-200 hover:bg-gray-100/95 dark:hover:bg-gray-800/95 touch-manipulation"
         )}
       >
         <div className="flex items-center gap-2">
           <div
             ref={dragHandleRef}
             {...dragHandleListeners}
-            className="cursor-grab active:cursor-grabbing touch-none"
+            className="cursor-grab active:cursor-grabbing touch-none p-1 -m-1"
           >
             <FaGripVertical className="w-4 h-4 text-gray-400 dark:text-gray-600" />
           </div>
-          <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
+          <h2 className="text-gray-900 dark:text-white text-lg sm:text-xl font-semibold p-1 select-none">
             Recent Speedtests
           </h2>
         </div>
-        <ChevronDownIcon
-          className={cn(
-            isRecentTestsOpen ? "transform rotate-180" : "",
-            "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200"
-          )}
-        />
+        <div className="p-1 -m-1">
+          <ChevronDownIcon
+            className={cn(
+              isRecentTestsOpen ? "transform rotate-180" : "",
+              "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200"
+            )}
+          />
+        </div>
       </CollapsibleTrigger>
 
       <CollapsibleContent>
@@ -432,7 +434,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
             stiffness: 300,
             damping: 20,
           }}
-          className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-3 pb-6 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
+          className="bg-gray-50/95 dark:bg-gray-850/95 px-3 sm:px-4 pt-3 pb-6 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
         >
           {/* Desktop Table View */}
           <div className="hidden md:block">
@@ -456,6 +458,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
               showPagination={false}
               showColumnVisibility={false}
               showRowSelection={false}
+              showHeaders={false}
               className="-mt-4"
               tableClassName="border-0"
             />
@@ -465,17 +468,17 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
             <div className="mt-4 space-y-3">
               {/* Test Count */}
               <div className="text-center">
-                <span className="text-gray-500 dark:text-gray-500 text-sm">
+                <span className="text-gray-500 dark:text-gray-500 text-xs sm:text-sm">
                   Showing {displayedTests.length} of {tests.length} tests
                 </span>
               </div>
 
               {/* Load More / Show Less Buttons */}
-              <div className="flex items-center justify-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
                 {tests.length > displayCount && (
                   <button
                     onClick={() => setDisplayCount((prev) => prev + 5)}
-                    className="inline-flex items-center px-4 py-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-colors duration-200 text-sm font-medium"
+                    className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-colors duration-200 text-sm font-medium touch-manipulation"
                   >
                     Load {Math.min(5, tests.length - displayCount)} more
                     <span className="ml-2">↓</span>
@@ -485,7 +488,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
                 {displayCount > 5 && (
                   <button
                     onClick={() => setDisplayCount(5)}
-                    className="inline-flex items-center px-4 py-2 bg-gray-600/10 hover:bg-gray-600/20 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg transition-colors duration-200 text-sm font-medium"
+                    className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-600/10 hover:bg-gray-600/20 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg transition-colors duration-200 text-sm font-medium touch-manipulation"
                   >
                     Show less
                     <span className="ml-2">↑</span>

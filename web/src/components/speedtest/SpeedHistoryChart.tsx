@@ -394,6 +394,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               borderRadius: "0.5rem",
               fontSize: isMobile ? "12px" : "14px",
               padding: isMobile ? "8px" : "12px",
+              maxWidth: isMobile ? "250px" : "none",
             }}
             labelStyle={{
               color: "var(--tooltip-label)",
@@ -403,6 +404,8 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               color: "var(--tooltip-text)",
               padding: isMobile ? "2px 0" : "4px 0",
             }}
+            // Allow tooltip to work on touch devices
+            trigger={isMobile ? "click" : "hover"}
             formatter={(value: number, name: string) => {
               if (name === "Download" || name === "Upload") {
                 return [`${value.toFixed(isMobile ? 1 : 2)} Mbps`, name];
@@ -566,11 +569,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         <CollapsibleTrigger asChild>
           <button
             className={cn(
-              "flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95",
+              "flex justify-between items-center w-full px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-50/95 dark:bg-gray-850/95",
               isOpen ? "rounded-t-xl" : "rounded-xl",
               "shadow-lg border border-gray-200 dark:border-gray-800",
               isOpen && "border-b-0",
-              "text-left hover:bg-gray-100/95 dark:hover:bg-gray-800/95 transition-colors"
+              "text-left hover:bg-gray-100/95 dark:hover:bg-gray-800/95 transition-colors touch-manipulation"
             )}
           >
             <div className="flex items-center gap-2">
@@ -578,21 +581,23 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                 <div
                   ref={dragHandleRef}
                   {...dragHandleListeners}
-                  className="cursor-grab active:cursor-grabbing touch-none"
+                  className="cursor-grab active:cursor-grabbing touch-none p-1 -m-1"
                 >
                   <FaGripVertical className="w-4 h-4 text-gray-400 dark:text-gray-600" />
                 </div>
               )}
-              <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
+              <h2 className="text-gray-900 dark:text-white text-lg sm:text-xl font-semibold p-1 select-none">
                 Speedtest History
               </h2>
             </div>
-            <ChevronDownIcon
-              className={cn(
-                "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200",
-                isOpen && "transform rotate-180"
-              )}
-            />
+            <div className="p-1 -m-1">
+              <ChevronDownIcon
+                className={cn(
+                  "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200",
+                  isOpen && "transform rotate-180"
+                )}
+              />
+            </div>
           </button>
         </CollapsibleTrigger>
 
@@ -602,7 +607,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   {/* Controls */}
                   <div className="flex flex-col sm:flex-row justify-between items-center mb-2">
                     {/* Metric Toggle Controls */}
-                    <div className="grid grid-cols-4 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto mb-4 sm:mb-0">
+                    <div className="grid grid-cols-4 sm:flex sm:flex-wrap items-center gap-2 sm:gap-2 w-full sm:w-auto mb-4 sm:mb-0">
                       {[
                         {
                           key: "download",
@@ -639,15 +644,21 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                                 key as keyof typeof visibleMetrics
                               )
                             }
+                            aria-label={`${isActive ? "Hide" : "Show"} ${label} metric`}
+                            aria-pressed={isActive}
                             className={cn(
-                              "relative px-1.5 sm:px-2 py-1 sm:py-1.5 min-w-0",
+                              "relative px-2 sm:px-2 py-2 sm:py-1.5 min-w-0",
                               "text-[10px] sm:text-xs font-medium",
                               "flex items-center justify-center sm:justify-start gap-1 sm:gap-1.5",
                               "rounded-md transition-all duration-200",
                               "border border-transparent",
+                              // Improved touch target size for mobile
+                              "min-h-[44px] sm:min-h-0",
                               isActive
                                 ? "bg-opacity-20 shadow-sm"
-                                : "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                : "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700",
+                              // Add active states for touch feedback
+                              "active:scale-95 sm:active:scale-100"
                             )}
                             style={{
                               backgroundColor: isActive
@@ -679,12 +690,13 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     <Select value={timeRange} onValueChange={handleTimeRangeChange}>
                       <SelectTrigger 
                         size="sm" 
-                        className="w-[140px] bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-500/50 dark:focus:ring-blue-400/50 text-gray-900 dark:text-gray-100 transition-colors duration-200"
+                        className="w-[140px] min-h-[44px] sm:min-h-0 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-500/50 dark:focus:ring-blue-400/50 text-gray-900 dark:text-gray-100 transition-colors duration-200"
+                        aria-label="Select time range for chart"
                       >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent 
-                        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg z-50"
+                        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg z-50 max-h-[300px]"
                         align="end"
                         sideOffset={5}
                       >
@@ -702,7 +714,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   </div>
 
                   {/* Chart Area */}
-                  <div className="h-[250px] sm:h-[300px] md:h-[400px]">
+                  <div className="h-[250px] sm:h-[300px] md:h-[400px] -mx-2 sm:mx-0">
                     <AnimatePresence mode="wait">
                       {isLoading ? (
                         <ChartSkeleton />
