@@ -32,7 +32,7 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className="text-center py-12"
+        className="text-center py-8 sm:py-12"
       >
         <p className="text-lg text-gray-500 dark:text-gray-400">Loading system information...</p>
       </motion.div>
@@ -46,11 +46,11 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3 }}
-        className="text-center py-12"
+        className="text-center py-8 sm:py-12"
       >
-        <ServerIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-lg text-gray-500 dark:text-gray-400">No System Information Available</p>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+        <ServerIcon className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+        <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400">No System Information Available</p>
+        <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-1.5 sm:mt-2">
           The agent may have just been added or hasn't collected any data yet.
         </p>
       </motion.div>
@@ -58,11 +58,11 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Offline Banner */}
       {isOffline && <MonitorOfflineBanner message="Showing cached system information. Real-time data unavailable." />}
 
-      <div className="space-y-6 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-6">
+      <div className="space-y-4 sm:space-y-6 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-6">
         {/* Left Column - System Information */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -80,7 +80,7 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3, delay: 0.15 }}
-          className="order-2 lg:order-2 space-y-6"
+          className="order-2 lg:order-2 space-y-4 sm:space-y-6"
         >
           {hardwareStats && (
             <>
@@ -99,7 +99,7 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3, delay: 0.2 }}
-          className="order-3 lg:order-3 space-y-6"
+          className="order-3 lg:order-3 space-y-4 sm:space-y-6"
         >
           {hardwareStats && (
             <>
@@ -144,7 +144,7 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.35 }}
-          className="text-center text-xs text-gray-500 dark:text-gray-400 mt-6"
+          className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4 sm:mt-6"
         >
           {hardwareStats?.from_cache || systemInfo?.from_cache ? "Data collected" : "Last updated"}:{" "}
           {new Date((hardwareStats?.updated_at || systemInfo?.updated_at) || Date.now()).toLocaleTimeString()}
