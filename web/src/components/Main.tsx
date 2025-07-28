@@ -386,9 +386,9 @@ export default function Main({ isPublic = false }: MainProps) {
 
   return (
     <div className="min-h-screen">
-      <Container maxWidth="xl" className="pb-8 pt-20 md:pt-14">
+      <Container maxWidth="xl" className="pb-8 pt-16 sm:pt-20 md:pt-14">
         {/* Test Progress - Container always present to prevent layout shift */}
-        <div className="flex justify-center mb-6 mt-8 md:mt-0 min-h-[20px]">
+        <div className="flex justify-center mb-2 sm:mb-4 mt-2 sm:mt-4 md:mt-0">
           <AnimatePresence mode="wait">
             {(testStatus === "running" || scheduledTestRunning) &&
               progress !== null && (
@@ -406,7 +406,7 @@ export default function Main({ isPublic = false }: MainProps) {
         </div>
 
         {/* Header - Now just an empty spacer */}
-        <div className="mb-8" />
+        <div className="mb-4 sm:mb-8" />
 
         {/* Share Modal */}
         <ShareModal
@@ -484,7 +484,7 @@ export default function Main({ isPublic = false }: MainProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="mb-6"
+            className="mb-4 sm:mb-6"
           >
             <TabNavigation
               tabs={tabs}
