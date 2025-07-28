@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import { useState } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,110 +11,165 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { FaShare, FaCheck, FaCopy } from "react-icons/fa";
-import { motion } from "motion/react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Check, Copy, Share } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { getBaseUrl } from "@/utils/baseUrl";
+import { cn } from "@/lib/utils";
 
-interface ShareModalProps {
+// Animation configurations moved outside component for performance
+const FADE_IN_ANIMATION = {
+  initial: { opacity: 0, y: -10 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -10 },
+  transition: { duration: 0.2 },
+} as const;
+
+const BUTTON_INTERACTION = {
+  whileHover: { scale: 1.02 },
+  whileTap: { scale: 0.98 },
+  transition: { duration: 0.2 },
+} as const;
+
+interface ShareModalProps extends React.HTMLAttributes<HTMLDivElement> {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function ShareModal({ isOpen, onClose }: ShareModalProps) {
+export const ShareModal: React.FC<ShareModalProps> = ({
+  isOpen,
+  onClose,
+  className,
+  ...props
+}) => {
   const [copySuccess, setCopySuccess] = useState(false);
 
-  const generatePublicUrl = () => {
+  const publicUrl = useMemo(() => {
     const baseUrl = getBaseUrl();
     const origin = window.location.origin;
     return `${origin}${baseUrl}/public`;
-  };
+  }, []);
 
-  const handleCopyUrl = async () => {
+  const copyToClipboard = useCallback(async (text: string) => {
     try {
-      const publicUrl = generatePublicUrl();
-      await navigator.clipboard.writeText(publicUrl);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    } catch (error) {
-      console.error("Failed to copy URL:", error);
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
       // Fallback for older browsers
       const textArea = document.createElement("textarea");
-      textArea.value = generatePublicUrl();
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
       document.body.appendChild(textArea);
       textArea.select();
+
       try {
-        document.execCommand("copy");
-        setCopySuccess(true);
-        setTimeout(() => setCopySuccess(false), 2000);
-      } catch (fallbackError) {
-        console.error("Fallback copy failed:", fallbackError);
+        const successful = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        return successful;
+      } catch {
+        document.body.removeChild(textArea);
+        return false;
       }
-      document.body.removeChild(textArea);
     }
-  };
+  }, []);
+
+  const handleCopyUrl = useCallback(async () => {
+    const success = await copyToClipboard(publicUrl);
+
+    if (success) {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
+  }, [publicUrl, copyToClipboard]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="mx-auto max-w-md w-full bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+      <DialogContent
+        className={cn(
+          "max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800",
+          className
+        )}
+        {...props}
+      >
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-500/10 rounded-lg">
-              <FaShare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 border border-blue-500/30">
+              <Share className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
-            <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-              Share Speed Test Results
-            </DialogTitle>
+            <DialogTitle>Share Speed Test Results</DialogTitle>
           </div>
         </DialogHeader>
 
-              <div className="bg-gray-100/50 dark:bg-gray-800/30 rounded-xl p-4 border border-gray-200 dark:border-gray-700/50 mb-6">
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Share some proof that your gigabit connection is more like
-                  maybe-a-bit.
-                </p>
-              </div>
-              <div>
-                <Label className="mb-3">
-                  🔗 Public Dashboard Link
-                </Label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={generatePublicUrl()}
-                    readOnly
-                    className="flex-1 px-3 py-2.5 cursor-default bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
-                  />
-                  <motion.button
-                    onClick={handleCopyUrl}
-                    className={`px-4 py-2.5 rounded-lg transition-all duration-200 flex items-center gap-2 min-w-[44px] h-[42px] justify-center ${
-                      copySuccess
-                        ? "bg-green-500/20 border border-green-500/50 text-green-600 dark:text-green-400"
-                        : "bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-500/50 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-                    }`}
-                    aria-label="Copy URL to clipboard"
-                  >
-                    {copySuccess ? (
-                      <FaCheck className="w-4 h-4" />
-                    ) : (
-                      <FaCopy className="w-4 h-4" />
-                    )}
-                  </motion.button>
-                </div>
-                <div className="h-5 mt-2">
-                  {copySuccess && (
-                    <motion.p
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="text-green-600 dark:text-green-400 text-xs flex items-center gap-1"
-                    >
-                      <FaCheck className="w-3 h-3" />
-                      URL copied to clipboard!
-                    </motion.p>
+        <div className="space-y-4">
+          <Card className="bg-gray-50/95 dark:bg-gray-850/95 border-gray-200 dark:border-gray-800 p-4 shadow-none">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Share some proof that your gigabit connection is more like
+              maybe-a-bit.
+            </p>
+          </Card>
+
+          <div className="space-y-2">
+            <Label
+              htmlFor="share-url"
+              className="text-gray-700 dark:text-gray-300 font-medium"
+            >
+              Public Dashboard Link
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="share-url"
+                type="text"
+                value={publicUrl}
+                readOnly
+                className="flex-1 bg-gray-200/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300"
+                aria-label="Public dashboard URL"
+              />
+              <motion.div {...BUTTON_INTERACTION}>
+                <Button
+                  onClick={handleCopyUrl}
+                  variant="outline"
+                  size="icon"
+                  className={cn(
+                    "transition-colors",
+                    copySuccess
+                      ? "bg-emerald-500/20 dark:bg-emerald-500/10 hover:bg-emerald-500/30 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 dark:border-emerald-500/30 hover:border-emerald-500/50 dark:hover:border-emerald-500/50"
+                      : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
                   )}
-                </div>
-              </div>
+                  aria-label={
+                    copySuccess ? "URL copied" : "Copy URL to clipboard"
+                  }
+                  aria-pressed={copySuccess}
+                >
+                  {copySuccess ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </motion.div>
+            </div>
+
+            <div className="h-5">
+              <AnimatePresence mode="wait">
+                {copySuccess && (
+                  <motion.div
+                    {...FADE_IN_ANIMATION}
+                    className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <Check className="h-3 w-3" />
+                    <span>URL copied to clipboard!</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
-}
+};
