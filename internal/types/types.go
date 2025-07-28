@@ -18,6 +18,7 @@ type TestOptions struct {
 	UseIperf         bool     `json:"useIperf"`
 	UseLibrespeed    bool     `json:"useLibrespeed"`
 	ServerHost       string   `json:"serverHost"`
+	ServerName       string   `json:"serverName"`
 }
 
 type SpeedUpdate struct {
