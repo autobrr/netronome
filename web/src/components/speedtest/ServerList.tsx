@@ -13,10 +13,13 @@ import {
   DisclosureButton,
   Listbox,
   Transition,
+  TransitionChild,
   ListboxButton,
   ListboxOptions,
   ListboxOption,
   Dialog,
+  DialogPanel,
+  DialogTitle,
 } from "@headlessui/react";
 import { SavedIperfServer, Server } from "@/types/types";
 import {
@@ -762,7 +765,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={handleClose}>
-        <Transition.Child
+        <TransitionChild
           as={Fragment}
           enter="ease-out duration-300"
           enterFrom="opacity-0"
@@ -772,11 +775,11 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
           leaveTo="opacity-0"
         >
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-        </Transition.Child>
+        </TransitionChild>
 
         <div className="fixed inset-0 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4">
-            <Transition.Child
+            <TransitionChild
               as={Fragment}
               enter="ease-out duration-300"
               enterFrom="opacity-0 scale-95"
@@ -785,13 +788,13 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl bg-white/95 dark:bg-gray-850/95 border border-gray-200 dark:border-gray-900 p-6 shadow-xl transition-all">
-                <Dialog.Title
+              <DialogPanel className="w-full max-w-md transform overflow-hidden rounded-xl bg-white/95 dark:bg-gray-850/95 border border-gray-200 dark:border-gray-900 p-6 shadow-xl transition-all">
+                <DialogTitle
                   as="h2"
                   className="text-xl font-semibold text-gray-900 dark:text-white mb-4"
                 >
                   Add iperf3 Server
-                </Dialog.Title>
+                </DialogTitle>
 
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -866,8 +869,8 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
                     Add Server
                   </button>
                 </div>
-              </Dialog.Panel>
-            </Transition.Child>
+              </DialogPanel>
+            </TransitionChild>
           </div>
         </div>
       </Dialog>

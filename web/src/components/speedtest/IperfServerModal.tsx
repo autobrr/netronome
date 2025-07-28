@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import { Dialog, Transition } from "@headlessui/react";
+import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from "@headlessui/react";
 import { Fragment, useState } from "react";
 
 interface IperfServerModalProps {
@@ -42,7 +42,7 @@ export function IperfServerModal({
           onClose();
         }}
       >
-        <Transition.Child
+        <TransitionChild
           as={Fragment}
           enter="ease-out duration-300"
           enterFrom="opacity-0"
@@ -52,11 +52,11 @@ export function IperfServerModal({
           leaveTo="opacity-0"
         >
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-        </Transition.Child>
+        </TransitionChild>
 
         <div className="fixed inset-0 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4">
-            <Transition.Child
+            <TransitionChild
               as={Fragment}
               enter="ease-out duration-300"
               enterFrom="opacity-0 scale-95"
@@ -65,13 +65,13 @@ export function IperfServerModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl bg-gray-850/95 border border-gray-900 p-6 shadow-xl transition-all">
-                <Dialog.Title
+              <DialogPanel className="w-full max-w-md transform overflow-hidden rounded-xl bg-gray-850/95 border border-gray-900 p-6 shadow-xl transition-all">
+                <DialogTitle
                   as="h2"
                   className="text-xl font-semibold text-white mb-4"
                 >
                   {title}
-                </Dialog.Title>
+                </DialogTitle>
 
                 {serverDetails ? (
                   <div className="space-y-4">
@@ -139,8 +139,8 @@ export function IperfServerModal({
                     {confirmText}
                   </button>
                 </div>
-              </Dialog.Panel>
-            </Transition.Child>
+              </DialogPanel>
+            </TransitionChild>
           </div>
         </div>
       </Dialog>
