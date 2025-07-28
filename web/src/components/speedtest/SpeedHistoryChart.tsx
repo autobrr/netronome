@@ -605,11 +605,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
         <CollapsibleContent>
           <div className="bg-gray-50/95 dark:bg-gray-850/95 px-2 sm:px-4 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800">
-            <div className="pt-3 pb-4">
+            <div className="pt-2 sm:pt-3 pb-3 sm:pb-4">
                   {/* Controls */}
-                  <div className="flex flex-col sm:flex-row justify-between items-center mb-2">
+                  <div className="flex flex-col gap-3 mb-2">
                     {/* Metric Toggle Controls */}
-                    <div className="grid grid-cols-4 sm:flex sm:flex-wrap items-center gap-2 sm:gap-2 w-full sm:w-auto mb-4 sm:mb-0">
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-2 w-full sm:w-auto">
                       {[
                         {
                           key: "download",
@@ -649,13 +649,14 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                             aria-label={`${isActive ? "Hide" : "Show"} ${label} metric`}
                             aria-pressed={isActive}
                             className={cn(
-                              "relative px-2 sm:px-2 py-2 sm:py-1.5 min-w-0",
-                              "text-[10px] sm:text-xs font-medium",
-                              "flex items-center justify-center sm:justify-start gap-1 sm:gap-1.5",
-                              "rounded-md transition-all duration-200",
+                              "relative px-2.5 sm:px-2 py-2 sm:py-1.5",
+                              "text-[11px] sm:text-xs font-medium",
+                              "flex items-center justify-center sm:justify-start gap-1.5 sm:gap-1.5",
+                              "rounded-md sm:rounded-md transition-all duration-200",
                               "border border-transparent",
-                              // Improved touch target size for mobile
-                              "min-h-[44px] sm:min-h-0",
+                              // Reduced touch target size for mobile
+                              "min-h-[36px] sm:min-h-0",
+                              "flex-1 sm:flex-initial",
                               isActive
                                 ? "bg-opacity-20 shadow-sm"
                                 : "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700",
@@ -672,7 +673,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                           >
                             <div
                               className={cn(
-                                "w-2 h-2 rounded-full transition-all duration-200",
+                                "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all duration-200",
                                 isActive ? "scale-110" : "scale-90 opacity-60"
                               )}
                               style={{
@@ -682,37 +683,70 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                               }}
                             />
                             <span className="hidden sm:inline">{label}</span>
-                            <span className="sm:hidden">{icon}</span>
+                            <div className="sm:hidden flex items-center gap-1">
+                              {icon}
+                              <span>{label}</span>
+                            </div>
                           </button>
                         );
                       })}
                     </div>
 
-                    {/* Time Range Controls */}
-                    <Select value={timeRange} onValueChange={handleTimeRangeChange}>
-                      <SelectTrigger 
-                        size="sm" 
-                        className="w-[140px] min-h-[44px] sm:min-h-0 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-500/50 dark:focus:ring-blue-400/50 text-gray-900 dark:text-gray-100 transition-colors duration-200"
-                        aria-label="Select time range for chart"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent 
-                        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg z-50 max-h-[300px]"
-                        align="end"
-                        sideOffset={5}
-                      >
-                        {timeRangeOptions.map((option) => (
-                          <SelectItem 
-                            key={option.value} 
-                            value={option.value}
-                            className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800 text-gray-900 dark:text-gray-100 transition-colors duration-150"
-                          >
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {/* Desktop layout - Time Range Controls alongside metrics */}
+                    <div className="hidden sm:flex sm:justify-end sm:-mt-12">
+                      <Select value={timeRange} onValueChange={handleTimeRangeChange}>
+                        <SelectTrigger 
+                          size="sm" 
+                          className="w-[140px] bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-500/50 dark:focus:ring-blue-400/50 text-gray-900 dark:text-gray-100 transition-colors duration-200 text-xs"
+                          aria-label="Select time range for chart"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent 
+                          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg z-50 max-h-[300px]"
+                          align="end"
+                          sideOffset={5}
+                        >
+                          {timeRangeOptions.map((option) => (
+                            <SelectItem 
+                              key={option.value} 
+                              value={option.value}
+                              className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800 text-gray-900 dark:text-gray-100 transition-colors duration-150"
+                            >
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Mobile layout - Full width time selector */}
+                    <div className="sm:hidden w-full">
+                      <Select value={timeRange} onValueChange={handleTimeRangeChange}>
+                        <SelectTrigger 
+                          size="sm" 
+                          className="w-full min-h-[36px] bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-500/50 dark:focus:ring-blue-400/50 text-gray-900 dark:text-gray-100 transition-colors duration-200 text-xs"
+                          aria-label="Select time range for chart"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent 
+                          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg z-50 max-h-[300px]"
+                          align="center"
+                          sideOffset={5}
+                        >
+                          {timeRangeOptions.map((option) => (
+                            <SelectItem 
+                              key={option.value} 
+                              value={option.value}
+                              className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800 text-gray-900 dark:text-gray-100 transition-colors duration-150"
+                            >
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   {/* Chart Area */}
