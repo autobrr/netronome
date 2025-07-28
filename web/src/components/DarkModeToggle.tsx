@@ -244,25 +244,22 @@ const ThemeOptionButton: React.FC<ThemeOptionButtonProps> = React.memo(
         `}
         role="menuitem"
         aria-selected={isSelected}
-        asChild
       >
-        <motion.div>
-          <Icon
-            className={`w-4 h-4 ${
-              isSelected ? "text-blue-600 dark:text-blue-400" : ""
-            }`}
-          />
-          <span className="flex-1 text-left font-medium">{option.label}</span>
-          <motion.div
-            initial={false}
-            animate={{
-              opacity: isSelected ? 1 : 0,
-              scale: isSelected ? 1 : 0.8,
-            }}
-            transition={CHECK_ANIMATION}
-          >
-            <CheckIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          </motion.div>
+        <Icon
+          className={`w-4 h-4 ${
+            isSelected ? "text-blue-600 dark:text-blue-400" : ""
+          }`}
+        />
+        <span className="flex-1 text-left font-medium">{option.label}</span>
+        <motion.div
+          initial={false}
+          animate={{
+            opacity: isSelected ? 1 : 0,
+            scale: isSelected ? 1 : 0.8,
+          }}
+          transition={CHECK_ANIMATION}
+        >
+          <CheckIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
         </motion.div>
       </Button>
     );
