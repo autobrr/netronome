@@ -75,20 +75,21 @@ export default function Register() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 px-4 sm:px-6">
         <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-gray-900 pattern">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-gray-900 pattern px-4 sm:px-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
+        className="w-full max-w-md"
       >
-        <Card className="w-full max-w-md mx-8 bg-white/95 dark:bg-gray-850/95 border-gray-200 dark:border-gray-800 shadow-xl">
+        <Card className="w-full bg-white/95 dark:bg-gray-850/95 border-gray-200 dark:border-gray-800 shadow-xl">
           <CardHeader className="text-center">
             <img
               src={logo}

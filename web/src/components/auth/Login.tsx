@@ -84,15 +84,15 @@ export default function Login() {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-white dark:bg-gray-900 overflow-hidden">
+      <div className="h-screen flex items-center justify-center bg-white dark:bg-gray-900 overflow-hidden px-4 sm:px-6">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500" />
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col items-center justify-center bg-white dark:bg-gray-900 pattern overflow-hidden m-0 p-0">
-      <Card className="w-full max-w-md mx-8 bg-white/95 dark:bg-gray-850/95 border-gray-200 dark:border-gray-800 shadow-xl">
+    <div className="h-screen flex flex-col items-center justify-center bg-white dark:bg-gray-900 pattern overflow-hidden m-0 px-4 sm:px-6">
+      <Card className="w-full max-w-md bg-white/95 dark:bg-gray-850/95 border-gray-200 dark:border-gray-800 shadow-xl">
         <CardHeader className="text-center pb-2">
           <img
             src={logo}
