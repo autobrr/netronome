@@ -695,23 +695,15 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     {/* Desktop layout - Time Range Controls alongside metrics */}
                     <div className="hidden sm:flex sm:justify-end sm:-mt-12">
                       <Select value={timeRange} onValueChange={handleTimeRangeChange}>
-                        <SelectTrigger 
-                          size="sm" 
-                          className="w-[140px] bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-500/50 dark:focus:ring-blue-400/50 text-gray-900 dark:text-gray-100 transition-colors duration-200 text-xs"
-                          aria-label="Select time range for chart"
-                        >
+                        <SelectTrigger className="w-[140px] px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-gray-700 dark:text-gray-300 shadow-md">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent 
-                          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg z-50 max-h-[300px]"
-                          align="end"
-                          sideOffset={5}
-                        >
+                        <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg">
                           {timeRangeOptions.map((option) => (
                             <SelectItem 
                               key={option.value} 
                               value={option.value}
-                              className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800 text-gray-900 dark:text-gray-100 transition-colors duration-150"
+                              className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800 text-gray-900 dark:text-gray-100"
                             >
                               {option.label}
                             </SelectItem>
@@ -723,23 +715,15 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     {/* Mobile layout - Full width time selector */}
                     <div className="sm:hidden w-full">
                       <Select value={timeRange} onValueChange={handleTimeRangeChange}>
-                        <SelectTrigger 
-                          size="sm" 
-                          className="w-full min-h-[36px] bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-500/50 dark:focus:ring-blue-400/50 text-gray-900 dark:text-gray-100 transition-colors duration-200 text-xs"
-                          aria-label="Select time range for chart"
-                        >
+                        <SelectTrigger className="w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-gray-700 dark:text-gray-300 shadow-md">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent 
-                          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg z-50 max-h-[300px]"
-                          align="center"
-                          sideOffset={5}
-                        >
+                        <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg">
                           {timeRangeOptions.map((option) => (
                             <SelectItem 
                               key={option.value} 
                               value={option.value}
-                              className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800 text-gray-900 dark:text-gray-100 transition-colors duration-150"
+                              className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800 text-gray-900 dark:text-gray-100"
                             >
                               {option.label}
                             </SelectItem>

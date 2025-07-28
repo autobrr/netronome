@@ -157,7 +157,7 @@ export function DataTable<TData, TValue>({
           {showColumnVisibility && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="ml-auto text-gray-700 dark:text-gray-300">
+                <Button variant="secondary" className="ml-auto">
                   Columns <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
