@@ -27,6 +27,9 @@ export const useTracerouteExecution = ({
       // Clear previous results and error state
       queryClient.setQueryData(["traceroute", "results"], null);
       onError?.(null);
+      showToast("Traceroute started", "success", {
+        description: `Tracing route to ${targetHost}`,
+      });
 
       // Set initial status
       const initialStatus: TracerouteUpdate = {
@@ -55,7 +58,8 @@ export const useTracerouteExecution = ({
     onError: (error: Error) => {
       console.error("Traceroute failed:", error);
       onStatusUpdate?.(null);
-      const errorMessage = error.message ||
+      const errorMessage =
+        error.message ||
         "Traceroute failed. Please check the hostname and try again.";
       onError?.(errorMessage);
       showToast("Traceroute failed", "error", {
@@ -66,7 +70,7 @@ export const useTracerouteExecution = ({
 
   const runTracerouteWithHostname = (
     host: string,
-    selectedServerHost?: string,
+    selectedServerHost?: string
   ) => {
     let targetHost = selectedServerHost ? selectedServerHost : host.trim();
     if (!targetHost) return;
