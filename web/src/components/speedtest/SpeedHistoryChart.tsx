@@ -33,6 +33,7 @@ interface SpeedHistoryChartProps {
   showDragHandle?: boolean;
   dragHandleRef?: (node: HTMLElement | null) => void;
   dragHandleListeners?: any;
+  dragHandleClassName?: string;
 }
 
 interface VisibleMetrics {
@@ -87,6 +88,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   showDragHandle = false,
   dragHandleRef,
   dragHandleListeners,
+  dragHandleClassName,
 }) => {
   const isMobile = useIsMobile();
 
@@ -581,7 +583,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                 <div
                   ref={dragHandleRef}
                   {...dragHandleListeners}
-                  className="cursor-grab active:cursor-grabbing touch-none p-1 -m-1"
+                  className={cn("cursor-grab active:cursor-grabbing touch-none p-1 -m-1", dragHandleClassName)}
                 >
                   <FaGripVertical className="w-4 h-4 text-gray-400 dark:text-gray-600" />
                 </div>

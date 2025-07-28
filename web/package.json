@@ -8,7 +8,9 @@
     "dev": "NETRONOME__BASE_URL=\"\" vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "unused": "knip",
+    "unused:production": "knip --production"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -40,11 +42,11 @@
     "lucide-react": "^0.526.0",
     "motion": "^12.23.6",
     "react": "^19.1.0",
-    "react-circular-progressbar": "^2.2.0",
     "react-dom": "^19.1.0",
     "react-icons": "^5.5.0",
     "recharts": "^3.1.0",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "tw-animate-css": "^1.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.31.0",
@@ -60,10 +62,10 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
+    "knip": "^5.62.0",
     "postcss": "^8.5.6",
     "tailwind-lerp-colors": "^1.2.6",
     "tailwindcss": "^4.1.11",
-    "tw-animate-css": "^1.3.6",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.37.0",
     "vite": "^7.0.4"

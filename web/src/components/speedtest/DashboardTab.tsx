@@ -11,7 +11,13 @@ import { SpeedTestResult, TimeRange } from "@/types/types";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import { MetricCard } from "@/components/common/MetricCard";
 import { FeaturedMonitorWidget } from "@/components/monitor/FeaturedMonitorWidget";
-import { FaWaveSquare, FaShare, FaArrowDown, FaArrowUp, FaGripVertical } from "react-icons/fa";
+import {
+  FaWaveSquare,
+  FaShare,
+  FaArrowDown,
+  FaArrowUp,
+  FaGripVertical,
+} from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import {
@@ -37,9 +43,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import {
-  useSortable,
-} from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 interface DashboardTabProps {
@@ -60,7 +64,11 @@ interface SortableItemProps {
   dragHandleClassName?: string;
 }
 
-const SortableItem: React.FC<SortableItemProps> = ({ id, children, dragHandleClassName = "drag-handle" }) => {
+const SortableItem: React.FC<SortableItemProps> = ({
+  id,
+  children,
+  dragHandleClassName = "drag-handle",
+}) => {
   const {
     attributes,
     listeners,
@@ -79,7 +87,7 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, children, dragHandleCla
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      {React.cloneElement(children as React.ReactElement, {
+      {React.cloneElement(children as React.ReactElement<any>, {
         dragHandleRef: setActivatorNodeRef,
         dragHandleListeners: listeners,
         dragHandleClassName,
@@ -97,11 +105,13 @@ interface DraggableSpeedHistoryChartProps {
   hasCurrentRangeTests?: boolean;
   dragHandleRef?: (node: HTMLElement | null) => void;
   dragHandleListeners?: any;
+  dragHandleClassName?: string;
 }
 
 const DraggableSpeedHistoryChart: React.FC<DraggableSpeedHistoryChartProps> = ({
   dragHandleRef,
   dragHandleListeners,
+  dragHandleClassName,
   ...props
 }) => {
   return (
@@ -116,6 +126,7 @@ const DraggableSpeedHistoryChart: React.FC<DraggableSpeedHistoryChartProps> = ({
         showDragHandle={true}
         dragHandleRef={dragHandleRef}
         dragHandleListeners={dragHandleListeners}
+        dragHandleClassName={dragHandleClassName}
       />
     </motion.div>
   );
@@ -159,7 +170,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   // Persist section order to localStorage
   useEffect(() => {
-    localStorage.setItem("dashboard-section-order", JSON.stringify(sectionOrder));
+    localStorage.setItem(
+      "dashboard-section-order",
+      JSON.stringify(sectionOrder)
+    );
   }, [sectionOrder]);
 
   const displayedTests = tests.slice(0, displayCount);
@@ -375,6 +389,7 @@ interface DraggableRecentSpeedtestsProps {
   setIsRecentTestsOpen: (open: boolean) => void;
   dragHandleRef?: (node: HTMLElement | null) => void;
   dragHandleListeners?: any;
+  dragHandleClassName?: string;
 }
 
 const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
@@ -386,6 +401,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
   setIsRecentTestsOpen,
   dragHandleRef,
   dragHandleListeners,
+  dragHandleClassName,
 }) => {
   return (
     <Collapsible
@@ -406,7 +422,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
           <div
             ref={dragHandleRef}
             {...dragHandleListeners}
-            className="cursor-grab active:cursor-grabbing touch-none p-1 -m-1"
+            className={cn("cursor-grab active:cursor-grabbing touch-none p-1 -m-1", dragHandleClassName)}
           >
             <FaGripVertical className="w-4 h-4 text-gray-400 dark:text-gray-600" />
           </div>
