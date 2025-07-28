@@ -50,6 +50,7 @@ interface AgentTableData extends MonitorAgent {
 
 export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
   agents,
+  selectedAgent: _selectedAgent,
   onSelectAgent,
   onEditAgent,
   onDeleteAgent,
