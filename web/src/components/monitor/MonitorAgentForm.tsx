@@ -7,6 +7,7 @@ import React, { useState, useEffect } from "react";
 import { EyeIcon, EyeSlashIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -130,12 +131,9 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
           )}
 
           <div>
-            <label
-              htmlFor="name"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
+            <Label htmlFor="name">
               Agent Name
-            </label>
+            </Label>
             <Input
               type="text"
               id="name"
@@ -151,12 +149,9 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
           </div>
 
           <div>
-            <label
-              htmlFor="url"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
+            <Label htmlFor="url">
               Agent URL
-            </label>
+            </Label>
             <Input
               type="url"
               id="url"
@@ -173,12 +168,9 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
 
           {!isAutoDiscoveredTailscale && (
             <div>
-              <label
-                htmlFor="apiKey"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
+              <Label htmlFor="apiKey">
                 API Key (Optional)
-              </label>
+              </Label>
               <div className="relative">
                 <Input
                   type={showApiKey ? "text" : "password"}
@@ -239,12 +231,9 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
                   })
                 }
               />
-              <label
-                htmlFor="enabled"
-                className="text-sm text-gray-900 dark:text-gray-300 cursor-pointer"
-              >
+              <Label htmlFor="enabled" className="cursor-pointer">
                 Enable monitoring
-              </label>
+              </Label>
             </div>
           </div>
 

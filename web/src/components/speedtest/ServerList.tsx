@@ -3,32 +3,37 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState, useMemo, useEffect, Fragment } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion } from "motion/react";
-import {
-  Radio,
-  RadioGroup,
-  Label,
-  Disclosure,
-  DisclosureButton,
-  Listbox,
-  Transition,
-  TransitionChild,
-  ListboxButton,
-  ListboxOptions,
-  ListboxOption,
-  Dialog,
-  DialogPanel,
-  DialogTitle,
-} from "@headlessui/react";
 import { SavedIperfServer, Server } from "@/types/types";
 import {
   ChevronDownIcon,
-  ChevronUpDownIcon,
   XMarkIcon,
 } from "@heroicons/react/20/solid";
 import { IperfServerModal } from "./IperfServerModal";
 import { getApiUrl } from "@/utils/baseUrl";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface ServerListProps {
   servers: Server[];
@@ -106,23 +111,6 @@ export const ServerList: React.FC<ServerListProps> = ({
     return Array.from(uniqueCountries).sort();
   }, [servers]);
 
-  // Filter and sort servers
-  const filteredServers = useMemo(() => {
-    const filtered = servers.filter((server) => {
-      const matchesSearch =
-        searchTerm === "" ||
-        server.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        server.sponsor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        server.country.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesCountry =
-        filterCountry === "" || server.country === filterCountry;
-
-      return matchesSearch && matchesCountry;
-    });
-
-    return filtered.sort((a, b) => a.distance - b.distance);
-  }, [servers, searchTerm, filterCountry]);
 
   // Filter saved iperf servers
   const filteredIperfServers = useMemo(() => {
@@ -223,48 +211,57 @@ export const ServerList: React.FC<ServerListProps> = ({
     }
   }, [testType]); // Re-run when useIperf changes
 
+  // Update filterCountry logic to handle select component values
+  const filteredServersWithSelect = useMemo(() => {
+    const filtered = servers.filter((server) => {
+      const matchesSearch =
+        searchTerm === "" ||
+        server.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        server.sponsor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        server.country.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesCountry =
+        filterCountry === "" || filterCountry === "all-countries" || server.country === filterCountry;
+
+      return matchesSearch && matchesCountry;
+    });
+
+    return filtered.sort((a, b) => a.distance - b.distance);
+  }, [servers, searchTerm, filterCountry]);
+
   return (
-    <Disclosure defaultOpen={isOpen}>
-      {({ open }) => {
-        // Update isOpen when disclosure state changes
-        useEffect(() => {
-          setIsOpen(open);
-        }, [open]);
+    <Collapsible
+      defaultOpen={isOpen}
+      open={isOpen}
+      onOpenChange={setIsOpen}
+    >
+      <div className="flex flex-col h-full">
+        <CollapsibleTrigger
+          className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
+            isOpen ? "rounded-t-xl" : "rounded-xl"
+          } shadow-lg border border-gray-200 dark:border-gray-800 ${
+            isOpen ? "border-b-0" : ""
+          } text-left`}
+        >
+          <div className="flex flex-col">
+            <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
+              Server Selection
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 text-sm pl-1 pb-1">
+              Choose between speedtest.net, iperf3 or librespeed servers
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <ChevronDownIcon
+              className={`${
+                isOpen ? "transform rotate-180" : ""
+              } w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200`}
+            />
+          </div>
+        </CollapsibleTrigger>
 
-        return (
-          <div className="flex flex-col h-full">
-            <DisclosureButton
-              className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
-                open ? "rounded-t-xl" : "rounded-xl"
-              } shadow-lg border border-gray-200 dark:border-gray-800 ${
-                open ? "border-b-0" : ""
-              } text-left`}
-            >
-              <div className="flex flex-col">
-                <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
-                  Server Selection
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400 text-sm pl-1 pb-1">
-                  Choose between speedtest.net, iperf3 or librespeed servers
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* {!useIperf && selectedServers.length > 0 && (
-                  <span className="text-gray-400">
-                    {selectedServers.length} server
-                    {selectedServers.length !== 1 ? "s" : ""} selected
-                  </span>
-                )} */}
-                <ChevronDownIcon
-                  className={`${
-                    open ? "transform rotate-180" : ""
-                  } w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200`}
-                />
-              </div>
-            </DisclosureButton>
-
-            {open && (
-              <div className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-2 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800">
+        <CollapsibleContent>
+          <div className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-2 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800">
                 <div className="flex flex-col pl-1"></div>
                 <motion.div
                   className="mt-1 px-1 select-none pointer-events-none server-list-animate pb-4"
@@ -322,7 +319,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                       {/* Test Type Radio Group */}
                       <RadioGroup
                         value={testType}
-                        onChange={handleTestTypeChange}
+                        onValueChange={(value) => handleTestTypeChange(value as "speedtest" | "iperf" | "librespeed")}
                         className="flex items-center gap-2 sm:gap-4"
                       >
                         <RadioOption value="speedtest">Speedtest</RadioOption>
@@ -332,25 +329,13 @@ export const ServerList: React.FC<ServerListProps> = ({
                     </div>
 
                     {/* Run Test Button */}
-                    <button
+                    <Button
                       onClick={onRunTest}
                       disabled={isLoading || selectedServers.length === 0}
-                      className={`
-                        px-4 py-2 
-                        rounded-lg 
-                        shadow-md
-                        transition-colors
-                        border
-                        w-full sm:w-auto
-                        ${
-                          isLoading || selectedServers.length === 0
-                            ? "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed border-gray-400 dark:border-gray-900"
-                            : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
-                        }
-                      `}
+                      className="w-full sm:w-auto"
                     >
                       Run
-                    </button>
+                    </Button>
                   </div>
 
                   {testType === "iperf" && (
@@ -359,10 +344,9 @@ export const ServerList: React.FC<ServerListProps> = ({
                       <div className="flex flex-col gap-4">
                         <div className="flex gap-2">
                           <div className="flex-1">
-                            <input
+                            <Input
                               type="text"
                               placeholder="Search saved servers..."
-                              className="w-full px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-900 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
                               value={iperfSearchTerm}
                               onChange={(e) =>
                                 setIperfSearchTerm(e.target.value)
@@ -386,72 +370,33 @@ export const ServerList: React.FC<ServerListProps> = ({
                     <div className="flex flex-col md:flex-row gap-4 mb-4">
                       {/* Search Input */}
                       <div className="flex-1">
-                        <input
+                        <Input
                           type="text"
                           placeholder="Search servers..."
-                          className="w-full px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-900 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                         />
                       </div>
 
                       {/* Country Filter */}
-                      <Listbox
-                        value={filterCountry}
-                        onChange={setFilterCountry}
+                      <Select
+                        value={filterCountry || "all-countries"}
+                        onValueChange={(value) => setFilterCountry(value === "all-countries" ? "" : value)}
                       >
-                        <div className="relative min-w-[160px]">
-                          <ListboxButton className="relative w-full px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-left text-gray-900 dark:text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
-                            <span className="block truncate">
-                              {filterCountry || "All Countries"}
-                            </span>
-                            <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                              <ChevronUpDownIcon
-                                className="h-5 w-5 text-gray-600 dark:text-gray-400"
-                                aria-hidden="true"
-                              />
-                            </span>
-                          </ListboxButton>
-                          <Transition
-                            enter="transition duration-100 ease-out"
-                            enterFrom="transform scale-95 opacity-0"
-                            enterTo="transform scale-100 opacity-100"
-                            leave="transition duration-75 ease-out"
-                            leaveFrom="transform scale-100 opacity-100"
-                            leaveTo="transform scale-95 opacity-0"
-                          >
-                            <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-900 py-1 shadow-lg focus:outline-none">
-                              <ListboxOption
-                                className={({ focus }) =>
-                                  `relative cursor-pointer select-none py-2 px-4 ${
-                                    focus
-                                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-200"
-                                      : "text-gray-700 dark:text-gray-300"
-                                  }`
-                                }
-                                value=""
-                              >
-                                All Countries
-                              </ListboxOption>
-                              {countries.map((country) => (
-                                <ListboxOption
-                                  key={country}
-                                  value={country}
-                                  className={({ focus }) =>
-                                    `relative cursor-pointer select-none py-2 px-4 ${
-                                      focus
-                                        ? "bg-blue-500/10 text-blue-600 dark:text-blue-200"
-                                        : "text-gray-700 dark:text-gray-300"
-                                    }`
-                                  }
-                                >
-                                  {country}
-                                </ListboxOption>
-                              ))}
-                            </ListboxOptions>
-                          </Transition>
-                        </div>
-                      </Listbox>
+                        <SelectTrigger className="min-w-[160px]">
+                          <SelectValue placeholder="All Countries" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all-countries">
+                            All Countries
+                          </SelectItem>
+                          {countries.map((country) => (
+                            <SelectItem key={country} value={country}>
+                              {country}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
 
@@ -559,7 +504,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                     </>
                   ) : (
                     <>
-                      {filteredServers.length === 0 &&
+                      {filteredServersWithSelect.length === 0 &&
                       testType === "librespeed" ? (
                         <div className="flex flex-col items-center justify-center py-12 px-4">
                           <div className="text-center max-w-md">
@@ -594,7 +539,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {filteredServers
+                          {filteredServersWithSelect
                             .slice(0, displayCount)
                             .map((server) => {
                               const distance = server.distance;
@@ -644,7 +589,7 @@ export const ServerList: React.FC<ServerListProps> = ({
 
                   {/* Load More Button */}
                   {testType !== "iperf" &&
-                    filteredServers.length > displayCount && (
+                    filteredServersWithSelect.length > displayCount && (
                       <div className="flex justify-center mt-6">
                         <button
                           onClick={() => setDisplayCount((prev) => prev + 6)}
@@ -655,9 +600,9 @@ export const ServerList: React.FC<ServerListProps> = ({
                       </div>
                     )}
                 </motion.div>
-              </div>
-            )}
-            <IperfServerModal
+          </div>
+        </CollapsibleContent>
+        <IperfServerModal
               isOpen={deleteModalOpen}
               onClose={() => {
                 setDeleteModalOpen(false);
@@ -702,10 +647,8 @@ export const ServerList: React.FC<ServerListProps> = ({
                 saveIperfServer(name, host, parseInt(port));
               }}
             />
-          </div>
-        );
-      }}
-    </Disclosure>
+      </div>
+    </Collapsible>
   );
 };
 
@@ -713,24 +656,15 @@ const RadioOption: React.FC<{
   value: "speedtest" | "iperf" | "librespeed";
   children: React.ReactNode;
 }> = ({ value, children }) => (
-  <Radio value={value} as="div" className="flex items-center gap-2">
-    {({ checked }) => (
-      <div
-        className={`cursor-pointer flex items-center gap-2 px-3 py-1 rounded-lg transition-colors ${
-          checked
-            ? "bg-blue-500/10 text-blue-600 dark:text-blue-200 border-blue-500/50"
-            : "text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 border-transparent"
-        } border`}
-      >
-        <div
-          className={`w-4 h-4 rounded-full border-2 ${
-            checked ? "border-blue-400 bg-blue-500" : "border-gray-400 dark:border-gray-600"
-          } transition-colors`}
-        />
-        <Label className="text-xs sm:text-sm cursor-pointer">{children}</Label>
-      </div>
-    )}
-  </Radio>
+  <div className="flex items-center gap-2">
+    <RadioGroupItem value={value} id={value} />
+    <Label
+      htmlFor={value}
+      className="cursor-pointer px-3 py-1 rounded-lg transition-colors hover:bg-gray-200 dark:hover:bg-gray-800 text-xs sm:text-sm text-gray-600 dark:text-gray-400"
+    >
+      {children}
+    </Label>
+  </div>
 );
 
 interface AddServerModalProps {
@@ -763,117 +697,69 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
   };
 
   return (
-    <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={handleClose}>
-        <TransitionChild
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-        </TransitionChild>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className="w-full max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add iperf3 Server</DialogTitle>
+        </DialogHeader>
 
-        <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4">
-            <TransitionChild
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <DialogPanel className="w-full max-w-md transform overflow-hidden rounded-xl bg-white/95 dark:bg-gray-850/95 border border-gray-200 dark:border-gray-900 p-6 shadow-xl transition-all">
-                <DialogTitle
-                  as="h2"
-                  className="text-xl font-semibold text-gray-900 dark:text-white mb-4"
-                >
-                  Add iperf3 Server
-                </DialogTitle>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label
-                      htmlFor="serverName"
-                      className="block text-sm font-medium text-gray-600 dark:text-gray-400"
-                    >
-                      Server Name
-                    </label>
-                    <input
-                      type="text"
-                      id="serverName"
-                      value={serverName}
-                      onChange={(e) => setServerName(e.target.value)}
-                      placeholder="Enter a name for this server"
-                      className="w-full px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-900 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label
-                      htmlFor="serverHost"
-                      className="block text-sm font-medium text-gray-600 dark:text-gray-400"
-                    >
-                      Server Host
-                    </label>
-                    <input
-                      type="text"
-                      id="serverHost"
-                      value={serverHost}
-                      onChange={(e) => setServerHost(e.target.value)}
-                      placeholder="iperf.example.com"
-                      className="w-full px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-900 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label
-                      htmlFor="serverPort"
-                      className="block text-sm font-medium text-gray-600 dark:text-gray-400"
-                    >
-                      Server Port
-                    </label>
-                    <input
-                      type="number"
-                      id="serverPort"
-                      value={serverPort}
-                      onChange={(e) => setServerPort(e.target.value)}
-                      placeholder="5201"
-                      className="w-full px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-900 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
-                    onClick={handleClose}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!serverName.trim() || !serverHost.trim()}
-                    className={`px-4 py-2 rounded-lg shadow-md transition-colors border text-sm ${
-                      !serverName.trim() || !serverHost.trim()
-                        ? "bg-gray-700 text-gray-400 cursor-not-allowed border-gray-900"
-                        : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
-                    }`}
-                    onClick={handleConfirm}
-                  >
-                    Add Server
-                  </button>
-                </div>
-              </DialogPanel>
-            </TransitionChild>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="serverName">
+              Server Name
+            </Label>
+            <Input
+              type="text"
+              id="serverName"
+              value={serverName}
+              onChange={(e) => setServerName(e.target.value)}
+              placeholder="Enter a name for this server"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="serverHost">
+              Server Host
+            </Label>
+            <Input
+              type="text"
+              id="serverHost"
+              value={serverHost}
+              onChange={(e) => setServerHost(e.target.value)}
+              placeholder="iperf.example.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="serverPort">
+              Server Port
+            </Label>
+            <Input
+              type="number"
+              id="serverPort"
+              value={serverPort}
+              onChange={(e) => setServerPort(e.target.value)}
+              placeholder="5201"
+            />
           </div>
         </div>
-      </Dialog>
-    </Transition>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={handleClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={!serverName.trim() || !serverHost.trim()}
+            onClick={handleConfirm}
+          >
+            Add Server
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };

@@ -28,7 +28,7 @@ const URL_PATTERN = /^https?:\/\//;
 
 // Validation function
 export const validateHost = (
-  host: string,
+  host: string
 ): { isValid: boolean; error?: string } => {
   if (!host || host.trim().length === 0) {
     return { isValid: false, error: "Host is required" };
@@ -74,7 +74,7 @@ export const validateHost = (
 
     const labels = hostWithoutPort.split(".");
     const hasValidLabels = labels.every(
-      (label) => label.length <= 63 && label.length > 0,
+      (label) => label.length <= 63 && label.length > 0
     );
 
     if (!hasValidLabels) {
@@ -222,8 +222,8 @@ export const HostInput: React.FC<HostInputProps> = ({
               isLoading
                 ? "bg-emerald-200/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30 cursor-not-allowed"
                 : !isValid
-                  ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 cursor-not-allowed"
-                  : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
+                ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 cursor-not-allowed"
+                : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
             }`}
           >
             {isLoading ? "Loading..." : buttonText}

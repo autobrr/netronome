@@ -3,9 +3,14 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import { useState, Fragment } from "react";
-import { Dialog, Transition } from "@headlessui/react";
-import { XMarkIcon } from "@heroicons/react/24/solid";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { FaShare, FaCheck, FaCopy } from "react-icons/fa";
 import { motion } from "motion/react";
 import { getBaseUrl } from "@/utils/baseUrl";
@@ -49,50 +54,18 @@ export function ShareModal({ isOpen, onClose }: ShareModalProps) {
   };
 
   return (
-    <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-xs"
-            aria-hidden="true"
-          />
-        </Transition.Child>
-
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0 scale-95"
-            enterTo="opacity-100 scale-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100 scale-100"
-            leaveTo="opacity-0 scale-95"
-          >
-            <Dialog.Panel className="mx-auto max-w-md w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 backdrop-blur-xl p-6 shadow-xl transform transition-all relative">
-              <button
-                onClick={onClose}
-                className="absolute top-4 right-4 p-1 rounded-md text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                aria-label="Close dialog"
-              >
-                <XMarkIcon className="h-6 w-6" />
-              </button>
-
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-blue-500/10 rounded-lg">
-                  <FaShare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Share Speed Test Results
-                </Dialog.Title>
-              </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="mx-auto max-w-md w-full bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-500/10 rounded-lg">
+              <FaShare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+              Share Speed Test Results
+            </DialogTitle>
+          </div>
+        </DialogHeader>
 
               <div className="bg-gray-100/50 dark:bg-gray-800/30 rounded-xl p-4 border border-gray-200 dark:border-gray-700/50 mb-6">
                 <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -101,9 +74,9 @@ export function ShareModal({ isOpen, onClose }: ShareModalProps) {
                 </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                <Label className="mb-3">
                   🔗 Public Dashboard Link
-                </label>
+                </Label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -141,10 +114,7 @@ export function ShareModal({ isOpen, onClose }: ShareModalProps) {
                   )}
                 </div>
               </div>
-            </Dialog.Panel>
-          </Transition.Child>
-        </div>
-      </Dialog>
-    </Transition>
+      </DialogContent>
+    </Dialog>
   );
 }

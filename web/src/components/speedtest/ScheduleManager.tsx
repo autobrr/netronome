@@ -8,21 +8,24 @@ import { Schedule, Server, SavedIperfServer } from "@/types/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSchedules } from "@/api/speedtest";
 import {
-  DisclosureButton,
-  Listbox,
-  ListboxButton,
-  ListboxOption,
-  ListboxOptions,
-  Transition,
-} from "@headlessui/react";
-import { ChevronUpDownIcon } from "@heroicons/react/20/solid";
-import { Disclosure } from "@headlessui/react";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   ChevronDownIcon,
   XMarkIcon,
   ClockIcon,
   ArrowPathIcon,
 } from "@heroicons/react/20/solid";
+import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { getApiUrl } from "@/utils/baseUrl";
 import { formatNextRun } from "@/utils/timeUtils";
@@ -417,39 +420,35 @@ export default function ScheduleManager({
 
   return (
     <div className="h-full">
-      <Disclosure defaultOpen={isOpen}>
-        {({ open }) => {
-          // Update isOpen when disclosure state changes
-          useEffect(() => {
-            setIsOpen(open);
-          }, [open]);
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <div className="flex flex-col h-full">
+          <CollapsibleTrigger
+            className={cn(
+              "flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95",
+              isOpen ? "rounded-t-xl" : "rounded-xl",
+              "shadow-lg border border-gray-200 dark:border-gray-800",
+              isOpen ? "border-b-0" : "",
+              "text-left cursor-pointer"
+            )}
+          >
+            <div className="flex flex-col">
+              <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
+                Schedule Manager
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 text-sm pl-1 pb-1">
+                Create and manage your schedules
+              </p>
+            </div>
+            <ChevronDownIcon
+              className={cn(
+                "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200",
+                isOpen && "transform rotate-180"
+              )}
+            />
+          </CollapsibleTrigger>
 
-          return (
-            <div className="flex flex-col h-full">
-              <DisclosureButton
-                className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
-                  open ? "rounded-t-xl" : "rounded-xl"
-                } shadow-lg border border-gray-200 dark:border-gray-800 ${
-                  open ? "border-b-0" : ""
-                } text-left`}
-              >
-                <div className="flex flex-col">
-                  <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
-                    Schedule Manager
-                  </h2>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm pl-1 pb-1">
-                    Create and manage your schedules
-                  </p>
-                </div>
-                <ChevronDownIcon
-                  className={`${
-                    open ? "transform rotate-180" : ""
-                  } w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200`}
-                />
-              </DisclosureButton>
-
-              {open && (
-                <div className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-3 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800">
+          <CollapsibleContent>
+            <div className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-3 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800">
                   <div className="flex flex-col pl-1">
                     <div className="flex flex-col gap-4 pb-4">
                       <div className="grid grid-cols-1 gap-4">
@@ -484,51 +483,27 @@ export default function ScheduleManager({
 
                           {/* Interval or Time Selector */}
                           {scheduleType === "interval" ? (
-                            <Listbox value={interval} onChange={setInterval}>
-                              <div className="relative">
-                                <ListboxButton className="relative w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-left text-gray-700 dark:text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
-                                  <span className="block truncate">
-                                    {
-                                      intervalOptions.find(
-                                        (opt) => opt.value === interval
-                                      )?.label
-                                    }
-                                  </span>
-                                  <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                                    <ChevronUpDownIcon
-                                      className="h-5 w-5 text-gray-600 dark:text-gray-400"
-                                      aria-hidden="true"
-                                    />
-                                  </span>
-                                </ListboxButton>
-                                <Transition
-                                  enter="transition duration-100 ease-out"
-                                  enterFrom="transform scale-95 opacity-0"
-                                  enterTo="transform scale-100 opacity-100"
-                                  leave="transition duration-75 ease-out"
-                                  leaveFrom="transform scale-100 opacity-100"
-                                  leaveTo="transform scale-95 opacity-0"
-                                >
-                                  <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-900 py-1 shadow-lg focus:outline-none">
-                                    {intervalOptions.map((option) => (
-                                      <ListboxOption
-                                        key={option.value}
-                                        value={option.value}
-                                        className={({ focus }) =>
-                                          `relative cursor-pointer select-none py-2 px-4 ${
-                                            focus
-                                              ? "bg-blue-500/10 text-blue-600 dark:text-blue-200"
-                                              : "text-gray-700 dark:text-gray-300"
-                                          }`
-                                        }
-                                      >
-                                        {option.label}
-                                      </ListboxOption>
-                                    ))}
-                                  </ListboxOptions>
-                                </Transition>
-                              </div>
-                            </Listbox>
+                            <Select value={interval} onValueChange={setInterval}>
+                              <SelectTrigger className="w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-gray-700 dark:text-gray-300 shadow-md">
+                                <SelectValue>
+                                  {
+                                    intervalOptions.find(
+                                      (opt) => opt.value === interval
+                                    )?.label
+                                  }
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {intervalOptions.map((option) => (
+                                  <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           ) : (
                             <div className="space-y-3">
                               {/* Selected Times Display */}
@@ -561,9 +536,9 @@ export default function ScheduleManager({
                               )}
 
                               {/* Time Picker */}
-                              <Listbox
+                              <Select
                                 value=""
-                                onChange={(newTime: string) => {
+                                onValueChange={(newTime: string) => {
                                   if (
                                     newTime &&
                                     !exactTimes.includes(newTime)
@@ -572,60 +547,43 @@ export default function ScheduleManager({
                                   }
                                 }}
                               >
-                                <div className="relative">
-                                  <ListboxButton className="relative w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-left text-gray-700 dark:text-gray-300 shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50">
-                                    <span className="block truncate">
-                                      {exactTimes.length === 0
-                                        ? "Select times..."
-                                        : "Add another time..."}
-                                    </span>
-                                    <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                                      <ChevronUpDownIcon
-                                        className="h-5 w-5 text-gray-400"
-                                        aria-hidden="true"
-                                      />
-                                    </span>
-                                  </ListboxButton>
-                                  <Transition
-                                    enter="transition duration-100 ease-out"
-                                    enterFrom="transform scale-95 opacity-0"
-                                    enterTo="transform scale-100 opacity-100"
-                                    leave="transition duration-75 ease-out"
-                                    leaveFrom="transform scale-100 opacity-100"
-                                    leaveTo="transform scale-95 opacity-0"
-                                  >
-                                    <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-900 py-1 shadow-lg focus:outline-none">
-                                      {timeOptions.map((option) => (
-                                        <ListboxOption
-                                          key={option.value}
-                                          value={option.value}
-                                          disabled={exactTimes.includes(
-                                            option.value
-                                          )}
-                                          className={({ focus, disabled }) =>
-                                            `relative cursor-pointer select-none py-2 px-4 flex items-center justify-between ${
-                                              disabled
-                                                ? "opacity-50 cursor-not-allowed text-gray-500 dark:text-gray-500"
-                                                : focus
-                                                ? "bg-blue-500/10 text-blue-600 dark:text-blue-200"
-                                                : "text-gray-700 dark:text-gray-300"
-                                            }`
-                                          }
-                                        >
-                                          <span>{option.label}</span>
-                                          {exactTimes.includes(
-                                            option.value
-                                          ) && (
-                                            <span className="text-xs text-gray-500 dark:text-gray-500">
-                                              Added
-                                            </span>
-                                          )}
-                                        </ListboxOption>
-                                      ))}
-                                    </ListboxOptions>
-                                  </Transition>
-                                </div>
-                              </Listbox>
+                                <SelectTrigger className="w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-gray-700 dark:text-gray-300 shadow-md">
+                                  <SelectValue placeholder={
+                                    exactTimes.length === 0
+                                      ? "Select times..."
+                                      : "Add another time..."
+                                  }>
+                                    {exactTimes.length === 0
+                                      ? "Select times..."
+                                      : "Add another time..."}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {timeOptions.map((option) => (
+                                    <SelectItem
+                                      key={option.value}
+                                      value={option.value}
+                                      disabled={exactTimes.includes(
+                                        option.value
+                                      )}
+                                      className={cn(
+                                        "flex items-center justify-between",
+                                        exactTimes.includes(option.value) &&
+                                          "opacity-50 cursor-not-allowed"
+                                      )}
+                                    >
+                                      <span>{option.label}</span>
+                                      {exactTimes.includes(
+                                        option.value
+                                      ) && (
+                                        <span className="text-xs text-gray-500 dark:text-gray-500 ml-2">
+                                          Added
+                                        </span>
+                                      )}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                           )}
 
@@ -880,12 +838,10 @@ export default function ScheduleManager({
                       </AnimatePresence>
                     </div>
                   </div>
-                </div>
-              )}
             </div>
-          );
-        }}
-      </Disclosure>
+          </CollapsibleContent>
+        </div>
+      </Collapsible>
     </div>
   );
 }

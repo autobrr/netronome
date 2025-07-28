@@ -9,7 +9,7 @@ import { Server, SavedIperfServer } from "@/types/types";
  * Server type options for filtering
  */
 export const SERVER_TYPE_OPTIONS = [
-  { value: "", label: "All Types" },
+  { value: "all", label: "All Types" },
   { value: "speedtest", label: "Speedtest.net" },
   { value: "iperf3", label: "iperf3" },
   { value: "librespeed", label: "LibreSpeed" },
@@ -65,7 +65,7 @@ export const filterServers = (
       server.host.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesType =
-      filterType === "" ||
+      filterType === "all" ||
       (filterType === "speedtest" && !server.isIperf && !server.isLibrespeed) ||
       (filterType === "iperf3" && server.isIperf) ||
       (filterType === "librespeed" && server.isLibrespeed);

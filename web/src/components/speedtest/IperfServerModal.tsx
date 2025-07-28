@@ -3,8 +3,18 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from "@headlessui/react";
-import { Fragment, useState } from "react";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface IperfServerModalProps {
   isOpen: boolean;
@@ -33,117 +43,69 @@ export function IperfServerModal({
   const [serverName, setServerName] = useState("");
 
   return (
-    <Transition appear show={isOpen} as={Fragment}>
-      <Dialog
-        as="div"
-        className="relative z-50"
-        onClose={() => {
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) {
           setServerName("");
           onClose();
-        }}
-      >
-        <TransitionChild
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-        </TransitionChild>
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
 
-        <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4">
-            <TransitionChild
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <DialogPanel className="w-full max-w-md transform overflow-hidden rounded-xl bg-gray-850/95 border border-gray-900 p-6 shadow-xl transition-all">
-                <DialogTitle
-                  as="h2"
-                  className="text-xl font-semibold text-white mb-4"
-                >
-                  {title}
-                </DialogTitle>
-
-                {serverDetails ? (
-                  <div className="space-y-4">
-                    <p className="text-gray-400 text-sm">{message}</p>
-                    <div className="space-y-2">
-                      <label
-                        htmlFor="serverName"
-                        className="block text-sm font-medium text-gray-400"
-                      >
-                        Server Name
-                      </label>
-                      <input
-                        type="text"
-                        id="serverName"
-                        value={serverName}
-                        onChange={(e) => setServerName(e.target.value)}
-                        placeholder="Enter a name for this server"
-                        className="w-full px-4 py-2 bg-gray-800/50 border border-gray-900 text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
-                        autoFocus
-                      />
-                      <p className="text-sm text-gray-400">
-                        Host: {serverDetails.host}:{serverDetails.port}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-400 text-sm">{message}</p>
-                )}
-
-                <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
-                    onClick={() => {
-                      setServerName("");
-                      onClose();
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={serverDetails && !serverName.trim()}
-                    className={`
-                      px-4 py-2 
-                      rounded-lg 
-                      shadow-md
-                      transition-colors
-                      border
-                      text-sm
-                      ${
-                        serverDetails && !serverName.trim()
-                          ? "bg-gray-700 text-gray-400 cursor-not-allowed border-gray-900"
-                          : confirmStyle === "danger"
-                          ? "bg-red-500 hover:bg-red-600 text-white border-red-600 hover:border-red-700"
-                          : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
-                      }
-                    `}
-                    onClick={() => {
-                      onConfirm(serverName);
-                      setServerName("");
-                      onClose();
-                    }}
-                  >
-                    {confirmText}
-                  </button>
-                </div>
-              </DialogPanel>
-            </TransitionChild>
-          </div>
+        <div className="grid gap-4">
+          {serverDetails ? (
+            <>
+              <p className="text-muted-foreground text-sm">{message}</p>
+              <div className="grid gap-3">
+                <Label htmlFor="serverName">Server Name</Label>
+                <Input
+                  id="serverName"
+                  value={serverName}
+                  onChange={(e) => setServerName(e.target.value)}
+                  placeholder="Enter a name for this server"
+                  autoFocus
+                />
+              </div>
+              <div className="grid gap-3">
+                <Label>Server Host</Label>
+                <Input
+                  value={serverDetails.host}
+                  placeholder="iperf.example.com"
+                  readOnly
+                />
+              </div>
+              <div className="grid gap-3">
+                <Label>Server Port</Label>
+                <Input value={serverDetails.port} readOnly />
+              </div>
+            </>
+          ) : (
+            <p className="text-muted-foreground text-sm">{message}</p>
+          )}
         </div>
-      </Dialog>
-    </Transition>
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button
+            disabled={serverDetails && !serverName.trim()}
+            variant={confirmStyle === "danger" ? "destructive" : "default"}
+            onClick={() => {
+              onConfirm(serverName);
+              setServerName("");
+              onClose();
+            }}
+          >
+            {confirmText}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

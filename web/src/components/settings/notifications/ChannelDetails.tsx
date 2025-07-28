@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { SHOUTRRR_SERVICES } from "@/api/notifications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
@@ -131,9 +132,9 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
       <div className="space-y-4">
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <Label>
               Service URL
-            </label>
+            </Label>
             {!isEditingUrl && (
               <Button
                 onClick={() => setIsEditingUrl(true)}
@@ -216,9 +217,9 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
 
         <div className="flex items-center justify-between p-4 bg-gray-200/30 dark:bg-gray-800/30 rounded-lg">
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <Label>
               Channel Status
-            </label>
+            </Label>
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
               {channel.enabled
                 ? "Notifications will be sent to this channel"

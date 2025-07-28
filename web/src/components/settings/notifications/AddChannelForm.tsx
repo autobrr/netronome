@@ -5,6 +5,7 @@
 
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -46,9 +47,9 @@ export const AddChannelForm: React.FC<AddChannelFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label>
           Channel Name
-        </label>
+        </Label>
         <Input
           type="text"
           value={name}
@@ -60,9 +61,9 @@ export const AddChannelForm: React.FC<AddChannelFormProps> = ({
       </div>
 
       <div>
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label>
           Service Type
-        </label>
+        </Label>
         <Select value={service} onValueChange={setService}>
           <SelectTrigger className="mt-1 w-full">
             <SelectValue placeholder="Select a service..." />
@@ -79,9 +80,9 @@ export const AddChannelForm: React.FC<AddChannelFormProps> = ({
 
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <Label>
             Service URL
-          </label>
+          </Label>
           <button
             type="button"
             onClick={() => setShowUrlHelp(!showUrlHelp)}
