@@ -5,7 +5,7 @@
 
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { Settings, Bell } from "lucide-react";
+import { Cog6ToothIcon, BellIcon } from "@heroicons/react/24/outline";
 import { NotificationSettings } from "./settings/NotificationSettings";
 import {
   Dialog,
@@ -19,7 +19,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 
 interface SettingsSection {
   id: string;
@@ -32,7 +31,7 @@ const settingsSections: SettingsSection[] = [
   {
     id: "notifications",
     label: "Notifications",
-    icon: <Bell className="w-4 h-4" />,
+    icon: <BellIcon className="w-4 h-4" />,
     component: NotificationSettings,
   },
 ];
@@ -54,19 +53,14 @@ export const SettingsMenu: React.FC = () => {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative h-auto w-auto p-2 text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-gray-400"
+          <button
+            className="p-2 text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-gray-400 transition-colors"
             aria-label="Settings"
           >
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Settings className="w-6 h-6" />
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Cog6ToothIcon className="w-6 h-6" />
             </motion.div>
-          </Button>
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"

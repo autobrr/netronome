@@ -107,10 +107,10 @@ function App() {
           </div>
           
           {/* Desktop controls */}
-          <div className="hidden sm:flex absolute z-10 top-4 right-4 items-center gap-4">
+          <div className="hidden sm:flex absolute z-10 top-4 right-4 items-center gap-2">
             <button
               onClick={() => setIsDonateOpen(true)}
-              className="text-red-500 hover:text-red-600 dark:text-red-500/50 dark:hover:text-red-500 transition-colors"
+              className="p-2 text-red-500 hover:text-red-600 dark:text-red-500/50 dark:hover:text-red-500 transition-colors"
               aria-label="Donate"
             >
               <HeartIcon className="h-6 w-6" />
@@ -119,7 +119,7 @@ function App() {
             <SettingsMenu />
             <button
               onClick={() => logout()}
-              className="text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-blue-400"
+              className="p-2 text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-blue-400 transition-colors"
               aria-label="Logout"
             >
               <LogoutIcon className="h-6 w-6" />

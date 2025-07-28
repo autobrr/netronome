@@ -9,12 +9,10 @@ import {
   getCurrentThemeMode,
   setAutoTheme,
   getSystemTheme,
-  toggleDarkMode,
 } from "@/utils/darkMode";
 import {
   SunIcon,
   ComputerDesktopIcon,
-  ChevronDownIcon,
   CheckIcon,
 } from "@heroicons/react/24/outline";
 import { MoonIcon } from "@heroicons/react/24/solid";
@@ -158,16 +156,6 @@ export const DarkModeToggle: React.FC = () => {
     );
   }, []);
 
-  const handleQuickToggle = useCallback(() => {
-    if (currentMode === "auto") {
-      // If in auto mode, switch to manual mode with opposite of current theme
-      handleModeSelect(getSystemTheme() === "dark" ? "light" : "dark");
-    } else {
-      // Simple toggle between light and dark
-      toggleDarkMode();
-    }
-  }, [currentMode, handleModeSelect]);
-
   const toggleMenuOpen = useCallback(() => {
     setShowMenu((prev) => !prev);
   }, []);
@@ -175,40 +163,23 @@ export const DarkModeToggle: React.FC = () => {
   // Determine which icon to show
   const CurrentIcon = useMemo(() => {
     if (currentMode === "auto") {
-      // Show the actual theme icon when in auto mode
-      const systemTheme = getSystemTheme();
-      return systemTheme === "dark" ? MoonIcon : SunIcon;
+      return ComputerDesktopIcon;
     }
     return currentMode === "dark" ? MoonIcon : SunIcon;
   }, [currentMode]);
 
   return (
     <div className="relative" ref={menuRef}>
-      <div className="flex items-center">
-        {/* Icon button for quick toggle */}
-        <button
-          onClick={handleQuickToggle}
-          className="p-2 text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-gray-400 transition-colors"
-          aria-label="Toggle theme"
-        >
-          <CurrentIcon className="w-6 h-6" />
-        </button>
-
-        {/* Dropdown button */}
-        <button
-          onClick={toggleMenuOpen}
-          className="p-1 text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-gray-400 transition-colors"
-          aria-label="Theme options"
-          aria-expanded={showMenu}
-          aria-haspopup="true"
-        >
-          <ChevronDownIcon
-            className={`w-4 h-4 transition-transform duration-200 ${
-              showMenu ? "rotate-180" : ""
-            }`}
-          />
-        </button>
-      </div>
+      {/* Icon button that opens the menu */}
+      <button
+        onClick={toggleMenuOpen}
+        className="p-2 text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-gray-400 transition-colors"
+        aria-label="Theme options"
+        aria-expanded={showMenu}
+        aria-haspopup="true"
+      >
+        <CurrentIcon className="w-6 h-6" />
+      </button>
 
       {/* Dropdown menu */}
       <AnimatePresence>
