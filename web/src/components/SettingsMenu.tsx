@@ -4,7 +4,6 @@
  */
 
 import React, { useState } from "react";
-import { motion } from "motion/react";
 import { Cog6ToothIcon, BellIcon } from "@heroicons/react/24/outline";
 import { NotificationSettings } from "./settings/NotificationSettings";
 import { Button } from "@/components/ui/Button";
