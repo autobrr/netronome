@@ -13,13 +13,14 @@ import { MetricCard } from "@/components/common/MetricCard";
 import { FeaturedMonitorWidget } from "@/components/monitor/FeaturedMonitorWidget";
 import {
   FaWaveSquare,
-  FaShare,
   FaArrowDown,
   FaArrowUp,
   FaGripVertical,
 } from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
+import { ShareIcon } from "@heroicons/react/24/outline";
+import { ShareIcon as ShareIconSolid } from "@heroicons/react/24/solid";
 import {
   Collapsible,
   CollapsibleContent,
@@ -154,6 +155,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     const saved = localStorage.getItem("dashboard-section-order");
     return saved ? JSON.parse(saved) : ["history", "recent"];
   });
+
+  // State for share button hover
+  const [isShareHovered, setIsShareHovered] = useState(false);
 
   // Initialize drag sensors
   const sensors = useSensors(
@@ -318,13 +322,30 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
             {/* Floating Share Button positioned on the grid */}
             {!isPublic && onShareClick && (
-              <motion.button
-                onClick={onShareClick}
-                className="absolute top-2 right-2 sm:top-3 sm:right-3 p-3 sm:p-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 hover:border-blue-500/50 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-all duration-200 backdrop-blur-sm z-10 opacity-80 hover:opacity-100 touch-manipulation flex items-center justify-center"
-                aria-label="Share public speed test page"
-              >
-                <FaShare className="w-3.5 h-3.5 sm:w-2.5 sm:h-2.5" />
-              </motion.button>
+              <div className="absolute top-2 right-2 sm:top-3 sm:right-3 group">
+                <motion.button
+                  onClick={onShareClick}
+                  onMouseEnter={() => setIsShareHovered(true)}
+                  onMouseLeave={() => setIsShareHovered(false)}
+                  className="relative p-2 min-w-[36px] min-h-[36px] text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200 z-10 opacity-60 hover:opacity-100 touch-manipulation flex items-center justify-center"
+                  aria-label="Share public speed test page"
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {isShareHovered ? (
+                    <ShareIconSolid className="w-4 h-4" />
+                  ) : (
+                    <ShareIcon className="w-4 h-4" />
+                  )}
+                </motion.button>
+                {/* Tooltip - only visible on desktop hover */}
+                <div className="hidden sm:block absolute top-full right-0 mt-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200">
+                  <div className="bg-gray-900 dark:bg-gray-950 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                    Share Results
+                    <div className="absolute bottom-full right-3 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900 dark:border-b-gray-950" />
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </motion.div>
