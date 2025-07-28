@@ -53,7 +53,6 @@ cd web
 pnpm install     # Install dependencies
 pnpm dev         # Start dev server (port 5173)
 pnpm build       # Build for production
-pnpm lint        # Run ESLint
 pnpm tsc --noEmit # Type checking
 ```
 

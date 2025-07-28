@@ -19,7 +19,7 @@ import { getHistory, getPublicHistory } from "@/api/speedtest";
 import { motion, AnimatePresence } from "motion/react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { ChevronDownIcon } from "lucide-react";
-import { FaDownload, FaUpload, FaClock, FaWaveSquare } from "react-icons/fa";
+import { FaDownload, FaUpload, FaClock, FaWaveSquare, FaGripVertical } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,9 @@ interface SpeedHistoryChartProps {
   isPublic?: boolean;
   hasAnyTests?: boolean;
   hasCurrentRangeTests?: boolean;
+  showDragHandle?: boolean;
+  dragHandleRef?: (node: HTMLElement | null) => void;
+  dragHandleListeners?: any;
 }
 
 interface VisibleMetrics {
@@ -81,6 +84,9 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   isPublic = false,
   hasAnyTests = false,
   hasCurrentRangeTests = false,
+  showDragHandle = false,
+  dragHandleRef,
+  dragHandleListeners,
 }) => {
   const isMobile = useIsMobile();
 
@@ -567,9 +573,20 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               "text-left hover:bg-gray-100/95 dark:hover:bg-gray-800/95 transition-colors"
             )}
           >
-            <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
-              Speedtest History
-            </h2>
+            <div className="flex items-center gap-2">
+              {showDragHandle && (
+                <div
+                  ref={dragHandleRef}
+                  {...dragHandleListeners}
+                  className="cursor-grab active:cursor-grabbing touch-none"
+                >
+                  <FaGripVertical className="w-4 h-4 text-gray-400 dark:text-gray-600" />
+                </div>
+              )}
+              <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
+                Speedtest History
+              </h2>
+            </div>
             <ChevronDownIcon
               className={cn(
                 "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200",
@@ -581,21 +598,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
         <CollapsibleContent>
           <div className="bg-gray-50/95 dark:bg-gray-850/95 px-2 sm:px-4 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800">
-            <motion.div
-              className="pt-3 pb-4 speed-history-animate"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: 0.5,
-                type: "spring",
-                stiffness: 300,
-                damping: 20,
-              }}
-            >
+            <div className="pt-3 pb-4">
                   {/* Controls */}
                   <div className="flex flex-col sm:flex-row justify-between items-center mb-2">
                     {/* Metric Toggle Controls */}
-                    <div className="grid grid-cols-4 sm:flex sm:flex-wrap items-center gap-1 sm:gap-2 w-full sm:w-auto mb-4 sm:mb-0">
+                    <div className="grid grid-cols-4 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto mb-4 sm:mb-0">
                       {[
                         {
                           key: "download",
@@ -625,41 +632,45 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                         const isActive =
                           visibleMetrics[key as keyof typeof visibleMetrics];
                         return (
-                          <Button
+                          <button
                             key={key}
                             onClick={() =>
                               handleMetricToggle(
                                 key as keyof typeof visibleMetrics
                               )
                             }
-                            size="sm"
-                            variant="secondary"
                             className={cn(
-                              "h-auto px-1.5 sm:px-3 py-1 sm:py-1.5 min-w-0",
-                              "text-xs sm:text-sm",
-                              "flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2",
-                              isActive && "border-2"
+                              "relative px-1.5 sm:px-2 py-1 sm:py-1.5 min-w-0",
+                              "text-[10px] sm:text-xs font-medium",
+                              "flex items-center justify-center sm:justify-start gap-1 sm:gap-1.5",
+                              "rounded-md transition-all duration-200",
+                              "border border-transparent",
+                              isActive
+                                ? "bg-opacity-20 shadow-sm"
+                                : "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
                             )}
                             style={{
                               backgroundColor: isActive
-                                ? `${color}20`
+                                ? `${color}15`
                                 : undefined,
-                              borderColor: isActive ? color : undefined,
+                              borderColor: isActive ? `${color}40` : undefined,
                               color: isActive ? color : undefined,
                             }}
                           >
-                            <motion.div
-                              layout
-                              className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
+                            <div
+                              className={cn(
+                                "w-2 h-2 rounded-full transition-all duration-200",
+                                isActive ? "scale-110" : "scale-90 opacity-60"
+                              )}
                               style={{
                                 backgroundColor: isActive
                                   ? color
-                                  : "var(--chart-text)",
+                                  : "currentColor",
                               }}
                             />
                             <span className="hidden sm:inline">{label}</span>
                             <span className="sm:hidden">{icon}</span>
-                          </Button>
+                          </button>
                         );
                       })}
                     </div>
@@ -668,12 +679,12 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     <Select value={timeRange} onValueChange={handleTimeRangeChange}>
                       <SelectTrigger 
                         size="sm" 
-                        className="w-[140px] bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100"
+                        className="w-[140px] bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-500/50 dark:focus:ring-blue-400/50 text-gray-900 dark:text-gray-100 transition-colors duration-200"
                       >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent 
-                        className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 shadow-lg z-50"
+                        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg z-50"
                         align="end"
                         sideOffset={5}
                       >
@@ -681,7 +692,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                           <SelectItem 
                             key={option.value} 
                             value={option.value}
-                            className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800 text-gray-900 dark:text-gray-100"
+                            className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800 text-gray-900 dark:text-gray-100 transition-colors duration-150"
                           >
                             {option.label}
                           </SelectItem>
@@ -757,7 +768,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                       </motion.div>
                     </div>
                   )}
-                </motion.div>
+                </div>
               </div>
             </CollapsibleContent>
           </div>

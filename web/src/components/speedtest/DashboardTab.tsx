@@ -11,7 +11,7 @@ import { SpeedTestResult, TimeRange } from "@/types/types";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import { MetricCard } from "@/components/common/MetricCard";
 import { FeaturedMonitorWidget } from "@/components/monitor/FeaturedMonitorWidget";
-import { FaWaveSquare, FaShare, FaArrowDown, FaArrowUp } from "react-icons/fa";
+import { FaWaveSquare, FaShare, FaArrowDown, FaArrowUp, FaGripVertical } from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import {
@@ -22,6 +22,25 @@ import {
 import { cn } from "@/lib/utils";
 import { DataTable } from "@/components/ui/data-table";
 import { speedTestColumns, speedTestMobileColumns } from "./columns";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import {
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface DashboardTabProps {
   latestTest: SpeedTestResult | null;
@@ -34,6 +53,73 @@ interface DashboardTabProps {
   onNavigateToSpeedTest?: () => void;
   onNavigateToVnstat?: (agentId?: number) => void;
 }
+
+interface SortableItemProps {
+  id: string;
+  children: React.ReactNode;
+  dragHandleClassName?: string;
+}
+
+const SortableItem: React.FC<SortableItemProps> = ({ id, children, dragHandleClassName = "drag-handle" }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+    setActivatorNodeRef,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      {React.cloneElement(children as React.ReactElement, {
+        dragHandleRef: setActivatorNodeRef,
+        dragHandleListeners: listeners,
+        dragHandleClassName,
+      })}
+    </div>
+  );
+};
+
+// Wrapper component for SpeedHistoryChart with drag handle
+interface DraggableSpeedHistoryChartProps {
+  timeRange: TimeRange;
+  onTimeRangeChange: (range: TimeRange) => void;
+  isPublic?: boolean;
+  hasAnyTests?: boolean;
+  hasCurrentRangeTests?: boolean;
+  dragHandleRef?: (node: HTMLElement | null) => void;
+  dragHandleListeners?: any;
+}
+
+const DraggableSpeedHistoryChart: React.FC<DraggableSpeedHistoryChartProps> = ({
+  dragHandleRef,
+  dragHandleListeners,
+  ...props
+}) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      transition={{ duration: 0.5 }}
+    >
+      <SpeedHistoryChart
+        {...props}
+        showDragHandle={true}
+        dragHandleRef={dragHandleRef}
+        dragHandleListeners={dragHandleListeners}
+      />
+    </motion.div>
+  );
+};
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({
   latestTest,
@@ -52,10 +138,29 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     return saved === null ? true : saved === "true";
   });
 
+  // Initialize section order from localStorage or default
+  const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
+    const saved = localStorage.getItem("dashboard-section-order");
+    return saved ? JSON.parse(saved) : ["history", "recent"];
+  });
+
+  // Initialize drag sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   // Persist recent tests open state to localStorage
   useEffect(() => {
     localStorage.setItem("recent-tests-open", isRecentTestsOpen.toString());
   }, [isRecentTestsOpen]);
+
+  // Persist section order to localStorage
+  useEffect(() => {
+    localStorage.setItem("dashboard-section-order", JSON.stringify(sectionOrder));
+  }, [sectionOrder]);
 
   const displayedTests = tests.slice(0, displayCount);
 
@@ -77,6 +182,18 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     const avg =
       validValues.reduce((sum, value) => sum + value, 0) / validValues.length;
     return avg.toFixed(2);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setSectionOrder((items) => {
+        const oldIndex = items.indexOf(active.id as string);
+        const newIndex = items.indexOf(over.id as string);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
   };
 
   return (
@@ -199,127 +316,186 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </motion.div>
       )}
 
-      {/* Speedtest History Chart */}
+      {/* Draggable Sections */}
       {hasAnyTests && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          transition={{ duration: 0.5 }}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
         >
-          <SpeedHistoryChart
-            timeRange={timeRange}
-            onTimeRangeChange={onTimeRangeChange}
-            isPublic={isPublic}
-            hasAnyTests={hasAnyTests}
-            hasCurrentRangeTests={tests.length > 0}
-          />
-        </motion.div>
-      )}
-
-      {/* Recent Speedtests Summary */}
-      {tests.length > 0 && (
-        <Collapsible
-          open={isRecentTestsOpen}
-          onOpenChange={setIsRecentTestsOpen}
-          className="flex flex-col h-full"
-        >
-          <CollapsibleTrigger
-            className={cn(
-              "flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95",
-              isRecentTestsOpen ? "rounded-t-xl" : "rounded-xl",
-              "shadow-lg border border-gray-200 dark:border-gray-800",
-              isRecentTestsOpen ? "border-b-0" : "",
-              "text-left transition-all duration-200 hover:bg-gray-100/95 dark:hover:bg-gray-800/95"
-            )}
+          <SortableContext
+            items={sectionOrder}
+            strategy={verticalListSortingStrategy}
           >
-            <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
-              Recent Speedtests
-            </h2>
-            <ChevronDownIcon
-              className={cn(
-                isRecentTestsOpen ? "transform rotate-180" : "",
-                "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200"
-              )}
-            />
-          </CollapsibleTrigger>
-
-          <CollapsibleContent>
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: 0.5,
-                type: "spring",
-                stiffness: 300,
-                damping: 20,
-              }}
-              className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-3 pb-6 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
-            >
-              {/* Desktop Table View */}
-              <div className="hidden md:block">
-                <DataTable
-                  columns={speedTestColumns}
-                  data={displayedTests}
-                  showPagination={false}
-                  showColumnVisibility={true}
-                  showRowSelection={false}
-                  filterColumn="serverName"
-                  filterPlaceholder="Filter by server..."
-                  className="-mt-4"
-                />
-              </div>
-
-              {/* Mobile Card View */}
-              <div className="md:hidden">
-                <DataTable
-                  columns={speedTestMobileColumns}
-                  data={displayedTests}
-                  showPagination={false}
-                  showColumnVisibility={false}
-                  showRowSelection={false}
-                  className="-mt-4"
-                  tableClassName="border-0"
-                />
-              </div>
-              {/* Test Count and Load More */}
-              {tests.length > 5 && (
-                <div className="mt-4 space-y-3">
-                  {/* Test Count */}
-                  <div className="text-center">
-                    <span className="text-gray-500 dark:text-gray-500 text-sm">
-                      Showing {displayedTests.length} of {tests.length} tests
-                    </span>
-                  </div>
-
-                  {/* Load More / Show Less Buttons */}
-                  <div className="flex items-center justify-center gap-3">
-                    {tests.length > displayCount && (
-                      <button
-                        onClick={() => setDisplayCount((prev) => prev + 5)}
-                        className="inline-flex items-center px-4 py-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-colors duration-200 text-sm font-medium"
-                      >
-                        Load {Math.min(5, tests.length - displayCount)} more
-                        <span className="ml-2">↓</span>
-                      </button>
-                    )}
-
-                    {displayCount > 5 && (
-                      <button
-                        onClick={() => setDisplayCount(5)}
-                        className="inline-flex items-center px-4 py-2 bg-gray-600/10 hover:bg-gray-600/20 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg transition-colors duration-200 text-sm font-medium"
-                      >
-                        Show less
-                        <span className="ml-2">↑</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </CollapsibleContent>
-        </Collapsible>
+            <div className="space-y-6">
+              {sectionOrder.map((sectionId) => {
+                if (sectionId === "history") {
+                  return (
+                    <SortableItem key="history" id="history">
+                      <DraggableSpeedHistoryChart
+                        timeRange={timeRange}
+                        onTimeRangeChange={onTimeRangeChange}
+                        isPublic={isPublic}
+                        hasAnyTests={hasAnyTests}
+                        hasCurrentRangeTests={tests.length > 0}
+                      />
+                    </SortableItem>
+                  );
+                } else if (sectionId === "recent" && tests.length > 0) {
+                  return (
+                    <SortableItem key="recent" id="recent">
+                      <DraggableRecentSpeedtests
+                        tests={tests}
+                        displayedTests={displayedTests}
+                        displayCount={displayCount}
+                        setDisplayCount={setDisplayCount}
+                        isRecentTestsOpen={isRecentTestsOpen}
+                        setIsRecentTestsOpen={setIsRecentTestsOpen}
+                      />
+                    </SortableItem>
+                  );
+                }
+                return null;
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
+  );
+};
+
+// Wrapper component for Recent Speedtests with drag handle
+interface DraggableRecentSpeedtestsProps {
+  tests: SpeedTestResult[];
+  displayedTests: SpeedTestResult[];
+  displayCount: number;
+  setDisplayCount: (count: number | ((prev: number) => number)) => void;
+  isRecentTestsOpen: boolean;
+  setIsRecentTestsOpen: (open: boolean) => void;
+  dragHandleRef?: (node: HTMLElement | null) => void;
+  dragHandleListeners?: any;
+}
+
+const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
+  tests,
+  displayedTests,
+  displayCount,
+  setDisplayCount,
+  isRecentTestsOpen,
+  setIsRecentTestsOpen,
+  dragHandleRef,
+  dragHandleListeners,
+}) => {
+  return (
+    <Collapsible
+      open={isRecentTestsOpen}
+      onOpenChange={setIsRecentTestsOpen}
+      className="flex flex-col h-full"
+    >
+      <CollapsibleTrigger
+        className={cn(
+          "flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95",
+          isRecentTestsOpen ? "rounded-t-xl" : "rounded-xl",
+          "shadow-lg border border-gray-200 dark:border-gray-800",
+          isRecentTestsOpen ? "border-b-0" : "",
+          "text-left transition-all duration-200 hover:bg-gray-100/95 dark:hover:bg-gray-800/95"
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <div
+            ref={dragHandleRef}
+            {...dragHandleListeners}
+            className="cursor-grab active:cursor-grabbing touch-none"
+          >
+            <FaGripVertical className="w-4 h-4 text-gray-400 dark:text-gray-600" />
+          </div>
+          <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
+            Recent Speedtests
+          </h2>
+        </div>
+        <ChevronDownIcon
+          className={cn(
+            isRecentTestsOpen ? "transform rotate-180" : "",
+            "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200"
+          )}
+        />
+      </CollapsibleTrigger>
+
+      <CollapsibleContent>
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.5,
+            type: "spring",
+            stiffness: 300,
+            damping: 20,
+          }}
+          className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-3 pb-6 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
+        >
+          {/* Desktop Table View */}
+          <div className="hidden md:block">
+            <DataTable
+              columns={speedTestColumns}
+              data={displayedTests}
+              showPagination={false}
+              showColumnVisibility={true}
+              showRowSelection={false}
+              filterColumn="serverName"
+              filterPlaceholder="Filter by server..."
+              className="-mt-4"
+            />
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden">
+            <DataTable
+              columns={speedTestMobileColumns}
+              data={displayedTests}
+              showPagination={false}
+              showColumnVisibility={false}
+              showRowSelection={false}
+              className="-mt-4"
+              tableClassName="border-0"
+            />
+          </div>
+          {/* Test Count and Load More */}
+          {tests.length > 5 && (
+            <div className="mt-4 space-y-3">
+              {/* Test Count */}
+              <div className="text-center">
+                <span className="text-gray-500 dark:text-gray-500 text-sm">
+                  Showing {displayedTests.length} of {tests.length} tests
+                </span>
+              </div>
+
+              {/* Load More / Show Less Buttons */}
+              <div className="flex items-center justify-center gap-3">
+                {tests.length > displayCount && (
+                  <button
+                    onClick={() => setDisplayCount((prev) => prev + 5)}
+                    className="inline-flex items-center px-4 py-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-colors duration-200 text-sm font-medium"
+                  >
+                    Load {Math.min(5, tests.length - displayCount)} more
+                    <span className="ml-2">↓</span>
+                  </button>
+                )}
+
+                {displayCount > 5 && (
+                  <button
+                    onClick={() => setDisplayCount(5)}
+                    className="inline-flex items-center px-4 py-2 bg-gray-600/10 hover:bg-gray-600/20 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg transition-colors duration-200 text-sm font-medium"
+                  >
+                    Show less
+                    <span className="ml-2">↑</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 };
