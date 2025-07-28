@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
 interface DeleteConfirmationDialogProps {

@@ -20,7 +20,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { ChevronDownIcon } from "lucide-react";
 import { FaDownload, FaUpload, FaClock, FaWaveSquare, FaGripVertical } from "react-icons/fa";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 

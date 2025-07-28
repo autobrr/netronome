@@ -14,7 +14,7 @@ import { DonateModal } from "@/components/DonateModal";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import {
   Sheet,
   SheetContent,

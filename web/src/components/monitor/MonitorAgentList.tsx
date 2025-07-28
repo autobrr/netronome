@@ -21,7 +21,7 @@ import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { TailscaleLogo } from "../icons/TailscaleLogo";
 import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { DataTable, createSortableHeader } from "@/components/ui/data-table";

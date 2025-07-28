@@ -15,7 +15,7 @@ import {
 } from "@heroicons/react/24/solid";
 import s0upIcon from "@/assets/sponsors/s0up4200.png";
 import zze0sIcon from "@/assets/sponsors/zze0s.png";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 
 interface DonationLink {
   name: string;

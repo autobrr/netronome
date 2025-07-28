@@ -13,7 +13,7 @@ import {
   Server,
   PacketLossMonitor,
 } from "@/types/types";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 
 // Import packet loss components
 import { PacketLossMonitorList } from "./packetloss/PacketLossMonitorList";

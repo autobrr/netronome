@@ -6,7 +6,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import { Server } from "@/types/types";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
 import { ServerFilters } from "./components/ServerFilters";
 import { ServerCard } from "./components/ServerCard";

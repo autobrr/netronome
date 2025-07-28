@@ -7,7 +7,7 @@ import React, { useMemo } from "react";
 import { ChevronRight } from "lucide-react";
 import { SHOUTRRR_SERVICES } from "@/api/notifications";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/card";
 
 interface ChannelCardProps {

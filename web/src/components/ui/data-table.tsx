@@ -21,7 +21,7 @@ import {
 } from "@tanstack/react-table"
 import { ArrowUpDown, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/Button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
