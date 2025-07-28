@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import { Cog6ToothIcon, BellIcon } from "@heroicons/react/24/outline";
 import { NotificationSettings } from "./settings/NotificationSettings";
+import { Button } from "@/components/ui/Button";
 import {
   Dialog,
   DialogContent,
@@ -53,14 +54,14 @@ export const SettingsMenu: React.FC = () => {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
-            className="p-2 text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-gray-400 transition-colors"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-gray-400"
             aria-label="Settings"
           >
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Cog6ToothIcon className="w-6 h-6" />
-            </motion.div>
-          </button>
+            <Cog6ToothIcon className="w-6 h-6" />
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
