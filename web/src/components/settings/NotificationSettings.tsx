@@ -305,7 +305,7 @@ export const NotificationSettings: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative">
+      <div className="relative px-4 sm:px-0">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -338,7 +338,7 @@ export const NotificationSettings: React.FC = () => {
 
       {/* Mobile View */}
       {isMobileView ? (
-        <div className="h-full">
+        <div className="h-full px-4">
           <MobileNotificationView
             channels={safeChannels}
             activeChannel={activeChannel}

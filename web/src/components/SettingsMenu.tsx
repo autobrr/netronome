@@ -91,7 +91,7 @@ export const SettingsMenu: React.FC = () => {
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent
-          className="w-full max-w-3xl md:max-w-5xl lg:max-w-6xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-800 shadow-2xl p-0 gap-0"
+          className="w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] sm:w-full sm:max-w-3xl md:max-w-5xl lg:max-w-6xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-800 shadow-2xl !p-0 gap-0"
           showCloseButton
         >
           <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-800">
@@ -99,7 +99,7 @@ export const SettingsMenu: React.FC = () => {
               Settings
             </DialogTitle>
           </DialogHeader>
-          <div className="p-4 sm:p-6 lg:p-8 max-h-[70vh] overflow-y-auto modal-scrollbar">
+          <div className="p-0 sm:p-6 lg:p-8 max-h-[70vh] overflow-y-auto modal-scrollbar">
             <ActiveComponent />
           </div>
         </DialogContent>
