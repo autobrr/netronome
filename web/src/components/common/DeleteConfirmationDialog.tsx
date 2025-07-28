@@ -36,7 +36,12 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
   isDeleting = false,
 }) => {
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      // Only allow closing if not currently deleting
+      if (!open && !isDeleting) {
+        onClose();
+      }
+    }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader className="space-y-3">
           <div className="flex items-center gap-3">

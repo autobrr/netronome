@@ -155,8 +155,11 @@ export const MonitorTab: React.FC = () => {
 
   const confirmDelete = () => {
     if (agentToDelete) {
-      deleteMutation.mutate(agentToDelete.id);
+      // Close dialog immediately
       setDeleteDialogOpen(false);
+      // Delete the agent
+      deleteMutation.mutate(agentToDelete.id);
+      // Clear the agent to delete
       setAgentToDelete(null);
     }
   };
@@ -219,8 +222,8 @@ export const MonitorTab: React.FC = () => {
               onSelectAgent={setSelectedAgent}
               onEditAgent={handleEditAgent}
               onDeleteAgent={(id) => {
-                const agent = agents.find((a) => a.id === id);
-                if (agent) handleDeleteAgent(agent);
+                // Just pass through the delete mutation
+                return deleteMutation.mutateAsync(id);
               }}
               isLoading={isLoading}
             />

@@ -32,7 +32,7 @@ interface MonitorAgentListProps {
   selectedAgent: MonitorAgent | null;
   onSelectAgent: (agent: MonitorAgent) => void;
   onEditAgent: (agent: MonitorAgent) => void;
-  onDeleteAgent: (id: number) => void;
+  onDeleteAgent: (id: number) => void | Promise<void>;
   isLoading: boolean;
 }
 
@@ -62,6 +62,8 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
   const [agentToDelete, setAgentToDelete] = React.useState<MonitorAgent | null>(
     null
   );
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
 
   React.useEffect(() => {
     const handleStorageChange = () => {
@@ -307,14 +309,26 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
           setDeleteDialogOpen(false);
           setAgentToDelete(null);
         }}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (agentToDelete) {
-            onDeleteAgent(agentToDelete.id);
-            setDeleteDialogOpen(false);
-            setAgentToDelete(null);
+            setIsDeleting(true);
+            try {
+              const result = onDeleteAgent(agentToDelete.id);
+              // Handle both sync and async cases
+              if (result instanceof Promise) {
+                await result;
+              }
+              setDeleteDialogOpen(false);
+              setAgentToDelete(null);
+            } catch (error) {
+              console.error("Failed to delete agent:", error);
+            } finally {
+              setIsDeleting(false);
+            }
           }
         }}
         itemName={agentToDelete?.name || ""}
+        isDeleting={isDeleting}
       />
     </>
   );
