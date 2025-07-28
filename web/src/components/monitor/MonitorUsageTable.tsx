@@ -8,6 +8,14 @@ import { MonitorAgent, MonitorUsageSummary } from "@/api/monitor";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { parseMonitorUsagePeriods } from "@/utils/monitorDataParser";
 import { formatBytes } from "@/utils/formatBytes";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface MonitorUsageTableProps {
   agent: MonitorAgent;
@@ -75,50 +83,48 @@ export const MonitorUsageTable: React.FC<MonitorUsageTableProps> = ({
   }
 
   return (
-    <div>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-300 dark:border-gray-800">
-            <th className="text-left py-3 px-4 text-gray-400 font-medium">
-              Period
-            </th>
-            <th className="text-right py-3 px-4 text-gray-400 font-medium">
-              Download
-            </th>
-            <th className="text-right py-3 px-4 text-gray-400 font-medium">
-              Upload
-            </th>
-            <th className="text-right py-3 px-4 text-gray-400 font-medium">
-              Total
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {usageData.map((row) => (
-            <tr
-              key={row.period}
-              className="border-b border-gray-300/50 dark:border-gray-800/50 last:border-0 hover:bg-gray-200/30 dark:hover:bg-gray-800/30 transition-colors"
-            >
-              <td className="py-3 px-4 text-gray-700 dark:text-gray-300 text-left font-medium">
-                {row.period}
-              </td>
-              <td className="py-3 px-4 text-gray-700 dark:text-gray-300 text-right font-mono">
-                <span className="text-blue-600 dark:text-blue-400">
-                  {formatBytes(row.download)}
-                </span>
-              </td>
-              <td className="py-3 px-4 text-gray-700 dark:text-gray-300 text-right font-mono">
-                <span className="text-emerald-600 dark:text-emerald-400">
-                  {formatBytes(row.upload)}
-                </span>
-              </td>
-              <td className="py-3 px-4 text-gray-700 dark:text-gray-300 text-right font-mono font-medium">
-                {formatBytes(row.total)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Table className="table-fixed" noScroll>
+      <TableHeader>
+        <TableRow className="border-gray-300 dark:border-gray-800">
+          <TableHead className="text-gray-600 dark:text-gray-400 w-[140px]">
+            Period
+          </TableHead>
+          <TableHead className="text-right text-gray-600 dark:text-gray-400 w-[120px]">
+            Download
+          </TableHead>
+          <TableHead className="text-right text-gray-600 dark:text-gray-400 w-[120px]">
+            Upload
+          </TableHead>
+          <TableHead className="text-right text-gray-600 dark:text-gray-400 w-[120px]">
+            Total
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {usageData.map((row) => (
+          <TableRow
+            key={row.period}
+            className="border-gray-300/50 dark:border-gray-800/50 hover:bg-gray-200/30 dark:hover:bg-gray-800/30 transition-colors"
+          >
+            <TableCell className="text-gray-700 dark:text-gray-300 font-medium w-[140px]">
+              {row.period}
+            </TableCell>
+            <TableCell className="text-right text-gray-700 dark:text-gray-300 font-mono w-[120px]">
+              <span className="text-blue-600 dark:text-blue-400">
+                {formatBytes(row.download)}
+              </span>
+            </TableCell>
+            <TableCell className="text-right text-gray-700 dark:text-gray-300 font-mono w-[120px]">
+              <span className="text-emerald-600 dark:text-emerald-400">
+                {formatBytes(row.upload)}
+              </span>
+            </TableCell>
+            <TableCell className="text-right text-gray-700 dark:text-gray-300 font-mono font-medium w-[120px]">
+              {formatBytes(row.total)}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 };

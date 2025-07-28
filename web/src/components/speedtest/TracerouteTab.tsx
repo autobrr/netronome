@@ -13,7 +13,7 @@ import {
   Server,
   PacketLossMonitor,
 } from "@/types/types";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 
 // Import packet loss components
 import { PacketLossMonitorList } from "./packetloss/PacketLossMonitorList";
@@ -422,7 +422,7 @@ export const TracerouteTab: React.FC = () => {
 
                 <Button
                   onClick={() => setShowForm(true)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
+                  variant="default"
                 >
                   Add
                 </Button>

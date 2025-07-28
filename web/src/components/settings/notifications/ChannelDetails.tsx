@@ -4,7 +4,6 @@
  */
 
 import React, { useState } from "react";
-import { Switch, Button as HeadlessButton, Input } from "@headlessui/react";
 import { 
   BellIcon, 
   TrashIcon, 
@@ -14,6 +13,10 @@ import {
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import { SHOUTRRR_SERVICES } from "@/api/notifications";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 interface ChannelDetailsProps {
   channel: any;
@@ -87,22 +90,22 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
   const detectedService = detectServiceType(isEditingUrl ? editedUrl : channel.url);
 
   return (
-    <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {channel.name}
-          </h4>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Channel configuration and settings
-          </p>
-        </div>
+    <Card>
+      <CardHeader className="p-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-xl">{channel.name}</CardTitle>
+            <CardDescription>
+              Channel configuration and settings
+            </CardDescription>
+          </div>
 
         <div className="flex items-center gap-2">
-          <HeadlessButton
+          <Button
             onClick={onTest}
             disabled={isTesting}
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            variant="secondary"
+            size="sm"
           >
             {isTesting ? (
               <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-700 border-t-blue-500 dark:border-t-blue-400 rounded-full animate-spin" />
@@ -110,17 +113,20 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
               <BellIcon className="w-4 h-4" />
             )}
             Test
-          </HeadlessButton>
-          <HeadlessButton
+          </Button>
+          <Button
             onClick={onDelete}
             disabled={isDeleting}
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            variant="destructive"
+            size="sm"
           >
             <TrashIcon className="w-4 h-4" />
             Delete
-          </HeadlessButton>
+          </Button>
         </div>
-      </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-6 pt-0">
 
       <div className="space-y-4">
         <div>
@@ -129,13 +135,15 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
               Service URL
             </label>
             {!isEditingUrl && (
-              <HeadlessButton
+              <Button
                 onClick={() => setIsEditingUrl(true)}
-                className="p-1 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
                 title="Edit URL"
               >
                 <PencilIcon className="w-4 h-4" />
-              </HeadlessButton>
+              </Button>
             )}
           </div>
           
@@ -150,11 +158,8 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
                     setUrlError("");
                   }}
                   className={cn(
-                    "w-full px-3 py-2 font-mono text-sm bg-white dark:bg-gray-900 border rounded-lg transition-colors",
-                    "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
-                    urlError 
-                      ? "border-red-500 dark:border-red-400" 
-                      : "border-gray-300 dark:border-gray-700"
+                    "font-mono text-sm",
+                    urlError && "border-red-500 dark:border-red-400"
                   )}
                   placeholder="service://..."
                 />
@@ -176,10 +181,10 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
               )}
               
               <div className="flex items-center gap-2">
-                <HeadlessButton
+                <Button
                   onClick={handleSaveUrl}
                   disabled={onUpdate.isPending}
-                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  size="sm"
                 >
                   {onUpdate.isPending ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -189,14 +194,15 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
                       Save
                     </>
                   )}
-                </HeadlessButton>
-                <HeadlessButton
+                </Button>
+                <Button
                   onClick={handleCancelEdit}
-                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  variant="secondary"
+                  size="sm"
                 >
                   <XMarkIcon className="w-4 h-4" />
                   Cancel
-                </HeadlessButton>
+                </Button>
               </div>
             </div>
           ) : (
@@ -221,7 +227,7 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
           </div>
           <Switch
             checked={channel.enabled}
-            onChange={(checked) => {
+            onCheckedChange={(checked) => {
               onUpdate.mutate({
                 id: channel.id,
                 name: channel.name,
@@ -229,21 +235,10 @@ export const ChannelDetails: React.FC<ChannelDetailsProps> = ({
                 enabled: checked,
               });
             }}
-            className={cn(
-              "relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
-              channel.enabled ? "bg-blue-600" : "bg-gray-200 dark:bg-gray-700"
-            )}
-          >
-            <span className="sr-only">Enable channel</span>
-            <span
-              className={cn(
-                "inline-block h-4 w-4 rounded-full bg-white shadow-lg transition-transform duration-200",
-                channel.enabled ? "translate-x-6" : "translate-x-1"
-              )}
-            />
-          </Switch>
+          />
         </div>
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };

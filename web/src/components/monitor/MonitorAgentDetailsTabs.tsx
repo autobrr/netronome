@@ -3,75 +3,58 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import React from "react";
+import { motion } from "motion/react";
 import { MonitorAgent } from "@/api/monitor";
 import { MonitorOverviewTab } from "./tabs/MonitorOverviewTab";
 import { MonitorBandwidthTab } from "./tabs/MonitorBandwidthTab";
 import { MonitorSystemTab } from "./tabs/MonitorSystemTab";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface MonitorAgentDetailsTabsProps {
   agent: MonitorAgent;
 }
 
-type TabType = "overview" | "bandwidth" | "system";
-
-interface Tab {
-  id: TabType;
-  label: string;
-  component: React.ComponentType<{ agent: MonitorAgent }>;
-}
-
-const tabs: Tab[] = [
-  { id: "overview", label: "Overview", component: MonitorOverviewTab },
-  { id: "bandwidth", label: "Bandwidth", component: MonitorBandwidthTab },
-  { id: "system", label: "System & Hardware", component: MonitorSystemTab },
-];
-
-export const MonitorAgentDetailsTabs: React.FC<MonitorAgentDetailsTabsProps> = ({
-  agent,
-}) => {
-  const [activeTab, setActiveTab] = useState<TabType>("overview");
-
-  const ActiveComponent = tabs.find((tab) => tab.id === activeTab)?.component;
-
+export const MonitorAgentDetailsTabs: React.FC<
+  MonitorAgentDetailsTabsProps
+> = ({ agent }) => {
   return (
-    <div className="space-y-6">
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`
-                whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm
-                transition-colors duration-200
-                ${
-                  activeTab === tab.id
-                    ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-                }
-              `}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+    <Tabs defaultValue="overview" className="space-y-2">
+      <TabsList>
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="bandwidth">Bandwidth</TabsTrigger>
+        <TabsTrigger value="system">System & Hardware</TabsTrigger>
+      </TabsList>
 
-      {/* Tab Content */}
-      <AnimatePresence mode="wait">
+      <TabsContent value="overview">
         <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.15 }}
         >
-          {ActiveComponent && <ActiveComponent agent={agent} />}
+          <MonitorOverviewTab agent={agent} />
         </motion.div>
-      </AnimatePresence>
-    </div>
+      </TabsContent>
+
+      <TabsContent value="bandwidth">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.15 }}
+        >
+          <MonitorBandwidthTab agent={agent} />
+        </motion.div>
+      </TabsContent>
+
+      <TabsContent value="system">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.15 }}
+        >
+          <MonitorSystemTab agent={agent} />
+        </motion.div>
+      </TabsContent>
+    </Tabs>
   );
 };

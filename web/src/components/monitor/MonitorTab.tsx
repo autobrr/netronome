@@ -10,6 +10,8 @@ import { MonitorAgentList } from "./MonitorAgentList";
 import { MonitorAgentForm } from "./MonitorAgentForm";
 import { MonitorAgentDetailsTabs } from "./MonitorAgentDetailsTabs";
 import { ArrowLeftIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/button";
+import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
 import {
   getMonitorAgents,
   createMonitorAgent,
@@ -25,6 +27,8 @@ export const MonitorTab: React.FC = () => {
   const [selectedAgent, setSelectedAgent] = useState<MonitorAgent | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<MonitorAgent | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [agentToDelete, setAgentToDelete] = useState<MonitorAgent | null>(null);
   const queryClient = useQueryClient();
 
   // Helper functions for managing featured agents
@@ -138,9 +142,16 @@ export const MonitorTab: React.FC = () => {
     setIsFormOpen(true);
   };
 
-  const handleDeleteAgent = async (id: number) => {
-    if (confirm("Are you sure you want to delete this agent?")) {
-      deleteMutation.mutate(id);
+  const handleDeleteAgent = (agent: MonitorAgent) => {
+    setAgentToDelete(agent);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (agentToDelete) {
+      deleteMutation.mutate(agentToDelete.id);
+      setDeleteDialogOpen(false);
+      setAgentToDelete(null);
     }
   };
 
@@ -181,14 +192,13 @@ export const MonitorTab: React.FC = () => {
                   Monitor bandwidth from Netronome agents • Click an agent to view detailed stats
                 </p>
               </div>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+              <Button
                 onClick={handleCreateAgent}
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white border border-blue-600 hover:border-blue-700 rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm sm:text-base font-medium"
+                variant="default"
+                size="default"
               >
                 Add Agent
-              </motion.button>
+              </Button>
             </div>
 
             {/* Agent List */}
@@ -197,7 +207,10 @@ export const MonitorTab: React.FC = () => {
               selectedAgent={null}
               onSelectAgent={setSelectedAgent}
               onEditAgent={handleEditAgent}
-              onDeleteAgent={handleDeleteAgent}
+              onDeleteAgent={(id) => {
+                const agent = agents.find(a => a.id === id);
+                if (agent) handleDeleteAgent(agent);
+              }}
               isLoading={isLoading}
             />
           </motion.div>
@@ -213,15 +226,15 @@ export const MonitorTab: React.FC = () => {
             {/* Simplified Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                <Button
                   onClick={handleBack}
-                  className="px-3 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg shadow-md transition-colors flex items-center gap-2"
+                  variant="secondary"
+                  size="sm"
+                  className="gap-1.5"
                 >
                   <ArrowLeftIcon className="h-4 w-4" />
-                  <span className="text-sm font-medium">Back</span>
-                </motion.button>
+                  <span>Back</span>
+                </Button>
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {selectedAgent.name}
                 </h2>
@@ -231,25 +244,23 @@ export const MonitorTab: React.FC = () => {
                   </span>
                 )}
               </div>
-              <div className="flex gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+              <div className="flex items-center gap-2">
+                <button
                   onClick={() => handleEditAgent(selectedAgent)}
-                  className="p-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg shadow-md transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200 text-sm font-medium"
                   title="Edit agent"
                 >
                   <PencilIcon className="h-4 w-4" />
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleDeleteAgent(selectedAgent.id)}
-                  className="p-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg shadow-md transition-colors"
+                  <span className="hidden sm:inline">Edit</span>
+                </button>
+                <button
+                  onClick={() => handleDeleteAgent(selectedAgent)}
+                  className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors duration-200 text-sm font-medium"
                   title="Delete agent"
                 >
                   <TrashIcon className="h-4 w-4" />
-                </motion.button>
+                  <span className="hidden sm:inline">Delete</span>
+                </button>
               </div>
             </div>
 
@@ -269,6 +280,18 @@ export const MonitorTab: React.FC = () => {
         }}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
         isOpen={isFormOpen}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setAgentToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        itemName={agentToDelete?.name || ""}
+        isDeleting={deleteMutation.isPending}
       />
     </div>
   );

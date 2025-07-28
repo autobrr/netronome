@@ -3,10 +3,18 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState, useEffect, Fragment } from "react";
-import { Dialog, Transition } from "@headlessui/react";
-import { XMarkIcon, EyeIcon, EyeSlashIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
-import { Button } from "@/components/ui/Button";
+import React, { useState, useEffect } from "react";
+import { EyeIcon, EyeSlashIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { MonitorAgent, CreateAgentRequest } from "@/api/monitor";
 
 interface MonitorAgentFormProps {
@@ -82,221 +90,185 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
   };
 
   return (
-    <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onCancel}>
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-        </Transition.Child>
+    <Dialog open={isOpen} onOpenChange={onCancel}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {agent ? (agent.isTailscale ? "Edit Monitoring Settings" : "Edit Agent") : "Add Agent"}
+          </DialogTitle>
+        </DialogHeader>
 
-        <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl bg-gray-50/95 dark:bg-gray-850/95 border border-gray-200 dark:border-gray-900 p-6 shadow-xl transition-all">
-                <div className="mb-4 flex items-center justify-between">
-                  <Dialog.Title
-                    as="h3"
-                    className="text-lg font-medium text-gray-900 dark:text-white"
-                  >
-                    {agent ? (agent.isTailscale ? "Edit Monitoring Settings" : "Edit Agent") : "Add Agent"}
-                  </Dialog.Title>
-                  <button
-                    onClick={onCancel}
-                    className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
-                  >
-                    <XMarkIcon className="h-6 w-6" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* Show Tailscale info if this is a Tailscale agent */}
-                  {agent?.isTailscale && (
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                      <div className="flex items-center gap-2">
-                        <ShieldCheckIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                            Tailscale Connected Agent
-                          </p>
-                          {agent.tailscaleHostname && (
-                            <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
-                              Hostname: {agent.tailscaleHostname}
-                            </p>
-                          )}
-                          {agent.discoveredAt && (
-                            <p className="text-xs text-blue-700 dark:text-blue-300">
-                              Auto-discovered on{" "}
-                              {new Date(agent.discoveredAt).toLocaleDateString()}
-                            </p>
-                          )}
-                          {isAutoDiscoveredTailscale && (
-                            <p className="text-xs text-blue-600 dark:text-blue-200 mt-1">
-                              Connection details are managed by Tailscale. Only monitoring can be toggled.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <label
-                      htmlFor="name"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      Agent Name
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      value={formData.name}
-                      data-1p-ignore
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                      className="mt-1 block w-full px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      placeholder="Remote Server"
-                      required
-                      disabled={isAutoDiscoveredTailscale}
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="url"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      Agent URL
-                    </label>
-                    <input
-                      type="url"
-                      id="url"
-                      value={formData.url}
-                      onChange={(e) => handleUrlChange(e.target.value)}
-                      className="mt-1 block w-full px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      placeholder="http://192.168.1.100:8200"
-                      required
-                      disabled={isAutoDiscoveredTailscale}
-                    />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Enter the base URL of the monitor agent
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Show Tailscale info if this is a Tailscale agent */}
+          {agent?.isTailscale && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheckIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Tailscale Connected Agent
+                  </p>
+                  {agent.tailscaleHostname && (
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
+                      Hostname: {agent.tailscaleHostname}
                     </p>
-                  </div>
-
-                  {!isAutoDiscoveredTailscale && (
-                    <div>
-                      <label
-                        htmlFor="apiKey"
-                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                      >
-                        API Key (Optional)
-                      </label>
-                      <div className="mt-1 relative">
-                        <input
-                          type={showApiKey ? "text" : "password"}
-                          id="apiKey"
-                          value={formData.apiKey || ""}
-                          data-1p-ignore
-                          onChange={(e) =>
-                            setFormData({ ...formData, apiKey: e.target.value })
-                          }
-                          className="block w-full pr-10 px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"
-                          placeholder={
-                            agent?.apiKey === "configured"
-                              ? "API key is configured"
-                              : "Leave empty for no authentication"
-                          }
-                        />
-                        <button
-                          type="button"
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                          onClick={() => setShowApiKey(!showApiKey)}
-                        >
-                          {showApiKey ? (
-                            <EyeSlashIcon className="h-5 w-5 text-gray-400" />
-                          ) : (
-                            <EyeIcon className="h-5 w-5 text-gray-400" />
-                          )}
-                        </button>
-                      </div>
-                      <div className="mt-1 flex items-center justify-between">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          If set, the agent will require this API key for
-                          authentication
-                        </p>
-                        <button
-                          type="button"
-                          onClick={generateApiKey}
-                          className="text-xs text-blue-600 hover:text-blue-500 dark:text-blue-400"
-                        >
-                          Generate Random Key
-                        </button>
-                      </div>
-                    </div>
                   )}
+                  {agent.discoveredAt && (
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      Auto-discovered on{" "}
+                      {new Date(agent.discoveredAt).toLocaleDateString()}
+                    </p>
+                  )}
+                  {isAutoDiscoveredTailscale && (
+                    <p className="text-xs text-blue-600 dark:text-blue-200 mt-1">
+                      Connection details are managed by Tailscale. Only monitoring can be toggled.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
-                  <div className="space-y-3">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="enabled"
-                        checked={formData.enabled}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            enabled: e.target.checked,
-                          })
-                        }
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                      />
-                      <label
-                        htmlFor="enabled"
-                        className="ml-2 block text-sm text-gray-900 dark:text-gray-300"
-                      >
-                        Enable monitoring
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="mt-6 flex justify-end space-x-3">
-                    <Button
-                      type="button"
-                      className="bg-gray-200 hover:bg-gray-300 text-gray-800 border-gray-300"
-                      onClick={onCancel}
-                      disabled={isSubmitting}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600"
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? "Saving..." : agent ? "Update" : "Create"}
-                    </Button>
-                  </div>
-                </form>
-              </Dialog.Panel>
-            </Transition.Child>
+          <div>
+            <label
+              htmlFor="name"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Agent Name
+            </label>
+            <Input
+              type="text"
+              id="name"
+              value={formData.name}
+              data-1p-ignore
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              placeholder="Remote Server"
+              required
+              disabled={isAutoDiscoveredTailscale}
+            />
           </div>
-        </div>
-      </Dialog>
-    </Transition>
+
+          <div>
+            <label
+              htmlFor="url"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Agent URL
+            </label>
+            <Input
+              type="url"
+              id="url"
+              value={formData.url}
+              onChange={(e) => handleUrlChange(e.target.value)}
+              placeholder="http://192.168.1.100:8200"
+              required
+              disabled={isAutoDiscoveredTailscale}
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Enter the base URL of the monitor agent
+            </p>
+          </div>
+
+          {!isAutoDiscoveredTailscale && (
+            <div>
+              <label
+                htmlFor="apiKey"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                API Key (Optional)
+              </label>
+              <div className="relative">
+                <Input
+                  type={showApiKey ? "text" : "password"}
+                  id="apiKey"
+                  value={formData.apiKey || ""}
+                  data-1p-ignore
+                  onChange={(e) =>
+                    setFormData({ ...formData, apiKey: e.target.value })
+                  }
+                  className="pr-10"
+                  placeholder={
+                    agent?.apiKey === "configured"
+                      ? "API key is configured"
+                      : "Leave empty for no authentication"
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="absolute inset-y-0 right-0 h-full px-3 rounded-l-none border-0 bg-transparent hover:bg-transparent"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                >
+                  {showApiKey ? (
+                    <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <EyeIcon className="h-5 w-5 text-gray-400" />
+                  )}
+                </Button>
+              </div>
+              <div className="mt-1 flex items-center justify-between">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  If set, the agent will require this API key for
+                  authentication
+                </p>
+                <Button
+                  type="button"
+                  onClick={generateApiKey}
+                  variant="secondary"
+                  size="sm"
+                  className="text-xs h-auto py-0 px-1 bg-transparent hover:bg-transparent text-blue-600 hover:text-blue-500 dark:text-blue-400 border-0 shadow-none"
+                >
+                  Generate Random Key
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="enabled"
+                checked={formData.enabled}
+                onCheckedChange={(checked) =>
+                  setFormData({
+                    ...formData,
+                    enabled: checked as boolean,
+                  })
+                }
+              />
+              <label
+                htmlFor="enabled"
+                className="text-sm text-gray-900 dark:text-gray-300 cursor-pointer"
+              >
+                Enable monitoring
+              </label>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <DialogFooter className="mt-6">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onCancel}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="default"
+              disabled={isSubmitting}
+              isLoading={isSubmitting}
+            >
+              {agent ? "Update" : "Create"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 };

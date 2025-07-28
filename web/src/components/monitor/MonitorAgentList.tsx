@@ -20,6 +20,7 @@ import { MonitorAgent } from "@/api/monitor";
 import { AgentIcon } from "@/utils/agentIcons";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { TailscaleLogo } from "../icons/TailscaleLogo";
+import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
 
 interface MonitorAgentListProps {
   agents: MonitorAgent[];
@@ -40,6 +41,8 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
 }) => {
   // Force re-render all items when featured agents change
   const [updateKey, setUpdateKey] = React.useState(0);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [agentToDelete, setAgentToDelete] = React.useState<MonitorAgent | null>(null);
 
   React.useEffect(() => {
     const handleStorageChange = () => {
@@ -94,11 +97,31 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
               isSelected={selectedAgent?.id === agent.id}
               onSelect={() => onSelectAgent(agent)}
               onEdit={() => onEditAgent(agent)}
-              onDelete={() => onDeleteAgent(agent.id)}
+              onDelete={() => {
+                setAgentToDelete(agent);
+                setDeleteDialogOpen(true);
+              }}
             />
           ))
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setAgentToDelete(null);
+        }}
+        onConfirm={() => {
+          if (agentToDelete) {
+            onDeleteAgent(agentToDelete.id);
+            setDeleteDialogOpen(false);
+            setAgentToDelete(null);
+          }
+        }}
+        itemName={agentToDelete?.name || ""}
+      />
     </div>
   );
 };
@@ -197,6 +220,8 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
       }
 
       if (existingFeatured.length >= 3) {
+        // For now, use the browser alert as the toast system is not fully implemented
+        // TODO: Replace with proper toast notification when available
         alert(
           "You can only feature up to 3 agents at a time. Please unfeature an agent first."
         );
@@ -320,11 +345,11 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
           <div className="flex items-center gap-0.5">
             <ChevronRightIcon className="w-4 h-4 text-gray-400 mr-1" />
             <button
-              className={`p-1 rounded-md transition-colors ${
+              className={`p-1.5 rounded-md transition-colors duration-200 ${
                 isFeatured
-                  ? "text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
-                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              } hover:bg-gray-100 dark:hover:bg-gray-700`}
+                  ? "hover:bg-yellow-100 dark:hover:bg-yellow-900/30 text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
+                  : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              }`}
               onClick={handleToggleFeatured}
               title={isFeatured ? "Remove from featured" : "Add to featured"}
             >
@@ -335,7 +360,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
               )}
             </button>
             <button
-              className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200"
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit();
@@ -345,7 +370,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
               <PencilIcon className="w-3.5 h-3.5" />
             </button>
             <button
-              className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400 transition-colors duration-200"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();

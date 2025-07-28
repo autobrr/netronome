@@ -176,11 +176,16 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
 
   if (!nativeData) {
     return (
-      <div className="text-center py-12">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="text-center py-12"
+      >
         <p className="text-lg text-gray-500 dark:text-gray-400">
           Loading bandwidth data...
         </p>
-      </div>
+      </motion.div>
     );
   }
 
@@ -189,22 +194,9 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Description or Offline Banner */}
-      {isOffline && isFromCache ? (
+      {/* Offline Banner */}
+      {isOffline && isFromCache && (
         <MonitorOfflineBanner message="Showing cached bandwidth data. Real-time monitoring unavailable." />
-      ) : (
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
-            Real-time Bandwidth Monitoring
-          </h4>
-          <p className="text-sm text-blue-600 dark:text-blue-400">
-            Network bandwidth data collected from{" "}
-            <code className="bg-blue-500/10 px-1 rounded text-xs">vnstat</code>{" "}
-            running on the remote agent. Data shows actual bytes transferred
-            during each time period. Use the time range buttons to view
-            different periods of activity.
-          </p>
-        </div>
       )}
 
       {chartData.data.length > 0 ? (
@@ -216,7 +208,12 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
           onTimeRangeChange={setSelectedTimeRange}
         />
       ) : (
-        <div className="text-center py-12 bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="text-center py-12 bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800"
+        >
           <p className="text-lg text-gray-500 dark:text-gray-400">
             No bandwidth data available
           </p>
@@ -224,7 +221,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
             The agent may have just been added or monitor hasn't collected
             enough data yet.
           </p>
-        </div>
+        </motion.div>
       )}
 
       {/* Total Statistics */}
@@ -246,7 +243,12 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
             {/* All-time totals */}
             {nativeData.interfaces[0].traffic.total && (
               <>
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 0.25 }}
+                  className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4"
+                >
                   <div className="flex items-center space-x-2 mb-2">
                     <ArrowDownIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
@@ -256,9 +258,14 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                   <p className="text-xl font-bold text-gray-900 dark:text-white">
                     {formatBytes(nativeData.interfaces[0].traffic.total.rx)}
                   </p>
-                </div>
+                </motion.div>
 
-                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 0.3 }}
+                  className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4"
+                >
                   <div className="flex items-center space-x-2 mb-2">
                     <ArrowUpIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                     <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
@@ -268,9 +275,14 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                   <p className="text-xl font-bold text-gray-900 dark:text-white">
                     {formatBytes(nativeData.interfaces[0].traffic.total.tx)}
                   </p>
-                </div>
+                </motion.div>
 
-                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 0.35 }}
+                  className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4"
+                >
                   <div className="flex items-center space-x-2 mb-2">
                     <CalendarIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                     <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
@@ -283,7 +295,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                         nativeData.interfaces[0].traffic.total.tx
                     )}
                   </p>
-                </div>
+                </motion.div>
               </>
             )}
           </div>
@@ -292,7 +304,12 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
           <div className="grid gap-6 sm:grid-cols-2 mt-6">
             {/* Today */}
             {nativeData.interfaces[0].traffic.day?.[0] && (
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3, delay: 0.4 }}
+                className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4"
+              >
                 <h4 className="font-medium text-gray-900 dark:text-white mb-3">
                   Today
                 </h4>
@@ -329,12 +346,17 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {/* This Month */}
             {nativeData.interfaces[0].traffic.month?.[0] && (
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3, delay: 0.45 }}
+                className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4"
+              >
                 <h4 className="font-medium text-gray-900 dark:text-white mb-3">
                   This Month
                 </h4>
@@ -375,7 +397,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
           </div>
         </motion.div>
@@ -402,7 +424,12 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
 
               {peakStats && (
                 <div className="space-y-3">
-                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.35 }}
+                    className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3"
+                  >
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-blue-600 dark:text-blue-400 flex items-center space-x-2">
                         <ArrowDownIcon className="h-4 w-4" />
@@ -412,9 +439,14 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                         {peakStats.peak_rx_string}
                       </span>
                     </div>
-                  </div>
+                  </motion.div>
 
-                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.4 }}
+                    className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3"
+                  >
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center space-x-2">
                         <ArrowUpIcon className="h-4 w-4" />
@@ -424,7 +456,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                         {peakStats.peak_tx_string}
                       </span>
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
               )}
             </div>
@@ -452,7 +484,12 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
 
                   return (
                     <div className="space-y-3">
-                      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, delay: 0.45 }}
+                        className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3"
+                      >
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600 dark:text-gray-400">
                             Avg Daily Download
@@ -461,9 +498,14 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                             {formatBytes(avgRx)}
                           </span>
                         </div>
-                      </div>
+                      </motion.div>
 
-                      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, delay: 0.5 }}
+                        className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3"
+                      >
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600 dark:text-gray-400">
                             Avg Daily Upload
@@ -472,9 +514,14 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                             {formatBytes(avgTx)}
                           </span>
                         </div>
-                      </div>
+                      </motion.div>
 
-                      <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, delay: 0.55 }}
+                        className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3"
+                      >
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-purple-600 dark:text-purple-400 font-medium">
                             Avg Daily Total
@@ -486,7 +533,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                         <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                           Based on last 7 days
                         </p>
-                      </div>
+                      </motion.div>
                     </div>
                   );
                 })()}

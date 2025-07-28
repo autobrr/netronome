@@ -4,7 +4,15 @@
  */
 
 import React, { useState } from "react";
-import { Input, Select, Button as HeadlessButton } from "@headlessui/react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   SHOUTRRR_SERVICES,
   type NotificationChannelInput,
@@ -46,7 +54,7 @@ export const AddChannelForm: React.FC<AddChannelFormProps> = ({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g., Discord Alerts"
-          className="mt-1 w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
+          className="mt-1 w-full"
           required
         />
       </div>
@@ -55,17 +63,17 @@ export const AddChannelForm: React.FC<AddChannelFormProps> = ({
         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Service Type
         </label>
-        <Select
-          value={service}
-          onChange={(e) => setService(e.target.value)}
-          className="mt-1 w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
-        >
-          <option value="">Select a service...</option>
-          {SHOUTRRR_SERVICES.map((svc) => (
-            <option key={svc.value} value={svc.value}>
-              {svc.label}
-            </option>
-          ))}
+        <Select value={service} onValueChange={setService}>
+          <SelectTrigger className="mt-1 w-full">
+            <SelectValue placeholder="Select a service..." />
+          </SelectTrigger>
+          <SelectContent>
+            {SHOUTRRR_SERVICES.map((svc) => (
+              <SelectItem key={svc.value} value={svc.value}>
+                {svc.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </div>
 
@@ -87,7 +95,7 @@ export const AddChannelForm: React.FC<AddChannelFormProps> = ({
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder={selectedService?.example || "service://..."}
-          className="mt-1 w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50"
+          className="mt-1 w-full"
           required
         />
         {showUrlHelp && selectedService && (
@@ -101,20 +109,21 @@ export const AddChannelForm: React.FC<AddChannelFormProps> = ({
       </div>
 
       <div className="flex items-center gap-2 pt-2">
-        <HeadlessButton
+        <Button
           type="submit"
-          disabled={isLoading}
-          className="flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          isLoading={isLoading}
+          className="flex-1"
         >
           {isLoading ? "Creating..." : "Create Channel"}
-        </HeadlessButton>
-        <HeadlessButton
+        </Button>
+        <Button
           type="button"
           onClick={onCancel}
-          className="flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors"
+          variant="secondary"
+          className="flex-1"
         >
           Cancel
-        </HeadlessButton>
+        </Button>
       </div>
     </form>
   );

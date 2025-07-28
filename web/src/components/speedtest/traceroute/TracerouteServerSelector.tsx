@@ -6,7 +6,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import { Server } from "@/types/types";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { ServerFilters } from "./components/ServerFilters";
 import { ServerCard } from "./components/ServerCard";
 import { useServerData } from "./hooks/useServerData";
@@ -57,14 +57,11 @@ export const TracerouteServerSelector: React.FC<
     }
   };
 
-  const getRunButtonClass = () => {
-    if (isRunning) {
-      return STYLES.button.running;
-    } else if (!host.trim()) {
-      return STYLES.button.disabled;
-    } else {
-      return STYLES.button.primary;
+  const getButtonVariant = () => {
+    if (isRunning || !host.trim()) {
+      return "secondary";
     }
+    return "default";
   };
 
   return (
@@ -107,7 +104,8 @@ export const TracerouteServerSelector: React.FC<
             onClick={onRunTraceroute}
             disabled={!host.trim() || isRunning}
             isLoading={isRunning}
-            className={`min-w-[100px] ${getRunButtonClass()}`}
+            variant={getButtonVariant()}
+            className="min-w-[100px]"
           >
             {isRunning ? "Running" : "Trace"}
           </Button>

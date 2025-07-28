@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+"use client";
+
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { SpeedTestResult, TimeRange } from "@/types/types";
@@ -11,8 +13,15 @@ import { MetricCard } from "@/components/common/MetricCard";
 import { FeaturedMonitorWidget } from "@/components/monitor/FeaturedMonitorWidget";
 import { FaWaveSquare, FaShare, FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
-import { Disclosure, DisclosureButton } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
+import { DataTable } from "@/components/ui/data-table";
+import { speedTestColumns, speedTestMobileColumns } from "./columns";
 
 interface DashboardTabProps {
   latestTest: SpeedTestResult | null;
@@ -49,12 +58,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   }, [isRecentTestsOpen]);
 
   const displayedTests = tests.slice(0, displayCount);
-  const formatSpeed = (speed: number) => {
-    if (speed >= 1000) {
-      return `${(speed / 1000).toFixed(1)} Gbps`;
-    }
-    return `${speed.toFixed(0)} Mbps`;
-  };
 
   const calculateAverage = (field: keyof SpeedTestResult): string => {
     if (tests.length === 0) return "N/A";
@@ -216,259 +219,106 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
       {/* Recent Speedtests Summary */}
       {tests.length > 0 && (
-        <Disclosure defaultOpen={isRecentTestsOpen}>
-          {({ open }) => {
-            // Update isRecentTestsOpen when disclosure state changes
-            useEffect(() => {
-              setIsRecentTestsOpen(open);
-            }, [open]);
+        <Collapsible
+          open={isRecentTestsOpen}
+          onOpenChange={setIsRecentTestsOpen}
+          className="flex flex-col h-full"
+        >
+          <CollapsibleTrigger
+            className={cn(
+              "flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95",
+              isRecentTestsOpen ? "rounded-t-xl" : "rounded-xl",
+              "shadow-lg border border-gray-200 dark:border-gray-800",
+              isRecentTestsOpen ? "border-b-0" : "",
+              "text-left transition-all duration-200 hover:bg-gray-100/95 dark:hover:bg-gray-800/95"
+            )}
+          >
+            <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
+              Recent Speedtests
+            </h2>
+            <ChevronDownIcon
+              className={cn(
+                isRecentTestsOpen ? "transform rotate-180" : "",
+                "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200"
+              )}
+            />
+          </CollapsibleTrigger>
 
-            return (
-              <div className="flex flex-col h-full">
-                <DisclosureButton
-                  className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
-                    open ? "rounded-t-xl" : "rounded-xl"
-                  } shadow-lg border border-gray-200 dark:border-gray-800 ${
-                    open ? "border-b-0" : ""
-                  } text-left`}
-                >
-                  <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
-                    Recent Speedtests
-                  </h2>
-                  <ChevronDownIcon
-                    className={`${
-                      open ? "transform rotate-180" : ""
-                    } w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200`}
-                  />
-                </DisclosureButton>
-
-                {open && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      duration: 0.5,
-                      type: "spring",
-                      stiffness: 300,
-                      damping: 20,
-                    }}
-                    className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-3 pb-6 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
-                  >
-                    {/* Desktop Table View */}
-                    <div className="hidden md:block overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-gray-300 dark:border-gray-800">
-                            <th className="text-left py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Date
-                            </th>
-                            <th className="text-left py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Server
-                            </th>
-                            <th className="text-left py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Type
-                            </th>
-                            <th className="text-right py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Latency
-                            </th>
-                            <th className="text-right py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Jitter
-                            </th>
-                            <th className="text-right py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Download
-                            </th>
-                            <th className="text-right py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Upload
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {displayedTests.map((test) => (
-                            <motion.tr
-                              key={test.id}
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.3 }}
-                              className="border-b border-gray-300/50 dark:border-gray-800/50 last:border-0 hover:bg-gray-200/30 dark:hover:bg-gray-800/30 transition-colors"
-                            >
-                              <td className="py-3 px-2 text-gray-700 dark:text-gray-300">
-                                {new Date(test.createdAt).toLocaleString(
-                                  undefined,
-                                  {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }
-                                )}
-                              </td>
-                              <td
-                                className="py-3 px-2 text-gray-700 dark:text-gray-300 truncate max-w-[150px]"
-                                title={test.serverName}
-                              >
-                                {test.serverName}
-                              </td>
-                              <td className="py-3 px-2">
-                                <span
-                                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                    test.testType === "iperf3"
-                                      ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                                      : test.testType === "librespeed"
-                                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                                      : "bg-emerald-200/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                                  }`}
-                                >
-                                  {test.testType === "iperf3"
-                                    ? "iperf3"
-                                    : test.testType === "librespeed"
-                                    ? "LibreSpeed"
-                                    : "Speedtest.net"}
-                                </span>
-                              </td>
-                              <td className="py-3 px-2 text-right text-amber-600 dark:text-amber-400 font-mono">
-                                {parseFloat(test.latency).toFixed(1)}ms
-                              </td>
-                              <td className="py-3 px-2 text-right text-purple-600 dark:text-purple-400 font-mono">
-                                {test.jitter
-                                  ? `${test.jitter.toFixed(1)}ms`
-                                  : "—"}
-                              </td>
-                              <td className="py-3 px-2 text-right text-blue-600 dark:text-blue-400 font-mono">
-                                {formatSpeed(test.downloadSpeed)}
-                              </td>
-                              <td className="py-3 px-2 text-right text-emerald-600 dark:text-emerald-400 font-mono">
-                                {formatSpeed(test.uploadSpeed)}
-                              </td>
-                            </motion.tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Mobile Card View */}
-                    <div className="md:hidden space-y-3">
-                      {displayedTests.map((test) => (
-                        <motion.div
-                          key={test.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="bg-gray-200/50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-300 dark:border-gray-800"
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="text-gray-700 dark:text-gray-300 text-sm font-medium truncate flex-1 mr-2">
-                              {test.serverName}
-                            </div>
-                            <span
-                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
-                                test.testType === "iperf3"
-                                  ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                                  : test.testType === "librespeed"
-                                  ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                                  : "bg-emerald-200/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                              }`}
-                            >
-                              {test.testType === "iperf3"
-                                ? "iperf3"
-                                : test.testType === "librespeed"
-                                ? "LibreSpeed"
-                                : "Speedtest.net"}
-                            </span>
-                          </div>
-                          <div className="text-gray-500 dark:text-gray-500 text-xs mb-3">
-                            {new Date(test.createdAt).toLocaleString(
-                              undefined,
-                              {
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            )}
-                          </div>
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Latency:
-                              </span>
-                              <span className="text-amber-600 dark:text-amber-400 font-mono">
-                                {parseFloat(test.latency).toFixed(1)}ms
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Jitter:
-                              </span>
-                              <span className="text-purple-600 dark:text-purple-400 font-mono">
-                                {test.jitter
-                                  ? `${test.jitter.toFixed(1)}ms`
-                                  : "—"}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Download:
-                              </span>
-                              <span className="text-blue-600 dark:text-blue-400 font-mono">
-                                {formatSpeed(test.downloadSpeed)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Upload:
-                              </span>
-                              <span className="text-emerald-600 dark:text-emerald-400 font-mono">
-                                {formatSpeed(test.uploadSpeed)}
-                              </span>
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                    {/* Test Count and Load More */}
-                    {tests.length > 5 && (
-                      <div className="mt-4 space-y-3">
-                        {/* Test Count */}
-                        <div className="text-center">
-                          <span className="text-gray-500 dark:text-gray-500 text-sm">
-                            Showing {displayedTests.length} of {tests.length}{" "}
-                            tests
-                          </span>
-                        </div>
-
-                        {/* Load More / Show Less Buttons */}
-                        <div className="flex items-center justify-center gap-3">
-                          {tests.length > displayCount && (
-                            <button
-                              onClick={() =>
-                                setDisplayCount((prev) => prev + 5)
-                              }
-                              className="inline-flex items-center px-4 py-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-colors duration-200 text-sm font-medium"
-                            >
-                              Load {Math.min(5, tests.length - displayCount)}{" "}
-                              more
-                              <span className="ml-2">↓</span>
-                            </button>
-                          )}
-
-                          {displayCount > 5 && (
-                            <button
-                              onClick={() => setDisplayCount(5)}
-                              className="inline-flex items-center px-4 py-2 bg-gray-600/10 hover:bg-gray-600/20 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg transition-colors duration-200 text-sm font-medium"
-                            >
-                              Show less
-                              <span className="ml-2">↑</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
+          <CollapsibleContent>
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: 0.5,
+                type: "spring",
+                stiffness: 300,
+                damping: 20,
+              }}
+              className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-3 pb-6 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
+            >
+              {/* Desktop Table View */}
+              <div className="hidden md:block">
+                <DataTable
+                  columns={speedTestColumns}
+                  data={displayedTests}
+                  showPagination={false}
+                  showColumnVisibility={true}
+                  showRowSelection={false}
+                  filterColumn="serverName"
+                  filterPlaceholder="Filter by server..."
+                  className="-mt-4"
+                />
               </div>
-            );
-          }}
-        </Disclosure>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden">
+                <DataTable
+                  columns={speedTestMobileColumns}
+                  data={displayedTests}
+                  showPagination={false}
+                  showColumnVisibility={false}
+                  showRowSelection={false}
+                  className="-mt-4"
+                  tableClassName="border-0"
+                />
+              </div>
+              {/* Test Count and Load More */}
+              {tests.length > 5 && (
+                <div className="mt-4 space-y-3">
+                  {/* Test Count */}
+                  <div className="text-center">
+                    <span className="text-gray-500 dark:text-gray-500 text-sm">
+                      Showing {displayedTests.length} of {tests.length} tests
+                    </span>
+                  </div>
+
+                  {/* Load More / Show Less Buttons */}
+                  <div className="flex items-center justify-center gap-3">
+                    {tests.length > displayCount && (
+                      <button
+                        onClick={() => setDisplayCount((prev) => prev + 5)}
+                        className="inline-flex items-center px-4 py-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-colors duration-200 text-sm font-medium"
+                      >
+                        Load {Math.min(5, tests.length - displayCount)} more
+                        <span className="ml-2">↓</span>
+                      </button>
+                    )}
+
+                    {displayCount > 5 && (
+                      <button
+                        onClick={() => setDisplayCount(5)}
+                        className="inline-flex items-center px-4 py-2 bg-gray-600/10 hover:bg-gray-600/20 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg transition-colors duration-200 text-sm font-medium"
+                      >
+                        Show less
+                        <span className="ml-2">↑</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
     </div>
   );

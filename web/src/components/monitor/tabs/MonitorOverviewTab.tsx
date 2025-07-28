@@ -264,7 +264,7 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
               This Month
             </h3>
-            <CalendarIcon className="h-5 w-5 text-purple-400" />
+            <CalendarIcon className="h-5 w-5 text-gray-400" />
           </div>
           {usage?.["This Month"] ? (
             <>

@@ -6,7 +6,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button as HeadlessButton } from "@headlessui/react";
 import {
   BellIcon,
   PlusIcon,
@@ -17,6 +16,9 @@ import {
   SignalIcon,
   ComputerDesktopIcon,
 } from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   notificationsApi,
   type NotificationEvent,
@@ -368,18 +370,19 @@ export const NotificationSettings: React.FC = () => {
         <div className="grid grid-cols-12 gap-8">
           {/* Channels Sidebar */}
           <div className="col-span-4 space-y-4">
-            <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
-              <div className="mb-6">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  Channels
-                </h4>
-                <HeadlessButton
+            <Card>
+              <CardContent className="p-6">
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Channels
+                  </h4>
+                <Button
                   onClick={() => setShowAddChannel(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+                  className="w-full"
                 >
                   <PlusIcon className="w-4 h-4" />
                   Add Channel
-                </HeadlessButton>
+                </Button>
               </div>
 
               <div className="space-y-3">
@@ -430,8 +433,9 @@ export const NotificationSettings: React.FC = () => {
                     </p>
                   </div>
                 )}
-              </div>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Add Channel Form */}
             <AnimatePresence>
@@ -441,18 +445,21 @@ export const NotificationSettings: React.FC = () => {
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={SLIDE_TRANSITION}
-                  className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6"
                 >
-                  <h5 className="font-medium text-gray-900 dark:text-white mb-4">
-                    Add New Channel
-                  </h5>
+                  <Card>
+                    <CardContent className="p-6">
+                      <h5 className="font-medium text-gray-900 dark:text-white mb-4">
+                        Add New Channel
+                      </h5>
                   <AddChannelForm
                     onSubmit={(input) => {
                       createChannelMutation.mutate(input);
                     }}
                     onCancel={() => setShowAddChannel(false)}
                     isLoading={createChannelMutation.isPending}
-                  />
+                      />
+                    </CardContent>
+                  </Card>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -487,16 +494,15 @@ export const NotificationSettings: React.FC = () => {
                 />
 
                 {/* Notification Rules */}
-                <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Notification Rules
-                      </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        Choose which events trigger notifications
-                      </p>
-                    </div>
+                <Card>
+                  <CardHeader className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>Notification Rules</CardTitle>
+                        <CardDescription>
+                          Choose which events trigger notifications
+                        </CardDescription>
+                      </div>
 
                     <AnimatePresence>
                       {hasUnsavedChanges && (
@@ -507,51 +513,54 @@ export const NotificationSettings: React.FC = () => {
                           transition={FADE_TRANSITION}
                           className="flex items-center gap-2"
                         >
-                          <HeadlessButton
+                          <Button
                             onClick={cancelChanges}
-                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                            variant="secondary"
+                            size="sm"
                           >
                             <XMarkIcon className="w-4 h-4" />
                             Cancel
-                          </HeadlessButton>
-                          <HeadlessButton
+                          </Button>
+                          <Button
                             onClick={saveChanges}
                             disabled={
                               updateRuleMutation.isPending ||
                               createRuleMutation.isPending
                             }
-                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            size="sm"
                           >
                             <CheckIcon className="w-4 h-4" />
                             Save Changes
-                          </HeadlessButton>
+                          </Button>
                         </motion.div>
                       )}
                     </AnimatePresence>
-                  </div>
-
-                  <div className="space-y-4">
-                    {Object.entries(eventsByCategory).map(
-                      ([category, categoryEvents]) => (
-                        <EventCategorySection
-                          key={category}
-                          category={category}
-                          events={categoryEvents}
-                          pendingChanges={pendingChanges}
-                          getRuleState={getRuleState}
-                          onUpdateRule={(eventId, input) => {
-                            updatePendingChange(eventId, input);
-                          }}
-                        />
-                      )
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6 pt-0">
+                    <div className="space-y-4">
+                      {Object.entries(eventsByCategory).map(
+                        ([category, categoryEvents]) => (
+                          <EventCategorySection
+                            key={category}
+                            category={category}
+                            events={categoryEvents}
+                            pendingChanges={pendingChanges}
+                            getRuleState={getRuleState}
+                            onUpdateRule={(eventId, input) => {
+                              updatePendingChange(eventId, input);
+                            }}
+                          />
+                        )
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             ) : (
               <div className="space-y-6">
                 {/* Welcome Section */}
-                <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-8">
+                <Card className="p-8">
                   <div className="flex items-start gap-6">
                     <div className="flex-shrink-0">
                       <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-500/10 rounded-full">
@@ -569,85 +578,80 @@ export const NotificationSettings: React.FC = () => {
                         Shoutrrr.
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        <span className="px-3 py-1 bg-gray-200/50 dark:bg-gray-800/50 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300">
-                          Discord
-                        </span>
-                        <span className="px-3 py-1 bg-gray-200/50 dark:bg-gray-800/50 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300">
-                          Telegram
-                        </span>
-                        <span className="px-3 py-1 bg-gray-200/50 dark:bg-gray-800/50 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300">
-                          Slack
-                        </span>
-                        <span className="px-3 py-1 bg-gray-200/50 dark:bg-gray-800/50 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300">
-                          Email
-                        </span>
-                        <span className="px-3 py-1 bg-gray-200/50 dark:bg-gray-800/50 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300">
-                          Pushover
-                        </span>
-                        <span className="px-3 py-1 bg-gray-200/50 dark:bg-gray-800/50 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300">
-                          And more...
-                        </span>
+                        <Badge variant="secondary">Discord</Badge>
+                        <Badge variant="secondary">Telegram</Badge>
+                        <Badge variant="secondary">Slack</Badge>
+                        <Badge variant="secondary">Email</Badge>
+                        <Badge variant="secondary">Pushover</Badge>
+                        <Badge variant="secondary">And more...</Badge>
                       </div>
                     </div>
                   </div>
-                </div>
+                </Card>
 
                 {/* Getting Started Guide */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="flex items-center justify-center w-10 h-10 bg-emerald-500/10 rounded-lg">
-                        <span className="text-lg font-semibold text-emerald-700 dark:text-emerald-400">1</span>
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="flex items-center justify-center w-10 h-10 bg-emerald-500/10 rounded-lg">
+                          <span className="text-lg font-semibold text-emerald-700 dark:text-emerald-400">1</span>
+                        </div>
+                        <h4 className="font-semibold text-gray-900 dark:text-white">
+                          Create a Channel
+                        </h4>
                       </div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white">
-                        Create a Channel
-                      </h4>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Click "Add Channel" in the sidebar to configure your first
-                      notification service. You'll need the service URL from
-                      your provider.
-                    </p>
-                  </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Click "Add Channel" in the sidebar to configure your first
+                        notification service. You'll need the service URL from
+                        your provider.
+                      </p>
+                    </CardContent>
+                  </Card>
 
-                  <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="flex items-center justify-center w-10 h-10 bg-blue-500/10 rounded-lg">
-                        <span className="text-lg font-semibold text-blue-700 dark:text-blue-400">2</span>
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="flex items-center justify-center w-10 h-10 bg-blue-500/10 rounded-lg">
+                          <span className="text-lg font-semibold text-blue-700 dark:text-blue-400">2</span>
+                        </div>
+                        <h4 className="font-semibold text-gray-900 dark:text-white">
+                          Configure Rules
+                        </h4>
                       </div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white">
-                        Configure Rules
-                      </h4>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Select which events trigger notifications and set
-                      thresholds for alerts like high CPU usage or failed speed
-                      tests.
-                    </p>
-                  </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Select which events trigger notifications and set
+                        thresholds for alerts like high CPU usage or failed speed
+                        tests.
+                      </p>
+                    </CardContent>
+                  </Card>
 
-                  <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="flex items-center justify-center w-10 h-10 bg-purple-500/10 rounded-lg">
-                        <span className="text-lg font-semibold text-purple-700 dark:text-purple-400">3</span>
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="flex items-center justify-center w-10 h-10 bg-purple-500/10 rounded-lg">
+                          <span className="text-lg font-semibold text-purple-700 dark:text-purple-400">3</span>
+                        </div>
+                        <h4 className="font-semibold text-gray-900 dark:text-white">
+                          Stay Informed
+                        </h4>
                       </div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white">
-                        Stay Informed
-                      </h4>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Receive real-time alerts about system performance, agent
-                      status, and network quality directly to your preferred
-                      platform.
-                    </p>
-                  </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Receive real-time alerts about system performance, agent
+                        status, and network quality directly to your preferred
+                        platform.
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
 
                 {/* Available Notifications */}
-                <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-4">
-                    Available Notifications
-                  </h4>
+                <Card>
+                  <CardHeader className="p-6 pb-4">
+                    <CardTitle>Available Notifications</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 pt-0">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0">
@@ -695,22 +699,25 @@ export const NotificationSettings: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                </div>
+                  </CardContent>
+                </Card>
 
                 {/* Call to Action */}
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6 text-center">
-                  <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
-                    Ready to get started? Create your first notification channel
-                    to begin receiving alerts.
-                  </p>
-                  <HeadlessButton
-                    onClick={() => setShowAddChannel(true)}
-                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
-                  >
-                    <PlusIcon className="w-4 h-4" />
-                    Create Your First Channel
-                  </HeadlessButton>
-                </div>
+                <Card className="bg-blue-500/10 border-blue-500/30">
+                  <CardContent className="p-6 text-center">
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                      Ready to get started? Create your first notification channel
+                      to begin receiving alerts.
+                    </p>
+                    <Button
+                      onClick={() => setShowAddChannel(true)}
+                      className="inline-flex items-center justify-center gap-2"
+                    >
+                      <PlusIcon className="w-4 h-4" />
+                      Create Your First Channel
+                    </Button>
+                  </CardContent>
+                </Card>
               </div>
             )}
           </div>

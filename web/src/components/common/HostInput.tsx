@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 
 interface HostInputProps {
   value: string;
@@ -218,7 +218,6 @@ export const HostInput: React.FC<HostInputProps> = ({
           <Button
             onClick={handleSubmit}
             disabled={disabled || isLoading || !isValid}
-            isLoading={isLoading}
             className={`${
               isLoading
                 ? "bg-emerald-200/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30 cursor-not-allowed"

@@ -3,174 +3,206 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-export const toggleDarkMode = () => {
-  // Add transition class before changing theme
-  document.documentElement.classList.add('theme-transition');
-  
-  let newTheme: 'light' | 'dark';
-  if (document.documentElement.classList.contains('dark')) {
-    document.documentElement.classList.remove('dark')
-    localStorage.setItem('theme', 'light')
-    newTheme = 'light';
-  } else {
-    document.documentElement.classList.add('dark')
-    localStorage.setItem('theme', 'dark')
-    newTheme = 'dark';
+// Theme constants
+const THEME_KEY = 'theme';
+const THEME_DARK = 'dark';
+const THEME_LIGHT = 'light';
+const THEME_AUTO = 'auto';
+const THEME_TRANSITION_CLASS = 'theme-transition';
+const THEME_TRANSITION_DURATION = 300;
+const THEME_STYLES_ID = 'theme-transitions';
+
+// CSS for theme transitions
+const THEME_TRANSITION_CSS = `
+  /* Main transition for theme switching */
+  .theme-transition :not(::-webkit-scrollbar):not(::-webkit-scrollbar-track):not(::-webkit-scrollbar-thumb) {
+    transition-property: background-color, border-color, color, fill, box-shadow;
+    transition-duration: 0.3s;
+    transition-timing-function: ease-in-out;
   }
   
-  // Dispatch event to notify components
-  window.dispatchEvent(new CustomEvent('themechange', { 
-    detail: { 
-      theme: newTheme,
-      isSystemChange: false 
-    } 
-  }));
+  /* Prevent scrollbar transitions */
+  .theme-transition ::-webkit-scrollbar,
+  .theme-transition ::-webkit-scrollbar-track,
+  .theme-transition ::-webkit-scrollbar-thumb,
+  ::-webkit-scrollbar,
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-thumb {
+    transition: none !important;
+  }
   
-  // Remove transition class after animation completes
-  setTimeout(() => {
-    document.documentElement.classList.remove('theme-transition');
-  }, 300);
+  /* Prevent scrollbar color from animating */
+  html.theme-transition {
+    scrollbar-color: initial !important;
+  }
+`;
+
+// Type definitions
+export type Theme = typeof THEME_DARK | typeof THEME_LIGHT;
+export type ThemeMode = Theme | typeof THEME_AUTO;
+
+interface ThemeChangeEvent extends CustomEvent {
+  detail: {
+    theme: Theme;
+    isSystemChange: boolean;
+  };
 }
 
-const applyTheme = (isDark: boolean, withTransition = false) => {
-  if (withTransition) {
-    document.documentElement.classList.add('theme-transition');
-  }
-  
-  if (isDark) {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
-  }
-  
-  if (withTransition) {
-    setTimeout(() => {
-      document.documentElement.classList.remove('theme-transition');
-    }, 300);
-  }
-};
-
-const handleSystemThemeChange = (e: MediaQueryListEvent) => {
-  const storedTheme = localStorage.getItem('theme');
-  
-  // If theme is set to 'auto' or not set at all, follow system preference
-  if (!storedTheme || storedTheme === 'auto') {
-    applyTheme(e.matches, true);
-    
-    // Dispatch a custom event to notify React components
-    window.dispatchEvent(new CustomEvent('themechange', { 
-      detail: { 
-        theme: e.matches ? 'dark' : 'light',
-        isSystemChange: true 
-      } 
-    }));
-  }
-};
-
-export const initializeDarkMode = () => {
-  
-  // Add CSS for smooth transitions
-  if (!document.getElementById('theme-transitions')) {
-    const style = document.createElement('style');
-    style.id = 'theme-transitions';
-    style.textContent = `
-      /* Main transition for theme switching */
-      .theme-transition :not(::-webkit-scrollbar):not(::-webkit-scrollbar-track):not(::-webkit-scrollbar-thumb) {
-        transition-property: background-color, border-color, color, fill, box-shadow;
-        transition-duration: 0.3s;
-        transition-timing-function: ease-in-out;
-      }
-      
-      /* Prevent scrollbar transitions */
-      .theme-transition ::-webkit-scrollbar,
-      .theme-transition ::-webkit-scrollbar-track,
-      .theme-transition ::-webkit-scrollbar-thumb,
-      ::-webkit-scrollbar,
-      ::-webkit-scrollbar-track,
-      ::-webkit-scrollbar-thumb {
-        transition: none !important;
-      }
-      
-      /* Prevent scrollbar color from animating */
-      html.theme-transition {
-        scrollbar-color: initial !important;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  
-  // Get stored theme preference
-  const storedTheme = localStorage.getItem('theme');
-  
-  // Set up system theme detection
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  
-  // Apply initial theme
-  if (storedTheme === 'dark' || storedTheme === 'light') {
-    // User has explicit preference
-    const isDark = storedTheme === 'dark';
-    applyTheme(isDark);
-    // Applied stored theme preference
-  } else {
-    // No preference or 'auto' - follow system
-    const isDark = mediaQuery.matches;
-    applyTheme(isDark);
-    if (!storedTheme) {
-      // Set to auto if nothing stored
-      localStorage.setItem('theme', 'auto');
-    }
-    // Applied system theme
-  }
-  
-  // Always listen for system theme changes
-  try {
-    mediaQuery.addEventListener('change', handleSystemThemeChange);
-    // System theme listener registered
-  } catch (e1) {
-    try {
-      // @ts-ignore - fallback for older browsers
-      mediaQuery.addListener(handleSystemThemeChange);
-      // System theme listener registered (legacy)
-    } catch (e2) {
-      // Failed to register system theme listener
-    }
-  }
-  
-  // System theme listener registered
-};
-
-// Export function to reset to system preference
-export const resetToSystemTheme = () => {
-  localStorage.setItem('theme', 'auto');
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  applyTheme(mediaQuery.matches, true);
-  // Reset to system theme
-};
-
-// Export function to set theme to auto (follow system)
-export const setAutoTheme = () => {
-  localStorage.setItem('theme', 'auto');
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  applyTheme(mediaQuery.matches, true);
-  // Set to auto theme
-};
-
-// Export function to check current system preference (useful for debugging)
-export const getSystemTheme = () => {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-};
-
-// Export function to check if user has manual preference
-export const hasManualPreference = () => {
-  const theme = localStorage.getItem('theme');
-  return theme === 'dark' || theme === 'light';
-};
-
-// Get current theme mode
-export const getCurrentThemeMode = (): 'dark' | 'light' | 'auto' => {
-  const theme = localStorage.getItem('theme');
-  if (theme === 'dark' || theme === 'light') {
+// Utility functions
+const getStoredTheme = (): ThemeMode | null => {
+  const theme = localStorage.getItem(THEME_KEY);
+  if (theme === THEME_DARK || theme === THEME_LIGHT || theme === THEME_AUTO) {
     return theme;
   }
-  return 'auto';
-}; 
+  return null;
+};
+
+const setStoredTheme = (theme: ThemeMode): void => {
+  localStorage.setItem(THEME_KEY, theme);
+};
+
+const getSystemPreference = (): MediaQueryList => {
+  return window.matchMedia('(prefers-color-scheme: dark)');
+};
+
+const getSystemTheme = (): Theme => {
+  return getSystemPreference().matches ? THEME_DARK : THEME_LIGHT;
+};
+
+const dispatchThemeChange = (theme: Theme, isSystemChange: boolean): void => {
+  const event = new CustomEvent('themechange', {
+    detail: { theme, isSystemChange },
+  }) as ThemeChangeEvent;
+  window.dispatchEvent(event);
+};
+
+// Core theme application logic
+const applyTheme = (isDark: boolean, withTransition = false): void => {
+  const root = document.documentElement;
+
+  if (withTransition) {
+    root.classList.add(THEME_TRANSITION_CLASS);
+  }
+
+  if (isDark) {
+    root.classList.add(THEME_DARK);
+  } else {
+    root.classList.remove(THEME_DARK);
+  }
+
+  if (withTransition) {
+    setTimeout(() => {
+      root.classList.remove(THEME_TRANSITION_CLASS);
+    }, THEME_TRANSITION_DURATION);
+  }
+};
+
+// Event handlers
+const handleSystemThemeChange = (event: MediaQueryListEvent): void => {
+  const storedTheme = getStoredTheme();
+
+  // Only apply system theme if set to auto or not set
+  if (!storedTheme || storedTheme === THEME_AUTO) {
+    const theme = event.matches ? THEME_DARK : THEME_LIGHT;
+    applyTheme(event.matches, true);
+    dispatchThemeChange(theme, true);
+  }
+};
+
+// CSS injection
+const injectThemeStyles = (): void => {
+  if (!document.getElementById(THEME_STYLES_ID)) {
+    const style = document.createElement('style');
+    style.id = THEME_STYLES_ID;
+    style.textContent = THEME_TRANSITION_CSS;
+    document.head.appendChild(style);
+  }
+};
+
+// Media query listener setup with fallback
+const addMediaQueryListener = (
+  mediaQuery: MediaQueryList,
+  handler: (event: MediaQueryListEvent) => void
+): void => {
+  try {
+    // Modern approach
+    mediaQuery.addEventListener('change', handler);
+  } catch {
+    try {
+      // Legacy fallback for older browsers
+      // Type-safe approach for deprecated addListener method
+      const legacyMediaQuery = mediaQuery as MediaQueryList & {
+        addListener?: (listener: (event: MediaQueryListEvent) => void) => void;
+      };
+      if (legacyMediaQuery.addListener) {
+        legacyMediaQuery.addListener(handler);
+      }
+    } catch {
+      console.warn('Failed to register system theme listener');
+    }
+  }
+};
+
+// Public API
+export const toggleDarkMode = (): void => {
+  const root = document.documentElement;
+  root.classList.add(THEME_TRANSITION_CLASS);
+
+  const isDark = root.classList.contains(THEME_DARK);
+  const newTheme: Theme = isDark ? THEME_LIGHT : THEME_DARK;
+
+  applyTheme(!isDark, false);
+  setStoredTheme(newTheme);
+  dispatchThemeChange(newTheme, false);
+
+  setTimeout(() => {
+    root.classList.remove(THEME_TRANSITION_CLASS);
+  }, THEME_TRANSITION_DURATION);
+};
+
+export const initializeDarkMode = (): void => {
+  injectThemeStyles();
+
+  const storedTheme = getStoredTheme();
+  const systemPreference = getSystemPreference();
+
+  // Determine initial theme
+  let isDark: boolean;
+  if (storedTheme === THEME_DARK || storedTheme === THEME_LIGHT) {
+    // User has explicit preference
+    isDark = storedTheme === THEME_DARK;
+  } else {
+    // No preference or auto - follow system
+    isDark = systemPreference.matches;
+    if (!storedTheme) {
+      setStoredTheme(THEME_AUTO);
+    }
+  }
+
+  applyTheme(isDark, false);
+
+  // Always listen for system theme changes
+  addMediaQueryListener(systemPreference, handleSystemThemeChange);
+};
+
+export const resetToSystemTheme = (): void => {
+  setStoredTheme(THEME_AUTO);
+  applyTheme(getSystemPreference().matches, true);
+  dispatchThemeChange(getSystemTheme(), false);
+};
+
+export const setAutoTheme = (): void => {
+  resetToSystemTheme();
+};
+
+export const hasManualPreference = (): boolean => {
+  const theme = getStoredTheme();
+  return theme === THEME_DARK || theme === THEME_LIGHT;
+};
+
+export const getCurrentThemeMode = (): ThemeMode => {
+  return getStoredTheme() || THEME_AUTO;
+};
+
+// Re-export system theme getter with consistent naming
+export { getSystemTheme };

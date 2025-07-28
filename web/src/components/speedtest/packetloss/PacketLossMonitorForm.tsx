@@ -16,7 +16,7 @@ import {
   ListboxOptions,
 } from "@headlessui/react";
 import { XMarkIcon, ChevronUpDownIcon } from "@heroicons/react/24/solid";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { PacketLossMonitor } from "@/types/types";
 import {
   MonitorFormData,
@@ -480,14 +480,15 @@ export const PacketLossMonitorForm: React.FC<PacketLossMonitorFormProps> = ({
                       type="submit"
                       disabled={isLoading}
                       isLoading={isLoading}
-                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
+                      variant="default"
+                      className="flex-1"
                     >
                       {editingMonitor ? "Update Monitor" : "Create Monitor"}
                     </Button>
                     <Button
                       type="button"
                       onClick={handleClose}
-                      className="bg-gray-200/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+                      variant="secondary"
                     >
                       Cancel
                     </Button>

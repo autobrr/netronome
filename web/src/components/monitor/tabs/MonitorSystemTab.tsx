@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import { motion } from "motion/react";
 import { MonitorAgent } from "@/api/monitor";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { MonitorSystemInfo } from "../MonitorSystemInfo";
@@ -27,22 +28,32 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
 
   if (isLoading) {
     return (
-      <div className="text-center py-12">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="text-center py-12"
+      >
         <p className="text-lg text-gray-500 dark:text-gray-400">Loading system information...</p>
-      </div>
+      </motion.div>
     );
   }
 
   const hasData = systemInfo || hardwareStats;
   if (!hasData) {
     return (
-      <div className="text-center py-12">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3 }}
+        className="text-center py-12"
+      >
         <ServerIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
         <p className="text-lg text-gray-500 dark:text-gray-400">No System Information Available</p>
         <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
           The agent may have just been added or hasn't collected any data yet.
         </p>
-      </div>
+      </motion.div>
     );
   }
 
@@ -53,14 +64,24 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
 
       <div className="space-y-6 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-6">
         {/* Left Column - System Information */}
-        <div className="order-1">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="order-1"
+        >
           {systemInfo && (
             <MonitorSystemInfo systemInfo={systemInfo} isOffline={isOffline} />
           )}
-        </div>
+        </motion.div>
         
         {/* CPU - order 2 on mobile, middle column on desktop */}
-        <div className="order-2 lg:order-2 space-y-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.15 }}
+          className="order-2 lg:order-2 space-y-6"
+        >
           {hardwareStats && (
             <>
               <MonitorHardwareStats hardwareStats={hardwareStats} showOnly="cpu" />
@@ -71,10 +92,15 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
               </div>
             </>
           )}
-        </div>
+        </motion.div>
         
         {/* Memory - order 3 on mobile, right column on desktop */}
-        <div className="order-3 lg:order-3 space-y-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+          className="order-3 lg:order-3 space-y-6"
+        >
           {hardwareStats && (
             <>
               <MonitorHardwareStats hardwareStats={hardwareStats} showOnly="memory" />
@@ -85,30 +111,45 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
               </div>
             </>
           )}
-        </div>
+        </motion.div>
         
         {/* Temperature Sensors - order 4 on mobile (shows only on mobile) */}
-        <div className="order-4 lg:hidden">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.25 }}
+          className="order-4 lg:hidden"
+        >
           {hardwareStats && hardwareStats.temperature && hardwareStats.temperature.length > 0 && (
             <MonitorHardwareStats hardwareStats={hardwareStats} showOnly="temperature" />
           )}
-        </div>
+        </motion.div>
         
         {/* Disk Usage - order 5 on mobile (shows only on mobile) */}
-        <div className="order-5 lg:hidden">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+          className="order-5 lg:hidden"
+        >
           {hardwareStats && hardwareStats.disks.length > 0 && (
             <MonitorHardwareStats hardwareStats={hardwareStats} showOnly="disk" />
           )}
-        </div>
+        </motion.div>
       </div>
 
       {/* Single timestamp at bottom */}
       {(systemInfo || hardwareStats) && (
-        <div className="text-center text-xs text-gray-500 dark:text-gray-400 mt-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.35 }}
+          className="text-center text-xs text-gray-500 dark:text-gray-400 mt-6"
+        >
           {hardwareStats?.from_cache || systemInfo?.from_cache ? "Data collected" : "Last updated"}:{" "}
           {new Date((hardwareStats?.updated_at || systemInfo?.updated_at) || Date.now()).toLocaleTimeString()}
           {(hardwareStats?.from_cache || systemInfo?.from_cache) && " (cached)"}
-        </div>
+        </motion.div>
       )}
     </div>
   );
