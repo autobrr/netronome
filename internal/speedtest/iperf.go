@@ -127,9 +127,15 @@ func (r *IperfRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Re
 		jitterFloat = *jitterMs
 	}
 
+	// Use server name if provided, otherwise use the host:port
+	serverName := opts.ServerName
+	if serverName == "" {
+		serverName = opts.ServerHost
+	}
+
 	result := &Result{
 		Timestamp:     time.Now(),
-		Server:        opts.ServerHost,
+		Server:        serverName,
 		DownloadSpeed: downloadSpeed,
 		UploadSpeed:   uploadSpeed,
 		Latency:       latency,
@@ -186,11 +192,17 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 		testType = "download"
 	}
 
+	// Use server name if provided, otherwise use the host:port
+	serverName := opts.ServerName
+	if serverName == "" {
+		serverName = fmt.Sprintf("%s:%s", host, port)
+	}
+
 	// Send initial status
 	if r.progressCallback != nil {
 		r.progressCallback(types.SpeedUpdate{
 			Type:       testType,
-			ServerName: fmt.Sprintf("%s:%s", host, port),
+			ServerName: serverName,
 			Speed:      0,
 			Progress:   0,
 			IsComplete: false,
@@ -264,7 +276,7 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 					if progress > 0 && r.progressCallback != nil {
 						r.progressCallback(types.SpeedUpdate{
 							Type:       testType,
-							ServerName: fmt.Sprintf("%s:%s", host, port),
+							ServerName: serverName,
 							Speed:      currentSpeed,
 							Progress:   progress,
 							IsComplete: false,
@@ -347,7 +359,7 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 	if r.progressCallback != nil {
 		r.progressCallback(types.SpeedUpdate{
 			Type:       testType,
-			ServerName: fmt.Sprintf("%s:%s", host, port),
+			ServerName: serverName,
 			Speed:      speedMbps,
 			Progress:   100.0,
 			IsComplete: true,
@@ -356,7 +368,7 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 	}
 
 	return &types.SpeedTestResult{
-		ServerName: fmt.Sprintf("%s:%s", host, port),
+		ServerName: serverName,
 		TestType:   "iperf3",
 		DownloadSpeed: func() float64 {
 			if opts.EnableDownload {

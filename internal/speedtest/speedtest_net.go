@@ -91,14 +91,14 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 
 	result := &Result{
 		Timestamp: time.Now(),
-		Server:    selectedServer.Name,
+		Server:    selectedServer.Sponsor, // Use provider/sponsor instead of city name
 	}
 
 	if err := selectedServer.PingTest(func(latency time.Duration) {
 		if r.progressCallback != nil {
 			r.progressCallback(types.SpeedUpdate{
 				Type:        "ping",
-				ServerName:  selectedServer.Name,
+				ServerName:  selectedServer.Sponsor, // Use provider/sponsor instead of city name
 				Latency:     latency.String(),
 				Progress:    100,
 				IsComplete:  false,
@@ -115,7 +115,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 	if r.progressCallback != nil {
 		r.progressCallback(types.SpeedUpdate{
 			Type:        "ping",
-			ServerName:  selectedServer.Name,
+			ServerName:  selectedServer.Sponsor, // Use provider/sponsor instead of city name
 			Latency:     selectedServer.Latency.String(),
 			Progress:    100,
 			IsComplete:  false,
@@ -144,7 +144,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 				if progress > 0 && r.progressCallback != nil {
 					r.progressCallback(types.SpeedUpdate{
 						Type:        "download",
-						ServerName:  selectedServer.Name,
+						ServerName:  selectedServer.Sponsor, // Use provider/sponsor instead of city name
 						Speed:       speed.Mbps(),
 						Progress:    progress,
 						IsComplete:  progress >= 100,
@@ -172,7 +172,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		if r.progressCallback != nil {
 			r.progressCallback(types.SpeedUpdate{
 				Type:        "download",
-				ServerName:  selectedServer.Name,
+				ServerName:  selectedServer.Sponsor, // Use provider/sponsor instead of city name
 				Speed:       result.DownloadSpeed,
 				Progress:    100,
 				IsComplete:  true,
@@ -202,7 +202,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 				if progress > 0 && r.progressCallback != nil {
 					r.progressCallback(types.SpeedUpdate{
 						Type:        "upload",
-						ServerName:  selectedServer.Name,
+						ServerName:  selectedServer.Sponsor, // Use provider/sponsor instead of city name
 						Speed:       speed.Mbps(),
 						Progress:    progress,
 						IsComplete:  progress >= 100,
@@ -230,7 +230,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		if r.progressCallback != nil {
 			r.progressCallback(types.SpeedUpdate{
 				Type:        "upload",
-				ServerName:  selectedServer.Name,
+				ServerName:  selectedServer.Sponsor, // Use provider/sponsor instead of city name
 				Speed:       result.UploadSpeed,
 				Progress:    100,
 				IsComplete:  true,
@@ -242,7 +242,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		if r.progressCallback != nil {
 			r.progressCallback(types.SpeedUpdate{
 				Type:        "complete",
-				ServerName:  selectedServer.Name,
+				ServerName:  selectedServer.Sponsor, // Use provider/sponsor instead of city name
 				Speed:       result.UploadSpeed,
 				Progress:    100,
 				IsComplete:  true,

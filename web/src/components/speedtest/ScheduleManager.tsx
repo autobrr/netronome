@@ -264,6 +264,7 @@ export default function ScheduleManager({
         useIperf: isIperfServer,
         useLibrespeed: isLibrespeedServer,
         serverHost: isIperfServer ? selectedServers[0].host : undefined,
+        serverName: isIperfServer ? selectedServers[0].name : undefined,
       },
     };
 

@@ -293,6 +293,7 @@ export default function Main({ isPublic = false }: MainProps) {
             ? selectedServers.map((s) => s.id)
             : [],
         serverHost: testType === "iperf" ? selectedServers[0].host : undefined,
+        serverName: testType === "iperf" ? selectedServers[0].name : undefined,
       });
     } catch (error) {
       console.error("Error running test:", error);

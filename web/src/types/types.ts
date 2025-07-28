@@ -57,6 +57,7 @@ export interface Schedule {
     useIperf: boolean;
     useLibrespeed?: boolean;
     serverHost: string | undefined;
+    serverName?: string | undefined;
   };
 }
 
@@ -69,6 +70,7 @@ export interface TestOptions {
   useLibrespeed?: boolean;
   serverIds?: string[];
   serverHost?: string;
+  serverName?: string;
 }
 
 export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
