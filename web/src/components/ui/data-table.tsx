@@ -48,6 +48,7 @@ interface DataTableProps<TData, TValue> {
   showColumnVisibility?: boolean
   showRowSelection?: boolean
   onRowSelectionChange?: (selectedRows: Row<TData>[]) => void
+  onRowClick?: (row: TData) => void
   pageSize?: number
   className?: string
   tableClassName?: string
@@ -63,6 +64,7 @@ export function DataTable<TData, TValue>({
   showColumnVisibility = true,
   showRowSelection = false,
   onRowSelectionChange,
+  onRowClick,
   pageSize = 10,
   className,
   tableClassName,
@@ -137,48 +139,50 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="flex items-center py-4 gap-2">
-        {filterColumn && (
-          <Input
-            placeholder={filterPlaceholder}
-            value={(table.getColumn(filterColumn)?.getFilterValue() as string) ?? ""}
-            onChange={(event) =>
-              table.getColumn(filterColumn)?.setFilterValue(event.target.value)
-            }
-            className="max-w-sm"
-          />
-        )}
-        
-        {showColumnVisibility && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="ml-auto text-gray-700 dark:text-gray-300">
-                Columns <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {table
-                .getAllColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                    >
-                      {(column.columnDef.meta as any)?.displayName ||
-                       (typeof column.columnDef.header === "string" 
-                        ? column.columnDef.header 
-                        : column.id)}
-                    </DropdownMenuCheckboxItem>
-                  )
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+      {(filterColumn || showColumnVisibility) && (
+        <div className="flex items-center py-4 gap-2">
+          {filterColumn && (
+            <Input
+              placeholder={filterPlaceholder}
+              value={(table.getColumn(filterColumn)?.getFilterValue() as string) ?? ""}
+              onChange={(event) =>
+                table.getColumn(filterColumn)?.setFilterValue(event.target.value)
+              }
+              className="max-w-sm"
+            />
+          )}
+          
+          {showColumnVisibility && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="ml-auto text-gray-700 dark:text-gray-300">
+                  Columns <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {table
+                  .getAllColumns()
+                  .filter((column) => column.getCanHide())
+                  .map((column) => {
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        className="capitalize"
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                      >
+                        {(column.columnDef.meta as any)?.displayName ||
+                         (typeof column.columnDef.header === "string" 
+                          ? column.columnDef.header 
+                          : column.id)}
+                      </DropdownMenuCheckboxItem>
+                    )
+                  })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      )}
       
       <div className="rounded-md border border-gray-300 dark:border-gray-800">
         <Table className={tableClassName}>
@@ -206,6 +210,8 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  onClick={() => onRowClick?.(row.original)}
+                  className={onRowClick ? "cursor-pointer" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="text-gray-700 dark:text-gray-300">

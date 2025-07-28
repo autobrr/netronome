@@ -4,14 +4,13 @@
  */
 
 import React from "react";
-import { motion } from "motion/react";
+import { ColumnDef } from "@tanstack/react-table";
 import {
   PencilIcon,
   TrashIcon,
   SparklesIcon,
   ArrowDownIcon,
   ArrowUpIcon,
-  ChevronRightIcon,
   LockClosedIcon,
   LockOpenIcon,
 } from "@heroicons/react/24/solid";
@@ -21,6 +20,12 @@ import { AgentIcon } from "@/utils/agentIcons";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { TailscaleLogo } from "../icons/TailscaleLogo";
 import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { DataTable, createSortableHeader } from "@/components/ui/data-table";
+import { cn } from "@/lib/utils";
 
 interface MonitorAgentListProps {
   agents: MonitorAgent[];
@@ -31,9 +36,20 @@ interface MonitorAgentListProps {
   isLoading: boolean;
 }
 
+// Extended interface for table data
+interface AgentTableData extends MonitorAgent {
+  status?: {
+    connected: boolean;
+    liveData?: {
+      rx: { ratestring: string };
+      tx: { ratestring: string };
+    };
+  };
+  isFeatured: boolean;
+}
+
 export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
   agents,
-  selectedAgent,
   onSelectAgent,
   onEditAgent,
   onDeleteAgent,
@@ -42,7 +58,9 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
   // Force re-render all items when featured agents change
   const [updateKey, setUpdateKey] = React.useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [agentToDelete, setAgentToDelete] = React.useState<MonitorAgent | null>(null);
+  const [agentToDelete, setAgentToDelete] = React.useState<MonitorAgent | null>(
+    null
+  );
 
   React.useEffect(() => {
     const handleStorageChange = () => {
@@ -60,51 +78,206 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
     };
   }, []);
 
-  return (
-    <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800">
-      <div className="border-b border-gray-200 px-4 sm:px-6 py-2.5 dark:border-gray-800">
-        <h3 className="text-base font-medium text-gray-900 dark:text-white">
-          Netronome Agents
-        </h3>
-      </div>
+  // Get featured agent IDs
+  const getFeaturedAgentIds = (): number[] => {
+    try {
+      const stored = localStorage.getItem("netronome-featured-monitor-agents");
+      const parsed = stored ? JSON.parse(stored) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-y lg:divide-y-0 divide-gray-200 dark:divide-gray-800">
-        {isLoading ? (
-          <div className="lg:col-span-2 p-4 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Loading agents...
-            </p>
-          </div>
-        ) : !agents || agents.length === 0 ? (
-          <div className="lg:col-span-2 p-4 text-center">
+  const featuredAgentIds = getFeaturedAgentIds();
+
+  // Transform agents to table data (with updateKey to force re-render on featured changes)
+  const tableData: AgentTableData[] = React.useMemo(
+    () =>
+      agents.map((agent) => ({
+        ...agent,
+        isFeatured: featuredAgentIds.includes(agent.id),
+      })),
+    [agents, featuredAgentIds, updateKey]
+  );
+
+  // Column definitions
+  const columns: ColumnDef<AgentTableData>[] = [
+    {
+      accessorKey: "name",
+      header: createSortableHeader("Agent"),
+      cell: ({ row }) => {
+        const agent = row.original;
+        return (
+          <div className="flex items-center gap-3">
             <AgentIcon
-              name="Server"
-              className="mx-auto h-10 w-10 text-gray-400"
+              name={agent.name}
+              className="h-7 w-7 text-gray-400 flex-shrink-0"
             />
-            <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
-              No agents configured
-            </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">
-              Add an agent to start monitoring bandwidth
-            </p>
+            <div className="font-medium text-gray-900 dark:text-white">
+              {agent.name}
+            </div>
           </div>
-        ) : (
-          agents?.map((agent) => (
-            <AgentListItem
-              key={`${agent.id}-${updateKey}`}
-              agent={agent}
-              agents={agents}
-              isSelected={selectedAgent?.id === agent.id}
-              onSelect={() => onSelectAgent(agent)}
-              onEdit={() => onEditAgent(agent)}
-              onDelete={() => {
-                setAgentToDelete(agent);
-                setDeleteDialogOpen(true);
-              }}
+        );
+      },
+    },
+    {
+      id: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const agent = row.original;
+        return <AgentStatusCell agent={agent} />;
+      },
+    },
+    {
+      accessorKey: "url",
+      header: "Connection",
+      cell: ({ row }) => {
+        const agent = row.original;
+        return (
+          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+            {agent.isTailscale ? (
+              <>
+                <TailscaleLogo
+                  className="h-4 w-4 flex-shrink-0"
+                  title="Connected through Tailscale"
+                />
+                <LockClosedIcon
+                  className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
+                  title="Encrypted via Tailscale"
+                />
+              </>
+            ) : agent.apiKey ? (
+              <LockClosedIcon
+                className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
+                title="Authentication enabled"
+              />
+            ) : (
+              <LockOpenIcon
+                className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500 flex-shrink-0"
+                title="No authentication"
+              />
+            )}
+            <span className="truncate max-w-xs">
+              {agent.url.replace(/\/events\?stream=live-data$/, "")}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      id: "bandwidth",
+      header: "Current Bandwidth",
+      cell: ({ row }) => {
+        const agent = row.original;
+        return <AgentBandwidthCell agent={agent} />;
+      },
+    },
+    {
+      id: "actions",
+      header: () => <div className="text-right">Actions</div>,
+      cell: ({ row }) => {
+        const agent = row.original;
+        return (
+          <AgentActionsCell
+            agent={agent}
+            agents={agents}
+            onEdit={() => onEditAgent(agent)}
+            onDelete={() => {
+              setAgentToDelete(agent);
+              setDeleteDialogOpen(true);
+            }}
+          />
+        );
+      },
+    },
+  ];
+
+  const [filterValue, setFilterValue] = React.useState("");
+
+  // Filter the data based on the filter value
+  const filteredData = React.useMemo(() => {
+    if (!filterValue) return tableData;
+    return tableData.filter((agent) =>
+      agent.name.toLowerCase().includes(filterValue.toLowerCase())
+    );
+  }, [tableData, filterValue]);
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="py-3 px-4">
+          <div className="flex items-center justify-between gap-4">
+            <CardTitle className="text-base">Netronome Agents</CardTitle>
+            {!isLoading && agents.length > 0 && (
+              <div className="relative w-72">
+                <Input
+                  placeholder="Filter agents..."
+                  value={filterValue}
+                  onChange={(e) => setFilterValue(e.target.value)}
+                  className="h-9 pr-8"
+                />
+                {filterValue && (
+                  <button
+                    onClick={() => setFilterValue("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-0 pt-0">
+          {isLoading ? (
+            <div className="p-8 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Loading agents...
+              </p>
+            </div>
+          ) : !agents || agents.length === 0 ? (
+            <div className="p-8 text-center">
+              <AgentIcon
+                name="Server"
+                className="mx-auto h-10 w-10 text-gray-400"
+              />
+              <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
+                No agents configured
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                Add an agent to start monitoring bandwidth
+              </p>
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={filteredData}
+              showPagination={filteredData.length > 10}
+              showColumnVisibility={false}
+              pageSize={10}
+              className="px-4 pb-4"
+              tableClassName=""
+              noDataMessage="No agents found."
+              onRowClick={(agent) => onSelectAgent(agent)}
+              filterColumn={undefined} // Disable built-in filter since we moved it to header
             />
-          ))
-        )}
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
@@ -122,39 +295,96 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
         }}
         itemName={agentToDelete?.name || ""}
       />
+    </>
+  );
+};
+
+// Cell component for agent status
+const AgentStatusCell: React.FC<{ agent: AgentTableData }> = ({ agent }) => {
+  const { status } = useMonitorAgent({
+    agent,
+    includeNativeData: true,
+    includeHardwareStats: false,
+  });
+
+  if (!agent.enabled) {
+    return (
+      <Badge variant="secondary" className="gap-1.5">
+        <span className="inline-flex rounded-full h-2 w-2 bg-gray-500"></span>
+        Disabled
+      </Badge>
+    );
+  }
+
+  if (status?.connected) {
+    return (
+      <Badge variant="success" className="gap-1.5">
+        <span className="relative inline-flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+        </span>
+        Online
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge variant="destructive" className="gap-1.5">
+      <span className="inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+      Disconnected
+    </Badge>
+  );
+};
+
+// Cell component for bandwidth display
+const AgentBandwidthCell: React.FC<{ agent: AgentTableData }> = ({ agent }) => {
+  const { status } = useMonitorAgent({
+    agent,
+    includeNativeData: true,
+    includeHardwareStats: false,
+  });
+
+  if (!agent.enabled || !status?.connected || !status.liveData) {
+    return <span className="text-sm text-gray-400">-</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="flex items-center gap-1">
+        <ArrowDownIcon className="h-3.5 w-3.5 text-blue-500" />
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          {status.liveData.rx.ratestring}
+        </span>
+      </div>
+      <div className="flex items-center gap-1">
+        <ArrowUpIcon className="h-3.5 w-3.5 text-green-500" />
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          {status.liveData.tx.ratestring}
+        </span>
+      </div>
     </div>
   );
 };
 
-interface AgentListItemProps {
-  agent: MonitorAgent;
+// Cell component for actions
+interface AgentActionsCellProps {
+  agent: AgentTableData;
   agents: MonitorAgent[];
-  isSelected: boolean;
-  onSelect: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-const AgentListItem: React.FC<AgentListItemProps> = ({
+const AgentActionsCell: React.FC<AgentActionsCellProps> = ({
   agent,
   agents,
-  isSelected,
-  onSelect,
   onEdit,
   onDelete,
 }) => {
-  const { status } = useMonitorAgent({
-    agent,
-    includeNativeData: true,
-    includeHardwareStats: false, // Don't fetch hardware stats for every agent in the list
-  });
-
   // Featured agents management with local state for instant feedback
   const getFeaturedAgentIds = (): number[] => {
     try {
       const stored = localStorage.getItem("netronome-featured-monitor-agents");
       const parsed = stored ? JSON.parse(stored) : [];
-      // Ensure it's always an array
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
@@ -163,7 +393,6 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
 
   const setFeaturedAgentIds = (ids: number[]) => {
     try {
-      // Ensure we're storing a valid array
       const validIds = Array.isArray(ids) ? ids : [];
       localStorage.setItem(
         "netronome-featured-monitor-agents",
@@ -174,13 +403,11 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
     }
   };
 
-  // Use local state for immediate UI feedback
   const [isFeatured, setIsFeatured] = React.useState(() => {
     const featuredIds = getFeaturedAgentIds();
     return featuredIds.includes(agent.id);
   });
 
-  // Listen for changes to featured agents from other components or tabs
   React.useEffect(() => {
     const handleStorageChange = () => {
       const featuredIds = getFeaturedAgentIds();
@@ -197,38 +424,30 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
     const currentFeatured = getFeaturedAgentIds();
 
     if (isFeatured) {
-      // Remove from featured
       const newFeatured = currentFeatured.filter((id) => id !== agent.id);
       setFeaturedAgentIds(newFeatured);
-      setIsFeatured(false); // Immediate UI update
+      setIsFeatured(false);
     } else {
-      // Add to featured (max 3)
-      // Ensure currentFeatured is an array and filter out any non-numeric values
       const validCurrentFeatured = Array.isArray(currentFeatured)
         ? currentFeatured.filter((id) => typeof id === "number")
         : [];
 
-      // Filter out agent IDs that no longer exist
       const existingAgentIds = agents.map((a) => a.id);
       const existingFeatured = validCurrentFeatured.filter((id) =>
         existingAgentIds.includes(id)
       );
 
-      // Clean up localStorage if we removed any non-existent agents
       if (existingFeatured.length !== validCurrentFeatured.length) {
         setFeaturedAgentIds(existingFeatured);
       }
 
       if (existingFeatured.length >= 3) {
-        // For now, use the browser alert as the toast system is not fully implemented
-        // TODO: Replace with proper toast notification when available
         alert(
           "You can only feature up to 3 agents at a time. Please unfeature an agent first."
         );
         return;
       }
 
-      // Check if agent is already in the array (shouldn't happen but just in case)
       if (existingFeatured.includes(agent.id)) {
         setIsFeatured(true);
         return;
@@ -236,152 +455,60 @@ const AgentListItem: React.FC<AgentListItemProps> = ({
 
       const newFeatured = [...existingFeatured, agent.id];
       setFeaturedAgentIds(newFeatured);
-      setIsFeatured(true); // Immediate UI update
+      setIsFeatured(true);
     }
 
-    // Force re-render of other agent items to update their star state
     window.dispatchEvent(new Event("storage"));
     window.dispatchEvent(new Event("featured-agents-changed"));
   };
 
   return (
-    <motion.div
-      className={`cursor-pointer p-3 sm:p-4 transition-colors ${
-        isSelected
-          ? "bg-blue-50 dark:bg-gray-800"
-          : "hover:bg-gray-50 dark:hover:bg-gray-800"
-      }`}
-      onClick={onSelect}
+    <div
+      className="flex items-center justify-end gap-1"
+      onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center space-x-3 flex-1 min-w-0">
-          <AgentIcon
-            name={agent.name}
-            className="h-7 w-7 sm:h-8 sm:w-8 text-gray-400 flex-shrink-0"
-          />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white">
-                {agent.name}
-              </h3>
-              <div className="flex items-center space-x-1.5">
-                {agent.enabled && status?.connected ? (
-                  <span className="relative inline-flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                  </span>
-                ) : (
-                  <div
-                    className={`h-2 w-2 rounded-full ${
-                      !agent.enabled ? "bg-gray-400" : "bg-red-500"
-                    }`}
-                  />
-                )}
-                <span className="text-xs text-gray-600 dark:text-gray-400">
-                  {!agent.enabled
-                    ? "Disabled"
-                    : status?.connected
-                    ? "Connected"
-                    : "Disconnected"}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-              <div className="flex items-center gap-1.5 min-w-0">
-                {agent.isTailscale ? (
-                  <>
-                    <TailscaleLogo
-                      className="h-4 w-4 flex-shrink-0"
-                      title="Connected through Tailscale"
-                    />
-                    <LockClosedIcon
-                      className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
-                      title="Encrypted via Tailscale"
-                    />
-                  </>
-                ) : agent.apiKey ? (
-                  <LockClosedIcon
-                    className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
-                    title="Authentication enabled"
-                  />
-                ) : (
-                  <LockOpenIcon
-                    className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500 flex-shrink-0"
-                    title="No authentication"
-                  />
-                )}
-                <span className="truncate">
-                  {agent.url.replace(/\/events\?stream=live-data$/, "")}
-                </span>
-              </div>
-            </div>
-
-            {/* Key metrics */}
-            {agent.enabled && status?.connected && (
-              <div className="flex items-center gap-4 mt-2 text-xs">
-                {/* Current speeds */}
-                {status.liveData && (
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <ArrowDownIcon className="h-3 w-3 text-blue-500" />
-                      <span className="text-gray-700 dark:text-gray-300 font-medium">
-                        {status.liveData.rx.ratestring}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <ArrowUpIcon className="h-3 w-3 text-green-500" />
-                      <span className="text-gray-700 dark:text-gray-300 font-medium">
-                        {status.liveData.tx.ratestring}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          <div className="flex items-center gap-0.5">
-            <ChevronRightIcon className="w-4 h-4 text-gray-400 mr-1" />
-            <button
-              className={`p-1.5 rounded-md transition-colors duration-200 ${
-                isFeatured
-                  ? "hover:bg-yellow-100 dark:hover:bg-yellow-900/30 text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
-                  : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              }`}
-              onClick={handleToggleFeatured}
-              title={isFeatured ? "Remove from featured" : "Add to featured"}
-            >
-              {isFeatured ? (
-                <SparklesIconSolid className="w-3.5 h-3.5" />
-              ) : (
-                <SparklesIcon className="w-3.5 h-3.5" />
-              )}
-            </button>
-            <button
-              className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit();
-              }}
-              title="Edit Agent"
-            >
-              <PencilIcon className="w-3.5 h-3.5" />
-            </button>
-            <button
-              className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400 transition-colors duration-200"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              title="Delete Agent"
-            >
-              <TrashIcon className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </motion.div>
+      <Button
+        variant="secondary"
+        size="sm"
+        className={cn(
+          "h-8 w-8 p-0",
+          isFeatured
+            ? "hover:bg-yellow-100 dark:hover:bg-yellow-900/30 text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
+            : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        )}
+        onClick={handleToggleFeatured}
+        title={isFeatured ? "Remove from featured" : "Add to featured"}
+      >
+        {isFeatured ? (
+          <SparklesIconSolid className="w-4 h-4" />
+        ) : (
+          <SparklesIcon className="w-4 h-4" />
+        )}
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="h-8 w-8 p-0"
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit();
+        }}
+        title="Edit Agent"
+      >
+        <PencilIcon className="w-4 h-4" />
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="h-8 w-8 p-0 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        title="Delete Agent"
+      >
+        <TrashIcon className="w-4 h-4" />
+      </Button>
+    </div>
   );
 };

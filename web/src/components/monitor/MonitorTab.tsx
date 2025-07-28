@@ -9,8 +9,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MonitorAgentList } from "./MonitorAgentList";
 import { MonitorAgentForm } from "./MonitorAgentForm";
 import { MonitorAgentDetailsTabs } from "./MonitorAgentDetailsTabs";
-import { ArrowLeftIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowLeftIcon,
+  PencilIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
 import {
   getMonitorAgents,
@@ -69,7 +74,7 @@ export const MonitorTab: React.FC = () => {
     const preselectedId = sessionStorage.getItem("netronome-preselect-agent");
     if (preselectedId && agents.length > 0 && !selectedAgent) {
       const agentId = parseInt(preselectedId, 10);
-      const agent = agents.find(a => a.id === agentId);
+      const agent = agents.find((a) => a.id === agentId);
       if (agent) {
         setSelectedAgent(agent);
         sessionStorage.removeItem("netronome-preselect-agent");
@@ -104,7 +109,7 @@ export const MonitorTab: React.FC = () => {
           window.dispatchEvent(new Event("featured-agents-changed"));
         }
       }
-      
+
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       setIsFormOpen(false);
       setEditingAgent(null);
@@ -126,7 +131,7 @@ export const MonitorTab: React.FC = () => {
         window.dispatchEvent(new Event("storage"));
         window.dispatchEvent(new Event("featured-agents-changed"));
       }
-      
+
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       setSelectedAgent(null);
     },
@@ -186,10 +191,11 @@ export const MonitorTab: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                  Bandwidth Monitoring
+                  Monitoring
                 </h2>
                 <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                  Monitor bandwidth from Netronome agents • Click an agent to view detailed stats
+                  Monitor bandwidth and other stats from Netronome agents •
+                  Click an agent to view detailed stats
                 </p>
               </div>
               <Button
@@ -208,7 +214,7 @@ export const MonitorTab: React.FC = () => {
               onSelectAgent={setSelectedAgent}
               onEditAgent={handleEditAgent}
               onDeleteAgent={(id) => {
-                const agent = agents.find(a => a.id === id);
+                const agent = agents.find((a) => a.id === id);
                 if (agent) handleDeleteAgent(agent);
               }}
               isLoading={isLoading}
@@ -239,28 +245,30 @@ export const MonitorTab: React.FC = () => {
                   {selectedAgent.name}
                 </h2>
                 {selectedAgent && !selectedAgent.enabled && (
-                  <span className="px-3 py-1 bg-gray-500/10 border border-gray-500/30 text-gray-600 dark:text-gray-400 rounded-lg shadow-md text-xs font-medium">
-                    Disabled
-                  </span>
+                  <Badge variant="secondary">Disabled</Badge>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <button
+                <Button
                   onClick={() => handleEditAgent(selectedAgent)}
-                  className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200 text-sm font-medium"
+                  variant="secondary"
+                  size="sm"
+                  className="gap-1.5"
                   title="Edit agent"
                 >
                   <PencilIcon className="h-4 w-4" />
                   <span className="hidden sm:inline">Edit</span>
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => handleDeleteAgent(selectedAgent)}
-                  className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors duration-200 text-sm font-medium"
+                  variant="secondary"
+                  size="sm"
+                  className="gap-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400"
                   title="Delete agent"
                 >
                   <TrashIcon className="h-4 w-4" />
                   <span className="hidden sm:inline">Delete</span>
-                </button>
+                </Button>
               </div>
             </div>
 
