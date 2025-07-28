@@ -189,15 +189,15 @@ export const MonitorTab: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-6"
           >
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                   Monitoring
                 </h2>
-                <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                <p className="hidden sm:block mt-1 text-sm text-gray-600 dark:text-gray-400">
                   Monitor bandwidth and other stats from Netronome agents •
                   Click an agent to view detailed stats
                 </p>
@@ -206,6 +206,7 @@ export const MonitorTab: React.FC = () => {
                 onClick={handleCreateAgent}
                 variant="default"
                 size="default"
+                className="w-full sm:w-auto"
               >
                 Add Agent
               </Button>

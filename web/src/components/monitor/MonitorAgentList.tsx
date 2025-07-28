@@ -107,15 +107,16 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
     {
       accessorKey: "name",
       header: createSortableHeader("Agent"),
+      size: 200,
       cell: ({ row }) => {
         const agent = row.original;
         return (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <AgentIcon
               name={agent.name}
-              className="h-7 w-7 text-gray-400 flex-shrink-0"
+              className="h-6 w-6 sm:h-7 sm:w-7 text-gray-400 flex-shrink-0"
             />
-            <div className="font-medium text-gray-900 dark:text-white">
+            <div className="font-medium text-gray-900 dark:text-white truncate">
               {agent.name}
             </div>
           </div>
@@ -124,19 +125,27 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
     },
     {
       id: "status",
-      header: "Status",
+      header: () => <div className="hidden sm:block text-left">Status</div>,
+      size: 120,
+      enableHiding: true,
       cell: ({ row }) => {
         const agent = row.original;
-        return <AgentStatusCell agent={agent} />;
+        return (
+          <div className="hidden sm:block">
+            <AgentStatusCell agent={agent} />
+          </div>
+        );
       },
     },
     {
       accessorKey: "url",
-      header: "Connection",
+      header: () => <div className="hidden lg:block">Connection</div>,
+      size: 300,
+      enableHiding: true,
       cell: ({ row }) => {
         const agent = row.original;
         return (
-          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+          <div className="hidden lg:flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 w-72">
             {agent.isTailscale ? (
               <>
                 <TailscaleLogo
@@ -159,7 +168,7 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
                 title="No authentication"
               />
             )}
-            <span className="truncate max-w-xs">
+            <span className="truncate">
               {agent.url.replace(/\/events\?stream=live-data$/, "")}
             </span>
           </div>
@@ -168,27 +177,36 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
     },
     {
       id: "bandwidth",
-      header: "Current Bandwidth",
+      header: () => <div className="hidden sm:block">Current Bandwidth</div>,
+      size: 180,
+      enableHiding: true,
       cell: ({ row }) => {
         const agent = row.original;
-        return <AgentBandwidthCell agent={agent} />;
+        return (
+          <div className="hidden sm:block w-44">
+            <AgentBandwidthCell agent={agent} />
+          </div>
+        );
       },
     },
     {
       id: "actions",
-      header: () => <div className="text-right">Actions</div>,
+      header: () => <div className="text-right pr-1 sm:pr-4">Actions</div>,
+      size: 100,
       cell: ({ row }) => {
         const agent = row.original;
         return (
-          <AgentActionsCell
-            agent={agent}
-            agents={agents}
-            onEdit={() => onEditAgent(agent)}
-            onDelete={() => {
-              setAgentToDelete(agent);
-              setDeleteDialogOpen(true);
-            }}
-          />
+          <div className="flex justify-end">
+            <AgentActionsCell
+              agent={agent}
+              agents={agents}
+              onEdit={() => onEditAgent(agent)}
+              onDelete={() => {
+                setAgentToDelete(agent);
+                setDeleteDialogOpen(true);
+              }}
+            />
+          </div>
         );
       },
     },
@@ -207,16 +225,16 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
   return (
     <>
       <Card>
-        <CardHeader className="py-3 px-4">
-          <div className="flex items-center justify-between gap-4">
-            <CardTitle className="text-base">Netronome Agents</CardTitle>
+        <CardHeader className="py-2 sm:py-3 px-3 sm:px-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+            <CardTitle className="text-sm sm:text-base">Netronome Agents</CardTitle>
             {!isLoading && agents.length > 0 && (
-              <div className="relative w-72">
+              <div className="relative w-full sm:w-72">
                 <Input
                   placeholder="Filter agents..."
                   value={filterValue}
                   onChange={(e) => setFilterValue(e.target.value)}
-                  className="h-9 pr-8"
+                  className="h-8 sm:h-9 pr-8 text-sm"
                 />
                 {filterValue && (
                   <button
@@ -264,18 +282,20 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
               </p>
             </div>
           ) : (
-            <DataTable
-              columns={columns}
-              data={filteredData}
-              showPagination={filteredData.length > 10}
-              showColumnVisibility={false}
-              pageSize={10}
-              className="px-4 pb-4"
-              tableClassName=""
-              noDataMessage="No agents found."
-              onRowClick={(agent) => onSelectAgent(agent)}
-              filterColumn={undefined} // Disable built-in filter since we moved it to header
-            />
+            <div className="overflow-x-auto">
+              <DataTable
+                columns={columns}
+                data={filteredData}
+                showPagination={filteredData.length > 10}
+                showColumnVisibility={false}
+                pageSize={10}
+                className="px-2 sm:px-4 pb-2 sm:pb-4"
+                tableClassName="min-w-full sm:min-w-[600px]"
+                noDataMessage="No agents found."
+                onRowClick={(agent) => onSelectAgent(agent)}
+                filterColumn={undefined} // Disable built-in filter since we moved it to header
+              />
+            </div>
           )}
         </CardContent>
       </Card>
@@ -302,7 +322,7 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
 
 // Cell component for agent status
 const AgentStatusCell: React.FC<{ agent: AgentTableData }> = ({ agent }) => {
-  const { status } = useMonitorAgent({
+  const { status, isLoadingStatus } = useMonitorAgent({
     agent,
     includeNativeData: true,
     includeHardwareStats: false,
@@ -313,6 +333,22 @@ const AgentStatusCell: React.FC<{ agent: AgentTableData }> = ({ agent }) => {
       <Badge variant="secondary" className="gap-1.5">
         <span className="inline-flex rounded-full h-2 w-2 bg-gray-500"></span>
         Disabled
+      </Badge>
+    );
+  }
+
+  // Show loading state while checking status
+  if (isLoadingStatus) {
+    return (
+      <Badge 
+        variant="secondary" 
+        className="gap-1.5 dark:bg-gray-700/50 dark:border-gray-600"
+      >
+        <span className="relative inline-flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-500 dark:bg-gray-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-600 dark:bg-gray-300"></span>
+        </span>
+        Checking...
       </Badge>
     );
   }
@@ -339,13 +375,13 @@ const AgentStatusCell: React.FC<{ agent: AgentTableData }> = ({ agent }) => {
 
 // Cell component for bandwidth display
 const AgentBandwidthCell: React.FC<{ agent: AgentTableData }> = ({ agent }) => {
-  const { status } = useMonitorAgent({
+  const { status, isLoadingStatus } = useMonitorAgent({
     agent,
     includeNativeData: true,
     includeHardwareStats: false,
   });
 
-  if (!agent.enabled || !status?.connected || !status.liveData) {
+  if (!agent.enabled || isLoadingStatus || !status?.connected || !status.liveData) {
     return <span className="text-sm text-gray-400">-</span>;
   }
 
@@ -465,14 +501,14 @@ const AgentActionsCell: React.FC<AgentActionsCellProps> = ({
 
   return (
     <div
-      className="flex items-center justify-end gap-1"
+      className="flex items-center justify-end gap-0.5 sm:gap-1"
       onClick={(e) => e.stopPropagation()}
     >
       <Button
         variant="secondary"
         size="sm"
         className={cn(
-          "h-8 w-8 p-0",
+          "h-7 w-7 sm:h-8 sm:w-8 p-0",
           isFeatured
             ? "hover:bg-yellow-100 dark:hover:bg-yellow-900/30 text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
             : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -481,34 +517,34 @@ const AgentActionsCell: React.FC<AgentActionsCellProps> = ({
         title={isFeatured ? "Remove from featured" : "Add to featured"}
       >
         {isFeatured ? (
-          <SparklesIconSolid className="w-4 h-4" />
+          <SparklesIconSolid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         ) : (
-          <SparklesIcon className="w-4 h-4" />
+          <SparklesIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         )}
       </Button>
       <Button
         variant="secondary"
         size="sm"
-        className="h-8 w-8 p-0"
+        className="h-7 w-7 sm:h-8 sm:w-8 p-0"
         onClick={(e) => {
           e.stopPropagation();
           onEdit();
         }}
         title="Edit Agent"
       >
-        <PencilIcon className="w-4 h-4" />
+        <PencilIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
       </Button>
       <Button
         variant="secondary"
         size="sm"
-        className="h-8 w-8 p-0 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400"
+        className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400"
         onClick={(e) => {
           e.stopPropagation();
           onDelete();
         }}
         title="Delete Agent"
       >
-        <TrashIcon className="w-4 h-4" />
+        <TrashIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
       </Button>
     </div>
   );
