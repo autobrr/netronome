@@ -493,11 +493,11 @@ export const ServerList: React.FC<ServerListProps> = ({
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ duration: 0.3 }}
                                 >
-                                  <button
+                                  <div
                                     onClick={() =>
                                       handleServerSelect(iperfServer)
                                     }
-                                    className={`w-full p-4 rounded-lg text-left transition-colors relative ${
+                                    className={`w-full p-4 rounded-lg text-left transition-colors relative cursor-pointer ${
                                       selectedServers.some(
                                         (s) => s.id === iperfServer.id
                                       )
@@ -533,7 +533,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                                     >
                                       <XMarkIcon className="h-4 w-4" />
                                     </button>
-                                  </button>
+                                  </div>
                                 </motion.div>
                               );
                             })}
