@@ -291,8 +291,9 @@ export const TracerouteTab: React.FC = () => {
     <div className="flex flex-col gap-6">
       {/* Mode Selector Tabs */}
       <div className="flex gap-2 p-1 bg-gray-50/95 dark:bg-gray-850 rounded-lg border border-gray-200 dark:border-gray-800">
-        <button
+        <Button
           onClick={() => setMode("traceroute")}
+          variant="ghost"
           className={`relative flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${
             mode === "traceroute"
               ? "text-blue-600 dark:text-blue-400"
@@ -313,9 +314,10 @@ export const TracerouteTab: React.FC = () => {
             <GlobeAltIcon className="w-4 h-4" />
             <span className="font-medium">Single Trace</span>
           </span>
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => setMode("monitors")}
+          variant="ghost"
           className={`relative flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${
             mode === "monitors"
               ? "text-purple-600 dark:text-purple-400"
@@ -336,7 +338,7 @@ export const TracerouteTab: React.FC = () => {
             <ChartBarIcon className="w-4 h-4" />
             <span className="font-medium">Monitors</span>
           </span>
-        </button>
+        </Button>
       </div>
 
       {mode === "traceroute" ? (

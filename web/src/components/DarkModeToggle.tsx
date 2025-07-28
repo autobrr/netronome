@@ -16,6 +16,7 @@ import {
   CheckIcon,
 } from "@heroicons/react/24/outline";
 import { MoonIcon } from "@heroicons/react/24/solid";
+import { Button } from "@/components/ui/button";
 
 // Constants
 const THEME_STORAGE_KEY = "theme";
@@ -171,15 +172,17 @@ export const DarkModeToggle: React.FC = () => {
   return (
     <div className="relative" ref={menuRef}>
       {/* Icon button that opens the menu */}
-      <button
+      <Button
         onClick={toggleMenuOpen}
-        className="p-2 text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-gray-400 transition-colors"
+        variant="ghost"
+        size="icon"
+        className="text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-gray-400"
         aria-label="Theme options"
         aria-expanded={showMenu}
         aria-haspopup="true"
       >
         <CurrentIcon className="w-6 h-6" />
-      </button>
+      </Button>
 
       {/* Dropdown menu */}
       <AnimatePresence>
@@ -228,37 +231,40 @@ const ThemeOptionButton: React.FC<ThemeOptionButtonProps> = React.memo(
     }, [onSelect, option.value]);
 
     return (
-      <motion.button
+      <Button
         onClick={handleClick}
+        variant="ghost"
         className={`
-          w-full px-3 py-2 text-sm rounded-lg flex items-center gap-3
-          transition-all duration-200
+          w-full px-3 py-2 text-sm justify-start gap-3 h-auto
           ${
             isSelected
-              ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+              ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30"
               : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
           }
         `}
         role="menuitem"
         aria-selected={isSelected}
+        asChild
       >
-        <Icon
-          className={`w-4 h-4 ${
-            isSelected ? "text-blue-600 dark:text-blue-400" : ""
-          }`}
-        />
-        <span className="flex-1 text-left font-medium">{option.label}</span>
-        <motion.div
-          initial={false}
-          animate={{
-            opacity: isSelected ? 1 : 0,
-            scale: isSelected ? 1 : 0.8,
-          }}
-          transition={CHECK_ANIMATION}
-        >
-          <CheckIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+        <motion.div>
+          <Icon
+            className={`w-4 h-4 ${
+              isSelected ? "text-blue-600 dark:text-blue-400" : ""
+            }`}
+          />
+          <span className="flex-1 text-left font-medium">{option.label}</span>
+          <motion.div
+            initial={false}
+            animate={{
+              opacity: isSelected ? 1 : 0,
+              scale: isSelected ? 1 : 0.8,
+            }}
+            transition={CHECK_ANIMATION}
+          >
+            <CheckIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          </motion.div>
         </motion.div>
-      </motion.button>
+      </Button>
     );
   }
 );

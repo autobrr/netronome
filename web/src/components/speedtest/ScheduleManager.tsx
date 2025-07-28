@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { getApiUrl } from "@/utils/baseUrl";
 import { formatNextRun } from "@/utils/timeUtils";
+import { Button } from "@/components/ui/button";
 
 interface ScheduleManagerProps {
   servers: Server[];
@@ -456,8 +457,9 @@ export default function ScheduleManager({
                           {/* Schedule Type Toggle Buttons */}
                           <div className="mb-4">
                             <div className="grid grid-cols-2 gap-2 p-1 bg-gray-200/50 dark:bg-gray-800/30 rounded-lg">
-                              <button
+                              <Button
                                 onClick={() => setScheduleType("interval")}
+                                variant={scheduleType === "interval" ? "secondary" : "ghost"}
                                 className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-md font-medium transition-all duration-200 ${
                                   scheduleType === "interval"
                                     ? "bg-gray-300 dark:bg-gray-700 text-gray-900 dark:text-gray-200 shadow-lg transform scale-105"
@@ -466,9 +468,10 @@ export default function ScheduleManager({
                               >
                                 <ArrowPathIcon className="w-4 h-4" />
                                 <span>Interval</span>
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                 onClick={() => setScheduleType("exact")}
+                                variant={scheduleType === "exact" ? "secondary" : "ghost"}
                                 className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-md font-medium transition-all duration-200 ${
                                   scheduleType === "exact"
                                     ? "bg-gray-300 dark:bg-gray-700 text-gray-900 dark:text-gray-200 shadow-lg transform scale-105"
@@ -477,7 +480,7 @@ export default function ScheduleManager({
                               >
                                 <ClockIcon className="w-4 h-4" />
                                 <span>Exact Time</span>
-                              </button>
+                              </Button>
                             </div>
                           </div>
 
@@ -520,16 +523,18 @@ export default function ScheduleManager({
                                           (opt) => opt.value === time
                                         )?.label || time}
                                       </span>
-                                      <button
+                                      <Button
                                         onClick={() =>
                                           setExactTimes(
                                             exactTimes.filter((t) => t !== time)
                                           )
                                         }
-                                        className="ml-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="ml-1 h-5 w-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                                       >
                                         <XMarkIcon className="w-3.5 h-3.5" />
-                                      </button>
+                                      </Button>
                                     </div>
                                   ))}
                                 </div>
@@ -650,8 +655,8 @@ export default function ScheduleManager({
 
                           {/* Create Schedule Button */}
                           <div className="mt-6">
-                            <button
-                              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+                            <Button
+                              className={`w-full px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
                                 selectedServers.length === 0 ||
                                 (scheduleType === "exact" &&
                                   exactTimes.length === 0)
@@ -693,7 +698,7 @@ export default function ScheduleManager({
                                   </span>
                                 </>
                               )}
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -776,16 +781,18 @@ export default function ScheduleManager({
                                             </>
                                           )}
                                         </h6>
-                                        <button
+                                        <Button
                                           onClick={() =>
                                             schedule.id &&
                                             handleDeleteSchedule(schedule.id)
                                           }
-                                          className="text-gray-500 dark:text-gray-400 p-1 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-md hover:bg-red-200/50 dark:hover:bg-red-900/50 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7 text-gray-500 dark:text-gray-400 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 hover:bg-red-200/50 dark:hover:bg-red-900/50 hover:text-red-600 dark:hover:text-red-400"
                                           title="Delete schedule"
                                         >
                                           <XMarkIcon className="h-4 w-4" />
-                                        </button>
+                                        </Button>
                                       </div>
                                       <p className="text-gray-600 dark:text-gray-400 text-sm">
                                         <span className="font-medium">

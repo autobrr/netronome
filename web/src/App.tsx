@@ -14,6 +14,7 @@ import { DonateModal } from "@/components/DonateModal";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -108,34 +109,40 @@ function App() {
           
           {/* Desktop controls */}
           <div className="hidden sm:flex absolute z-10 top-4 right-4 items-center gap-2">
-            <button
+            <Button
               onClick={() => setIsDonateOpen(true)}
-              className="p-2 text-red-500 hover:text-red-600 dark:text-red-500/50 dark:hover:text-red-500 transition-colors"
+              variant="ghost"
+              size="icon"
+              className="text-red-500 hover:text-red-600 dark:text-red-500/50 dark:hover:text-red-500"
               aria-label="Donate"
             >
               <HeartIcon className="h-6 w-6" />
-            </button>
+            </Button>
             <DarkModeToggle />
             <SettingsMenu />
-            <button
+            <Button
               onClick={() => logout()}
-              className="p-2 text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-blue-400 transition-colors"
+              variant="ghost"
+              size="icon"
+              className="text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-blue-400"
               aria-label="Logout"
             >
               <LogoutIcon className="h-6 w-6" />
-            </button>
+            </Button>
           </div>
 
           {/* Mobile hamburger menu */}
           <div className="sm:hidden absolute z-10 top-3 right-3">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <button
-                  className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                   aria-label="Open menu"
                 >
                   <Bars3Icon className="h-6 w-6" />
-                </button>
+                </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-72 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800">
                 <div className="flex flex-col h-full">
@@ -146,29 +153,31 @@ function App() {
                   <div className="flex-1 py-6">
                     <div className="space-y-2">
                       {/* Donate */}
-                      <button
+                      <Button
                         onClick={() => {
                           setIsDonateOpen(true);
                           setMobileMenuOpen(false);
                         }}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
+                        variant="ghost"
+                        className="w-full justify-start gap-3 h-auto px-4 py-3"
                       >
                         <HeartIcon className="h-5 w-5 text-red-500 flex-shrink-0" />
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Support Development</span>
-                      </button>
+                      </Button>
                       
                       {/* Theme Selection */}
                       <div className="px-4 py-3">
                         <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Theme</h3>
                         <div className="space-y-2">
                           {(["light", "dark", "auto"] as const).map((theme) => (
-                            <button
+                            <Button
                               key={theme}
                               onClick={() => handleThemeChange(theme)}
-                              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left ${
+                              variant="ghost"
+                              className={`w-full justify-start gap-3 h-auto px-3 py-2 ${
                                 currentTheme === theme
-                                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                                  : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+                                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                  : "text-gray-700 dark:text-gray-300"
                               }`}
                             >
                               <div className={`w-5 h-5 flex items-center justify-center ${
@@ -184,37 +193,39 @@ function App() {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
                               )}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                       </div>
                       
                       {/* Notifications */}
-                      <button
+                      <Button
                         onClick={() => {
                           setIsNotificationSettingsOpen(true);
                           setMobileMenuOpen(false);
                         }}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
+                        variant="ghost"
+                        className="w-full justify-start gap-3 h-auto px-4 py-3"
                       >
                         <BellIcon className="h-5 w-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Notifications</span>
                         <svg className="w-4 h-4 ml-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   
                   {/* Logout */}
                   <div className="pt-6 border-t border-gray-200 dark:border-gray-800">
-                    <button
+                    <Button
                       onClick={() => logout()}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
+                      variant="ghost"
+                      className="w-full justify-start gap-3 h-auto px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-500 hover:text-red-600 dark:hover:text-red-500"
                     >
-                      <LogoutIcon className="h-5 w-5 text-red-600 dark:text-red-500 flex-shrink-0" />
-                      <span className="text-sm font-medium text-red-600 dark:text-red-500">Sign Out</span>
-                    </button>
+                      <LogoutIcon className="h-5 w-5 flex-shrink-0" />
+                      <span className="text-sm font-medium">Sign Out</span>
+                    </Button>
                   </div>
                 </div>
               </SheetContent>
