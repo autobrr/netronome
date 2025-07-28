@@ -12,6 +12,7 @@ import {
 } from "@heroicons/react/20/solid";
 import { IperfServerModal } from "./IperfServerModal";
 import { getApiUrl } from "@/utils/baseUrl";
+import { showToast } from "@/components/common/Toast";
 import {
   Collapsible,
   CollapsibleContent,
@@ -179,8 +180,13 @@ export const ServerList: React.FC<ServerListProps> = ({
 
       // Refresh the list of saved servers
       await fetchSavedIperfServers();
+      showToast(`Server "${name}" added successfully`, "success");
     } catch (error) {
       console.error("Failed to save server:", error);
+      showToast(
+        error instanceof Error ? error.message : "Failed to save iperf server",
+        "error"
+      );
     }
   };
 
@@ -197,8 +203,13 @@ export const ServerList: React.FC<ServerListProps> = ({
 
       // Refresh the list of saved servers
       await fetchSavedIperfServers();
+      showToast("Server deleted successfully", "success");
     } catch (error) {
       console.error("Failed to delete server:", error);
+      showToast(
+        error instanceof Error ? error.message : "Failed to delete iperf server",
+        "error"
+      );
     }
   };
 
@@ -207,6 +218,9 @@ export const ServerList: React.FC<ServerListProps> = ({
     if (testType === "iperf") {
       fetchSavedIperfServers().catch((error) => {
         console.error("Failed to fetch iperf servers:", error);
+        showToast("Failed to load iperf servers", "error", {
+          description: error instanceof Error ? error.message : "Unknown error",
+        });
       });
     }
   }, [testType]); // Re-run when useIperf changes

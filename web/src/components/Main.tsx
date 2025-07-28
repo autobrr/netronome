@@ -14,6 +14,7 @@ import { DashboardTab } from "./speedtest/DashboardTab";
 import { SpeedTestTab } from "./speedtest/SpeedTestTab";
 import { TracerouteTab } from "./speedtest/TracerouteTab";
 import { MonitorTab } from "./monitor/MonitorTab";
+import { showToast } from "@/components/common/Toast";
 import {
   ChartBarIcon,
   PlayIcon,
@@ -245,6 +246,7 @@ export default function Main({ isPublic = false }: MainProps) {
   const runTest = async () => {
     if (selectedServers.length === 0) {
       setError("Please select at least one server");
+      showToast("Please select a server", "warning");
       return;
     }
 
@@ -284,6 +286,17 @@ export default function Main({ isPublic = false }: MainProps) {
     }
 
     try {
+      // Show toast when test starts
+      const testTypeName =
+        testType === "iperf"
+          ? "iperf3"
+          : testType === "librespeed"
+          ? "Librespeed"
+          : "Speedtest";
+      showToast(`${testTypeName} test started`, "success", {
+        description: `Testing ${selectedServers[0].host}`,
+      });
+
       await speedTestMutation.mutateAsync({
         ...options,
         useIperf: testType === "iperf",
@@ -297,10 +310,13 @@ export default function Main({ isPublic = false }: MainProps) {
       });
     } catch (error) {
       console.error("Error running test:", error);
-      setError(
-        error instanceof Error ? error.message : "An unknown error occurred"
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : "An unknown error occurred";
+      setError(errorMessage);
       setTestStatus("idle");
+      showToast("Failed to start speed test", "error", {
+        description: errorMessage,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -373,6 +389,14 @@ export default function Main({ isPublic = false }: MainProps) {
                 queryClient.invalidateQueries({ queryKey: ["history-chart"] }),
                 queryClient.invalidateQueries({ queryKey: ["schedules"] }),
               ]);
+              // Show success toast with test results
+              if (update.download && update.upload) {
+                showToast("Speed test completed", "success", {
+                  description: `Download: ${update.download.toFixed(
+                    2
+                  )} Mbps, Upload: ${update.upload.toFixed(2)} Mbps`,
+                });
+              }
             }
           }
         } catch (error) {

@@ -85,7 +85,9 @@ export const NotificationSettings: React.FC = () => {
     mutationFn: notificationsApi.createChannel,
     onSuccess: (newChannel) => {
       queryClient.invalidateQueries({ queryKey: ["notification-channels"] });
-      showToast("Notification channel created", "success");
+      showToast("Notification channel created", "success", {
+        description: `"${newChannel.name}" has been added`,
+      });
       setShowAddChannel(false);
       setActiveChannelId(newChannel.id);
     },
@@ -102,7 +104,9 @@ export const NotificationSettings: React.FC = () => {
       notificationsApi.updateChannel(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notification-channels"] });
-      showToast("Channel updated", "success");
+      showToast("Channel updated", "success", {
+        description: "Your changes have been saved",
+      });
     },
     onError: () => {
       showToast("Failed to update channel", "error");
@@ -111,10 +115,16 @@ export const NotificationSettings: React.FC = () => {
 
   const deleteChannelMutation = useMutation({
     mutationFn: notificationsApi.deleteChannel,
-    onSuccess: () => {
+    onSuccess: (_, channelId) => {
+      // Store the deleted channel data for potential undo
+      const deletedChannel = channels.find((ch) => ch.id === channelId);
+      
       queryClient.invalidateQueries({ queryKey: ["notification-channels"] });
       queryClient.invalidateQueries({ queryKey: ["notification-rules"] });
-      showToast("Channel deleted", "success");
+      
+      showToast("Channel deleted", "success", {
+        description: deletedChannel ? `"${deletedChannel.name}" has been removed` : undefined
+      });
       setActiveChannelId(null);
     },
     onError: () => {
@@ -125,7 +135,9 @@ export const NotificationSettings: React.FC = () => {
   const testChannelMutation = useMutation({
     mutationFn: notificationsApi.testChannel,
     onSuccess: () => {
-      showToast("Test notification sent!", "success");
+      showToast("Test notification sent!", "success", {
+        description: "Check your notification service",
+      });
     },
     onError: () => {
       showToast("Failed to send test notification", "error");
@@ -288,7 +300,9 @@ export const NotificationSettings: React.FC = () => {
 
     try {
       await Promise.all(promises);
-      showToast("Notification settings saved", "success");
+      showToast("Notification settings saved", "success", {
+        description: "All changes have been applied",
+      });
       setPendingChanges(new Map());
       setHasUnsavedChanges(false);
     } catch (error) {

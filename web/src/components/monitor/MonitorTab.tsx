@@ -10,6 +10,7 @@ import { MonitorAgentList } from "./MonitorAgentList";
 import { MonitorAgentForm } from "./MonitorAgentForm";
 import { MonitorAgentDetailsTabs } from "./MonitorAgentDetailsTabs";
 import { MonitorDataPrefetcher } from "./MonitorDataPrefetcher";
+import { showToast } from "@/components/common/Toast";
 import {
   ArrowLeftIcon,
   PencilIcon,
@@ -86,9 +87,17 @@ export const MonitorTab: React.FC = () => {
   // Create agent mutation
   const createMutation = useMutation({
     mutationFn: createMonitorAgent,
-    onSuccess: () => {
+    onSuccess: (newAgent) => {
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       setIsFormOpen(false);
+      showToast("Agent created", "success", {
+        description: `${newAgent.name} has been added successfully`,
+      });
+    },
+    onError: (error: Error) => {
+      showToast("Failed to create agent", "error", {
+        description: error.message || "Unable to create the monitoring agent",
+      });
     },
   });
 
@@ -114,6 +123,14 @@ export const MonitorTab: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       setIsFormOpen(false);
       setEditingAgent(null);
+      showToast("Agent updated", "success", {
+        description: "Agent has been updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      showToast("Failed to update agent", "error", {
+        description: error.message || "Unable to update the monitoring agent",
+      });
     },
   });
 
@@ -135,6 +152,16 @@ export const MonitorTab: React.FC = () => {
 
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       setSelectedAgent(null);
+      
+      const deletedAgentName = agentToDelete?.name || "Agent";
+      showToast("Agent deleted", "success", {
+        description: `${deletedAgentName} has been removed`
+      });
+    },
+    onError: (error: Error) => {
+      showToast("Failed to delete agent", "error", {
+        description: error.message || "Unable to delete the monitoring agent",
+      });
     },
   });
 

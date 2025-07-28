@@ -8,6 +8,7 @@ import { TracerouteResult, TracerouteUpdate } from "@/types/types";
 import { runTraceroute } from "@/api/speedtest";
 import { extractHostname } from "../utils/tracerouteUtils";
 import { DEFAULT_TRACEROUTE_CONFIG } from "../constants/tracerouteConstants";
+import { showToast } from "@/components/common/Toast";
 
 interface UseTracerouteExecutionProps {
   onStatusUpdate?: (status: TracerouteUpdate | null) => void;
@@ -47,14 +48,19 @@ export const useTracerouteExecution = ({
       queryClient.setQueryData(["traceroute", "results"], data);
       onStatusUpdate?.(null);
       onError?.(null);
+      showToast("Traceroute completed", "success", {
+        description: `Route to ${data.destination} traced successfully (${data.hops.length} hops)`,
+      });
     },
     onError: (error: Error) => {
       console.error("Traceroute failed:", error);
       onStatusUpdate?.(null);
-      onError?.(
-        error.message ||
-          "Traceroute failed. Please check the hostname and try again.",
-      );
+      const errorMessage = error.message ||
+        "Traceroute failed. Please check the hostname and try again.";
+      onError?.(errorMessage);
+      showToast("Traceroute failed", "error", {
+        description: errorMessage,
+      });
     },
   });
 

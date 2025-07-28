@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { Schedule, Server, SavedIperfServer } from "@/types/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSchedules } from "@/api/speedtest";
+import { showToast } from "@/components/common/Toast";
 import {
   Select,
   SelectContent,
@@ -246,7 +247,7 @@ export default function ScheduleManager({
 
   const handleCreateSchedule = async () => {
     if (selectedServers.length === 0) {
-      setError("Please select at least one server");
+      showToast("Please select at least one server", "warning");
       return;
     }
 
@@ -291,10 +292,19 @@ export default function ScheduleManager({
       await response.json();
       // Invalidate and refetch schedules
       queryClient.invalidateQueries({ queryKey: ["schedules"] });
+      
+      // Show success toast
+      const scheduleDescription = scheduleType === "exact" 
+        ? `Daily at ${exactTimes.length === 1 ? timeOptions.find(opt => opt.value === exactTimes[0])?.label : `${exactTimes.length} times`}`
+        : intervalOptions.find(opt => opt.value === interval)?.label || interval;
+      
+      showToast("Schedule created successfully", "success", {
+        description: scheduleDescription
+      });
     } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to create schedule"
-      );
+      const errorMessage = error instanceof Error ? error.message : "Failed to create schedule";
+      setError(errorMessage);
+      showToast(errorMessage, "error");
       // Invalidate and refetch schedules on error
       queryClient.invalidateQueries({ queryKey: ["schedules"] });
     }
@@ -317,10 +327,12 @@ export default function ScheduleManager({
           errorData.message || `HTTP error! status: ${response.status}`
         );
       }
+      
+      showToast("Schedule deleted successfully", "success");
     } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to delete schedule"
-      );
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete schedule";
+      setError(errorMessage);
+      showToast(errorMessage, "error");
       // Invalidate and refetch schedules on error
       queryClient.invalidateQueries({ queryKey: ["schedules"] });
     }

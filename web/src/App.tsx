@@ -15,6 +15,7 @@ import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { Button } from "@/components/ui/Button";
+import { Toaster } from "@/components/ui/sonner";
 import {
   Sheet,
   SheetContent,
@@ -256,6 +257,7 @@ function App() {
       </Dialog>
 
       <Outlet />
+      <Toaster position="bottom-right" />
     </div>
   );
 }

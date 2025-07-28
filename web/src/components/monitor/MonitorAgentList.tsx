@@ -20,6 +20,7 @@ import { AgentIcon } from "@/utils/agentIcons";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { TailscaleLogo } from "../icons/TailscaleLogo";
 import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
+import { showToast } from "@/components/common/Toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +64,6 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
     null
   );
   const [isDeleting, setIsDeleting] = React.useState(false);
-
 
   React.useEffect(() => {
     const handleStorageChange = () => {
@@ -229,7 +229,9 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
       <Card>
         <CardHeader className="py-2 sm:py-3 px-3 sm:px-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-            <CardTitle className="text-sm sm:text-base">Netronome Agents</CardTitle>
+            <CardTitle className="text-sm sm:text-base">
+              Netronome Agents
+            </CardTitle>
             {!isLoading && agents.length > 0 && (
               <div className="relative w-full sm:w-72">
                 <Input
@@ -354,8 +356,8 @@ const AgentStatusCell: React.FC<{ agent: AgentTableData }> = ({ agent }) => {
   // Show loading state while checking status
   if (isLoadingStatus) {
     return (
-      <Badge 
-        variant="secondary" 
+      <Badge
+        variant="secondary"
         className="gap-1.5 dark:bg-gray-700/50 dark:border-gray-600"
       >
         <span className="relative inline-flex h-2 w-2">
@@ -395,7 +397,12 @@ const AgentBandwidthCell: React.FC<{ agent: AgentTableData }> = ({ agent }) => {
     includeHardwareStats: false,
   });
 
-  if (!agent.enabled || isLoadingStatus || !status?.connected || !status.liveData) {
+  if (
+    !agent.enabled ||
+    isLoadingStatus ||
+    !status?.connected ||
+    !status.liveData
+  ) {
     return <span className="text-sm text-gray-400">-</span>;
   }
 
@@ -478,6 +485,9 @@ const AgentActionsCell: React.FC<AgentActionsCellProps> = ({
       const newFeatured = currentFeatured.filter((id) => id !== agent.id);
       setFeaturedAgentIds(newFeatured);
       setIsFeatured(false);
+      showToast("Agent unfeatured", "success", {
+        description: `${agent.name} removed from dashboard`,
+      });
     } else {
       const validCurrentFeatured = Array.isArray(currentFeatured)
         ? currentFeatured.filter((id) => typeof id === "number")
@@ -493,9 +503,9 @@ const AgentActionsCell: React.FC<AgentActionsCellProps> = ({
       }
 
       if (existingFeatured.length >= 3) {
-        alert(
-          "You can only feature up to 3 agents at a time. Please unfeature an agent first."
-        );
+        showToast("Feature limit reached", "error", {
+          description: "You can only feature up to 3 agents at a time",
+        });
         return;
       }
 
@@ -507,6 +517,9 @@ const AgentActionsCell: React.FC<AgentActionsCellProps> = ({
       const newFeatured = [...existingFeatured, agent.id];
       setFeaturedAgentIds(newFeatured);
       setIsFeatured(true);
+      showToast("Agent featured", "success", {
+        description: `${agent.name} added to dashboard`,
+      });
     }
 
     window.dispatchEvent(new Event("storage"));
