@@ -331,6 +331,7 @@ type MonitorSystemInfo struct {
 	Hostname      string    `db:"hostname" json:"hostname"`
 	Kernel        string    `db:"kernel" json:"kernel"`
 	VnstatVersion string    `db:"vnstat_version" json:"vnstatVersion"`
+	AgentVersion  string    `db:"agent_version" json:"agentVersion"`
 	CPUModel      string    `db:"cpu_model" json:"cpuModel"`
 	CPUCores      int       `db:"cpu_cores" json:"cpuCores"`
 	CPUThreads    int       `db:"cpu_threads" json:"cpuThreads"`
