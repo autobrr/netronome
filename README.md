@@ -395,7 +395,6 @@ Continuous network monitoring with MTR integration and performance tracking.
 
 #### Important Notes
 
-- Monitors do NOT auto-start on server restart (prevents network congestion)
 - MTR requires elevated privileges for full functionality
 - Overall packet loss can be 0% even with intermediate hop timeouts (normal behavior)
 
