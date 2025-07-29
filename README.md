@@ -86,7 +86,15 @@ Advanced network path analysis with:
 ### System Monitoring
 
 <p align="center">
-  <img src=".github/assets/agents-systeminfo.png" alt="System Monitoring Interface">
+  <img src=".github/assets/agents-dashboard.png" alt="System Monitoring Dashboard">
+</p>
+
+<p align="center">
+  <img src=".github/assets/agents-bandwidth.png" alt="Bandwidth Monitoring">
+</p>
+
+<p align="center">
+  <img src=".github/assets/agents-systeminfo.png" alt="Agent System Information">
 </p>
 
 Monitor multiple servers from one dashboard:
@@ -421,6 +429,10 @@ Enable country flags and ASN information in traceroute results (optional):
 Netronome works perfectly without GeoIP - this just adds visual country indicators.
 
 ### Notifications
+
+<p align="center">
+  <img src=".github/assets/notifications.png" alt="Notifications Configuration">
+</p>
 
 Configure notifications through the web interface at **Settings > Notifications**.
 
