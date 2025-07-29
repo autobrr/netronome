@@ -302,6 +302,44 @@ export NETRONOME__DB_PASSWORD=your-password
 export NETRONOME__DB_NAME=netronome
 ```
 
+### Reverse Proxy with Base URL
+
+To serve Netronome under a subpath (e.g., `/netronome`) behind nginx:
+
+#### 1. Configure Netronome
+
+Set the base URL in your `config.toml`:
+
+```toml
+[server]
+host = "127.0.0.1"  # Listen only on localhost since nginx will proxy
+port = 7575
+base_url = "/netronome"  # The subpath you want to use
+```
+
+#### 2. Configure nginx
+
+Add this location block to your nginx configuration:
+
+```nginx
+# Redirect /netronome to /netronome/
+location = /netronome {
+    return 301 /netronome/;
+}
+
+location /netronome/ {
+    proxy_pass http://127.0.0.1:7575;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 86400;
+}
+```
+
+That's it! The minimal configuration above handles WebSocket/SSE for real-time features.
+
 ## Common Use Cases
 
 ### Home Network Monitoring
