@@ -480,7 +480,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
               stiffness: 300,
               damping: 20,
             }}
-            className="bg-gray-50/95 dark:bg-gray-850/95 px-3 sm:px-4 pt-0 pb-6 rounded-b-xl flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
+            className="bg-gray-50/95 dark:bg-gray-850/95 px-3 sm:px-4 sm:pt-0 pt-6 pb-6 rounded-b-xl flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
           >
             {/* Desktop Table View */}
             <div className="hidden md:block">

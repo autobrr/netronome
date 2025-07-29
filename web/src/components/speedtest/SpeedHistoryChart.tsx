@@ -633,11 +633,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                 stiffness: 300,
                 damping: 20,
               }}
-              className="bg-gray-50/95 dark:bg-gray-850/95 px-2 sm:px-4 rounded-b-xl flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
+              className="bg-gray-50/95 dark:bg-gray-850/95 px-3 sm:px-4 rounded-b-xl flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
             >
-              <div className="pt-2 sm:pt-3 pb-3 sm:pb-4">
+              <div className="pt-2 sm:pt-0 pb-3 sm:pb-4">
                 {/* Controls */}
-                <div className="flex flex-col gap-3 mb-2">
+                <div className="flex flex-col gap-3 mb-4">
                   {/* Metric Toggle Controls */}
                   <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-2 w-full sm:w-auto">
                     {[
@@ -772,7 +772,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                 </div>
 
                 {/* Chart Area */}
-                <div className="h-[250px] sm:h-[300px] md:h-[400px] -mx-2 sm:mx-0">
+                <div className="h-[250px] sm:h-[300px] md:h-[400px] -mx-3 sm:mx-0">
                   <AnimatePresence mode="wait">
                     {isLoading ? (
                       <ChartSkeleton />
