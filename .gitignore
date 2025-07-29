@@ -77,3 +77,4 @@ netronome.db.backup
 
 .mcp.json
 output/*
+test/*
