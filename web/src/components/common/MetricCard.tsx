@@ -40,23 +40,25 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 
   return (
     <div
-      className={`bg-gray-50/95 dark:bg-gray-850/95 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-lg ${statusColors[status]} ${className}`}
+      className={`bg-gray-50/95 dark:bg-gray-850/95 p-3 sm:p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-lg ${statusColors[status]} ${className}`}
     >
-      <div className="flex items-center gap-3 mb-2">
-        <div className="text-gray-600 dark:text-gray-400">{icon}</div>
-        <h3 className="text-gray-700 dark:text-gray-300 font-medium">
+      <div className="flex items-center gap-2 sm:gap-3 mb-2">
+        <div className="text-gray-600 dark:text-gray-400 flex-shrink-0">{icon}</div>
+        <h3 className="text-gray-700 dark:text-gray-300 font-medium text-sm sm:text-base truncate">
           {title}
         </h3>
       </div>
-      <div className="flex items-baseline gap-2">
-        <span className={`text-2xl font-bold ${valueColors[status]}`}>
+      <div className="flex items-baseline gap-1 sm:gap-2">
+        <span className={`text-xl sm:text-2xl font-bold ${valueColors[status]}`}>
           {value}
         </span>
-        <span className="text-gray-600 dark:text-gray-400">{unit}</span>
+        <span className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">{unit}</span>
       </div>
       {average && (
-        <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Average: {average} {unit}
+        <div className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
+          <span className="hidden sm:inline">Average: </span>
+          <span className="sm:hidden">Avg: </span>
+          {average} {unit}
         </div>
       )}
     </div>

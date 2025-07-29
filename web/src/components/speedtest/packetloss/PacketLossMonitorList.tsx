@@ -13,7 +13,6 @@ import {
   ChartBarIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
-import { Button } from "@/components/ui/Button";
 import { PacketLossMonitor } from "@/types/types";
 import { formatInterval } from "./utils/packetLossUtils";
 import { DeleteMonitorModal } from "./DeleteMonitorModal";
@@ -322,47 +321,50 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
 
               {/* Action Buttons */}
               <div className="flex items-center gap-1 ml-4">
-                <Button
+                <button
+                  className={`p-1.5 rounded-md transition-colors duration-200 ${
+                    togglingMonitorId === monitor.id
+                      ? "opacity-50 cursor-not-allowed"
+                      : monitor.enabled
+                      ? "hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400"
+                      : "hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-400"
+                  }`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onToggle(monitor.id, !monitor.enabled);
                   }}
                   disabled={togglingMonitorId === monitor.id}
-                  isLoading={togglingMonitorId === monitor.id}
-                  className={`px-1 py-1.5 min-w-8 ${
-                    monitor.enabled
-                      ? "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/20"
-                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
-                  }`}
                   title={monitor.enabled ? "Stop Monitor" : "Start Monitor"}
                 >
-                  {monitor.enabled ? (
+                  {togglingMonitorId === monitor.id ? (
+                    <div className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600 dark:border-gray-600 dark:border-t-gray-300" />
+                  ) : monitor.enabled ? (
                     <StopIcon className="w-3.5 h-3.5" />
                   ) : (
                     <PlayIcon className="w-3.5 h-3.5" />
                   )}
-                </Button>
-                <Button
+                </button>
+                <button
+                  className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-900/30 text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-400 transition-colors duration-200"
                   onClick={(e) => {
                     e.stopPropagation();
                     onEdit(monitor);
                   }}
-                  className="px-1 py-1.5 min-w-8 bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/20"
                   title="Edit Monitor"
                 >
                   <PencilIcon className="w-3.5 h-3.5" />
-                </Button>
-                <Button
+                </button>
+                <button
+                  className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400 transition-colors duration-200"
                   onClick={(e) => {
                     e.stopPropagation();
                     setMonitorToDelete(monitor);
                     setDeleteModalOpen(true);
                   }}
-                  className="px-1 py-1.5 min-w-8 bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/20"
                   title="Delete Monitor"
                 >
                   <TrashIcon className="w-3.5 h-3.5" />
-                </Button>
+                </button>
               </div>
             </div>
             <MonitorStatusDisplay

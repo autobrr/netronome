@@ -20,6 +20,7 @@ import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { MonitorUsageModal } from "./MonitorUsageModal";
 import { MONITOR_REFRESH_INTERVALS } from "@/constants/monitorRefreshIntervals";
 import { TailscaleLogo } from "@/components/icons/TailscaleLogo";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface FeaturedMonitorWidgetProps {
   onNavigateToMonitor: (agentId?: number) => void;
@@ -146,10 +147,16 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
             </h3>
             {/* Tailscale indicator */}
             {agent.isTailscale && (
-              <TailscaleLogo
-                className="h-4 w-4 flex-shrink-0"
-                title="Connected through Tailscale"
-              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <TailscaleLogo className="h-4 w-4 flex-shrink-0" title="" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Connected through Tailscale</p>
+                </TooltipContent>
+              </Tooltip>
             )}
             {/* System Stats */}
             {hardwareStats && (
@@ -169,16 +176,22 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
             return <Icon className="h-5 w-5 text-gray-400 flex-shrink-0" />;
           })()}
           {/* Navigate to agent button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onNavigateToAgent();
-            }}
-            className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200"
-            title="View detailed stats"
-          >
-            <ArrowTopRightOnSquareIcon className="h-4 w-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigateToAgent();
+                }}
+                className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200"
+              >
+                <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>View detailed stats</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 

@@ -11,6 +11,19 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faOpenid } from "@fortawesome/free-brands-svg-icons";
 import { Footer } from "@/components/Footer";
 import { getApiUrl } from "@/utils/baseUrl";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/Button";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+
+// Error message mapping for cleaner code
+const ERROR_MESSAGES: Record<string, string> = {
+  "Invalid credentials": "Incorrect username or password",
+  "Invalid request data": "Please check your input and try again",
+  "Failed to get user": "Unable to verify user credentials",
+  "Failed to generate session token": "Authentication failed, please try again",
+};
 
 export default function Login() {
   const { login, checkRegistrationStatus } = useAuth();
@@ -28,7 +41,6 @@ export default function Login() {
 
         if (!status.hasUsers && !status.oidcEnabled) {
           await router.navigate({ to: "/register" });
-          return;
         }
       } catch (err) {
         console.error("Failed to check registration status:", err);
@@ -56,27 +68,14 @@ export default function Login() {
     } catch (err) {
       if (err instanceof Error) {
         const errorMessage = err.message;
-        switch (errorMessage) {
-          case "Invalid credentials":
-            setError("Incorrect username or password");
-            break;
-          case "Invalid request data":
-            setError("Please check your input and try again");
-            break;
-          case "Failed to get user":
-            setError("Unable to verify user credentials");
-            break;
-          case "Failed to generate session token":
-            setError("Authentication failed, please try again");
-            break;
-          default:
-            if (errorMessage.includes("User not found")) {
-              console.log("No users found during login, redirecting...");
-              router.navigate({ to: "/register" });
-              return;
-            }
-            setError("An error occurred while signing in");
+        
+        if (errorMessage.includes("User not found")) {
+          console.log("No users found during login, redirecting...");
+          router.navigate({ to: "/register" });
+          return;
         }
+        
+        setError(ERROR_MESSAGES[errorMessage] || "An error occurred while signing in");
       } else {
         setError("Unable to sign in at this time");
       }
@@ -85,101 +84,99 @@ export default function Login() {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-white dark:bg-gray-900 overflow-hidden">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="h-screen flex items-center justify-center bg-white dark:bg-gray-900 overflow-hidden px-4 sm:px-6">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500" />
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col items-center justify-center bg-white dark:bg-gray-900 pattern overflow-hidden m-0 p-0">
-      <div className="max-w-md w-full px-8 pt-8 pb-4 bg-white/95 dark:bg-gray-850/40 border border-gray-200 dark:border-black/40 rounded-lg shadow-lg">
-        <div className="flex flex-col items-center">
+    <div className="h-screen flex flex-col items-center justify-center bg-white dark:bg-gray-900 pattern overflow-hidden m-0 px-4 sm:px-6">
+      <Card className="w-full max-w-md bg-white/95 dark:bg-gray-850/95 border-gray-200 dark:border-gray-800 shadow-xl">
+        <CardHeader className="text-center pb-2">
           <img
             src={logo}
             alt="Netronome Logo"
-            className="text-white h-16 w-16 mb-2 select-none pointer-events-none"
+            className="h-16 w-16 mx-auto mb-2 select-none pointer-events-none"
           />
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white pointer-events-none select-none">
             Netronome
           </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-500 pointer-events-none select-none mb-0">
+          <p className="text-sm text-gray-600 dark:text-gray-400 pointer-events-none select-none">
             network performance testing
           </p>
-        </div>
+        </CardHeader>
 
-        {oidcEnabled ? (
-          <button
-            onClick={() => handleOIDCLogin()}
-            className="w-full flex justify-center items-center mt-12 py-2 px-4 border border-gray-300 dark:border-gray-900 rounded-md shadow-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-825 text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-450 focus:outline-none focus:ring-1 focus:ring-gray-300 dark:focus:ring-gray-700"
-          >
-            <span
-              className="group relative inline-block"
-              aria-label="Sign in with OpenID"
+        <CardContent className="pt-6">
+          {oidcEnabled ? (
+            <Button
+              onClick={handleOIDCLogin}
+              variant="outline"
+              className="w-full border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
+              size="lg"
             >
-              Sign in with
-              <FontAwesomeIcon
-                icon={faOpenid}
-                className="text-lg ml-2"
-                aria-hidden="true"
-              />
-            </span>
-          </button>
-        ) : (
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-red-100 dark:bg-red-500 dark:bg-opacity-10 border border-red-400 dark:border-red-500 text-red-700 dark:text-red-500 px-4 py-3 rounded">
-                <span className="block sm:inline">{error}</span>
-              </div>
-            )}
+              <span className="flex items-center" aria-label="Sign in with OpenID">
+                Sign in with
+                <FontAwesomeIcon icon={faOpenid} className="text-lg ml-2" aria-hidden="true" />
+              </span>
+            </Button>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-md text-sm">
+                  {error}
+                </div>
+              )}
 
-            <div className="rounded-md shadow-sm -space-y-px">
-              <div>
-                <label htmlFor="username" className="sr-only">
-                  Username
-                </label>
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  autoComplete="username"
-                  required
-                  className="appearance-none rounded-t-md relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                />
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="username" className="sr-only">
+                    Username
+                  </Label>
+                  <Input
+                    id="username"
+                    name="username"
+                    type="text"
+                    autoComplete="username"
+                    required
+                    placeholder="Username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className={cn(
+                      "dark:bg-gray-800 dark:border-gray-700",
+                      error && "border-red-500 dark:border-red-500"
+                    )}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="password" className="sr-only">
+                    Password
+                  </Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={cn(
+                      "dark:bg-gray-800 dark:border-gray-700",
+                      error && "border-red-500 dark:border-red-500"
+                    )}
+                  />
+                </div>
               </div>
-              <div>
-                <label htmlFor="password" className="sr-only">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  className="appearance-none rounded-b-md relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            </div>
 
-            <div>
-              <button
-                type="submit"
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
+              <Button type="submit" className="w-full" size="lg">
                 Sign in
-              </button>
-            </div>
-          </form>
-        )}
-        <Footer />
-      </div>
+              </Button>
+            </form>
+          )}
+          <Footer />
+        </CardContent>
+      </Card>
     </div>
   );
 }

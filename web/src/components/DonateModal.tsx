@@ -15,6 +15,7 @@ import {
 } from "@heroicons/react/24/solid";
 import s0upIcon from "@/assets/sponsors/s0up4200.png";
 import zze0sIcon from "@/assets/sponsors/zze0s.png";
+import { Button } from "@/components/ui/Button";
 
 interface DonationLink {
   name: string;
@@ -114,13 +115,15 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
             leaveTo="opacity-0 scale-95"
           >
             <Dialog.Panel className="mx-auto max-w-md rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 backdrop-blur-xl p-6 shadow-xl transform transition-all relative">
-              <button
+              <Button
                 onClick={onClose}
-                className="absolute top-4 right-4 p-1 rounded-md text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 right-4 h-8 w-8 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                 aria-label="Close dialog"
               >
                 <XMarkIcon className="h-6 w-6" />
-              </button>
+              </Button>
               
               <Dialog.Title className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                 Support Netronome

@@ -14,6 +14,7 @@ import {
   PacketLossMonitor,
 } from "@/types/types";
 import { Button } from "@/components/ui/Button";
+import { showToast } from "@/components/common/Toast";
 
 // Import packet loss components
 import { PacketLossMonitorList } from "./packetloss/PacketLossMonitorList";
@@ -120,7 +121,7 @@ export const TracerouteTab: React.FC = () => {
   const monitorList = monitors || [];
   const monitorStatuses = usePacketLossMonitorStatus(
     monitorList,
-    selectedMonitor?.id,
+    selectedMonitor?.id
   );
 
   const createMutation = useMutation({
@@ -131,12 +132,22 @@ export const TracerouteTab: React.FC = () => {
         queryKey: ["packetloss", "monitors"],
       });
 
+      showToast("Monitor created successfully", "success", {
+        description: `Monitoring ${(variables as any).host}`,
+      });
+
       // Auto-start monitor if requested and we have a valid monitor ID
       if ((variables as any).shouldStartImmediately && newMonitor?.id) {
         startMutation.mutate(newMonitor.id);
       }
 
       handleCancelForm();
+    },
+    onError: (error) => {
+      showToast("Failed to create monitor", "error", {
+        description:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      });
     },
   });
 
@@ -147,20 +158,39 @@ export const TracerouteTab: React.FC = () => {
       await queryClient.refetchQueries({
         queryKey: ["packetloss", "monitors"],
       });
+      showToast(
+        `Monitor ${editingMonitor?.name} updated successfully`,
+        "success"
+      );
       handleCancelForm();
+    },
+    onError: (error) => {
+      showToast(`Failed to update monitor ${editingMonitor?.name}`, "error", {
+        description:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: deletePacketLossMonitor,
-    onSuccess: async () => {
+    onSuccess: async (_, monitorId) => {
+      const deletedMonitor = monitorList.find(m => m.id === monitorId);
       queryClient.invalidateQueries({ queryKey: ["packetloss", "monitors"] });
       await queryClient.refetchQueries({
         queryKey: ["packetloss", "monitors"],
       });
-      if (selectedMonitor?.id === deleteMutation.variables) {
+      if (selectedMonitor?.id === monitorId) {
         setSelectedMonitor(null);
       }
+      showToast("Monitor deleted successfully", "success", {
+        description: deletedMonitor ? `${deletedMonitor.name} has been removed` : "Monitor has been removed"
+      });
+    },
+    onError: (error) => {
+      showToast("Failed to delete monitor", "error", {
+        description: error instanceof Error ? error.message : "Unknown error occurred"
+      });
     },
   });
 
@@ -192,6 +222,18 @@ export const TracerouteTab: React.FC = () => {
       });
       await queryClient.refetchQueries({
         queryKey: ["packetloss", "history", monitorId],
+      });
+      const monitor = monitorList.find((m) => m.id === monitorId);
+      showToast("Monitor stopped", "success", {
+        description: monitor
+          ? `Stopped monitoring ${monitor.name}`
+          : "Monitor is now inactive",
+      });
+    },
+    onError: (error) => {
+      showToast("Failed to stop monitor", "error", {
+        description:
+          error instanceof Error ? error.message : "Unknown error occurred",
       });
     },
   });
@@ -291,8 +333,9 @@ export const TracerouteTab: React.FC = () => {
     <div className="flex flex-col gap-6">
       {/* Mode Selector Tabs */}
       <div className="flex gap-2 p-1 bg-gray-50/95 dark:bg-gray-850 rounded-lg border border-gray-200 dark:border-gray-800">
-        <button
+        <Button
           onClick={() => setMode("traceroute")}
+          variant="ghost"
           className={`relative flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${
             mode === "traceroute"
               ? "text-blue-600 dark:text-blue-400"
@@ -313,9 +356,10 @@ export const TracerouteTab: React.FC = () => {
             <GlobeAltIcon className="w-4 h-4" />
             <span className="font-medium">Single Trace</span>
           </span>
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => setMode("monitors")}
+          variant="ghost"
           className={`relative flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${
             mode === "monitors"
               ? "text-purple-600 dark:text-purple-400"
@@ -336,7 +380,7 @@ export const TracerouteTab: React.FC = () => {
             <ChartBarIcon className="w-4 h-4" />
             <span className="font-medium">Monitors</span>
           </span>
-        </button>
+        </Button>
       </div>
 
       {mode === "traceroute" ? (
@@ -420,10 +464,7 @@ export const TracerouteTab: React.FC = () => {
                   </p>
                 </div>
 
-                <Button
-                  onClick={() => setShowForm(true)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700"
-                >
+                <Button onClick={() => setShowForm(true)} variant="default">
                   Add
                 </Button>
               </div>
@@ -441,8 +482,8 @@ export const TracerouteTab: React.FC = () => {
                   startMutation.isPending
                     ? startMutation.variables
                     : stopMutation.isPending
-                      ? stopMutation.variables
-                      : null
+                    ? stopMutation.variables
+                    : null
                 }
               />
             </div>

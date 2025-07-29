@@ -5,7 +5,6 @@
 
 import React from "react";
 import { TracerouteUpdate } from "@/types/types";
-import { STYLES } from "./constants/tracerouteConstants";
 
 interface TracerouteProgressProps {
   tracerouteStatus: TracerouteUpdate;
@@ -19,7 +18,7 @@ export const TracerouteProgress: React.FC<TracerouteProgressProps> = ({
   }
 
   return (
-    <div className={STYLES.progressContainer}>
+    <div className="mb-6 p-4 backdrop-blur-sm bg-blue-500/10 border border-blue-500/30 rounded-lg">
       <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-3">
         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 dark:border-blue-400"></div>
         <span>Running traceroute to {tracerouteStatus.host}...</span>

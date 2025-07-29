@@ -3,16 +3,54 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+"use client";
+
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { SpeedTestResult, TimeRange } from "@/types/types";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import { MetricCard } from "@/components/common/MetricCard";
 import { FeaturedMonitorWidget } from "@/components/monitor/FeaturedMonitorWidget";
-import { FaWaveSquare, FaShare, FaArrowDown, FaArrowUp } from "react-icons/fa";
+import {
+  FaWaveSquare,
+  FaArrowDown,
+  FaArrowUp,
+  FaGripVertical,
+} from "react-icons/fa";
 import { IoIosPulse } from "react-icons/io";
-import { Disclosure, DisclosureButton } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
+import { ShareIcon } from "@heroicons/react/24/outline";
+import { ShareIcon as ShareIconSolid } from "@heroicons/react/24/solid";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import { DataTable } from "@/components/ui/data-table";
+import { speedTestColumns, speedTestMobileColumns } from "./columns";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface DashboardTabProps {
   latestTest: SpeedTestResult | null;
@@ -25,6 +63,80 @@ interface DashboardTabProps {
   onNavigateToSpeedTest?: () => void;
   onNavigateToVnstat?: (agentId?: number) => void;
 }
+
+interface SortableItemProps {
+  id: string;
+  children: React.ReactNode;
+  dragHandleClassName?: string;
+}
+
+const SortableItem: React.FC<SortableItemProps> = ({
+  id,
+  children,
+  dragHandleClassName = "drag-handle",
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+    setActivatorNodeRef,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      {React.cloneElement(children as React.ReactElement<any>, {
+        dragHandleRef: setActivatorNodeRef,
+        dragHandleListeners: listeners,
+        dragHandleClassName,
+      })}
+    </div>
+  );
+};
+
+// Wrapper component for SpeedHistoryChart with drag handle
+interface DraggableSpeedHistoryChartProps {
+  timeRange: TimeRange;
+  onTimeRangeChange: (range: TimeRange) => void;
+  isPublic?: boolean;
+  hasAnyTests?: boolean;
+  hasCurrentRangeTests?: boolean;
+  dragHandleRef?: (node: HTMLElement | null) => void;
+  dragHandleListeners?: any;
+  dragHandleClassName?: string;
+}
+
+const DraggableSpeedHistoryChart: React.FC<DraggableSpeedHistoryChartProps> = ({
+  dragHandleRef,
+  dragHandleListeners,
+  dragHandleClassName,
+  ...props
+}) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      transition={{ duration: 0.5 }}
+    >
+      <SpeedHistoryChart
+        {...props}
+        showDragHandle={true}
+        dragHandleRef={dragHandleRef}
+        dragHandleListeners={dragHandleListeners}
+        dragHandleClassName={dragHandleClassName}
+      />
+    </motion.div>
+  );
+};
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({
   latestTest,
@@ -43,18 +155,37 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     return saved === null ? true : saved === "true";
   });
 
+  // Initialize section order from localStorage or default
+  const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
+    const saved = localStorage.getItem("dashboard-section-order");
+    return saved ? JSON.parse(saved) : ["history", "recent"];
+  });
+
+  // State for share button hover
+  const [isShareHovered, setIsShareHovered] = useState(false);
+
+  // Initialize drag sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   // Persist recent tests open state to localStorage
   useEffect(() => {
     localStorage.setItem("recent-tests-open", isRecentTestsOpen.toString());
   }, [isRecentTestsOpen]);
 
+  // Persist section order to localStorage
+  useEffect(() => {
+    localStorage.setItem(
+      "dashboard-section-order",
+      JSON.stringify(sectionOrder)
+    );
+  }, [sectionOrder]);
+
   const displayedTests = tests.slice(0, displayCount);
-  const formatSpeed = (speed: number) => {
-    if (speed >= 1000) {
-      return `${(speed / 1000).toFixed(1)} Gbps`;
-    }
-    return `${speed.toFixed(0)} Mbps`;
-  };
 
   const calculateAverage = (field: keyof SpeedTestResult): string => {
     if (tests.length === 0) return "N/A";
@@ -76,28 +207,40 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     return avg.toFixed(2);
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setSectionOrder((items) => {
+        const oldIndex = items.indexOf(active.id as string);
+        const newIndex = items.indexOf(over.id as string);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* No History Available message */}
       {!hasAnyTests && (
-        <div className="max-w-xl mx-auto bg-gray-50/95 dark:bg-gray-850/95 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900">
-          <div className="text-center space-y-4">
+        <div className="max-w-xl mx-auto bg-gray-50/95 dark:bg-gray-850/95 p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900">
+          <div className="text-center space-y-3 sm:space-y-4">
             <div>
-              <h2 className="text-gray-900 dark:text-white text-xl font-semibold mb-2">
+              <h2 className="text-gray-900 dark:text-white text-lg sm:text-xl font-semibold mb-1 sm:mb-2">
                 No History Available
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
                 Start monitoring your network performance
               </p>
             </div>
 
-            {/* Empty Chart Visualization */}
-            <div className="my-6">
-              <div className="flex items-end justify-center gap-2 h-24">
+            {/* Empty Chart Visualization - more compact on mobile */}
+            <div className="my-4 sm:my-6">
+              <div className="flex items-end justify-center gap-1 sm:gap-2 h-16 sm:h-24">
                 {[40, 60, 35, 70, 45, 55, 65].map((height, i) => (
                   <div
                     key={i}
-                    className="w-8 bg-gray-300/50 dark:bg-gray-700/50 rounded-t-sm transition-all duration-500"
+                    className="w-6 sm:w-8 bg-gray-300/50 dark:bg-gray-700/50 rounded-t-sm transition-all duration-500"
                     style={{ height: `${height}%`, opacity: 0.3 + i * 0.1 }}
                   />
                 ))}
@@ -110,7 +253,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 Go to the{" "}
                 <button
                   onClick={onNavigateToSpeedTest}
-                  className="inline-flex items-center mx-1 px-2 py-1 rounded-lg transition-colors text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20"
+                  className="inline-flex items-center mx-1 px-3 py-2 sm:px-2 sm:py-1 min-h-[44px] sm:min-h-0 rounded-lg transition-colors text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 touch-manipulation"
                   disabled={!onNavigateToSpeedTest}
                 >
                   Speed Test tab
@@ -150,7 +293,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 : "N/A"}
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 cursor-default relative">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 cursor-default relative">
             <MetricCard
               icon={<IoIosPulse className="w-5 h-5 text-amber-500" />}
               title="Latency"
@@ -182,294 +325,227 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               }
             />
 
-            {/* Floating Share Button over Jitter Card */}
+            {/* Floating Share Button positioned on the grid */}
             {!isPublic && onShareClick && (
-              <motion.button
-                onClick={onShareClick}
-                className="absolute top-3 right-3 p-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 hover:border-blue-500/50 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-all duration-200 backdrop-blur-sm z-10 opacity-80 hover:opacity-100"
-                aria-label="Share public speed test page"
-              >
-                <FaShare className="w-2.5 h-2.5" />
-              </motion.button>
+              <div className="absolute top-2 right-2 sm:top-3 sm:right-3">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.button
+                      onClick={onShareClick}
+                      onMouseEnter={() => setIsShareHovered(true)}
+                      onMouseLeave={() => setIsShareHovered(false)}
+                      className="relative p-2 min-w-[36px] min-h-[36px] text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200 z-10 opacity-60 hover:opacity-100 touch-manipulation flex items-center justify-center"
+                      aria-label="Share public speed test page"
+                      whileTap={{ scale: 0.9 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {isShareHovered ? (
+                        <ShareIconSolid className="w-4 h-4" />
+                      ) : (
+                        <ShareIcon className="w-4 h-4" />
+                      )}
+                    </motion.button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Share speed test results</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             )}
           </div>
         </motion.div>
       )}
 
-      {/* Speedtest History Chart */}
+      {/* Draggable Sections */}
       {hasAnyTests && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          transition={{ duration: 0.5 }}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
         >
-          <SpeedHistoryChart
-            timeRange={timeRange}
-            onTimeRangeChange={onTimeRangeChange}
-            isPublic={isPublic}
-            hasAnyTests={hasAnyTests}
-            hasCurrentRangeTests={tests.length > 0}
-          />
-        </motion.div>
+          <SortableContext
+            items={sectionOrder}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-6">
+              {sectionOrder.map((sectionId) => {
+                if (sectionId === "history") {
+                  return (
+                    <SortableItem key="history" id="history">
+                      <DraggableSpeedHistoryChart
+                        timeRange={timeRange}
+                        onTimeRangeChange={onTimeRangeChange}
+                        isPublic={isPublic}
+                        hasAnyTests={hasAnyTests}
+                        hasCurrentRangeTests={tests.length > 0}
+                      />
+                    </SortableItem>
+                  );
+                } else if (sectionId === "recent" && tests.length > 0) {
+                  return (
+                    <SortableItem key="recent" id="recent">
+                      <DraggableRecentSpeedtests
+                        tests={tests}
+                        displayedTests={displayedTests}
+                        displayCount={displayCount}
+                        setDisplayCount={setDisplayCount}
+                        isRecentTestsOpen={isRecentTestsOpen}
+                        setIsRecentTestsOpen={setIsRecentTestsOpen}
+                      />
+                    </SortableItem>
+                  );
+                }
+                return null;
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
+    </div>
+  );
+};
 
-      {/* Recent Speedtests Summary */}
-      {tests.length > 0 && (
-        <Disclosure defaultOpen={isRecentTestsOpen}>
-          {({ open }) => {
-            // Update isRecentTestsOpen when disclosure state changes
-            useEffect(() => {
-              setIsRecentTestsOpen(open);
-            }, [open]);
+// Wrapper component for Recent Speedtests with drag handle
+interface DraggableRecentSpeedtestsProps {
+  tests: SpeedTestResult[];
+  displayedTests: SpeedTestResult[];
+  displayCount: number;
+  setDisplayCount: (count: number | ((prev: number) => number)) => void;
+  isRecentTestsOpen: boolean;
+  setIsRecentTestsOpen: (open: boolean) => void;
+  dragHandleRef?: (node: HTMLElement | null) => void;
+  dragHandleListeners?: any;
+  dragHandleClassName?: string;
+}
 
-            return (
-              <div className="flex flex-col h-full">
-                <DisclosureButton
-                  className={`flex justify-between items-center w-full px-4 py-2 bg-gray-50/95 dark:bg-gray-850/95 ${
-                    open ? "rounded-t-xl" : "rounded-xl"
-                  } shadow-lg border border-gray-200 dark:border-gray-800 ${
-                    open ? "border-b-0" : ""
-                  } text-left`}
-                >
-                  <h2 className="text-gray-900 dark:text-white text-xl font-semibold p-1 select-none">
-                    Recent Speedtests
-                  </h2>
-                  <ChevronDownIcon
-                    className={`${
-                      open ? "transform rotate-180" : ""
-                    } w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200`}
-                  />
-                </DisclosureButton>
+const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
+  tests,
+  displayedTests,
+  displayCount,
+  setDisplayCount,
+  isRecentTestsOpen,
+  setIsRecentTestsOpen,
+  dragHandleRef,
+  dragHandleListeners,
+  dragHandleClassName,
+}) => {
+  return (
+    <div className="shadow-lg rounded-xl overflow-hidden">
+      <Collapsible
+        open={isRecentTestsOpen}
+        onOpenChange={setIsRecentTestsOpen}
+        className="flex flex-col h-full"
+      >
+        <CollapsibleTrigger
+          className={cn(
+            "flex justify-between items-center w-full px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-50/95 dark:bg-gray-850/95",
+            isRecentTestsOpen ? "rounded-t-xl" : "rounded-xl",
+            "border border-gray-200 dark:border-gray-800",
+            isRecentTestsOpen ? "border-b-0" : "",
+            "text-left transition-all duration-200 hover:bg-gray-100/95 dark:hover:bg-gray-800/95 touch-manipulation"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <div
+              ref={dragHandleRef}
+              {...dragHandleListeners}
+              className={cn(
+                "cursor-grab active:cursor-grabbing touch-none p-1 -m-1",
+                dragHandleClassName
+              )}
+            >
+              <FaGripVertical className="w-4 h-4 text-gray-400 dark:text-gray-600" />
+            </div>
+            <h2 className="text-gray-900 dark:text-white text-lg sm:text-xl font-semibold p-1 select-none">
+              Recent Speedtests
+            </h2>
+          </div>
+          <div className="p-1 -m-1">
+            <ChevronDownIcon
+              className={cn(
+                isRecentTestsOpen ? "transform rotate-180" : "",
+                "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200"
+              )}
+            />
+          </div>
+        </CollapsibleTrigger>
 
-                {open && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      duration: 0.5,
-                      type: "spring",
-                      stiffness: 300,
-                      damping: 20,
-                    }}
-                    className="bg-gray-50/95 dark:bg-gray-850/95 px-4 pt-3 pb-6 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
-                  >
-                    {/* Desktop Table View */}
-                    <div className="hidden md:block overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-gray-300 dark:border-gray-800">
-                            <th className="text-left py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Date
-                            </th>
-                            <th className="text-left py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Server
-                            </th>
-                            <th className="text-left py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Type
-                            </th>
-                            <th className="text-right py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Latency
-                            </th>
-                            <th className="text-right py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Jitter
-                            </th>
-                            <th className="text-right py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Download
-                            </th>
-                            <th className="text-right py-3 px-2 text-gray-600 dark:text-gray-400 font-medium">
-                              Upload
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {displayedTests.map((test) => (
-                            <motion.tr
-                              key={test.id}
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.3 }}
-                              className="border-b border-gray-300/50 dark:border-gray-800/50 last:border-0 hover:bg-gray-200/30 dark:hover:bg-gray-800/30 transition-colors"
-                            >
-                              <td className="py-3 px-2 text-gray-700 dark:text-gray-300">
-                                {new Date(test.createdAt).toLocaleString(
-                                  undefined,
-                                  {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }
-                                )}
-                              </td>
-                              <td
-                                className="py-3 px-2 text-gray-700 dark:text-gray-300 truncate max-w-[150px]"
-                                title={test.serverName}
-                              >
-                                {test.serverName}
-                              </td>
-                              <td className="py-3 px-2">
-                                <span
-                                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                    test.testType === "iperf3"
-                                      ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                                      : test.testType === "librespeed"
-                                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                                      : "bg-emerald-200/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                                  }`}
-                                >
-                                  {test.testType === "iperf3"
-                                    ? "iperf3"
-                                    : test.testType === "librespeed"
-                                    ? "LibreSpeed"
-                                    : "Speedtest.net"}
-                                </span>
-                              </td>
-                              <td className="py-3 px-2 text-right text-amber-600 dark:text-amber-400 font-mono">
-                                {parseFloat(test.latency).toFixed(1)}ms
-                              </td>
-                              <td className="py-3 px-2 text-right text-purple-600 dark:text-purple-400 font-mono">
-                                {test.jitter
-                                  ? `${test.jitter.toFixed(1)}ms`
-                                  : "—"}
-                              </td>
-                              <td className="py-3 px-2 text-right text-blue-600 dark:text-blue-400 font-mono">
-                                {formatSpeed(test.downloadSpeed)}
-                              </td>
-                              <td className="py-3 px-2 text-right text-emerald-600 dark:text-emerald-400 font-mono">
-                                {formatSpeed(test.uploadSpeed)}
-                              </td>
-                            </motion.tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+        <CollapsibleContent>
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: 0.5,
+              type: "spring",
+              stiffness: 300,
+              damping: 20,
+            }}
+            className="bg-gray-50/95 dark:bg-gray-850/95 px-3 sm:px-4 pt-0 pb-6 rounded-b-xl flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
+          >
+            {/* Desktop Table View */}
+            <div className="hidden md:block">
+              <DataTable
+                columns={speedTestColumns}
+                data={displayedTests}
+                showPagination={false}
+                showColumnVisibility={true}
+                showRowSelection={false}
+                filterColumn="serverName"
+                filterPlaceholder="Filter by server..."
+                className="-mt-4"
+              />
+            </div>
 
-                    {/* Mobile Card View */}
-                    <div className="md:hidden space-y-3">
-                      {displayedTests.map((test) => (
-                        <motion.div
-                          key={test.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="bg-gray-200/50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-300 dark:border-gray-800"
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="text-gray-700 dark:text-gray-300 text-sm font-medium truncate flex-1 mr-2">
-                              {test.serverName}
-                            </div>
-                            <span
-                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
-                                test.testType === "iperf3"
-                                  ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                                  : test.testType === "librespeed"
-                                  ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                                  : "bg-emerald-200/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                              }`}
-                            >
-                              {test.testType === "iperf3"
-                                ? "iperf3"
-                                : test.testType === "librespeed"
-                                ? "LibreSpeed"
-                                : "Speedtest.net"}
-                            </span>
-                          </div>
-                          <div className="text-gray-500 dark:text-gray-500 text-xs mb-3">
-                            {new Date(test.createdAt).toLocaleString(
-                              undefined,
-                              {
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            )}
-                          </div>
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Latency:
-                              </span>
-                              <span className="text-amber-600 dark:text-amber-400 font-mono">
-                                {parseFloat(test.latency).toFixed(1)}ms
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Jitter:
-                              </span>
-                              <span className="text-purple-600 dark:text-purple-400 font-mono">
-                                {test.jitter
-                                  ? `${test.jitter.toFixed(1)}ms`
-                                  : "—"}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Download:
-                              </span>
-                              <span className="text-blue-600 dark:text-blue-400 font-mono">
-                                {formatSpeed(test.downloadSpeed)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Upload:
-                              </span>
-                              <span className="text-emerald-600 dark:text-emerald-400 font-mono">
-                                {formatSpeed(test.uploadSpeed)}
-                              </span>
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                    {/* Test Count and Load More */}
-                    {tests.length > 5 && (
-                      <div className="mt-4 space-y-3">
-                        {/* Test Count */}
-                        <div className="text-center">
-                          <span className="text-gray-500 dark:text-gray-500 text-sm">
-                            Showing {displayedTests.length} of {tests.length}{" "}
-                            tests
-                          </span>
-                        </div>
+            {/* Mobile Card View */}
+            <div className="md:hidden">
+              <DataTable
+                columns={speedTestMobileColumns}
+                data={displayedTests}
+                showPagination={false}
+                showColumnVisibility={false}
+                showRowSelection={false}
+                showHeaders={false}
+                className="-mt-4"
+                tableClassName="border-0"
+              />
+            </div>
+            {/* Test Count and Load More */}
+            {tests.length > 5 && (
+              <div className="mt-4 space-y-3">
+                {/* Test Count */}
+                <div className="text-center">
+                  <span className="text-gray-500 dark:text-gray-500 text-xs sm:text-sm">
+                    Showing {displayedTests.length} of {tests.length} tests
+                  </span>
+                </div>
 
-                        {/* Load More / Show Less Buttons */}
-                        <div className="flex items-center justify-center gap-3">
-                          {tests.length > displayCount && (
-                            <button
-                              onClick={() =>
-                                setDisplayCount((prev) => prev + 5)
-                              }
-                              className="inline-flex items-center px-4 py-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-colors duration-200 text-sm font-medium"
-                            >
-                              Load {Math.min(5, tests.length - displayCount)}{" "}
-                              more
-                              <span className="ml-2">↓</span>
-                            </button>
-                          )}
+                {/* Load More / Show Less Buttons */}
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
+                  {tests.length > displayCount && (
+                    <button
+                      onClick={() => setDisplayCount((prev) => prev + 5)}
+                      className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-colors duration-200 text-sm font-medium touch-manipulation border border-blue-500/20 hover:border-blue-600/50"
+                    >
+                      Load {Math.min(5, tests.length - displayCount)} more
+                      <span className="ml-2">↓</span>
+                    </button>
+                  )}
 
-                          {displayCount > 5 && (
-                            <button
-                              onClick={() => setDisplayCount(5)}
-                              className="inline-flex items-center px-4 py-2 bg-gray-600/10 hover:bg-gray-600/20 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg transition-colors duration-200 text-sm font-medium"
-                            >
-                              Show less
-                              <span className="ml-2">↑</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
+                  {displayCount > 5 && (
+                    <button
+                      onClick={() => setDisplayCount(5)}
+                      className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-600/10 hover:bg-gray-600/20 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg transition-colors duration-200 text-sm font-medium touch-manipulation"
+                    >
+                      Show less
+                      <span className="ml-2">↑</span>
+                    </button>
+                  )}
+                </div>
               </div>
-            );
-          }}
-        </Disclosure>
-      )}
+            )}
+          </motion.div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 };

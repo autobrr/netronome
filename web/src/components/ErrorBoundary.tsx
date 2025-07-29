@@ -4,6 +4,7 @@
  */
 
 import { Component, ErrorInfo, ReactNode } from "react";
+import { Button } from "@/components/ui/Button";
 
 interface Props {
   children: ReactNode;
@@ -34,12 +35,12 @@ export class ErrorBoundary extends Component<Props, State> {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
               Something went wrong
             </h1>
-            <button
-              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            <Button
+              variant="link"
               onClick={() => window.location.reload()}
             >
               Reload page
-            </button>
+            </Button>
           </div>
         </div>
       );

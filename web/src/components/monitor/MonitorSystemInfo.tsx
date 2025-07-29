@@ -9,6 +9,7 @@ import {
   ServerIcon,
   CpuChipIcon,
   ClockIcon,
+  InformationCircleIcon,
 } from "@heroicons/react/24/outline";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faLinux, faApple } from "@fortawesome/free-brands-svg-icons";
@@ -53,9 +54,12 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
       transition={{ duration: 0.3 }}
       className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
     >
-      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-        System Information
-      </h3>
+      <div className="flex items-center space-x-2 sm:space-x-3 mb-4">
+        <InformationCircleIcon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-900 dark:text-white" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+          System Information
+        </h3>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Hostname */}

@@ -17,7 +17,7 @@ import { DEFAULT_SERVER_DISPLAY_COUNT } from "../constants/tracerouteConstants";
 
 export const useServerData = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState("");
+  const [filterType, setFilterType] = useState("all");
   const [displayCount, setDisplayCount] = useState(
     DEFAULT_SERVER_DISPLAY_COUNT,
   );

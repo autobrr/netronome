@@ -4,7 +4,9 @@
  */
 
 import React from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
+import * as TabsPrimitive from "@radix-ui/react-tabs";
+import { cn } from "@/lib/utils";
 
 interface Tab {
   id: string;
@@ -117,54 +119,62 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
 }) => {
   return (
     <div className="flex items-center justify-center w-full px-2 sm:px-4">
-      <nav
-        className="flex space-x-0.5 sm:space-x-2 bg-gray-100/60 dark:bg-gray-800/20 p-1 sm:p-2 rounded-xl shadow-sm border border-gray-200/60 dark:border-gray-800/80 w-full sm:w-auto overflow-x-auto scrollbar-hide"
-        role="tablist"
+      <TabsPrimitive.Root
+        value={activeTab}
+        onValueChange={onTabChange}
+        className="w-full sm:w-auto"
       >
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.id;
-          const colors = getTabColors(tab.id);
+        <TabsPrimitive.List
+          className="flex space-x-0.5 sm:space-x-2 bg-gray-100/60 dark:bg-gray-800/20 p-1 sm:p-2 rounded-xl shadow-sm border border-gray-200/60 dark:border-gray-800/80 w-full sm:w-auto overflow-x-auto scrollbar-hide"
+          aria-label="Navigation tabs"
+        >
+          {tabs.map((tab) => {
+            const colors = getTabColors(tab.id);
+            const isActive = activeTab === tab.id;
 
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={`relative flex-1 sm:flex-none min-w-0 px-2 xs:px-3 sm:px-6 py-2 sm:py-3 rounded-lg text-xs xs:text-sm sm:text-base font-normal transition-all duration-200 whitespace-nowrap ${
-                isActive ? colors.active : colors.inactive
-              }`}
-              type="button"
-              aria-pressed={isActive}
-              role="tab"
-              aria-selected={isActive}
-              title={tab.label} // Show full label on hover/long-press
-            >
-              {isActive && (
-                <motion.div
-                  layoutId="activeTab"
-                  className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 rounded-lg shadow-sm border border-gray-200/40 dark:border-gray-700/80"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={SPRING_TRANSITION}
-                />
-              )}
-              <span
-                className={`relative flex items-center justify-center gap-1 xs:gap-2 sm:gap-3 ${
+            return (
+              <TabsPrimitive.Trigger
+                key={tab.id}
+                value={tab.id}
+                className={cn(
+                  "relative flex-1 sm:flex-none min-w-0 px-2 xs:px-3 sm:px-6 py-2 sm:py-3 rounded-lg text-xs xs:text-sm sm:text-base font-normal transition-all duration-200 whitespace-nowrap",
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-100 dark:focus-visible:ring-offset-gray-800 focus-visible:ring-blue-500/30",
+                  "disabled:pointer-events-none disabled:opacity-50",
                   isActive ? colors.active : colors.inactive
-                }`}
+                )}
+                title={tab.label} // Show full label on hover/long-press
               >
-                <span className="flex-shrink-0">{tab.icon}</span>
-                {/* Desktop: show full label */}
-                <span className="hidden sm:inline">{tab.label}</span>
-                {/* Mobile: show abbreviated label */}
-                <span className="inline sm:hidden">
-                  {tab.shortLabel || getSmartAbbreviation(tab.label)}
+                <AnimatePresence>
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeTab"
+                      className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 rounded-lg shadow-sm border border-gray-200/40 dark:border-gray-700/80"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={SPRING_TRANSITION}
+                    />
+                  )}
+                </AnimatePresence>
+                <span
+                  className={cn(
+                    "relative flex items-center justify-center gap-1 xs:gap-2 sm:gap-3",
+                    isActive ? colors.active : colors.inactive
+                  )}
+                >
+                  <span className="flex-shrink-0">{tab.icon}</span>
+                  {/* Desktop: show full label */}
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  {/* Mobile: show abbreviated label */}
+                  <span className="inline sm:hidden">
+                    {tab.shortLabel || getSmartAbbreviation(tab.label)}
+                  </span>
                 </span>
-              </span>
-            </button>
-          );
-        })}
-      </nav>
+              </TabsPrimitive.Trigger>
+            );
+          })}
+        </TabsPrimitive.List>
+      </TabsPrimitive.Root>
     </div>
   );
 };

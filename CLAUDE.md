@@ -252,6 +252,10 @@ The notification system is built on [Shoutrrr](https://github.com/containrrr/sho
 - **Frontend Development**: Before writing any frontend-code, make sure to read through the ai_docs/style-guide.md first, so you familiarize yourself with our style. This is a crucial step.
 - **Import Paths**: Always use the `@` alias for imports in frontend code (e.g., `@/components/...` instead of relative paths like `../components/...`)
 
+### Commit Guidelines
+
+- **Commit Attribution**: When writing commits for the user, never add Co-Authored-By: Claude <noreply@anthropic.com> and/or 🤖 Generated with [Claude Code](https://claude.ai/code) to the commit details
+
 ### Testing Approach
 
 1. **Backend Testing**

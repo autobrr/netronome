@@ -90,7 +90,7 @@ const devicePatterns: DevicePattern[] = [
   // NAS/Storage patterns
   {
     patterns: [
-      /\b(nas|storage|synology|qnap|freenas|truenas|unraid|proxmox|omv)\b/i,
+      /\b(nas|storage|synology|qnap|freenas|truenas|unraid|proxmox|omv|pbs|pve|pve01|pve02|pve03|pve04|pve05|pve06|pve07|pve08|pve09|pve10)\b/i,
       /\b(backup|archive|vault)\b/i,
     ],
     icon: CircleStackIcon,

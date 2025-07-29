@@ -4,9 +4,11 @@
  */
 
 import React, { useMemo } from "react";
-import { ChevronRightIcon } from "@heroicons/react/24/outline";
+import { ChevronRight } from "lucide-react";
 import { SHOUTRRR_SERVICES } from "@/api/notifications";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/card";
 
 interface ChannelCardProps {
   channel: any;
@@ -31,47 +33,55 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
   const serviceInfo = SHOUTRRR_SERVICES.find((s) => s.value === serviceType);
 
   return (
-    <button
-      onClick={onClick}
-      onMouseEnter={onMouseEnter}
+    <Card
       className={cn(
-        "w-full p-4 rounded-lg border text-left",
+        "p-0 cursor-pointer transition-all",
         isActive
-          ? "bg-blue-500/10 border-blue-500/30 shadow-md"
-          : "bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md"
+          ? "bg-blue-500/10 dark:bg-blue-500/20 border-blue-500/50 dark:border-blue-400/60 shadow-md ring-2 ring-blue-500/20 dark:ring-blue-400/30"
+          : "hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md"
       )}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <div
-              className={cn(
-                "w-2 h-2 rounded-full flex-shrink-0",
-                channel.enabled ? "bg-emerald-500" : "bg-gray-400"
-              )}
-            />
-            <h5
-              className={cn(
-                "font-medium truncate",
-                isActive
-                  ? "text-blue-700 dark:text-blue-300"
-                  : "text-gray-900 dark:text-white"
-              )}
-            >
-              {channel.name}
-            </h5>
+      <Button
+        variant="ghost"
+        className={cn(
+          "w-full h-auto p-4 justify-start hover:bg-transparent",
+          isActive && "hover:bg-blue-500/10 dark:hover:bg-blue-500/20"
+        )}
+        onClick={onClick}
+        onMouseEnter={onMouseEnter}
+      >
+        <div className="flex items-start justify-between w-full">
+          <div className="flex-1 min-w-0 text-left">
+            <div className="flex items-center gap-2 mb-1">
+              <div
+                className={cn(
+                  "w-2 h-2 rounded-full flex-shrink-0",
+                  channel.enabled ? "bg-emerald-500" : "bg-gray-400"
+                )}
+              />
+              <h5
+                className={cn(
+                  "font-medium truncate",
+                  isActive
+                    ? "text-blue-700 dark:text-blue-300"
+                    : "text-gray-900 dark:text-white"
+                )}
+              >
+                {channel.name}
+              </h5>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+              {serviceInfo?.label || serviceType || "Unknown service"}
+            </p>
           </div>
-          <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
-            {serviceInfo?.label || serviceType || "Unknown service"}
-          </p>
+          <ChevronRight
+            className={cn(
+              "w-4 h-4 flex-shrink-0 transition-colors",
+              isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-400"
+            )}
+          />
         </div>
-        <ChevronRightIcon
-          className={cn(
-            "w-4 h-4 flex-shrink-0 transition-colors",
-            isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-400"
-          )}
-        />
-      </div>
-    </button>
+      </Button>
+    </Card>
   );
 };

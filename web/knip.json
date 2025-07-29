@@ -1,0 +1,43 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/main.tsx",
+    "src/routes.tsx"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx,d.ts}"
+  ],
+  "paths": {
+    "@/*": ["src/*"],
+    "@/components/*": ["src/components/*"],
+    "@/types/*": ["src/types/*"],
+    "@/utils/*": ["src/utils/*"],
+    "@/api/*": ["src/api/*"],
+    "@/constants/*": ["src/constants/*"]
+  },
+  "ignore": [
+    "src/types/window.d.ts",
+    "src/components/ui/**",
+    "src/api/**",
+    "src/utils/**",
+    "src/constants/**",
+    "src/types/**"
+  ],
+  "ignoreExportsUsedInFile": {
+    "type": true,
+    "interface": true
+  },
+  "includeEntryExports": false,
+  "rules": {
+    "files": "warn",
+    "dependencies": "error", 
+    "unlisted": "error",
+    "exports": "off",
+    "nsExports": "off",
+    "classMembers": "off",
+    "enumMembers": "off",
+    "types": "off",
+    "nsTypes": "off",
+    "duplicates": "error"
+  }
+}
