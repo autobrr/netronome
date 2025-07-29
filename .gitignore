@@ -77,3 +77,5 @@ netronome.db.backup
 
 .mcp.json
 output/*
+web/dev-dist/sw.js*
+web/dev-dist/workbox-*.js*

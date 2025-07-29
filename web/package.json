@@ -6,11 +6,12 @@
   "packageManager": "pnpm@10.2.1",
   "scripts": {
     "dev": "NETRONOME__BASE_URL=\"\" vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "unused": "knip",
-    "unused:production": "knip --production"
+    "unused:production": "knip --production",
+    "generate-pwa-icons": "node scripts/generate-pwa-icons.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -58,6 +59,7 @@
     "@types/node": "^24.0.14",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
+    "@vite-pwa/assets-generator": "^1.0.0",
     "@vitejs/plugin-react": "^4.6.0",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.31.0",
@@ -66,10 +68,13 @@
     "globals": "^16.3.0",
     "knip": "^5.62.0",
     "postcss": "^8.5.6",
+    "sharp": "^0.34.3",
     "tailwind-lerp-colors": "^1.2.6",
     "tailwindcss": "^4.1.11",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.37.0",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vite-plugin-pwa": "^1.0.2",
+    "workbox-window": "^7.3.0"
   }
 }

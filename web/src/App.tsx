@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import logo from "@/assets/logo_small.png";
+import { PWAUpdatePrompt } from "@/components/PWAUpdatePrompt";
 
 function App() {
   const { isAuthenticated, logout } = useAuth();
@@ -63,6 +64,26 @@ function App() {
       document.documentElement.classList.add("dark");
     }
     setCurrentTheme(theme);
+    
+    // Update theme-color meta tags for Safari macOS and other browsers
+    const isDark = theme === "dark" || (theme === "auto" && getSystemTheme() === "dark");
+    const themeColorMetas = document.querySelectorAll('meta[name="theme-color"]');
+    themeColorMetas.forEach(meta => {
+      if (!meta.media) {
+        // Update the default theme-color (affects Safari on macOS)
+        meta.content = isDark ? '#18181b' : '#ffffff';
+      }
+    });
+    
+    // For iOS: Force a refresh of the status bar by toggling the meta tag
+    const statusBarMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (statusBarMeta) {
+      // Toggle between default and black-translucent to force iOS to update
+      statusBarMeta.setAttribute('content', 'black-translucent');
+      setTimeout(() => {
+        statusBarMeta.setAttribute('content', 'default');
+      }, 10);
+    }
     
     // Dispatch event to notify other components
     window.dispatchEvent(
@@ -258,6 +279,7 @@ function App() {
 
       <Outlet />
       <Toaster position="bottom-right" />
+      <PWAUpdatePrompt />
     </div>
   );
 }

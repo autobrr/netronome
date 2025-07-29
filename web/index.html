@@ -3,8 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Netronome</title>
+    
+    <!-- Theme Color for Safari and PWA -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#18181b" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" />
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Network performance testing and monitoring tool" />
+    
+    <!-- iOS specific -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Netronome" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="manifest" href="/manifest.json" />
     <script>
       // Handle empty base URL and template variable cases
       const rawBaseUrl = '{{.BaseURL}}';
@@ -16,9 +33,20 @@
         const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
         
         // Apply theme based on stored preference or system theme
-        if (storedTheme === 'dark' || (!storedTheme && systemTheme) || (storedTheme === 'auto' && systemTheme)) {
+        const isDark = storedTheme === 'dark' || (!storedTheme && systemTheme) || (storedTheme === 'auto' && systemTheme);
+        
+        if (isDark) {
           document.documentElement.classList.add('dark');
         }
+        
+        // Update theme-color meta tags for Safari and PWAs
+        const themeColorMetas = document.querySelectorAll('meta[name="theme-color"]');
+        themeColorMetas.forEach(meta => {
+          if (!meta.media) {
+            // Default theme-color (no media query) - set based on current theme
+            meta.content = isDark ? '#18181b' : '#ffffff';
+          }
+        });
       })();
     </script>
     <style>
