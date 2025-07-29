@@ -86,9 +86,14 @@ function App() {
     }
   };
 
+  // Check if we're on the public route
+  const isPublicRoute = window.location.pathname.includes('/public');
+  const showHeader = isAuthenticated || isPublicRoute;
+
   return (
     <div className="min-h-screen bg-white pattern dark:bg-gray-900 relative transition-colors duration-300 ease-in-out">
-      {isAuthenticated && (
+      {/* Show header for authenticated users OR public route */}
+      {showHeader && (
         <>
           {/* Logo in upper left - more compact on mobile */}
           <div className="absolute z-10 top-3 sm:top-4 left-3 sm:left-4 flex items-center gap-2 sm:gap-3">
@@ -107,6 +112,12 @@ function App() {
               </h2>
             </div>
           </div>
+        </>
+      )}
+      
+      {/* Only show controls for authenticated users */}
+      {isAuthenticated && (
+        <>
           
           {/* Desktop controls */}
           <div className="hidden sm:flex absolute z-10 top-4 right-4 items-center gap-2">
