@@ -1,4 +1,22 @@
-# Netronome
+<h1 align="center">Netronome</h1>
+<p align="center">
+  <strong>Monitor. Analyze. Alert.</strong><br>
+  A complete network performance monitoring solution with distributed agents, real-time metrics, and beautiful visualizations.
+</p>
+<div align="center">
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.24-blue?logo=go" alt="Go version">
+  <img src="https://img.shields.io/badge/build-passing-brightgreen" alt="Build Status">
+  <img src="https://img.shields.io/github/v/release/autobrr/netronome" alt="Latest Release">
+  </a>
+    <a href="https://github.com/autobrr/netronome">
+    <img src="https://img.shields.io/badge/%F0%9F%92%A1%20netronome-docs-00ACD7.svg?style=flat-square">
+  </a>
+</p>
+
+[![Discord](https://img.shields.io/discord/881212911849209957.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/WehFCZxq5B)
+
+</div>
 
 <p align="center">
   <img src=".github/assets/netronome_dashboard.png" alt="Netronome Dashboard">
