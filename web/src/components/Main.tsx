@@ -120,11 +120,13 @@ export default function Main({ isPublic = false }: MainProps) {
   const { data: speedtestServers = [] } = useQuery({
     queryKey: ["servers", "speedtest"],
     queryFn: () => getServers("speedtest"),
+    enabled: !isPublic,
   }) as { data: Server[] };
 
   const { data: librespeedServers = [] } = useQuery({
     queryKey: ["servers", "librespeed"],
     queryFn: () => getServers("librespeed"),
+    enabled: !isPublic,
   }) as { data: Server[] };
 
   const allServers = useMemo(
@@ -205,6 +207,7 @@ export default function Main({ isPublic = false }: MainProps) {
     },
     refetchInterval: 30000, // Refetch every 30 seconds (same as ScheduleManager)
     staleTime: 10000, // Consider data stale after 10 seconds
+    enabled: !isPublic,
   }) as { data: Schedule[] };
 
   // Log when schedules data changes
