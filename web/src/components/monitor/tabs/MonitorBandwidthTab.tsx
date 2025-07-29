@@ -9,6 +9,8 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   CalendarIcon,
+  ChartBarIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { MonitorAgent } from "@/api/monitor";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
@@ -214,6 +216,9 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
           transition={{ duration: 0.3 }}
           className="text-center py-8 sm:py-12 bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800"
         >
+          <div className="flex justify-center mb-3 sm:mb-4">
+            <ExclamationTriangleIcon className="h-8 w-8 sm:h-10 sm:w-10 text-amber-500 dark:text-amber-400" />
+          </div>
           <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400">
             No bandwidth data available
           </p>
@@ -411,9 +416,12 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
           transition={{ duration: 0.3, delay: 0.3 }}
           className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-200 dark:border-gray-800"
         >
-          <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-4 sm:mb-6">
-            Peak Times & Averages
-          </h3>
+          <div className="flex items-center space-x-2 sm:space-x-3 mb-4 sm:mb-6">
+            <ChartBarIcon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white">
+              Peak Times & Averages
+            </h3>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             {/* Peak Times */}
