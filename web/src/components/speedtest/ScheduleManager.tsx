@@ -231,7 +231,7 @@ export default function ScheduleManager({
 
   const fetchIperfServers = async () => {
     try {
-      const response = await fetch("/api/iperf/servers");
+      const response = await fetch(getApiUrl("/iperf/servers"));
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(

@@ -32,6 +32,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Skip auth check if we're on the public route
+    const isPublicRoute = window.location.pathname.includes('/public');
+    
+    if (isPublicRoute) {
+      setIsLoading(false);
+      return;
+    }
+
     const checkAuth = async () => {
       try {
         const isVerified = await authApi.verify();

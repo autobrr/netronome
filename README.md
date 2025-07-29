@@ -302,6 +302,44 @@ export NETRONOME__DB_PASSWORD=your-password
 export NETRONOME__DB_NAME=netronome
 ```
 
+### Reverse Proxy with Base URL
+
+To serve Netronome under a subpath (e.g., `/netronome`) behind nginx:
+
+#### 1. Configure Netronome
+
+Set the base URL in your `config.toml`:
+
+```toml
+[server]
+host = "127.0.0.1"  # Listen only on localhost since nginx will proxy
+port = 7575
+base_url = "/netronome"  # The subpath you want to use
+```
+
+#### 2. Configure nginx
+
+Add this location block to your nginx configuration:
+
+```nginx
+# Redirect /netronome to /netronome/
+location = /netronome {
+    return 301 /netronome/;
+}
+
+location /netronome/ {
+    proxy_pass http://127.0.0.1:7575;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 86400;
+}
+```
+
+That's it! The minimal configuration above handles WebSocket/SSE for real-time features.
+
 ## Common Use Cases
 
 ### Home Network Monitoring
@@ -489,25 +527,177 @@ Adds 1-60 seconds of random jitter.
 
 ### Environment Variables
 
-Common configuration via environment variables:
+All configuration options can be set via environment variables using the `NETRONOME__` prefix. Here are the most commonly used:
 
 ```bash
 # Server settings
-NETRONOME__HOST=0.0.0.0        # Listen on all interfaces
-NETRONOME__PORT=7575           # Web UI port
+NETRONOME__HOST=0.0.0.0              # Listen address
+NETRONOME__PORT=7575                 # Web UI port
+NETRONOME__BASE_URL=/                # Base URL for reverse proxy
 
-# PostgreSQL (optional, defaults to SQLite)
-NETRONOME__DB_TYPE=postgres
+# Database (SQLite by default)
+NETRONOME__DB_TYPE=sqlite            # sqlite or postgres
+NETRONOME__DB_PATH=netronome.db      # SQLite database path
+
+# PostgreSQL (when DB_TYPE=postgres)
 NETRONOME__DB_HOST=localhost
+NETRONOME__DB_PORT=5432
+NETRONOME__DB_USER=postgres
 NETRONOME__DB_PASSWORD=secret
+NETRONOME__DB_NAME=netronome
+NETRONOME__DB_SSLMODE=disable
 
-# OIDC Authentication (optional)
+# Authentication
+NETRONOME__AUTH_WHITELIST=127.0.0.1/32,192.168.1.0/24  # IP whitelist (comma-separated)
+NETRONOME__SESSION_SECRET=           # Session secret (auto-generated if empty)
+
+# OIDC (optional)
 NETRONOME__OIDC_ISSUER=https://accounts.google.com
 NETRONOME__OIDC_CLIENT_ID=your-client-id
 NETRONOME__OIDC_CLIENT_SECRET=your-secret
+NETRONOME__OIDC_REDIRECT_URL=https://example.com/api/auth/oidc/callback
 ```
 
-All config file options can be set via environment variables using the `NETRONOME__` prefix.
+<details>
+<summary><b>Complete Environment Variables Reference</b> (click to expand)</summary>
+
+### Server Configuration
+
+```bash
+NETRONOME__HOST=127.0.0.1                    # Server listen address
+NETRONOME__PORT=7575                         # Server port
+NETRONOME__BASE_URL=/                        # Base URL path (for reverse proxy)
+NETRONOME__GIN_MODE=                         # Gin framework mode (debug/release/test)
+```
+
+### Database Configuration
+
+```bash
+NETRONOME__DB_TYPE=sqlite                    # Database type: sqlite or postgres
+NETRONOME__DB_PATH=netronome.db              # SQLite database file path
+NETRONOME__DB_HOST=localhost                 # PostgreSQL host
+NETRONOME__DB_PORT=5432                      # PostgreSQL port
+NETRONOME__DB_USER=postgres                  # PostgreSQL user
+NETRONOME__DB_PASSWORD=                      # PostgreSQL password
+NETRONOME__DB_NAME=netronome                 # PostgreSQL database name
+NETRONOME__DB_SSLMODE=disable                # PostgreSQL SSL mode
+```
+
+### Logging
+
+```bash
+NETRONOME__LOG_LEVEL=info                    # Log level: trace, debug, info, warn, error, fatal, panic
+```
+
+### Authentication
+
+```bash
+NETRONOME__AUTH_WHITELIST=                   # Comma-separated CIDR networks to bypass auth
+NETRONOME__SESSION_SECRET=                   # Session encryption secret (auto-generated if empty)
+```
+
+### OIDC Configuration
+
+```bash
+NETRONOME__OIDC_ISSUER=                      # OIDC provider URL
+NETRONOME__OIDC_CLIENT_ID=                   # OIDC client ID
+NETRONOME__OIDC_CLIENT_SECRET=               # OIDC client secret
+NETRONOME__OIDC_REDIRECT_URL=                # OIDC callback URL
+```
+
+### Speed Test Configuration
+
+```bash
+NETRONOME__SPEEDTEST_TIMEOUT=30              # Overall speedtest timeout (seconds)
+
+# iperf3 settings
+NETRONOME__IPERF_TEST_DURATION=10            # Test duration (seconds)
+NETRONOME__IPERF_PARALLEL_CONNS=4            # Parallel connections
+NETRONOME__IPERF_TIMEOUT=60                  # iperf3 timeout (seconds)
+NETRONOME__IPERF_PING_COUNT=5                # Ping count for latency test
+NETRONOME__IPERF_PING_INTERVAL=1000          # Ping interval (milliseconds)
+NETRONOME__IPERF_PING_TIMEOUT=10             # Ping timeout (seconds)
+
+# LibreSpeed settings
+NETRONOME__LIBRESPEED_TIMEOUT=60             # LibreSpeed timeout (seconds)
+```
+
+### Pagination
+
+```bash
+NETRONOME__DEFAULT_PAGE=1                    # Default page number
+NETRONOME__DEFAULT_PAGE_SIZE=20              # Default items per page
+NETRONOME__MAX_PAGE_SIZE=100                 # Maximum items per page
+NETRONOME__DEFAULT_TIME_RANGE=1w             # Default time range for queries
+NETRONOME__DEFAULT_LIMIT=20                  # Default query limit
+```
+
+### GeoIP Configuration
+
+```bash
+NETRONOME__GEOIP_COUNTRY_DATABASE_PATH=      # Path to GeoLite2-Country.mmdb
+NETRONOME__GEOIP_ASN_DATABASE_PATH=          # Path to GeoLite2-ASN.mmdb
+```
+
+### Packet Loss Monitoring
+
+```bash
+NETRONOME__PACKETLOSS_ENABLED=true                      # Enable packet loss monitoring
+NETRONOME__PACKETLOSS_DEFAULT_INTERVAL=3600             # Default test interval (seconds)
+NETRONOME__PACKETLOSS_DEFAULT_PACKET_COUNT=10           # Packets per test
+NETRONOME__PACKETLOSS_MAX_CONCURRENT_MONITORS=10        # Max concurrent monitors
+NETRONOME__PACKETLOSS_PRIVILEGED_MODE=true              # Use privileged ICMP mode
+NETRONOME__PACKETLOSS_RESTORE_MONITORS_ON_STARTUP=false # Restore monitors on startup
+```
+
+### Agent Configuration
+
+```bash
+NETRONOME__AGENT_HOST=0.0.0.0                # Agent listen address
+NETRONOME__AGENT_PORT=8200                   # Agent port
+NETRONOME__AGENT_INTERFACE=                  # Network interface to monitor (empty for all)
+NETRONOME__AGENT_API_KEY=                    # Agent API key for authentication
+NETRONOME__AGENT_DISK_INCLUDES=              # Comma-separated paths to include
+NETRONOME__AGENT_DISK_EXCLUDES=              # Comma-separated paths to exclude
+```
+
+### Monitor Configuration
+
+```bash
+NETRONOME__MONITOR_ENABLED=true              # Enable system monitoring
+NETRONOME__MONITOR_RECONNECT_INTERVAL=30s    # Agent reconnection interval
+```
+
+### Tailscale Configuration
+
+```bash
+# Core settings
+NETRONOME__TAILSCALE_ENABLED=false           # Enable Tailscale integration
+NETRONOME__TAILSCALE_METHOD=auto             # Method: auto, host, or tsnet
+NETRONOME__TAILSCALE_AUTH_KEY=               # Auth key (required for tsnet)
+
+# TSNet settings
+NETRONOME__TAILSCALE_HOSTNAME=               # Custom hostname (optional)
+NETRONOME__TAILSCALE_EPHEMERAL=false         # Remove on shutdown
+NETRONOME__TAILSCALE_STATE_DIR=~/.config/netronome/tsnet  # State directory
+NETRONOME__TAILSCALE_CONTROL_URL=            # For Headscale (optional)
+
+# Agent settings
+NETRONOME__TAILSCALE_AGENT_PORT=8200         # Port for agent to listen on
+
+# Discovery settings
+NETRONOME__TAILSCALE_AUTO_DISCOVER=true      # Auto-discover Tailscale agents
+NETRONOME__TAILSCALE_DISCOVERY_INTERVAL=5m   # Discovery check interval
+NETRONOME__TAILSCALE_DISCOVERY_PORT=8200     # Port to probe for agents
+NETRONOME__TAILSCALE_DISCOVERY_PREFIX=       # Hostname prefix filter
+
+# Deprecated (for backward compatibility)
+NETRONOME__TAILSCALE_PREFER_HOST=false       # Prefer host mode over tsnet
+NETRONOME__TAILSCALE_AGENT_ENABLED=false     # Enable agent mode
+NETRONOME__TAILSCALE_AGENT_ACCEPT_ROUTES=true # Accept Tailscale routes
+```
+
+</details>
 
 ### CLI Commands
 

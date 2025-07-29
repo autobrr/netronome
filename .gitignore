@@ -79,3 +79,5 @@ netronome.db.backup
 output/*
 web/dev-dist/sw.js*
 web/dev-dist/workbox-*.js*
+
+test/*
