@@ -738,12 +738,31 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 		return fmt.Errorf("failed to decode system info: %w", err)
 	}
 
+	// Fetch agent version from /netronome/info endpoint
+	agentVersion := ""
+	infoURL := baseURL + "/netronome/info"
+	infoReq, err := http.NewRequestWithContext(client.ctx, "GET", infoURL, nil)
+	if err == nil {
+		// Don't add API key for this endpoint as it's public
+		infoResp, err := httpClient.Do(infoReq)
+		if err == nil && infoResp.StatusCode == http.StatusOK {
+			defer infoResp.Body.Close()
+			var agentInfo struct {
+				Version string `json:"version"`
+			}
+			if err := json.NewDecoder(infoResp.Body).Decode(&agentInfo); err == nil {
+				agentVersion = agentInfo.Version
+			}
+		}
+	}
+
 	// Log parsed values for debugging
 	log.Debug().
 		Int64("agent_id", client.agent.ID).
 		Str("hostname", systemInfo.Hostname).
 		Str("kernel", systemInfo.Kernel).
 		Str("vnstat_version", systemInfo.VnstatVersion).
+		Str("agent_version", agentVersion).
 		Int("interface_count", len(systemInfo.Interfaces)).
 		Msg("Parsed system info values")
 
@@ -753,6 +772,7 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 		Hostname:      systemInfo.Hostname,
 		Kernel:        systemInfo.Kernel,
 		VnstatVersion: systemInfo.VnstatVersion,
+		AgentVersion:  agentVersion,
 	}
 
 	if err := s.db.UpsertMonitorSystemInfo(client.ctx, client.agent.ID, sysInfo); err != nil {

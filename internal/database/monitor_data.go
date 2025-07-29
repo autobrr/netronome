@@ -26,8 +26,8 @@ func (s *service) UpsertMonitorSystemInfo(ctx context.Context, agentID int64, in
 		// Insert new record
 		query := s.sqlBuilder.
 			Insert("monitor_agent_system_info").
-			Columns("agent_id", "hostname", "kernel", "vnstat_version", "cpu_model", "cpu_cores", "cpu_threads", "total_memory", "created_at", "updated_at").
-			Values(agentID, info.Hostname, info.Kernel, info.VnstatVersion, info.CPUModel, info.CPUCores, info.CPUThreads, info.TotalMemory, time.Now(), time.Now())
+			Columns("agent_id", "hostname", "kernel", "vnstat_version", "agent_version", "cpu_model", "cpu_cores", "cpu_threads", "total_memory", "created_at", "updated_at").
+			Values(agentID, info.Hostname, info.Kernel, info.VnstatVersion, info.AgentVersion, info.CPUModel, info.CPUCores, info.CPUThreads, info.TotalMemory, time.Now(), time.Now())
 
 		_, err := query.RunWith(s.db).ExecContext(ctx)
 		return err
@@ -50,6 +50,10 @@ func (s *service) UpsertMonitorSystemInfo(ctx context.Context, agentID int64, in
 	}
 	if info.VnstatVersion != "" {
 		update = update.Set("vnstat_version", info.VnstatVersion)
+		hasUpdates = true
+	}
+	if info.AgentVersion != "" {
+		update = update.Set("agent_version", info.AgentVersion)
 		hasUpdates = true
 	}
 	if info.CPUModel != "" {
@@ -80,13 +84,13 @@ func (s *service) UpsertMonitorSystemInfo(ctx context.Context, agentID int64, in
 // GetMonitorSystemInfo retrieves system information for an agent
 func (s *service) GetMonitorSystemInfo(ctx context.Context, agentID int64) (*types.MonitorSystemInfo, error) {
 	query := s.sqlBuilder.
-		Select("id", "agent_id", "hostname", "kernel", "vnstat_version", "cpu_model", "cpu_cores", "cpu_threads", "total_memory", "created_at", "updated_at").
+		Select("id", "agent_id", "hostname", "kernel", "vnstat_version", "agent_version", "cpu_model", "cpu_cores", "cpu_threads", "total_memory", "created_at", "updated_at").
 		From("monitor_agent_system_info").
 		Where(sq.Eq{"agent_id": agentID})
 
 	var info types.MonitorSystemInfo
 	err := query.RunWith(s.db).QueryRowContext(ctx).Scan(
-		&info.ID, &info.AgentID, &info.Hostname, &info.Kernel, &info.VnstatVersion,
+		&info.ID, &info.AgentID, &info.Hostname, &info.Kernel, &info.VnstatVersion, &info.AgentVersion,
 		&info.CPUModel, &info.CPUCores, &info.CPUThreads, &info.TotalMemory,
 		&info.CreatedAt, &info.UpdatedAt,
 	)

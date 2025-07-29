@@ -49,6 +49,7 @@ export interface SystemInfo {
   uptime: number; // seconds
   interfaces: Record<string, InterfaceInfo>;
   vnstat_version: string;
+  agent_version?: string; // Agent software version
   database_size: number; // bytes
   updated_at: string;
   from_cache?: boolean; // True when data is from database, not live agent
