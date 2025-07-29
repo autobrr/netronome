@@ -26,6 +26,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { DataTable } from "@/components/ui/data-table";
 import { speedTestColumns, speedTestMobileColumns } from "./columns";
@@ -322,29 +327,29 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
             {/* Floating Share Button positioned on the grid */}
             {!isPublic && onShareClick && (
-              <div className="absolute top-2 right-2 sm:top-3 sm:right-3 group">
-                <motion.button
-                  onClick={onShareClick}
-                  onMouseEnter={() => setIsShareHovered(true)}
-                  onMouseLeave={() => setIsShareHovered(false)}
-                  className="relative p-2 min-w-[36px] min-h-[36px] text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200 z-10 opacity-60 hover:opacity-100 touch-manipulation flex items-center justify-center"
-                  aria-label="Share public speed test page"
-                  whileTap={{ scale: 0.9 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {isShareHovered ? (
-                    <ShareIconSolid className="w-4 h-4" />
-                  ) : (
-                    <ShareIcon className="w-4 h-4" />
-                  )}
-                </motion.button>
-                {/* Tooltip - only visible on desktop hover */}
-                <div className="hidden sm:block absolute top-full right-0 mt-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200">
-                  <div className="bg-gray-900 dark:bg-gray-950 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap">
-                    Share Results
-                    <div className="absolute bottom-full right-3 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900 dark:border-b-gray-950" />
-                  </div>
-                </div>
+              <div className="absolute top-2 right-2 sm:top-3 sm:right-3">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.button
+                      onClick={onShareClick}
+                      onMouseEnter={() => setIsShareHovered(true)}
+                      onMouseLeave={() => setIsShareHovered(false)}
+                      className="relative p-2 min-w-[36px] min-h-[36px] text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200 z-10 opacity-60 hover:opacity-100 touch-manipulation flex items-center justify-center"
+                      aria-label="Share public speed test page"
+                      whileTap={{ scale: 0.9 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {isShareHovered ? (
+                        <ShareIconSolid className="w-4 h-4" />
+                      ) : (
+                        <ShareIcon className="w-4 h-4" />
+                      )}
+                    </motion.button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Share speed test results</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             )}
           </div>
@@ -443,7 +448,10 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
           <div
             ref={dragHandleRef}
             {...dragHandleListeners}
-            className={cn("cursor-grab active:cursor-grabbing touch-none p-1 -m-1", dragHandleClassName)}
+            className={cn(
+              "cursor-grab active:cursor-grabbing touch-none p-1 -m-1",
+              dragHandleClassName
+            )}
           >
             <FaGripVertical className="w-4 h-4 text-gray-400 dark:text-gray-600" />
           </div>

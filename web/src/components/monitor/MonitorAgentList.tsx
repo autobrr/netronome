@@ -19,6 +19,11 @@ import { MonitorAgent } from "@/api/monitor";
 import { AgentIcon } from "@/utils/agentIcons";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { TailscaleLogo } from "../icons/TailscaleLogo";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
 import { showToast } from "@/components/common/Toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -150,25 +155,52 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
           <div className="hidden lg:flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 w-72">
             {agent.isTailscale ? (
               <>
-                <TailscaleLogo
-                  className="h-4 w-4 flex-shrink-0"
-                  title="Connected through Tailscale"
-                />
-                <LockClosedIcon
-                  className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
-                  title="Encrypted via Tailscale"
-                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <TailscaleLogo
+                        className="h-4 w-4 flex-shrink-0"
+                        title=""
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Connected through Tailscale</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <LockClosedIcon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Encrypted via Tailscale</p>
+                  </TooltipContent>
+                </Tooltip>
               </>
             ) : agent.apiKey ? (
-              <LockClosedIcon
-                className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0"
-                title="Authentication enabled"
-              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <LockClosedIcon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Authentication enabled</p>
+                </TooltipContent>
+              </Tooltip>
             ) : (
-              <LockOpenIcon
-                className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500 flex-shrink-0"
-                title="No authentication"
-              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <LockOpenIcon className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>No authentication</p>
+                </TooltipContent>
+              </Tooltip>
             )}
             <span className="truncate">
               {agent.url.replace(/\/events\?stream=live-data$/, "")}
@@ -531,48 +563,66 @@ const AgentActionsCell: React.FC<AgentActionsCellProps> = ({
       className="flex items-center justify-end gap-0.5 sm:gap-1"
       onClick={(e) => e.stopPropagation()}
     >
-      <Button
-        variant="secondary"
-        size="sm"
-        className={cn(
-          "h-7 w-7 sm:h-8 sm:w-8 p-0",
-          isFeatured
-            ? "hover:bg-yellow-100 dark:hover:bg-yellow-900/30 text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
-            : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-        )}
-        onClick={handleToggleFeatured}
-        title={isFeatured ? "Remove from featured" : "Add to featured"}
-      >
-        {isFeatured ? (
-          <SparklesIconSolid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-        ) : (
-          <SparklesIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-        )}
-      </Button>
-      <Button
-        variant="secondary"
-        size="sm"
-        className="h-7 w-7 sm:h-8 sm:w-8 p-0"
-        onClick={(e) => {
-          e.stopPropagation();
-          onEdit();
-        }}
-        title="Edit Agent"
-      >
-        <PencilIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-      </Button>
-      <Button
-        variant="secondary"
-        size="sm"
-        className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        title="Delete Agent"
-      >
-        <TrashIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="secondary"
+            size="sm"
+            className={cn(
+              "h-7 w-7 sm:h-8 sm:w-8 p-0",
+              isFeatured
+                ? "hover:bg-yellow-100 dark:hover:bg-yellow-900/30 text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-500"
+                : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            )}
+            onClick={handleToggleFeatured}
+          >
+            {isFeatured ? (
+              <SparklesIconSolid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            ) : (
+              <SparklesIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{isFeatured ? "Remove from dashboard" : "Feature on dashboard"}</p>
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+          >
+            <PencilIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Edit Agent</p>
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+          >
+            <TrashIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Delete Agent</p>
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 };
