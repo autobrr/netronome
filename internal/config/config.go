@@ -701,10 +701,7 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "port = %d\n", cfg.Server.Port); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "base_url = \"%s\"\n", cfg.Server.BaseURL); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, "# gin_mode = \"release\"  # optional: \"debug\" or \"release\""); err != nil {
+	if _, err := fmt.Fprintf(w, "#base_url = \"%s\"\n", cfg.Server.BaseURL); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
@@ -815,34 +812,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 
-	// Pagination section (commented out)
-	if _, err := fmt.Fprintln(w, "# Pagination options (defaults work well for most cases)"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, "# Only uncomment and modify if you need to adjust the API response pagination"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, "#[pagination]"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "#default_page = %d\n", cfg.Pagination.DefaultPage); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "#default_page_size = %d\n", cfg.Pagination.DefaultPageSize); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "#max_page_size = %d\n", cfg.Pagination.MaxPageSize); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "#default_time_range = \"%s\"\n", cfg.Pagination.DefaultTimeRange); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "#default_limit = %d\n", cfg.Pagination.DefaultLimit); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, ""); err != nil {
-		return err
-	}
 
 	// Session section
 	if _, err := fmt.Fprintln(w, "[session]"); err != nil {
@@ -892,29 +861,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "privileged_mode = %v # Use privileged ICMP mode for better MTR support (requires root/sudo)\n", cfg.PacketLoss.PrivilegedMode); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "restore_monitors_on_startup = %v # WARNING: If true, immediately runs ALL enabled packet loss monitors on startup (may cause network congestion). Default: monitors run on their scheduled intervals only\n", cfg.PacketLoss.RestoreMonitorsOnStartup); err != nil {
-		return err
-	}
-
-	// Agent section
-	if _, err := fmt.Fprintln(w, ""); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, "[agent]"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "host = \"%s\" # IP address to bind to (0.0.0.0 for all interfaces)\n", cfg.Agent.Host); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "port = %d\n", cfg.Agent.Port); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "interface = \"%s\" # empty for all interfaces\n", cfg.Agent.Interface); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, "# api_key = \"\" # API key for agent authentication (optional)"); err != nil {
 		return err
 	}
 
@@ -991,9 +937,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "discovery_port = %d # Port to probe for agents\n", cfg.Tailscale.DiscoveryPort); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "# discovery_prefix = \"\" # Only discover agents with this prefix (optional)\n"); err != nil {
 		return err
 	}
 
