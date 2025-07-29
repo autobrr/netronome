@@ -4,7 +4,7 @@
   <img src=".github/assets/netronome_dashboard.png" alt="Netronome Dashboard">
 </p>
 
-Netronome is a comprehensive network performance monitoring solution that helps you understand and track your network's health. Whether you're monitoring your home internet connection, managing multi-site infrastructure, or tracking server performance, Netronome provides the insights you need through an intuitive web interface.
+Netronome is a complete network performance monitoring solution that helps you understand and track your network's health. Whether you're monitoring your home internet connection, managing multi-site infrastructure, or tracking server performance, Netronome provides the insights you need through an intuitive web interface.
 
 Built with Go and designed for simplicity, Netronome packages both frontend and backend into a single binary for effortless deployment. With a minimal footprint of just ~35MB RAM usage, it's perfect for resource-constrained environments. No complex setups - just download, configure, and run.
 
@@ -75,7 +75,7 @@ Open `http://localhost:7575` in your browser and create your account through the
   <img src=".github/assets/packetloss-monitors(mtr).png" alt="Network Diagnostics Interface">
 </p>
 
-Comprehensive network path analysis with:
+Advanced network path analysis with:
 
 - Cross-platform traceroute support
 - Continuous ICMP monitoring
@@ -310,7 +310,7 @@ Track server performance metrics:
 
 ### System Monitoring
 
-Deploy monitoring agents on remote servers for comprehensive system visibility.
+Deploy monitoring agents on remote servers for full system visibility.
 
 #### Quick Agent Installation
 
