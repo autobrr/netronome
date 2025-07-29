@@ -225,8 +225,6 @@ docker-compose up -d
 docker-compose -f docker-compose.postgres.yml up -d
 ```
 
-Default credentials: `admin` / `adminpass` (change these immediately!)
-
 The Docker image includes all dependencies (iperf3, librespeed-cli, traceroute, mtr, vnstat) pre-installed, so you don't need to install them separately. For Tailscale integration with Docker, see the [Docker Tailscale Sidecar Guide](docs/docker-tailscale-sidecar.md).
 
 ## Basic Configuration
@@ -533,7 +531,7 @@ netronome agent --api-key secret   # Agent with authentication
 
 **Q: What's the default username/password?**
 
-For manual installation, you register through the web interface on first visit - no default credentials. For Docker, the default is `admin`/`adminpass` - change it immediately!
+For manual installation, you register through the web interface on first visit - no default credentials.
 
 **Q: Can I access Netronome from other devices on my network?**
 
@@ -545,7 +543,7 @@ No, Netronome works without them. You only need:
 
 - `iperf3` for iperf3 speed tests
 - `librespeed-cli` for LibreSpeed tests
-- Speedtest.net works out of the box (downloads CLI automatically)
+- Speedtest.net works out of the box
 
 ### Common Issues
 
