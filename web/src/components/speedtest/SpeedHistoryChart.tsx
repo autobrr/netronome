@@ -17,11 +17,27 @@ import { SpeedTestResult, TimeRange, PaginatedResponse } from "@/types/types";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { getHistory, getPublicHistory } from "@/api/speedtest";
 import { motion, AnimatePresence } from "motion/react";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 import { ChevronDownIcon } from "lucide-react";
-import { FaDownload, FaUpload, FaClock, FaWaveSquare, FaGripVertical } from "react-icons/fa";
+import {
+  FaDownload,
+  FaUpload,
+  FaClock,
+  FaWaveSquare,
+  FaGripVertical,
+} from "react-icons/fa";
 import { Button } from "@/components/ui/Button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 interface SpeedHistoryChartProps {
@@ -569,253 +585,264 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
     <div className="shadow-lg rounded-xl overflow-hidden mb-6">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <div className="flex flex-col h-full">
-        <CollapsibleTrigger asChild>
-          <button
-            className={cn(
-              "flex justify-between items-center w-full px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-50/95 dark:bg-gray-850/95",
-              isOpen ? "rounded-t-xl" : "rounded-xl",
-              "border border-gray-200 dark:border-gray-800",
-              isOpen && "border-b-0",
-              "text-left hover:bg-gray-100/95 dark:hover:bg-gray-800/95 transition-colors touch-manipulation"
-            )}
-          >
-            <div className="flex items-center gap-2">
-              {showDragHandle && (
-                <div
-                  ref={dragHandleRef}
-                  {...dragHandleListeners}
-                  className={cn("cursor-grab active:cursor-grabbing touch-none p-1 -m-1", dragHandleClassName)}
-                >
-                  <FaGripVertical className="w-4 h-4 text-gray-400 dark:text-gray-600" />
-                </div>
+          <CollapsibleTrigger asChild>
+            <button
+              className={cn(
+                "flex justify-between items-center w-full px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-50/95 dark:bg-gray-850/95",
+                isOpen ? "rounded-t-xl" : "rounded-xl",
+                "border border-gray-200 dark:border-gray-800",
+                isOpen && "border-b-0",
+                "text-left hover:bg-gray-100/95 dark:hover:bg-gray-800/95 transition-colors touch-manipulation"
               )}
-              <h2 className="text-gray-900 dark:text-white text-lg sm:text-xl font-semibold p-1 select-none">
-                Speedtest History
-              </h2>
-            </div>
-            <div className="p-1 -m-1">
-              <ChevronDownIcon
-                className={cn(
-                  "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200",
-                  isOpen && "transform rotate-180"
+            >
+              <div className="flex items-center gap-2">
+                {showDragHandle && (
+                  <div
+                    ref={dragHandleRef}
+                    {...dragHandleListeners}
+                    className={cn(
+                      "cursor-grab active:cursor-grabbing touch-none p-1 -m-1",
+                      dragHandleClassName
+                    )}
+                  >
+                    <FaGripVertical className="w-4 h-4 text-gray-400 dark:text-gray-600" />
+                  </div>
                 )}
-              />
-            </div>
-          </button>
-        </CollapsibleTrigger>
+                <h2 className="text-gray-900 dark:text-white text-lg sm:text-xl font-semibold p-1 select-none">
+                  Speedtest History
+                </h2>
+              </div>
+              <div className="p-1 -m-1">
+                <ChevronDownIcon
+                  className={cn(
+                    "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200",
+                    isOpen && "transform rotate-180"
+                  )}
+                />
+              </div>
+            </button>
+          </CollapsibleTrigger>
 
-        <CollapsibleContent>
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              duration: 0.5,
-              type: "spring",
-              stiffness: 300,
-              damping: 20,
-            }}
-            className="bg-gray-50/95 dark:bg-gray-850/95 px-2 sm:px-4 rounded-b-xl flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
-          >
-            <div className="pt-2 sm:pt-3 pb-3 sm:pb-4">
-                  {/* Controls */}
-                  <div className="flex flex-col gap-3 mb-2">
-                    {/* Metric Toggle Controls */}
-                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-2 w-full sm:w-auto">
-                      {[
-                        {
-                          key: "download",
-                          color: "#60a5fa",
-                          label: "Download",
-                          icon: <FaDownload size={14} />,
-                        },
-                        {
-                          key: "upload",
-                          color: "#34d399",
-                          label: "Upload",
-                          icon: <FaUpload size={14} />,
-                        },
-                        {
-                          key: "latency",
-                          color: "#fbbf24",
-                          label: "Latency",
-                          icon: <FaClock size={14} />,
-                        },
-                        {
-                          key: "jitter",
-                          color: "#c084fc",
-                          label: "Jitter",
-                          icon: <FaWaveSquare size={14} />,
-                        },
-                      ].map(({ key, label, icon, color }) => {
-                        const isActive =
-                          visibleMetrics[key as keyof typeof visibleMetrics];
-                        return (
-                          <button
-                            key={key}
-                            onClick={() =>
-                              handleMetricToggle(
-                                key as keyof typeof visibleMetrics
-                              )
-                            }
-                            aria-label={`${isActive ? "Hide" : "Show"} ${label} metric`}
-                            aria-pressed={isActive}
+          <CollapsibleContent>
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: 0.5,
+                type: "spring",
+                stiffness: 300,
+                damping: 20,
+              }}
+              className="bg-gray-50/95 dark:bg-gray-850/95 px-2 sm:px-4 rounded-b-xl flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
+            >
+              <div className="pt-2 sm:pt-3 pb-3 sm:pb-4">
+                {/* Controls */}
+                <div className="flex flex-col gap-3 mb-2">
+                  {/* Metric Toggle Controls */}
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-2 w-full sm:w-auto">
+                    {[
+                      {
+                        key: "download",
+                        color: "#60a5fa",
+                        label: "Download",
+                        icon: <FaDownload size={14} />,
+                      },
+                      {
+                        key: "upload",
+                        color: "#34d399",
+                        label: "Upload",
+                        icon: <FaUpload size={14} />,
+                      },
+                      {
+                        key: "latency",
+                        color: "#fbbf24",
+                        label: "Latency",
+                        icon: <FaClock size={14} />,
+                      },
+                      {
+                        key: "jitter",
+                        color: "#c084fc",
+                        label: "Jitter",
+                        icon: <FaWaveSquare size={14} />,
+                      },
+                    ].map(({ key, label, icon, color }) => {
+                      const isActive =
+                        visibleMetrics[key as keyof typeof visibleMetrics];
+                      return (
+                        <button
+                          key={key}
+                          onClick={() =>
+                            handleMetricToggle(
+                              key as keyof typeof visibleMetrics
+                            )
+                          }
+                          aria-label={`${
+                            isActive ? "Hide" : "Show"
+                          } ${label} metric`}
+                          aria-pressed={isActive}
+                          className={cn(
+                            "relative px-2.5 sm:px-2 py-2 sm:py-1.5",
+                            "text-[11px] sm:text-xs font-medium",
+                            "flex items-center justify-center sm:justify-start gap-1.5 sm:gap-1.5",
+                            "rounded-md sm:rounded-md transition-all duration-200",
+                            "border border-transparent",
+                            // Reduced touch target size for mobile
+                            "min-h-[36px] sm:min-h-0",
+                            "flex-1 sm:flex-initial",
+                            isActive
+                              ? "bg-opacity-20 shadow-sm"
+                              : "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700",
+                            // Add active states for touch feedback
+                            "active:scale-95 sm:active:scale-100"
+                          )}
+                          style={{
+                            backgroundColor: isActive
+                              ? `${color}15`
+                              : undefined,
+                            borderColor: isActive ? `${color}40` : undefined,
+                            color: isActive ? color : undefined,
+                          }}
+                        >
+                          <div
                             className={cn(
-                              "relative px-2.5 sm:px-2 py-2 sm:py-1.5",
-                              "text-[11px] sm:text-xs font-medium",
-                              "flex items-center justify-center sm:justify-start gap-1.5 sm:gap-1.5",
-                              "rounded-md sm:rounded-md transition-all duration-200",
-                              "border border-transparent",
-                              // Reduced touch target size for mobile
-                              "min-h-[36px] sm:min-h-0",
-                              "flex-1 sm:flex-initial",
-                              isActive
-                                ? "bg-opacity-20 shadow-sm"
-                                : "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700",
-                              // Add active states for touch feedback
-                              "active:scale-95 sm:active:scale-100"
+                              "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all duration-200",
+                              isActive ? "scale-110" : "scale-90 opacity-60"
                             )}
                             style={{
                               backgroundColor: isActive
-                                ? `${color}15`
-                                : undefined,
-                              borderColor: isActive ? `${color}40` : undefined,
-                              color: isActive ? color : undefined,
+                                ? color
+                                : "currentColor",
                             }}
-                          >
-                            <div
-                              className={cn(
-                                "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all duration-200",
-                                isActive ? "scale-110" : "scale-90 opacity-60"
-                              )}
-                              style={{
-                                backgroundColor: isActive
-                                  ? color
-                                  : "currentColor",
-                              }}
-                            />
-                            <span className="hidden sm:inline">{label}</span>
-                            <div className="sm:hidden flex items-center gap-1">
-                              {icon}
-                              <span>{label}</span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Desktop layout - Time Range Controls alongside metrics */}
-                    <div className="hidden sm:flex sm:justify-end sm:-mt-12">
-                      <Select value={timeRange} onValueChange={handleTimeRangeChange}>
-                        <SelectTrigger className="w-[140px] px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-gray-700 dark:text-gray-300 shadow-md">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg">
-                          {timeRangeOptions.map((option) => (
-                            <SelectItem 
-                              key={option.value} 
-                              value={option.value}
-                              className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800 text-gray-900 dark:text-gray-100"
-                            >
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Mobile layout - Full width time selector */}
-                    <div className="sm:hidden w-full">
-                      <Select value={timeRange} onValueChange={handleTimeRangeChange}>
-                        <SelectTrigger className="w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-gray-700 dark:text-gray-300 shadow-md">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg">
-                          {timeRangeOptions.map((option) => (
-                            <SelectItem 
-                              key={option.value} 
-                              value={option.value}
-                              className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800 text-gray-900 dark:text-gray-100"
-                            >
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Chart Area */}
-                  <div className="h-[250px] sm:h-[300px] md:h-[400px] -mx-2 sm:mx-0">
-                    <AnimatePresence mode="wait">
-                      {isLoading ? (
-                        <ChartSkeleton />
-                      ) : hasAnyTests &&
-                        !hasCurrentRangeTests &&
-                        filteredData.length === 0 ? (
-                        <motion.div
-                          key="no-data-message"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="h-full flex items-center justify-center"
-                        >
-                          <div className="text-center">
-                            <h3 className="text-gray-900 dark:text-white text-lg font-medium mb-2">
-                              No tests in the last{" "}
-                              {timeRange === "1d"
-                                ? "24 hours"
-                                : timeRange === "3d"
-                                ? "3 days"
-                                : timeRange === "1w"
-                                ? "week"
-                                : timeRange === "1m"
-                                ? "month"
-                                : "selected period"}
-                            </h3>
-                            <p className="text-gray-600 dark:text-gray-400">
-                              Try selecting a different time range to view your
-                              test history.
-                            </p>
+                          />
+                          <span className="hidden sm:inline">{label}</span>
+                          <div className="sm:hidden flex items-center gap-1">
+                            {icon}
+                            <span>{label}</span>
                           </div>
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key="chart"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="h-full"
-                        >
-                          {chart}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  {hasNextPage && !isLoading && filteredData.length > 0 && (
-                    <div className="flex justify-end">
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                      >
-                        <Button
-                          onClick={() => fetchNextPage()}
-                          disabled={isFetchingNextPage}
-                          isLoading={isFetchingNextPage}
-                          className="mb-4"
-                        >
-                          {isFetchingNextPage ? "Loading more..." : "Load more"}
-                        </Button>
-                      </motion.div>
-                    </div>
-                  )}
+                  {/* Desktop layout - Time Range Controls alongside metrics */}
+                  <div className="hidden sm:flex sm:justify-end sm:-mt-12">
+                    <Select
+                      value={timeRange}
+                      onValueChange={handleTimeRangeChange}
+                    >
+                      <SelectTrigger className="w-[140px] px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-gray-700 dark:text-gray-300">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg">
+                        {timeRangeOptions.map((option) => (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800 text-gray-900 dark:text-gray-100"
+                          >
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Mobile layout - Full width time selector */}
+                  <div className="sm:hidden w-full">
+                    <Select
+                      value={timeRange}
+                      onValueChange={handleTimeRangeChange}
+                    >
+                      <SelectTrigger className="w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-gray-700 dark:text-gray-300">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                        {timeRangeOptions.map((option) => (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800 text-gray-900 dark:text-gray-100"
+                          >
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </motion.div>
-            </CollapsibleContent>
+
+                {/* Chart Area */}
+                <div className="h-[250px] sm:h-[300px] md:h-[400px] -mx-2 sm:mx-0">
+                  <AnimatePresence mode="wait">
+                    {isLoading ? (
+                      <ChartSkeleton />
+                    ) : hasAnyTests &&
+                      !hasCurrentRangeTests &&
+                      filteredData.length === 0 ? (
+                      <motion.div
+                        key="no-data-message"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="h-full flex items-center justify-center"
+                      >
+                        <div className="text-center">
+                          <h3 className="text-gray-900 dark:text-white text-lg font-medium mb-2">
+                            No tests in the last{" "}
+                            {timeRange === "1d"
+                              ? "24 hours"
+                              : timeRange === "3d"
+                              ? "3 days"
+                              : timeRange === "1w"
+                              ? "week"
+                              : timeRange === "1m"
+                              ? "month"
+                              : "selected period"}
+                          </h3>
+                          <p className="text-gray-600 dark:text-gray-400">
+                            Try selecting a different time range to view your
+                            test history.
+                          </p>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="chart"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="h-full"
+                      >
+                        {chart}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {hasNextPage && !isLoading && filteredData.length > 0 && (
+                  <div className="flex justify-end">
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                      <Button
+                        onClick={() => fetchNextPage()}
+                        disabled={isFetchingNextPage}
+                        isLoading={isFetchingNextPage}
+                        className="mb-4"
+                      >
+                        {isFetchingNextPage ? "Loading more..." : "Load more"}
+                      </Button>
+                    </motion.div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </CollapsibleContent>
         </div>
       </Collapsible>
     </div>
-      );
-    };
+  );
+};

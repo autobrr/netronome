@@ -436,116 +436,116 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
         onOpenChange={setIsRecentTestsOpen}
         className="flex flex-col h-full"
       >
-      <CollapsibleTrigger
-        className={cn(
-          "flex justify-between items-center w-full px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-50/95 dark:bg-gray-850/95",
-          isRecentTestsOpen ? "rounded-t-xl" : "rounded-xl",
-          "border border-gray-200 dark:border-gray-800",
-          isRecentTestsOpen ? "border-b-0" : "",
-          "text-left transition-all duration-200 hover:bg-gray-100/95 dark:hover:bg-gray-800/95 touch-manipulation"
-        )}
-      >
-        <div className="flex items-center gap-2">
-          <div
-            ref={dragHandleRef}
-            {...dragHandleListeners}
-            className={cn(
-              "cursor-grab active:cursor-grabbing touch-none p-1 -m-1",
-              dragHandleClassName
-            )}
-          >
-            <FaGripVertical className="w-4 h-4 text-gray-400 dark:text-gray-600" />
-          </div>
-          <h2 className="text-gray-900 dark:text-white text-lg sm:text-xl font-semibold p-1 select-none">
-            Recent Speedtests
-          </h2>
-        </div>
-        <div className="p-1 -m-1">
-          <ChevronDownIcon
-            className={cn(
-              isRecentTestsOpen ? "transform rotate-180" : "",
-              "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200"
-            )}
-          />
-        </div>
-      </CollapsibleTrigger>
-
-      <CollapsibleContent>
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: 0.5,
-            type: "spring",
-            stiffness: 300,
-            damping: 20,
-          }}
-          className="bg-gray-50/95 dark:bg-gray-850/95 px-3 sm:px-4 pt-0 pb-6 rounded-b-xl flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
-        >
-          {/* Desktop Table View */}
-          <div className="hidden md:block">
-            <DataTable
-              columns={speedTestColumns}
-              data={displayedTests}
-              showPagination={false}
-              showColumnVisibility={true}
-              showRowSelection={false}
-              filterColumn="serverName"
-              filterPlaceholder="Filter by server..."
-              className="-mt-4"
-            />
-          </div>
-
-          {/* Mobile Card View */}
-          <div className="md:hidden">
-            <DataTable
-              columns={speedTestMobileColumns}
-              data={displayedTests}
-              showPagination={false}
-              showColumnVisibility={false}
-              showRowSelection={false}
-              showHeaders={false}
-              className="-mt-4"
-              tableClassName="border-0"
-            />
-          </div>
-          {/* Test Count and Load More */}
-          {tests.length > 5 && (
-            <div className="mt-4 space-y-3">
-              {/* Test Count */}
-              <div className="text-center">
-                <span className="text-gray-500 dark:text-gray-500 text-xs sm:text-sm">
-                  Showing {displayedTests.length} of {tests.length} tests
-                </span>
-              </div>
-
-              {/* Load More / Show Less Buttons */}
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
-                {tests.length > displayCount && (
-                  <button
-                    onClick={() => setDisplayCount((prev) => prev + 5)}
-                    className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-colors duration-200 text-sm font-medium touch-manipulation"
-                  >
-                    Load {Math.min(5, tests.length - displayCount)} more
-                    <span className="ml-2">↓</span>
-                  </button>
-                )}
-
-                {displayCount > 5 && (
-                  <button
-                    onClick={() => setDisplayCount(5)}
-                    className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-600/10 hover:bg-gray-600/20 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg transition-colors duration-200 text-sm font-medium touch-manipulation"
-                  >
-                    Show less
-                    <span className="ml-2">↑</span>
-                  </button>
-                )}
-              </div>
-            </div>
+        <CollapsibleTrigger
+          className={cn(
+            "flex justify-between items-center w-full px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-50/95 dark:bg-gray-850/95",
+            isRecentTestsOpen ? "rounded-t-xl" : "rounded-xl",
+            "border border-gray-200 dark:border-gray-800",
+            isRecentTestsOpen ? "border-b-0" : "",
+            "text-left transition-all duration-200 hover:bg-gray-100/95 dark:hover:bg-gray-800/95 touch-manipulation"
           )}
-        </motion.div>
-      </CollapsibleContent>
-    </Collapsible>
+        >
+          <div className="flex items-center gap-2">
+            <div
+              ref={dragHandleRef}
+              {...dragHandleListeners}
+              className={cn(
+                "cursor-grab active:cursor-grabbing touch-none p-1 -m-1",
+                dragHandleClassName
+              )}
+            >
+              <FaGripVertical className="w-4 h-4 text-gray-400 dark:text-gray-600" />
+            </div>
+            <h2 className="text-gray-900 dark:text-white text-lg sm:text-xl font-semibold p-1 select-none">
+              Recent Speedtests
+            </h2>
+          </div>
+          <div className="p-1 -m-1">
+            <ChevronDownIcon
+              className={cn(
+                isRecentTestsOpen ? "transform rotate-180" : "",
+                "w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-200"
+              )}
+            />
+          </div>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: 0.5,
+              type: "spring",
+              stiffness: 300,
+              damping: 20,
+            }}
+            className="bg-gray-50/95 dark:bg-gray-850/95 px-3 sm:px-4 pt-0 pb-6 rounded-b-xl flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
+          >
+            {/* Desktop Table View */}
+            <div className="hidden md:block">
+              <DataTable
+                columns={speedTestColumns}
+                data={displayedTests}
+                showPagination={false}
+                showColumnVisibility={true}
+                showRowSelection={false}
+                filterColumn="serverName"
+                filterPlaceholder="Filter by server..."
+                className="-mt-4"
+              />
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden">
+              <DataTable
+                columns={speedTestMobileColumns}
+                data={displayedTests}
+                showPagination={false}
+                showColumnVisibility={false}
+                showRowSelection={false}
+                showHeaders={false}
+                className="-mt-4"
+                tableClassName="border-0"
+              />
+            </div>
+            {/* Test Count and Load More */}
+            {tests.length > 5 && (
+              <div className="mt-4 space-y-3">
+                {/* Test Count */}
+                <div className="text-center">
+                  <span className="text-gray-500 dark:text-gray-500 text-xs sm:text-sm">
+                    Showing {displayedTests.length} of {tests.length} tests
+                  </span>
+                </div>
+
+                {/* Load More / Show Less Buttons */}
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
+                  {tests.length > displayCount && (
+                    <button
+                      onClick={() => setDisplayCount((prev) => prev + 5)}
+                      className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-colors duration-200 text-sm font-medium touch-manipulation border border-blue-500/20 hover:border-blue-600/50"
+                    >
+                      Load {Math.min(5, tests.length - displayCount)} more
+                      <span className="ml-2">↓</span>
+                    </button>
+                  )}
+
+                  {displayCount > 5 && (
+                    <button
+                      onClick={() => setDisplayCount(5)}
+                      className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-600/10 hover:bg-gray-600/20 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg transition-colors duration-200 text-sm font-medium touch-manipulation"
+                    >
+                      Show less
+                      <span className="ml-2">↑</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 };

@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-"use client"
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -18,18 +18,18 @@ import {
   useReactTable,
   VisibilityState,
   Row,
-} from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/Button"
-import { Checkbox } from "@/components/ui/checkbox"
+} from "@tanstack/react-table";
+import { ArrowUpDown, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -37,23 +37,23 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[]
-  data: TData[]
-  filterColumn?: string
-  filterPlaceholder?: string
-  showPagination?: boolean
-  showColumnVisibility?: boolean
-  showRowSelection?: boolean
-  showHeaders?: boolean
-  onRowSelectionChange?: (selectedRows: Row<TData>[]) => void
-  onRowClick?: (row: TData) => void
-  pageSize?: number
-  className?: string
-  tableClassName?: string
-  noDataMessage?: string
+  columns: ColumnDef<TData, TValue>[];
+  data: TData[];
+  filterColumn?: string;
+  filterPlaceholder?: string;
+  showPagination?: boolean;
+  showColumnVisibility?: boolean;
+  showRowSelection?: boolean;
+  showHeaders?: boolean;
+  onRowSelectionChange?: (selectedRows: Row<TData>[]) => void;
+  onRowClick?: (row: TData) => void;
+  pageSize?: number;
+  className?: string;
+  tableClassName?: string;
+  noDataMessage?: string;
 }
 
 export function DataTable<TData, TValue>({
@@ -72,15 +72,18 @@ export function DataTable<TData, TValue>({
   tableClassName,
   noDataMessage = "No results.",
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-  const [rowSelection, setRowSelection] = React.useState({})
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
+  );
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = React.useState({});
 
   // Add selection column if needed
   const tableColumns = React.useMemo(() => {
-    if (!showRowSelection) return columns
-    
+    if (!showRowSelection) return columns;
+
     const selectionColumn: ColumnDef<TData, TValue> = {
       id: "select",
       header: ({ table }) => (
@@ -102,10 +105,10 @@ export function DataTable<TData, TValue>({
       ),
       enableSorting: false,
       enableHiding: false,
-    }
-    
-    return [selectionColumn, ...columns]
-  }, [columns, showRowSelection])
+    };
+
+    return [selectionColumn, ...columns];
+  }, [columns, showRowSelection]);
 
   const table = useReactTable({
     data,
@@ -129,15 +132,15 @@ export function DataTable<TData, TValue>({
         pageSize,
       },
     },
-  })
+  });
 
   // Handle row selection changes
   React.useEffect(() => {
     if (onRowSelectionChange && showRowSelection) {
-      const selectedRows = table.getFilteredSelectedRowModel().rows
-      onRowSelectionChange(selectedRows)
+      const selectedRows = table.getFilteredSelectedRowModel().rows;
+      onRowSelectionChange(selectedRows);
     }
-  }, [rowSelection, onRowSelectionChange, showRowSelection, table])
+  }, [rowSelection, onRowSelectionChange, showRowSelection, table]);
 
   return (
     <div className={cn("w-full", className)}>
@@ -146,18 +149,23 @@ export function DataTable<TData, TValue>({
           {filterColumn && (
             <Input
               placeholder={filterPlaceholder}
-              value={(table.getColumn(filterColumn)?.getFilterValue() as string) ?? ""}
+              value={
+                (table.getColumn(filterColumn)?.getFilterValue() as string) ??
+                ""
+              }
               onChange={(event) =>
-                table.getColumn(filterColumn)?.setFilterValue(event.target.value)
+                table
+                  .getColumn(filterColumn)
+                  ?.setFilterValue(event.target.value)
               }
               className="max-w-sm"
             />
           )}
-          
+
           {showColumnVisibility && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="secondary" className="ml-auto">
+                <Button variant="secondary" className="ml-auto shadow-none">
                   Columns <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -171,21 +179,24 @@ export function DataTable<TData, TValue>({
                         key={column.id}
                         className="capitalize"
                         checked={column.getIsVisible()}
-                        onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                        onCheckedChange={(value) =>
+                          column.toggleVisibility(!!value)
+                        }
+                        onSelect={(event) => event.preventDefault()}
                       >
                         {(column.columnDef.meta as any)?.displayName ||
-                         (typeof column.columnDef.header === "string" 
-                          ? column.columnDef.header 
-                          : column.id)}
+                          (typeof column.columnDef.header === "string"
+                            ? column.columnDef.header
+                            : column.id)}
                       </DropdownMenuCheckboxItem>
-                    )
+                    );
                   })}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
         </div>
       )}
-      
+
       <div className="rounded-md border border-gray-300 dark:border-gray-800">
         <Table className={tableClassName}>
           {showHeaders && (
@@ -202,7 +213,7 @@ export function DataTable<TData, TValue>({
                               header.getContext()
                             )}
                       </TableHead>
-                    )
+                    );
                   })}
                 </TableRow>
               ))}
@@ -218,7 +229,10 @@ export function DataTable<TData, TValue>({
                   className={onRowClick ? "cursor-pointer" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="text-gray-700 dark:text-gray-300">
+                    <TableCell
+                      key={cell.id}
+                      className="text-gray-700 dark:text-gray-300"
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -240,7 +254,7 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      
+
       {showPagination && (
         <div className="flex items-center justify-end space-x-2 py-4">
           {showRowSelection && (
@@ -270,7 +284,7 @@ export function DataTable<TData, TValue>({
         </div>
       )}
     </div>
-  )
+  );
 }
 
 // Helper to create sortable column headers
@@ -281,14 +295,16 @@ export function createSortableHeader<TData>(
     return (
       <Button
         variant="ghost"
-        onClick={() => tableColumn.toggleSorting(tableColumn.getIsSorted() === "asc")}
+        onClick={() =>
+          tableColumn.toggleSorting(tableColumn.getIsSorted() === "asc")
+        }
         className="h-auto p-0 hover:bg-transparent text-left justify-start font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
       >
         {label}
         <ArrowUpDown className="ml-2 h-4 w-4" />
       </Button>
-    )
-  }
+    );
+  };
 }
 
 // Helper to create right-aligned sortable column headers
@@ -300,17 +316,19 @@ export function createRightAlignedSortableHeader<TData>(
       <div className="text-right">
         <Button
           variant="ghost"
-          onClick={() => tableColumn.toggleSorting(tableColumn.getIsSorted() === "asc")}
+          onClick={() =>
+            tableColumn.toggleSorting(tableColumn.getIsSorted() === "asc")
+          }
           className="h-auto p-0 hover:bg-transparent justify-end font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
         >
           {label}
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       </div>
-    )
-  }
+    );
+  };
 }
 
 // Export utility types for column definitions
-export type { ColumnDef } from "@tanstack/react-table"
-export type DataTableColumn<TData> = ColumnDef<TData>
+export type { ColumnDef } from "@tanstack/react-table";
+export type DataTableColumn<TData> = ColumnDef<TData>;
