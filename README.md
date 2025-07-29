@@ -1,4 +1,22 @@
-# Netronome
+<h1 align="center">Netronome</h1>
+<p align="center">
+  <strong>Monitor. Analyze. Alert.</strong><br>
+  A complete network performance monitoring solution with distributed agents, real-time metrics, and beautiful visualizations.
+</p>
+<div align="center">
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.24-blue?logo=go" alt="Go version">
+  <img src="https://img.shields.io/badge/build-passing-brightgreen" alt="Build Status">
+  <img src="https://img.shields.io/github/v/release/autobrr/netronome" alt="Latest Release">
+  </a>
+    <a href="https://github.com/autobrr/netronome">
+    <img src="https://img.shields.io/badge/%F0%9F%92%A1%20netronome-docs-00ACD7.svg?style=flat-square">
+  </a>
+</p>
+
+[![Discord](https://img.shields.io/discord/881212911849209957.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/WehFCZxq5B)
+
+</div>
 
 <p align="center">
   <img src=".github/assets/netronome_dashboard.png" alt="Netronome Dashboard">
@@ -86,7 +104,15 @@ Advanced network path analysis with:
 ### System Monitoring
 
 <p align="center">
-  <img src=".github/assets/agents-systeminfo.png" alt="System Monitoring Interface">
+  <img src=".github/assets/agents-dashboard.png" alt="System Monitoring Dashboard">
+</p>
+
+<p align="center">
+  <img src=".github/assets/agents-bandwidth.png" alt="Bandwidth Monitoring">
+</p>
+
+<p align="center">
+  <img src=".github/assets/agents-systeminfo.png" alt="Agent System Information">
 </p>
 
 Monitor multiple servers from one dashboard:
@@ -369,7 +395,6 @@ Continuous network monitoring with MTR integration and performance tracking.
 
 #### Important Notes
 
-- Monitors do NOT auto-start on server restart (prevents network congestion)
 - MTR requires elevated privileges for full functionality
 - Overall packet loss can be 0% even with intermediate hop timeouts (normal behavior)
 
@@ -421,6 +446,10 @@ Enable country flags and ASN information in traceroute results (optional):
 Netronome works perfectly without GeoIP - this just adds visual country indicators.
 
 ### Notifications
+
+<p align="center">
+  <img src=".github/assets/notifications.png" alt="Notifications Configuration">
+</p>
 
 Configure notifications through the web interface at **Settings > Notifications**.
 
