@@ -279,7 +279,12 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           transition={{ duration: 0.5 }}
           className="mb-6"
         >
-          <h2 className="text-gray-900 dark:text-white text-xl ml-1 font-semibold">
+          <h2
+            className={cn(
+              "text-gray-900 dark:text-white text-xl ml-1 font-semibold",
+              isPublic && "sm:pt-6"
+            )}
+          >
             Latest Run
           </h2>
           <div className="flex justify-between ml-1 items-center text-gray-600 dark:text-gray-400 text-sm mb-4">
