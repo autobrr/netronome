@@ -566,14 +566,15 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   }, [timeRange]);
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div className="flex flex-col h-full mb-6">
+    <div className="shadow-lg rounded-xl overflow-hidden mb-6">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <div className="flex flex-col h-full">
         <CollapsibleTrigger asChild>
           <button
             className={cn(
               "flex justify-between items-center w-full px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-50/95 dark:bg-gray-850/95",
               isOpen ? "rounded-t-xl" : "rounded-xl",
-              "shadow-lg border border-gray-200 dark:border-gray-800",
+              "border border-gray-200 dark:border-gray-800",
               isOpen && "border-b-0",
               "text-left hover:bg-gray-100/95 dark:hover:bg-gray-800/95 transition-colors touch-manipulation"
             )}
@@ -604,7 +605,17 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <div className="bg-gray-50/95 dark:bg-gray-850/95 px-2 sm:px-4 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: 0.5,
+              type: "spring",
+              stiffness: 300,
+              damping: 20,
+            }}
+            className="bg-gray-50/95 dark:bg-gray-850/95 px-2 sm:px-4 rounded-b-xl flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
+          >
             <div className="pt-2 sm:pt-3 pb-3 sm:pb-4">
                   {/* Controls */}
                   <div className="flex flex-col gap-3 mb-2">
@@ -801,9 +812,10 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             </CollapsibleContent>
-          </div>
-        </Collapsible>
+        </div>
+      </Collapsible>
+    </div>
       );
     };

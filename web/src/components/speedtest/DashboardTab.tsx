@@ -430,16 +430,17 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
   dragHandleClassName,
 }) => {
   return (
-    <Collapsible
-      open={isRecentTestsOpen}
-      onOpenChange={setIsRecentTestsOpen}
-      className="flex flex-col h-full"
-    >
+    <div className="shadow-lg rounded-xl overflow-hidden">
+      <Collapsible
+        open={isRecentTestsOpen}
+        onOpenChange={setIsRecentTestsOpen}
+        className="flex flex-col h-full"
+      >
       <CollapsibleTrigger
         className={cn(
           "flex justify-between items-center w-full px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-50/95 dark:bg-gray-850/95",
           isRecentTestsOpen ? "rounded-t-xl" : "rounded-xl",
-          "shadow-lg border border-gray-200 dark:border-gray-800",
+          "border border-gray-200 dark:border-gray-800",
           isRecentTestsOpen ? "border-b-0" : "",
           "text-left transition-all duration-200 hover:bg-gray-100/95 dark:hover:bg-gray-800/95 touch-manipulation"
         )}
@@ -479,7 +480,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
             stiffness: 300,
             damping: 20,
           }}
-          className="bg-gray-50/95 dark:bg-gray-850/95 px-3 sm:px-4 pt-3 pb-6 rounded-b-xl shadow-lg flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
+          className="bg-gray-50/95 dark:bg-gray-850/95 px-3 sm:px-4 pt-0 pb-6 rounded-b-xl flex-1 border border-t-0 border-gray-200 dark:border-gray-800"
         >
           {/* Desktop Table View */}
           <div className="hidden md:block">
@@ -545,5 +546,6 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
         </motion.div>
       </CollapsibleContent>
     </Collapsible>
+    </div>
   );
 };
