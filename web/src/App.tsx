@@ -7,8 +7,19 @@ import { useEffect, useState, useCallback } from "react";
 import { Outlet } from "@tanstack/react-router";
 import { ArrowRightStartOnRectangleIcon as LogoutIcon } from "@heroicons/react/24/outline";
 import { HeartIcon } from "@heroicons/react/24/solid";
-import { Bars3Icon, BellIcon, SunIcon, MoonIcon, ComputerDesktopIcon } from "@heroicons/react/24/outline";
-import { initializeDarkMode, getCurrentThemeMode, setAutoTheme, getSystemTheme } from "@/utils/darkMode";
+import {
+  Bars3Icon,
+  BellIcon,
+  SunIcon,
+  MoonIcon,
+  ComputerDesktopIcon,
+} from "@heroicons/react/24/outline";
+import {
+  initializeDarkMode,
+  getCurrentThemeMode,
+  setAutoTheme,
+  getSystemTheme,
+} from "@/utils/darkMode";
 import { useAuth } from "@/context/auth";
 import { DonateModal } from "@/components/DonateModal";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
@@ -30,22 +41,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import logo from "@/assets/logo_small.png";
+import { PWAUpdatePrompt } from "@/components/PWAUpdatePrompt";
 
 function App() {
   const { isAuthenticated, logout } = useAuth();
   const [isDonateOpen, setIsDonateOpen] = useState(false);
-  const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState<"light" | "dark" | "auto">(getCurrentThemeMode());
+  const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] =
+    useState(false);
+  const [currentTheme, setCurrentTheme] = useState<"light" | "dark" | "auto">(
+    getCurrentThemeMode()
+  );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     initializeDarkMode();
-    
+
     // Listen for theme changes from other sources (like desktop toggle)
     const handleThemeChangeEvent = () => {
       setCurrentTheme(getCurrentThemeMode());
     };
-    
+
     window.addEventListener("themechange", handleThemeChangeEvent);
     return () => {
       window.removeEventListener("themechange", handleThemeChangeEvent);
@@ -63,7 +78,7 @@ function App() {
       document.documentElement.classList.add("dark");
     }
     setCurrentTheme(theme);
-    
+
     // Dispatch event to notify other components
     window.dispatchEvent(
       new CustomEvent("themechange", {
@@ -87,7 +102,7 @@ function App() {
   };
 
   // Check if we're on the public route
-  const isPublicRoute = window.location.pathname.includes('/public');
+  const isPublicRoute = window.location.pathname.includes("/public");
   const showHeader = isAuthenticated || isPublicRoute;
 
   return (
@@ -114,11 +129,10 @@ function App() {
           </div>
         </>
       )}
-      
+
       {/* Only show controls for authenticated users */}
       {isAuthenticated && (
         <>
-          
           {/* Desktop controls */}
           <div className="hidden sm:flex absolute z-10 top-4 right-4 items-center gap-2">
             <Button
@@ -156,12 +170,17 @@ function App() {
                   <Bars3Icon className="h-6 w-6" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-72 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800">
+              <SheetContent
+                side="right"
+                className="w-72 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800"
+              >
                 <div className="flex flex-col h-full">
                   <SheetHeader className="pb-6 border-b border-gray-200 dark:border-gray-800">
-                    <SheetTitle className="text-lg font-semibold text-gray-900 dark:text-white">Settings</SheetTitle>
+                    <SheetTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Settings
+                    </SheetTitle>
                   </SheetHeader>
-                  
+
                   <div className="flex-1 py-6">
                     <div className="space-y-2">
                       {/* Donate */}
@@ -174,12 +193,16 @@ function App() {
                         className="w-full justify-start gap-3 h-auto px-4 py-3"
                       >
                         <HeartIcon className="h-5 w-5 text-red-500 flex-shrink-0" />
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Support Development</span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Support Development
+                        </span>
                       </Button>
-                      
+
                       {/* Theme Selection */}
                       <div className="px-4 py-3">
-                        <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Theme</h3>
+                        <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                          Theme
+                        </h3>
                         <div className="space-y-2">
                           {(["light", "dark", "auto"] as const).map((theme) => (
                             <Button
@@ -192,24 +215,38 @@ function App() {
                                   : "text-gray-700 dark:text-gray-300"
                               }`}
                             >
-                              <div className={`w-5 h-5 flex items-center justify-center ${
-                                currentTheme === theme ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
-                              }`}>
+                              <div
+                                className={`w-5 h-5 flex items-center justify-center ${
+                                  currentTheme === theme
+                                    ? "text-blue-600 dark:text-blue-400"
+                                    : "text-gray-600 dark:text-gray-400"
+                                }`}
+                              >
                                 {getThemeIcon(theme)}
                               </div>
                               <span className="text-sm font-medium capitalize">
                                 {theme === "auto" ? "System" : theme}
                               </span>
                               {currentTheme === theme && (
-                                <svg className="w-4 h-4 ml-auto text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                <svg
+                                  className="w-4 h-4 ml-auto text-blue-600 dark:text-blue-400"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M5 13l4 4L19 7"
+                                  />
                                 </svg>
                               )}
                             </Button>
                           ))}
                         </div>
                       </div>
-                      
+
                       {/* Notifications */}
                       <Button
                         onClick={() => {
@@ -220,14 +257,26 @@ function App() {
                         className="w-full justify-start gap-3 h-auto px-4 py-3"
                       >
                         <BellIcon className="h-5 w-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Notifications</span>
-                        <svg className="w-4 h-4 ml-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Notifications
+                        </span>
+                        <svg
+                          className="w-4 h-4 ml-auto text-gray-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
                         </svg>
                       </Button>
                     </div>
                   </div>
-                  
+
                   {/* Logout */}
                   <div className="pt-6 border-t border-gray-200 dark:border-gray-800">
                     <Button
@@ -252,10 +301,11 @@ function App() {
       />
 
       {/* Notification Settings Dialog */}
-      <Dialog open={isNotificationSettingsOpen} onOpenChange={setIsNotificationSettingsOpen}>
-        <DialogContent
-          className="w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] sm:w-full sm:max-w-3xl md:max-w-5xl lg:max-w-6xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-800 shadow-2xl !p-0 gap-0"
-        >
+      <Dialog
+        open={isNotificationSettingsOpen}
+        onOpenChange={setIsNotificationSettingsOpen}
+      >
+        <DialogContent className="w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] sm:w-full sm:max-w-3xl md:max-w-5xl lg:max-w-6xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-800 shadow-2xl !p-0 gap-0">
           <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-800">
             <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">
               Notification Settings
@@ -269,6 +319,7 @@ function App() {
 
       <Outlet />
       <Toaster position="bottom-right" />
+      <PWAUpdatePrompt />
     </div>
   );
 }
