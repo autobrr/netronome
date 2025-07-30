@@ -413,22 +413,9 @@ export default function Main({ isPublic = false }: MainProps) {
   return (
     <div className="min-h-screen flex flex-col">
       <Container maxWidth="xl" className="pb-20 sm:pb-8 pt-16 sm:pt-20 md:pt-14 flex-1">
-        {/* Test Progress - Container always present to prevent layout shift */}
-        <div className="flex justify-center mb-2 sm:mb-4 mt-2 sm:mt-4 md:mt-0">
-          <AnimatePresence mode="wait">
-            {(testStatus === "running" || scheduledTestRunning) &&
-              progress !== null && (
-                <motion.div
-                  key="test-progress"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <TestProgress progress={progress} />
-                </motion.div>
-              )}
-          </AnimatePresence>
+        {/* Test Progress - Always rendered with fixed height to prevent layout shift */}
+        <div className="flex justify-center mb-2 sm:mb-4 mt-2 sm:mt-4 md:mt-0 h-5">
+          <TestProgress progress={progress} />
         </div>
 
         {/* Header - Now just an empty spacer */}
