@@ -1,0 +1,24 @@
+/* Mobile bottom navigation styles using custom zinc-based gray colors */
+@media (max-width: 639px) {
+  .tab-navigation-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-top: 1px solid rgba(228, 228, 231, 0.3); /* gray-200 equivalent */
+    box-shadow: 0 -20px 25px -5px rgba(0, 0, 0, 0.1), 0 -10px 10px -5px rgba(0, 0, 0, 0.04);
+    padding: 0.5rem 0;
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+    margin-bottom: 0;
+  }
+
+  .dark .tab-navigation-container {
+    background: rgba(24, 24, 27, 0.7); /* gray-900 equivalent */
+    border-top-color: rgba(39, 39, 42, 0.4); /* gray-800 equivalent */
+    box-shadow: 0 -20px 25px -5px rgba(0, 0, 0, 0.3), 0 -10px 10px -5px rgba(0, 0, 0, 0.15);
+  }
+}

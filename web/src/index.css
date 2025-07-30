@@ -16,6 +16,31 @@
   }
 }
 
+/* Hide scrollbars on mobile/touch devices while maintaining scroll functionality */
+@media (max-width: 639px), (hover: none) and (pointer: coarse) {
+  /* For Webkit browsers (Safari, Chrome on iOS) */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* For Firefox */
+  * {
+    scrollbar-width: none;
+  }
+
+  /* For IE and Edge Legacy */
+  * {
+    -ms-overflow-style: none;
+  }
+}
+
+/* Ensure smooth scrolling on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  html {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 @theme {
   /* Custom gray colors based on zinc palette from v3 */
   --color-gray-50: #fafafa;

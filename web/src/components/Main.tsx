@@ -412,8 +412,8 @@ export default function Main({ isPublic = false }: MainProps) {
   }, [testStatus, queryClient, testType]);
 
   return (
-    <div className="min-h-screen">
-      <Container maxWidth="xl" className="pb-8 pt-16 sm:pt-20 md:pt-14">
+    <div className="min-h-screen flex flex-col">
+      <Container maxWidth="xl" className="pb-20 sm:pb-8 pt-16 sm:pt-20 md:pt-14 flex-1">
         {/* Test Progress - Container always present to prevent layout shift */}
         <div className="flex justify-center mb-2 sm:mb-4 mt-2 sm:mt-4 md:mt-0">
           <AnimatePresence mode="wait">
@@ -507,18 +507,19 @@ export default function Main({ isPublic = false }: MainProps) {
 
         {/* Tab Navigation */}
         {!isPublic && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-4 sm:mb-6"
-          >
-            <TabNavigation
-              tabs={tabs}
-              activeTab={activeTab}
-              onTabChange={handleTabChange}
-            />
-          </motion.div>
+          <div className="tab-navigation-container mb-4 sm:mb-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <TabNavigation
+                tabs={tabs}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+              />
+            </motion.div>
+          </div>
         )}
 
         {/* Tab Content */}
@@ -602,6 +603,7 @@ export default function Main({ isPublic = false }: MainProps) {
           )}
         </AnimatePresence>
       </Container>
+
 
       {/* Public Footer */}
       {isPublic && (

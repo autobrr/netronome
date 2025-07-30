@@ -118,7 +118,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
   onTabChange,
 }) => {
   return (
-    <div className="flex items-center justify-center w-full px-2 sm:px-4">
+    <div className="flex items-center justify-center w-full sm:w-auto px-2 sm:px-4">
       <TabsPrimitive.Root
         value={activeTab}
         onValueChange={onTabChange}
@@ -158,15 +158,15 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
                 </AnimatePresence>
                 <span
                   className={cn(
-                    "relative flex items-center justify-center gap-1 xs:gap-2 sm:gap-3",
+                    "relative flex flex-col sm:flex-row items-center justify-center gap-0.5 xs:gap-1 sm:gap-3",
                     isActive ? colors.active : colors.inactive
                   )}
                 >
                   <span className="flex-shrink-0">{tab.icon}</span>
                   {/* Desktop: show full label */}
                   <span className="hidden sm:inline">{tab.label}</span>
-                  {/* Mobile: show abbreviated label */}
-                  <span className="inline sm:hidden">
+                  {/* Mobile: show abbreviated label with smaller text */}
+                  <span className="inline sm:hidden text-[10px]">
                     {tab.shortLabel || getSmartAbbreviation(tab.label)}
                   </span>
                 </span>
