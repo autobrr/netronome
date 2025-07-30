@@ -447,7 +447,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
             isRecentTestsOpen ? "rounded-t-xl" : "rounded-xl",
             "border border-gray-200 dark:border-gray-800",
             isRecentTestsOpen ? "border-b-0" : "",
-            "text-left transition-all duration-200 hover:bg-gray-100/95 dark:hover:bg-gray-800/95 touch-manipulation"
+            "text-left transition-all duration-200 touch-manipulation"
           )}
         >
           <div className="flex items-center gap-2">

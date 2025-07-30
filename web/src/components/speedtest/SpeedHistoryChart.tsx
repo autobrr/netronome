@@ -592,7 +592,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                 isOpen ? "rounded-t-xl" : "rounded-xl",
                 "border border-gray-200 dark:border-gray-800",
                 isOpen && "border-b-0",
-                "text-left hover:bg-gray-100/95 dark:hover:bg-gray-800/95 transition-colors touch-manipulation"
+                "text-left transition-colors touch-manipulation"
               )}
             >
               <div className="flex items-center gap-2">
