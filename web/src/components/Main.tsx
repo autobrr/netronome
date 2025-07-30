@@ -74,7 +74,6 @@ export default function Main({ isPublic = false }: MainProps) {
     const saved = localStorage.getItem("speedtest-time-range");
     return (saved as TimeRange) || "1w";
   });
-  const [scheduledTestRunning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
