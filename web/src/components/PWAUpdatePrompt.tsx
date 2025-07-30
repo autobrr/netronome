@@ -3,52 +3,60 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import { useEffect, useState, useCallback } from "react";
-import { toast } from "sonner";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { toast } from "@/components/common/Toast";
 
-// Manual PWA implementation using workbox-window since virtual module isn't working with Vite 7
+// Manual PWA implementation using workbox-window
 export function PWAUpdatePrompt() {
   const [needRefresh, setNeedRefresh] = useState(false);
-  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [registration, setRegistration] =
+    useState<ServiceWorkerRegistration | null>(null);
+  const toastIdRef = useRef<string | number | null>(null);
 
-  const updateServiceWorker = useCallback(async (reloadPage = false) => {
+
+
+  const updateServiceWorker = useCallback(async () => {
     if (registration?.waiting) {
+      // Post message to service worker to skip waiting
       registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-      if (reloadPage) {
+      
+      // Set up listener for controlling change
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
         window.location.reload();
-      }
+      });
     }
   }, [registration]);
 
   useEffect(() => {
     const registerSW = async () => {
-      if ('serviceWorker' in navigator) {
+      if ("serviceWorker" in navigator) {
         try {
           // Import workbox-window dynamically to avoid build issues
-          const { Workbox } = await import('workbox-window');
-          
-          const wb = new Workbox('/sw.js');
+          const { Workbox } = await import("workbox-window");
 
-          wb.addEventListener('controlling', () => {
-            window.location.reload();
-          });
+          const wb = new Workbox("/sw.js");
 
-          wb.addEventListener('waiting', () => {
+          // Show update prompt when new service worker is waiting
+          const showSkipWaitingPrompt = () => {
             setNeedRefresh(true);
-          });
+          };
 
-          wb.addEventListener('externalwaiting' as any, () => {
-            setNeedRefresh(true);
-          });
+          wb.addEventListener("waiting", showSkipWaitingPrompt);
+          // @ts-ignore - externalwaiting is a valid event but not in the type definitions
+          wb.addEventListener("externalwaiting", showSkipWaitingPrompt);
 
-          // Service worker installed successfully (no toast notification needed)
-
+          // Register the service worker
           const reg = await wb.register();
           setRegistration(reg || null);
 
-          console.log('SW Registered:', reg);
+          // Check if there's already a waiting service worker
+          if (reg?.waiting) {
+            showSkipWaitingPrompt();
+          }
+
+
         } catch (error) {
-          console.log('SW registration error', error);
+          console.log("SW registration error", error);
         }
       }
     };
@@ -56,25 +64,33 @@ export function PWAUpdatePrompt() {
     registerSW();
   }, []);
 
-  const close = useCallback(() => {
-    setNeedRefresh(false);
-  }, []);
-
   useEffect(() => {
-    if (needRefresh) {
-      toast("New content available, click on reload button to update.", {
-        duration: Infinity,
-        action: {
-          label: "Reload",
-          onClick: () => updateServiceWorker(true),
-        },
-        cancel: {
-          label: "Later",
-          onClick: close,
-        },
-      });
+    if (needRefresh && !toastIdRef.current) {
+      // Use the raw toast API for custom cancel button
+      toastIdRef.current = toast.info(
+        "New content available, click on reload button to update.",
+        {
+          duration: Infinity,
+          action: {
+            label: "Reload",
+            onClick: () => {
+              updateServiceWorker();
+            },
+          },
+          cancel: {
+            label: "Later",
+            onClick: () => {
+              setNeedRefresh(false);
+              if (toastIdRef.current) {
+                toast.dismiss(toastIdRef.current);
+                toastIdRef.current = null;
+              }
+            },
+          },
+        }
+      );
     }
-  }, [needRefresh, updateServiceWorker, close]);
+  }, [needRefresh, updateServiceWorker]);
 
   return null;
 }
