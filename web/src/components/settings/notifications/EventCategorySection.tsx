@@ -21,10 +21,18 @@ import type {
   NotificationRuleInput,
 } from "@/api/notifications";
 
+// Type for tracking rule changes
+interface RuleChange {
+  eventId: number;
+  enabled?: boolean;
+  threshold_value?: number;
+  threshold_operator?: "gt" | "lt" | "eq" | "gte" | "lte";
+}
+
 interface EventCategorySectionProps {
   category: string;
   events: NotificationEvent[];
-  pendingChanges: Map<number, any>;
+  pendingChanges: Map<number, RuleChange>;
   getRuleState: (eventId: number) => Partial<NotificationRule>;
   onUpdateRule: (
     eventId: number,

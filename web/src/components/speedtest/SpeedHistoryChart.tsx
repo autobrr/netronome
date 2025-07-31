@@ -48,7 +48,7 @@ interface SpeedHistoryChartProps {
   hasCurrentRangeTests?: boolean;
   showDragHandle?: boolean;
   dragHandleRef?: (node: HTMLElement | null) => void;
-  dragHandleListeners?: any;
+  dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
   dragHandleClassName?: string;
 }
 

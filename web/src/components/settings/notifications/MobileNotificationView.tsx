@@ -17,32 +17,47 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EventCategorySection } from "./EventCategorySection";
 import { AddChannelForm } from "./AddChannelForm";
-import type { NotificationEvent, NotificationRule } from "@/api/notifications";
+import type { 
+  NotificationEvent, 
+  NotificationRule, 
+  NotificationChannel, 
+  NotificationChannelInput, 
+  NotificationRuleInput 
+} from "@/api/notifications";
+import type { UseMutationResult } from "@tanstack/react-query";
+
+// Type for tracking rule changes
+interface RuleChange {
+  eventId: number;
+  enabled?: boolean;
+  threshold_value?: number;
+  threshold_operator?: "gt" | "lt" | "eq" | "gte" | "lte";
+}
 
 interface MobileNotificationViewProps {
-  channels: any[];
-  activeChannel: any;
+  channels: NotificationChannel[];
+  activeChannel: NotificationChannel | undefined;
   activeChannelId: number | null;
   setActiveChannelId: (id: number | null) => void;
   showAddChannel: boolean;
   setShowAddChannel: (show: boolean) => void;
   hasUnsavedChanges: boolean;
-  pendingChanges: Map<number, any>;
-  rules: any[];
+  pendingChanges: Map<number, RuleChange>;
+  rules: NotificationRule[];
   rulesLoading: boolean;
   eventsByCategory: Record<string, NotificationEvent[]>;
   getRuleState: (eventId: number) => Partial<NotificationRule>;
-  updatePendingChange: (eventId: number, update: any) => void;
+  updatePendingChange: (eventId: number, update: Partial<RuleChange>) => void;
   saveChanges: () => Promise<void>;
   cancelChanges: () => void;
-  createChannelMutation: any;
-  updateChannelMutation: any;
-  deleteChannelMutation: any;
-  testChannelMutation: any;
+  createChannelMutation: UseMutationResult<NotificationChannel, Error, NotificationChannelInput, unknown>;
+  updateChannelMutation: UseMutationResult<NotificationChannel, Error, { id: number } & NotificationChannelInput, unknown>;
+  deleteChannelMutation: UseMutationResult<void, Error, number, unknown>;
+  testChannelMutation: UseMutationResult<{ success: boolean; message: string }, Error, number, unknown>;
   testingChannelId: number | null;
   setTestingChannelId: (id: number | null) => void;
-  updateRuleMutation: any;
-  createRuleMutation: any;
+  updateRuleMutation: UseMutationResult<NotificationRule, Error, { id: number } & Partial<NotificationRuleInput>, unknown>;
+  createRuleMutation: UseMutationResult<NotificationRule, Error, NotificationRuleInput, unknown>;
 }
 
 export const MobileNotificationView: React.FC<MobileNotificationViewProps> = ({

@@ -9,9 +9,10 @@ import { SHOUTRRR_SERVICES } from "@/api/notifications";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/card";
+import type { NotificationChannel } from "@/api/notifications";
 
 interface ChannelCardProps {
-  channel: any;
+  channel: NotificationChannel;
   isActive: boolean;
   hasUnsavedChanges: boolean;
   onClick: () => void;

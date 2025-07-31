@@ -184,7 +184,7 @@ export function DataTable<TData, TValue>({
                         }
                         onSelect={(event) => event.preventDefault()}
                       >
-                        {(column.columnDef.meta as any)?.displayName ||
+                        {(column.columnDef.meta as { displayName?: string })?.displayName ||
                           (typeof column.columnDef.header === "string"
                             ? column.columnDef.header
                             : column.id)}

@@ -133,11 +133,12 @@ export const TracerouteTab: React.FC = () => {
       });
 
       showToast("Monitor created successfully", "success", {
-        description: `Monitoring ${(variables as any).host}`,
+        description: `Monitoring ${variables.host}`,
       });
 
       // Auto-start monitor if requested and we have a valid monitor ID
-      if ((variables as any).shouldStartImmediately && newMonitor?.id) {
+      const variablesWithFlag = variables as typeof variables & { shouldStartImmediately?: boolean };
+      if (variablesWithFlag.shouldStartImmediately && newMonitor?.id) {
         startMutation.mutate(newMonitor.id);
       }
 
@@ -283,7 +284,8 @@ export const TracerouteTab: React.FC = () => {
       // Store the enabled state for auto-start functionality
       const shouldStartImmediately = data.enabled;
       // Add shouldStartImmediately as a property on monitorData for the mutation
-      createMutation.mutate({ ...monitorData, shouldStartImmediately } as any);
+      const monitorWithFlag = { ...monitorData, shouldStartImmediately };
+      createMutation.mutate(monitorWithFlag as Omit<PacketLossMonitor, "id" | "createdAt" | "updatedAt"> & { shouldStartImmediately: boolean });
     }
   };
 

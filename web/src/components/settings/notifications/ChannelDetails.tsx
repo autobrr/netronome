@@ -18,10 +18,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import type { NotificationChannel, NotificationChannelInput } from "@/api/notifications";
+import type { UseMutationResult } from "@tanstack/react-query";
 
 interface ChannelDetailsProps {
-  channel: any;
-  onUpdate: any;
+  channel: NotificationChannel;
+  onUpdate: UseMutationResult<NotificationChannel, Error, { id: number } & NotificationChannelInput, unknown>;
   onDelete: () => void;
   onTest: () => void;
   isDeleting: boolean;

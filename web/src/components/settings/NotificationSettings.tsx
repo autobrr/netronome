@@ -272,7 +272,7 @@ export const NotificationSettings: React.FC = () => {
   const saveChanges = async () => {
     if (!activeChannel) return;
 
-    const promises: Promise<any>[] = [];
+    const promises: Promise<NotificationRule>[] = [];
 
     for (const [eventId, change] of pendingChanges) {
       const existingRule = rules.find((r) => r.event_id === eventId);
@@ -305,7 +305,7 @@ export const NotificationSettings: React.FC = () => {
       });
       setPendingChanges(new Map());
       setHasUnsavedChanges(false);
-    } catch (error) {
+    } catch {
       showToast("Failed to save some changes", "error");
     }
   };

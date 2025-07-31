@@ -56,14 +56,11 @@ interface AgentTableData extends MonitorAgent {
 
 export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
   agents,
-  selectedAgent: _selectedAgent,
   onSelectAgent,
   onEditAgent,
   onDeleteAgent,
   isLoading,
 }) => {
-  // Force re-render all items when featured agents change
-  const [updateKey, setUpdateKey] = React.useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [agentToDelete, setAgentToDelete] = React.useState<MonitorAgent | null>(
     null
@@ -72,7 +69,6 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
 
   React.useEffect(() => {
     const handleStorageChange = () => {
-      setUpdateKey((prev) => prev + 1);
     };
 
     window.addEventListener("storage", handleStorageChange);
@@ -106,7 +102,7 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
         ...agent,
         isFeatured: featuredAgentIds.includes(agent.id),
       })),
-    [agents, featuredAgentIds, updateKey]
+    [agents, featuredAgentIds]
   );
 
   // Column definitions
