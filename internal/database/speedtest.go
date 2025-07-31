@@ -24,7 +24,13 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 		"latency":        result.Latency,
 		"jitter":         result.Jitter,
 		"is_scheduled":   result.IsScheduled,
-		"created_at":     sq.Expr("CURRENT_TIMESTAMP"),
+	}
+
+	// Use provided created_at if available, otherwise use current timestamp
+	if !result.CreatedAt.IsZero() {
+		data["created_at"] = result.CreatedAt
+	} else {
+		data["created_at"] = sq.Expr("CURRENT_TIMESTAMP")
 	}
 
 	var id int64
@@ -69,24 +75,24 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 		switch s.config.Type {
 		case config.Postgres:
 			switch timeRange {
-			case "1d":
+			case "24h", "1d":
 				timeExpr = "NOW() - INTERVAL '1 day'"
 			case "3d":
 				timeExpr = "NOW() - INTERVAL '3 days'"
-			case "1w":
+			case "week", "1w":
 				timeExpr = "NOW() - INTERVAL '7 days'"
-			case "1m":
+			case "month", "1m":
 				timeExpr = "NOW() - INTERVAL '1 month'"
 			}
 		case config.SQLite:
 			switch timeRange {
-			case "1d":
+			case "24h", "1d":
 				timeExpr = "datetime('now', '-1 day')"
 			case "3d":
 				timeExpr = "datetime('now', '-3 days')"
-			case "1w":
+			case "week", "1w":
 				timeExpr = "datetime('now', '-7 days')"
-			case "1m":
+			case "month", "1m":
 				timeExpr = "datetime('now', '-1 month')"
 			}
 		}

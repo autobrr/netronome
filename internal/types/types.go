@@ -352,15 +352,6 @@ type MonitorInterface struct {
 	UpdatedAt time.Time `db:"updated_at" json:"updatedAt"`
 }
 
-// MonitorBandwidthSample represents periodic bandwidth snapshots
-type MonitorBandwidthSample struct {
-	ID               int64     `db:"id" json:"id"`
-	AgentID          int64     `db:"agent_id" json:"agentId"`
-	RxBytesPerSecond int64     `db:"rx_bytes_per_second" json:"rxBytesPerSecond"`
-	TxBytesPerSecond int64     `db:"tx_bytes_per_second" json:"txBytesPerSecond"`
-	CreatedAt        time.Time `db:"created_at" json:"createdAt"`
-}
-
 // MonitorPeakStats represents historical peak bandwidth
 type MonitorPeakStats struct {
 	ID              int64      `db:"id" json:"id"`
