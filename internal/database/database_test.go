@@ -191,6 +191,7 @@ var testTablesToClear = []string{
 	"speedtest_results",
 	"saved_iperf_servers",
 	"users",
+	"registration_status",
 	// Keep: notification_events, notification_categories, schema_migrations
 }
 
