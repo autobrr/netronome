@@ -84,12 +84,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-blue-500 text-white hover:bg-blue-600 shadow-lg",
-        destructive: "bg-red-500 text-white hover:bg-red-600 shadow-lg",
-        outline: "border border-gray-300 bg-white hover:bg-gray-50",
-        secondary: "bg-gray-200/50 hover:bg-gray-300/50 border border-gray-300",
-        ghost: "hover:bg-gray-100",
-        link: "text-blue-500 underline-offset-4 hover:underline",
+        default: "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 shadow-lg",
+        destructive: "bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 shadow-lg",
+        outline: "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-100 shadow-lg",
+        secondary: "bg-gray-200/50 text-gray-900 hover:bg-gray-300/50 dark:bg-gray-800/50 dark:text-gray-100 dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-800 shadow-lg",
+        ghost: "text-gray-900 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-100",
+        link: "text-blue-500 underline-offset-4 hover:underline dark:text-blue-400",
       },
       size: {
         default: "h-9 px-4 py-2",
@@ -267,11 +267,14 @@ const Component = ({ isActive, className }) => (
 
 ### Dark Mode Support
 
-**Always provide dark mode alternatives:**
+**Always provide dark mode alternatives with explicit text colors:**
 
 ```typescript
-// Standard pattern
+// Standard pattern - always include text colors for accessibility
 className = "bg-white dark:bg-gray-800 text-gray-900 dark:text-white";
+
+// Button variants must specify text colors explicitly
+className = "bg-white text-gray-900 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800";
 
 // With opacity
 className = "bg-gray-50/95 dark:bg-gray-850/95";
@@ -279,6 +282,8 @@ className = "bg-gray-50/95 dark:bg-gray-850/95";
 // For borders
 className = "border-gray-200 dark:border-gray-800";
 ```
+
+**Important**: Always specify explicit text colors, especially for interactive elements like buttons. Relying on inherited text colors can cause accessibility issues in dark mode.
 
 ### Shadow and Backdrop Effects
 
@@ -1210,14 +1215,21 @@ className =
 
 ```typescript
 className =
-  "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700";
+  "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 shadow-lg";
+```
+
+**Button (Outline):**
+
+```typescript
+className =
+  "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800 shadow-lg";
 ```
 
 **Button (Secondary):**
 
 ```typescript
 className =
-  "bg-gray-200/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800";
+  "bg-gray-200/50 text-gray-900 hover:bg-gray-300/50 dark:bg-gray-800/50 dark:text-gray-100 dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-800 shadow-lg";
 ```
 
 **Input Field:**
@@ -1302,5 +1314,14 @@ This style guide was thoroughly updated based on analysis of the current codebas
 - **Directory Structure**: Added actual deep nesting patterns used in the codebase
 - **Component Composition**: Added status-based styling patterns
 - **Quick Reference**: Added shortcuts for new patterns
+
+### Latest Update: Button Component Patterns (January 2025)
+
+- **Updated CVA Button Examples**: Now show complete variant definitions with proper dark mode support
+- **Added Button (Outline) Pattern**: Documented the full outline variant with explicit text colors
+- **Enhanced Dark Mode Guidelines**: Added emphasis on explicit text colors for accessibility
+- **Fixed Quick Reference**: Updated button shortcuts to match actual implementation patterns
+
+**Key Insight**: The actual Button component implementation was more comprehensive than the style guide examples, demonstrating the importance of keeping documentation aligned with production code.
 
 This style guide should be updated as new patterns emerge and the codebase evolves. When adding new components or patterns, ensure they follow these established conventions for consistency across the application.
