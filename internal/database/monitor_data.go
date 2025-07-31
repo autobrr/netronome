@@ -52,7 +52,7 @@ func (s *service) UpsertMonitorSystemInfo(ctx context.Context, agentID int64, in
 		update = update.Set("vnstat_version", info.VnstatVersion)
 		hasUpdates = true
 	}
-	if info.AgentVersion != "" {
+	if info.AgentVersion != nil && *info.AgentVersion != "" {
 		update = update.Set("agent_version", info.AgentVersion)
 		hasUpdates = true
 	}

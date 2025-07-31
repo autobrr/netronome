@@ -772,7 +772,7 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 		Hostname:      systemInfo.Hostname,
 		Kernel:        systemInfo.Kernel,
 		VnstatVersion: systemInfo.VnstatVersion,
-		AgentVersion:  agentVersion,
+		AgentVersion:  &agentVersion,
 	}
 
 	if err := s.db.UpsertMonitorSystemInfo(client.ctx, client.agent.ID, sysInfo); err != nil {
