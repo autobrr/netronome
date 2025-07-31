@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestIsWhitelisted(t *testing.T) {
@@ -54,12 +55,12 @@ func TestIsWhitelisted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
 			c.Request = &http.Request{RemoteAddr: tt.remoteAddr + ":12345"}
 
-			if got := isWhitelisted(c, tt.whitelist); got != tt.expected {
-				t.Errorf("isWhitelisted() = %v, want %v", got, tt.expected)
-			}
+			got := isWhitelisted(c, tt.whitelist)
+			assert.Equal(t, tt.expected, got, "isWhitelisted() result mismatch")
 		})
 	}
 }

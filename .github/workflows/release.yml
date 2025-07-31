@@ -6,34 +6,50 @@ on:
       - "main"
       - "develop"
     tags:
-      - 'v*'
+      - "v*"
     paths-ignore:
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/images/**'
-      - 'config.toml'
-      - 'docker-compose.yml'
-      - 'Makefile'
-      - '**.md'
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/images/**"
+      - "config.toml"
+      - "docker-compose.yml"
+      - "Makefile"
+      - "**.md"
   pull_request:
     paths-ignore:
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/images/**'
-      - 'config.toml'
-      - 'docker-compose.yml'
-      - 'Makefile'
-      - '**.md'
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/images/**"
+      - "config.toml"
+      - "docker-compose.yml"
+      - "Makefile"
+      - "**.md"
 
 env:
   REGISTRY: ghcr.io
   REGISTRY_IMAGE: ghcr.io/${{ github.repository }}
-  GO_VERSION: '1.23.4'
-  NODE_VERSION: '22.10.0'
+  GO_VERSION: "1.23.4"
+  NODE_VERSION: "22.10.0"
 
 permissions:
   contents: write
   packages: write
 
 jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run tests
+        run: go test -v ./...
+
   web:
     name: Build web
     runs-on: ubuntu-latest
@@ -54,12 +70,20 @@ jobs:
       - name: Set up cache
         uses: actions/setup-node@v4
         with:
-          cache: 'pnpm'
+          cache: "pnpm"
           cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Fetch web dependencies
         working-directory: web
         run: pnpm install --frozen-lockfile
+
+      #- name: Lint frontend
+      #  working-directory: web
+      #  run: pnpm run lint
+
+      - name: Type check frontend
+        working-directory: web
+        run: pnpm tsc --noEmit
 
       - name: Build web frontend
         working-directory: web
@@ -74,7 +98,7 @@ jobs:
   goreleaserbuild:
     name: Build distribution binaries
     runs-on: ubuntu-latest
-    needs: [ web ]
+    needs: [test, web]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -128,7 +152,7 @@ jobs:
   docker:
     name: Build Docker images
     runs-on: ubuntu-latest
-    needs: [ web ]
+    needs: [test, web]
     strategy:
       fail-fast: true
       matrix:
@@ -139,8 +163,6 @@ jobs:
           - linux/arm/v6
           - linux/arm/v7
           - linux/arm64
-    # Remove dependency on test job
-    # needs: [ test ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -218,7 +240,7 @@ jobs:
     name: Publish Docker multi-arch manifest
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
-    needs: [ docker ]
+    needs: [docker]
     steps:
       - name: Download image digests
         uses: actions/download-artifact@v4
