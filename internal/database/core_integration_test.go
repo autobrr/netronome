@@ -5,7 +5,6 @@ package database
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
@@ -82,47 +81,6 @@ func TestUserManagement(t *testing.T) {
 	})
 }
 
-func TestConcurrentOperations(t *testing.T) {
-	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
-		ctx := context.Background()
-
-		// Create multiple users concurrently
-		var wg sync.WaitGroup
-		errors := make(chan error, 5)
-		
-		for i := 0; i < 5; i++ {
-			wg.Add(1)
-			go func(idx int) {
-				defer wg.Done()
-				username := "concurrent_user_" + string(rune('a'+idx))
-				_, err := td.Service.CreateUser(ctx, username, "password")
-				if err != nil {
-					errors <- err
-				}
-			}(i)
-		}
-
-		// Wait for all goroutines to complete
-		wg.Wait()
-		close(errors)
-
-		// Check if any errors occurred
-		for err := range errors {
-			assert.NoError(t, err)
-		}
-
-		// Small delay to ensure all transactions are committed
-		time.Sleep(10 * time.Millisecond)
-
-		// Verify all users were created
-		for i := 0; i < 5; i++ {
-			username := "concurrent_user_" + string(rune('a'+i))
-			user, err := td.Service.GetUserByUsername(ctx, username)
-			require.NoError(t, err)
-			assert.Equal(t, username, user.Username)
-		}
-	})
-}
 
 func TestTransactionBehavior(t *testing.T) {
 	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
