@@ -93,23 +93,47 @@ func (s *service) GetEnabledPacketLossMonitors() ([]*types.PacketLossMonitor, er
 
 // SavePacketLossResult saves a packet loss test result
 func (s *service) SavePacketLossResult(result *types.PacketLossResult) error {
-	query := s.sqlBuilder.
-		Insert("packet_loss_results").
-		Columns("monitor_id", "packet_loss", "min_rtt", "max_rtt", "avg_rtt", "std_dev_rtt", "packets_sent", "packets_recv", "used_mtr", "hop_count", "mtr_data", "privileged_mode", "created_at").
-		Values(result.MonitorID, result.PacketLoss, result.MinRTT, result.MaxRTT, result.AvgRTT, result.StdDevRTT, result.PacketsSent, result.PacketsRecv, result.UsedMTR, result.HopCount, result.MTRData, result.PrivilegedMode, result.CreatedAt)
+	var id int64
 
-	res, err := query.RunWith(s.db).Exec()
-	if err != nil {
-		return fmt.Errorf("failed to save packet loss result: %w", err)
+	switch s.config.Type {
+	case config.Postgres:
+		query := s.sqlBuilder.
+			Insert("packet_loss_results").
+			Columns("monitor_id", "packet_loss", "min_rtt", "max_rtt", "avg_rtt", "std_dev_rtt", "packets_sent", "packets_recv", "used_mtr", "hop_count", "mtr_data", "privileged_mode", "created_at").
+			Values(result.MonitorID, result.PacketLoss, result.MinRTT, result.MaxRTT, result.AvgRTT, result.StdDevRTT, result.PacketsSent, result.PacketsRecv, result.UsedMTR, result.HopCount, result.MTRData, result.PrivilegedMode, result.CreatedAt).
+			Suffix("RETURNING id")
+
+		sqlStr, args, err := query.ToSql()
+		if err != nil {
+			return fmt.Errorf("failed to build query: %w", err)
+		}
+
+		err = s.db.QueryRow(sqlStr, args...).Scan(&id)
+		if err != nil {
+			return fmt.Errorf("failed to save packet loss result: %w", err)
+		}
+
+	case config.SQLite:
+		query := s.sqlBuilder.
+			Insert("packet_loss_results").
+			Columns("monitor_id", "packet_loss", "min_rtt", "max_rtt", "avg_rtt", "std_dev_rtt", "packets_sent", "packets_recv", "used_mtr", "hop_count", "mtr_data", "privileged_mode", "created_at").
+			Values(result.MonitorID, result.PacketLoss, result.MinRTT, result.MaxRTT, result.AvgRTT, result.StdDevRTT, result.PacketsSent, result.PacketsRecv, result.UsedMTR, result.HopCount, result.MTRData, result.PrivilegedMode, result.CreatedAt)
+
+		res, err := query.RunWith(s.db).Exec()
+		if err != nil {
+			return fmt.Errorf("failed to save packet loss result: %w", err)
+		}
+
+		id, err = res.LastInsertId()
+		if err != nil {
+			return fmt.Errorf("failed to get last insert ID: %w", err)
+		}
+
+	default:
+		return fmt.Errorf("unsupported database type: %s", s.config.Type)
 	}
 
-	id, err := res.LastInsertId()
-	if err != nil {
-		log.Warn().Err(err).Msg("Failed to get last insert ID for packet loss result")
-	} else {
-		result.ID = id
-	}
-
+	result.ID = id
 	return nil
 }
 
