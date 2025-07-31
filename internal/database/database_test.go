@@ -188,7 +188,7 @@ var testTablesToClear = []string{
 	"monitor_agent_interfaces",
 	"monitor_agent_system_info",
 	"monitor_agents",
-	"speedtest_results",
+	"speed_tests",
 	"saved_iperf_servers",
 	"users",
 	"registration_status",
