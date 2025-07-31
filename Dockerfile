@@ -80,7 +80,7 @@ RUN export GOOS=$TARGETOS; \
     -o /app/netronome ./cmd/netronome
 
 # build runner
-FROM alpine:latest
+FROM alpine:3.22
 
 # Install dependencies including tini for proper process reaping
 RUN apk add --no-cache tini sqlite iperf3 traceroute mtr tzdata
