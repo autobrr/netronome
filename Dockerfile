@@ -82,9 +82,8 @@ RUN export GOOS=$TARGETOS; \
 # build runner
 FROM alpine:latest
 
-
-# Install dependencies
-RUN apk add --no-cache sqlite iperf3 traceroute mtr tzdata
+# Install dependencies including tini for proper process reaping
+RUN apk add --no-cache tini sqlite iperf3 traceroute mtr tzdata
 
 ENV HOME="/data" \
     XDG_CONFIG_HOME="/data" \
@@ -105,5 +104,6 @@ RUN addgroup -S netronome && \
 
 USER netronome
 
-ENTRYPOINT ["netronome"]
+# Use tini as PID 1 to handle zombie process reaping
+ENTRYPOINT ["/sbin/tini", "--", "netronome"]
 CMD ["serve"]

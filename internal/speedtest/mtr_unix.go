@@ -13,6 +13,7 @@ import (
 // configureMTRCommand sets Unix-specific attributes for the MTR command
 func configureMTRCommand(cmd *exec.Cmd) {
 	// Set process group to ensure child processes are killed
+	// This is important even in containers to manage child processes
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
