@@ -9,7 +9,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MonitorAgentList } from "./MonitorAgentList";
 import { MonitorAgentForm } from "./MonitorAgentForm";
 import { MonitorAgentDetailsTabs } from "./MonitorAgentDetailsTabs";
-import { ArrowLeftIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { MonitorDataPrefetcher } from "./MonitorDataPrefetcher";
+import { showToast } from "@/components/common/Toast";
+import {
+  ArrowLeftIcon,
+  PencilIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/badge";
+import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
 import {
   getMonitorAgents,
   createMonitorAgent,
@@ -25,6 +34,8 @@ export const MonitorTab: React.FC = () => {
   const [selectedAgent, setSelectedAgent] = useState<MonitorAgent | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<MonitorAgent | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [agentToDelete, setAgentToDelete] = useState<MonitorAgent | null>(null);
   const queryClient = useQueryClient();
 
   // Helper functions for managing featured agents
@@ -65,7 +76,7 @@ export const MonitorTab: React.FC = () => {
     const preselectedId = sessionStorage.getItem("netronome-preselect-agent");
     if (preselectedId && agents.length > 0 && !selectedAgent) {
       const agentId = parseInt(preselectedId, 10);
-      const agent = agents.find(a => a.id === agentId);
+      const agent = agents.find((a) => a.id === agentId);
       if (agent) {
         setSelectedAgent(agent);
         sessionStorage.removeItem("netronome-preselect-agent");
@@ -76,9 +87,17 @@ export const MonitorTab: React.FC = () => {
   // Create agent mutation
   const createMutation = useMutation({
     mutationFn: createMonitorAgent,
-    onSuccess: () => {
+    onSuccess: (newAgent) => {
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       setIsFormOpen(false);
+      showToast("Agent created", "success", {
+        description: `${newAgent.name} has been added successfully`,
+      });
+    },
+    onError: (error: Error) => {
+      showToast("Failed to create agent", "error", {
+        description: error.message || "Unable to create the monitoring agent",
+      });
     },
   });
 
@@ -100,10 +119,18 @@ export const MonitorTab: React.FC = () => {
           window.dispatchEvent(new Event("featured-agents-changed"));
         }
       }
-      
+
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       setIsFormOpen(false);
       setEditingAgent(null);
+      showToast("Agent updated", "success", {
+        description: "Agent has been updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      showToast("Failed to update agent", "error", {
+        description: error.message || "Unable to update the monitoring agent",
+      });
     },
   });
 
@@ -122,9 +149,19 @@ export const MonitorTab: React.FC = () => {
         window.dispatchEvent(new Event("storage"));
         window.dispatchEvent(new Event("featured-agents-changed"));
       }
-      
+
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       setSelectedAgent(null);
+      
+      const deletedAgentName = agentToDelete?.name || "Agent";
+      showToast("Agent deleted", "success", {
+        description: `${deletedAgentName} has been removed`
+      });
+    },
+    onError: (error: Error) => {
+      showToast("Failed to delete agent", "error", {
+        description: error.message || "Unable to delete the monitoring agent",
+      });
     },
   });
 
@@ -138,9 +175,19 @@ export const MonitorTab: React.FC = () => {
     setIsFormOpen(true);
   };
 
-  const handleDeleteAgent = async (id: number) => {
-    if (confirm("Are you sure you want to delete this agent?")) {
-      deleteMutation.mutate(id);
+  const handleDeleteAgent = (agent: MonitorAgent) => {
+    setAgentToDelete(agent);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (agentToDelete) {
+      // Close dialog immediately
+      setDeleteDialogOpen(false);
+      // Delete the agent
+      deleteMutation.mutate(agentToDelete.id);
+      // Clear the agent to delete
+      setAgentToDelete(null);
     }
   };
 
@@ -161,6 +208,9 @@ export const MonitorTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Pre-fetch data for all enabled agents */}
+      <MonitorDataPrefetcher agents={agents} />
+      
       <AnimatePresence mode="wait">
         {!selectedAgent ? (
           <motion.div
@@ -169,26 +219,27 @@ export const MonitorTab: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-6"
           >
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                  Bandwidth Monitoring
+                <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
+                  Monitoring
                 </h2>
-                <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                  Monitor bandwidth from Netronome agents • Click an agent to view detailed stats
+                <p className="hidden sm:block mt-1 text-sm text-gray-600 dark:text-gray-400">
+                  Monitor bandwidth and other stats from Netronome agents •
+                  Click an agent to view detailed stats
                 </p>
               </div>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+              <Button
                 onClick={handleCreateAgent}
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white border border-blue-600 hover:border-blue-700 rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm sm:text-base font-medium"
+                variant="default"
+                size="default"
+                className="w-full sm:w-auto"
               >
                 Add Agent
-              </motion.button>
+              </Button>
             </div>
 
             {/* Agent List */}
@@ -197,7 +248,10 @@ export const MonitorTab: React.FC = () => {
               selectedAgent={null}
               onSelectAgent={setSelectedAgent}
               onEditAgent={handleEditAgent}
-              onDeleteAgent={handleDeleteAgent}
+              onDeleteAgent={(id) => {
+                // Just pass through the delete mutation
+                return deleteMutation.mutateAsync(id);
+              }}
               isLoading={isLoading}
             />
           </motion.div>
@@ -213,43 +267,43 @@ export const MonitorTab: React.FC = () => {
             {/* Simplified Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                <Button
                   onClick={handleBack}
-                  className="px-3 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg shadow-md transition-colors flex items-center gap-2"
+                  variant="secondary"
+                  size="sm"
+                  className="gap-1.5"
                 >
                   <ArrowLeftIcon className="h-4 w-4" />
-                  <span className="text-sm font-medium">Back</span>
-                </motion.button>
+                  <span>Back</span>
+                </Button>
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {selectedAgent.name}
                 </h2>
                 {selectedAgent && !selectedAgent.enabled && (
-                  <span className="px-3 py-1 bg-gray-500/10 border border-gray-500/30 text-gray-600 dark:text-gray-400 rounded-lg shadow-md text-xs font-medium">
-                    Disabled
-                  </span>
+                  <Badge variant="secondary">Disabled</Badge>
                 )}
               </div>
-              <div className="flex gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+              <div className="flex items-center gap-2">
+                <Button
                   onClick={() => handleEditAgent(selectedAgent)}
-                  className="p-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg shadow-md transition-colors"
+                  variant="secondary"
+                  size="sm"
+                  className="gap-1.5"
                   title="Edit agent"
                 >
                   <PencilIcon className="h-4 w-4" />
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleDeleteAgent(selectedAgent.id)}
-                  className="p-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg shadow-md transition-colors"
+                  <span className="hidden sm:inline">Edit</span>
+                </Button>
+                <Button
+                  onClick={() => handleDeleteAgent(selectedAgent)}
+                  variant="secondary"
+                  size="sm"
+                  className="gap-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400"
                   title="Delete agent"
                 >
                   <TrashIcon className="h-4 w-4" />
-                </motion.button>
+                  <span className="hidden sm:inline">Delete</span>
+                </Button>
               </div>
             </div>
 
@@ -269,6 +323,18 @@ export const MonitorTab: React.FC = () => {
         }}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
         isOpen={isFormOpen}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setAgentToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        itemName={agentToDelete?.name || ""}
+        isDeleting={deleteMutation.isPending}
       />
     </div>
   );

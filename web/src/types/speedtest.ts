@@ -10,6 +10,7 @@ export interface SpeedTestOptions {
   useIperf?: boolean;
   useLibrespeed?: boolean;
   serverHost?: string;
+  serverName?: string;
 }
 
 export interface SpeedTest {

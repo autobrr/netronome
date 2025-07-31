@@ -358,9 +358,10 @@ interfaces=$(get_network_interfaces)
 echo "$interfaces" | nl -w2 -s'. '
 
 echo ""
+print_color $YELLOW "Type the interface name from the list above (e.g., eth0, ens18, etc.)"
 if [ "$INTERACTIVE_MODE" = true ]; then
     # Interactive mode - read from terminal
-    read -p "Enter the interface to monitor (leave empty for all): " INTERFACE < "$INPUT_SOURCE"
+    read -p "Enter the interface name to monitor (leave empty for all): " INTERFACE < "$INPUT_SOURCE"
 else
     # Non-interactive mode - default to all interfaces
     INTERFACE=""
@@ -793,6 +794,18 @@ else
         EXEC_START="$EXEC_START --host $HOST --port $PORT"
     fi
     
+    # Determine user based on Tailscale configuration
+    if [ "$TAILSCALE_ENABLED" = "true" ] && [ "$TAILSCALE_METHOD" = "tsnet" ]; then
+        SERVICE_USER="root"
+        SERVICE_GROUP="root"
+        # Add tsnet state directory to ReadWritePaths
+        READWRITE_PATHS="$CONFIG_DIR /root/.config/netronome"
+    else
+        SERVICE_USER="$USER_NAME"
+        SERVICE_GROUP="$USER_NAME"
+        READWRITE_PATHS="$CONFIG_DIR"
+    fi
+    
     cat > /etc/systemd/system/$SERVICE_NAME.service << EOF
 [Unit]
 Description=Netronome vnstat Agent
@@ -801,8 +814,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=$USER_NAME
-Group=$USER_NAME
+User=$SERVICE_USER
+Group=$SERVICE_GROUP
 ExecStart=$EXEC_START
 Restart=always
 RestartSec=10
@@ -812,6 +825,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
+ReadWritePaths=$READWRITE_PATHS
 
 [Install]
 WantedBy=multi-user.target

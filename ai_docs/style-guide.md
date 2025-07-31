@@ -71,9 +71,116 @@ export const Button: React.FC<ButtonProps> = ({
 };
 ```
 
+### Component Variant Architecture (CVA)
+
+**Use class-variance-authority for complex component variants:**
+
+```typescript
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils";
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 disabled:pointer-events-none disabled:opacity-50",
+  {
+    variants: {
+      variant: {
+        default: "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 shadow-lg",
+        destructive: "bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 shadow-lg",
+        outline: "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-100 shadow-lg",
+        secondary: "bg-gray-200/50 text-gray-900 hover:bg-gray-300/50 dark:bg-gray-800/50 dark:text-gray-100 dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-800 shadow-lg",
+        ghost: "text-gray-900 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-100",
+        link: "text-blue-500 underline-offset-4 hover:underline dark:text-blue-400",
+      },
+      size: {
+        default: "h-9 px-4 py-2",
+        sm: "h-8 rounded-md px-3 text-xs",
+        lg: "h-10 rounded-md px-8",
+        icon: "h-9 w-9",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+);
+
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean;
+  isLoading?: boolean;
+}
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, asChild = false, isLoading = false, children, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button";
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        {...props}
+      >
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {children}
+      </Comp>
+    );
+  }
+);
+Button.displayName = "Button";
+```
+
+### Radix UI Integration Patterns
+
+**Use Radix UI primitives with proper composition:**
+
+```typescript
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { Slot } from "@radix-ui/react-slot";
+
+// Compound component pattern
+function Dialog(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
+  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+}
+
+function DialogContent({
+  className,
+  children,
+  showCloseButton = true,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  showCloseButton?: boolean;
+}) {
+  return (
+    <DialogPortal>
+      <DialogOverlay />
+      <DialogPrimitive.Content
+        data-slot="dialog-content"
+        className={cn(
+          "bg-gray-50/95 dark:bg-gray-850/95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border p-6 shadow-xl",
+          className
+        )}
+        {...props}
+      >
+        {children}
+        {showCloseButton && (
+          <DialogPrimitive.Close className="absolute top-4 right-4">
+            <XMarkIcon />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        )}
+      </DialogPrimitive.Content>
+    </DialogPortal>
+  );
+}
+
+// Export all sub-components
+export { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle };
+```
+
 ### Component Composition
 
-**Create reusable sub-components:**
+**Create reusable sub-components with status-based styling:**
 
 ```typescript
 const MetricCard: React.FC<{
@@ -82,25 +189,46 @@ const MetricCard: React.FC<{
   value: string;
   unit: string;
   average?: string;
-}> = ({ icon, title, value, unit, average }) => (
-  <div className="bg-gray-50/95 dark:bg-gray-850/95 p-4 rounded-xl border border-gray-200 dark:border-gray-900 shadow-lg">
-    <div className="flex items-center gap-3 mb-2">
-      <div className="text-gray-600 dark:text-gray-400">{icon}</div>
-      <h3 className="text-gray-700 dark:text-gray-300 font-medium">{title}</h3>
-    </div>
-    <div className="flex items-baseline gap-2">
-      <span className="text-2xl font-bold text-gray-900 dark:text-white">
-        {value}
-      </span>
-      <span className="text-gray-600 dark:text-gray-400">{unit}</span>
-    </div>
-    {average && (
-      <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-        Average: {average} {unit}
+  status?: "normal" | "warning" | "error" | "success";
+}> = ({ icon, title, value, unit, average, status = "normal" }) => {
+  const statusColors = {
+    normal: "",
+    success: "ring-1 ring-emerald-500/20 bg-emerald-500/5",
+    warning: "ring-1 ring-amber-500/20 bg-amber-500/5",
+    error: "ring-1 ring-red-500/20 bg-red-500/5",
+  };
+
+  const valueColors = {
+    normal: "text-gray-900 dark:text-white",
+    success: "text-emerald-600 dark:text-emerald-400",
+    warning: "text-amber-600 dark:text-amber-400",
+    error: "text-red-600 dark:text-red-400",
+  };
+
+  return (
+    <div className={`bg-gray-50/95 dark:bg-gray-850/95 p-3 sm:p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-lg ${statusColors[status]}`}>
+      <div className="flex items-center gap-2 sm:gap-3 mb-2">
+        <div className="text-gray-600 dark:text-gray-400 flex-shrink-0">{icon}</div>
+        <h3 className="text-gray-700 dark:text-gray-300 font-medium text-sm sm:text-base truncate">
+          {title}
+        </h3>
       </div>
-    )}
-  </div>
-);
+      <div className="flex items-baseline gap-1 sm:gap-2">
+        <span className={`text-xl sm:text-2xl font-bold ${valueColors[status]}`}>
+          {value}
+        </span>
+        <span className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">{unit}</span>
+      </div>
+      {average && (
+        <div className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
+          <span className="hidden sm:inline">Average: </span>
+          <span className="sm:hidden">Avg: </span>
+          {average} {unit}
+        </div>
+      )}
+    </div>
+  );
+};
 ```
 
 ---
@@ -139,11 +267,14 @@ const Component = ({ isActive, className }) => (
 
 ### Dark Mode Support
 
-**Always provide dark mode alternatives:**
+**Always provide dark mode alternatives with explicit text colors:**
 
 ```typescript
-// Standard pattern
+// Standard pattern - always include text colors for accessibility
 className = "bg-white dark:bg-gray-800 text-gray-900 dark:text-white";
+
+// Button variants must specify text colors explicitly
+className = "bg-white text-gray-900 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800";
 
 // With opacity
 className = "bg-gray-50/95 dark:bg-gray-850/95";
@@ -151,6 +282,8 @@ className = "bg-gray-50/95 dark:bg-gray-850/95";
 // For borders
 className = "border-gray-200 dark:border-gray-800";
 ```
+
+**Important**: Always specify explicit text colors, especially for interactive elements like buttons. Relying on inherited text colors can cause accessibility issues in dark mode.
 
 ### Shadow and Backdrop Effects
 
@@ -441,35 +574,143 @@ useEffect(() => {
 
 ### TanStack Query Patterns
 
-**Query with caching:**
+**Advanced query configuration with caching strategies:**
 
 ```typescript
-const { data: results } = useQuery<TracerouteResult | null>({
-  queryKey: ["traceroute", "results"],
-  queryFn: () => null,
-  enabled: false,
-  staleTime: Infinity,
-  initialData: null,
+const statusQuery = useQuery<MonitorStatus>({
+  queryKey: ["monitor-agent-status", agent.id],
+  queryFn: () => getMonitorAgentStatus(agent.id),
+  refetchInterval: agent.enabled ? MONITOR_REFRESH_INTERVALS.STATUS : false,
+  staleTime: MONITOR_REFRESH_INTERVALS.STATUS / 2, // Consider data fresh for half the refetch interval
+  gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes even when unused
+  enabled: agent.enabled && includeData,
 });
 ```
 
-**Mutation with optimistic updates:**
+**Conditional queries based on multiple conditions:**
 
 ```typescript
-const tracerouteMutation = useMutation({
-  mutationFn: runTraceroute,
-  onMutate: () => {
-    // Clear previous results and error state
-    queryClient.setQueryData(["traceroute", "results"], null);
-    setError(null);
+const hardwareStatsQuery = useQuery<HardwareStats>({
+  queryKey: ["monitor-agent-hardware", agent.id],
+  queryFn: () => getMonitorAgentHardwareStats(agent.id),
+  refetchInterval: agent.enabled ? MONITOR_REFRESH_INTERVALS.HARDWARE_STATS : false,
+  staleTime: MONITOR_REFRESH_INTERVALS.HARDWARE_STATS,
+  enabled: agent.enabled && includeHardwareStats && statusQuery.data?.connected,
+});
+```
+
+**Direct cache manipulation with invalidation:**
+
+```typescript
+// Direct cache update followed by invalidation
+queryClient.setQueryData(["packetloss", "history", monitorId], freshHistory);
+
+// Force React Query to notify all subscribers
+queryClient.invalidateQueries({
+  queryKey: ["packetloss", "history", monitorId],
+  exact: true,
+});
+```
+
+**Mutation with toast notifications:**
+
+```typescript
+const startMutation = useMutation({
+  mutationFn: () => startMonitorAgent(agent.id),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
+    queryClient.invalidateQueries({ queryKey: ["monitor-agent-status", agent.id] });
+    showToast("Agent started", "success", {
+      description: `${agent.name} is now active`,
+    });
   },
-  onSuccess: (data) => {
-    queryClient.setQueryData(["traceroute", "results"], data);
-  },
-  onError: (error) => {
-    setError(error.message);
+  onError: (error: Error) => {
+    showToast("Failed to start agent", "error", {
+      description: error.message || "Unable to start the monitoring agent",
+    });
   },
 });
+```
+
+### Custom Hook Patterns
+
+**Hook with polling and cleanup:**
+
+```typescript
+export const usePacketLossMonitorStatus = (
+  monitors: PacketLossMonitor[],
+  selectedMonitorId?: number,
+) => {
+  const queryClient = useQueryClient();
+  const [monitorStatuses, setMonitorStatuses] = useState<Map<number, MonitorStatus>>(new Map());
+
+  useEffect(() => {
+    const enabledMonitors = monitors.filter((m) => m.enabled);
+    if (enabledMonitors.length === 0) return;
+
+    const pollInterval = setInterval(async () => {
+      const statusPromises = enabledMonitors.map(async (monitor) => {
+        try {
+          const status = await getPacketLossMonitorStatus(monitor.id);
+          return { monitorId: monitor.id, status };
+        } catch (error) {
+          console.error(`Failed to get status for monitor ${monitor.id}:`, error);
+          return null;
+        }
+      });
+
+      const results = await Promise.all(statusPromises);
+      
+      // Update state and handle completion logic
+      setMonitorStatuses((prev) => {
+        const newStatuses = new Map(prev);
+        results.forEach((result) => {
+          if (result) newStatuses.set(result.monitorId, result.status);
+        });
+        return newStatuses;
+      });
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [monitors, queryClient, selectedMonitorId]);
+
+  return monitorStatuses;
+};
+```
+
+**Hook with complex options and multiple data sources:**
+
+```typescript
+interface UseMonitorAgentOptions {
+  agent: MonitorAgent;
+  includeNativeData?: boolean;
+  includeSystemInfo?: boolean;
+  includePeakStats?: boolean;
+  includeHardwareStats?: boolean;
+}
+
+export const useMonitorAgent = ({
+  agent,
+  includeNativeData = false,
+  includeSystemInfo = false,
+  includePeakStats = false,
+  includeHardwareStats = false,
+}: UseMonitorAgentOptions) => {
+  // Multiple queries with different refresh rates and conditions
+  // Return complex data structure with loading states
+  return {
+    status: statusQuery.data,
+    nativeData: nativeDataQuery.data,
+    systemInfo: systemInfoQuery.data,
+    peakStats: peakStatsQuery.data,
+    hardwareStats: hardwareStatsQuery.data,
+    isLoadingStatus: statusQuery.isLoading,
+    isLoadingNativeData: nativeDataQuery.isLoading,
+    // ... other loading states
+    startMutation,
+    stopMutation,
+  };
+};
 ```
 
 ---
@@ -570,6 +811,232 @@ export const Component: React.FC<Props> = ({ prop1, prop2 }) => {
 
 ---
 
+## API Layer Patterns
+
+### Consistent Error Handling
+
+**Use standardized error handling across all API functions:**
+
+```typescript
+export async function getServers(testType: string) {
+  try {
+    const response = await fetch(getApiUrl(`/servers?testType=${testType}`));
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to fetch servers");
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching servers:", error);
+    throw error;
+  }
+}
+```
+
+**POST requests with proper headers:**
+
+```typescript
+export async function runSpeedTest(options: SpeedTestOptions) {
+  try {
+    const response = await fetch(getApiUrl("/speedtest"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(options),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to run speed test");
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error running speed test:", error);
+    throw error;
+  }
+}
+```
+
+**Cache control for real-time data:**
+
+```typescript
+export async function getSpeedTestStatus() {
+  try {
+    const response = await fetch(getApiUrl("/speedtest/status"), {
+      headers: {
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+    });
+    // ... error handling
+  } catch (error) {
+    console.error("Error getting speed test status:", error);
+    throw error;
+  }
+}
+```
+
+## Constants and Configuration Patterns
+
+### Type-Safe Constants
+
+**Use `as const` for immutable configuration:**
+
+```typescript
+export const MONITOR_REFRESH_INTERVALS = {
+  STATUS: 5000, // 5 seconds
+  HARDWARE_STATS: 30000, // 30 seconds
+  NATIVE_DATA: 60000, // 1 minute
+  SYSTEM_INFO: 300000, // 5 minutes
+} as const;
+
+// Extract type from constants
+export type MonitorRefreshInterval = typeof MONITOR_REFRESH_INTERVALS[keyof typeof MONITOR_REFRESH_INTERVALS];
+```
+
+**Interface + data pattern for form options:**
+
+```typescript
+export interface IntervalOption {
+  value: string;
+  label: string;
+}
+
+export const intervalOptions: IntervalOption[] = [
+  { value: "10s", label: "Every 10 seconds" },
+  { value: "30s", label: "Every 30 seconds" },
+  { value: "1m", label: "Every 1 minute" },
+  { value: "5m", label: "Every 5 minutes" },
+  // ... more options
+];
+
+export const defaultFormData: MonitorFormData = {
+  host: "",
+  name: "",
+  interval: "30m",
+  scheduleType: "interval",
+  exactTimes: [],
+  packetCount: 10,
+  threshold: 5.0,
+  enabled: true,
+};
+```
+
+## Routing Patterns
+
+### TanStack Router Configuration
+
+**Route composition with authentication:**
+
+```typescript
+import { createRouter, createRoute, createRootRoute, Outlet } from "@tanstack/react-router";
+
+// Protected route wrapper
+function ProtectedRoute() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const navigate = router.navigate;
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate({ to: "/login" });
+    }
+  }, [isLoading, isAuthenticated, navigate]);
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  return isAuthenticated ? <Outlet /> : null;
+}
+
+// Route tree structure
+const rootRoute = createRootRoute({
+  component: () => <App />,
+});
+
+const protectedRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: "protected",
+  component: ProtectedRoute,
+});
+
+const indexRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: "/",
+  component: Main,
+});
+
+const routeTree = rootRoute.addChildren([
+  protectedRoute.addChildren([indexRoute]),
+  authRoute.addChildren([loginRoute, registerRoute]),
+]);
+
+export const router = createRouter({
+  routeTree,
+  defaultPreload: "intent",
+  basepath: window.__BASE_URL__ || "/",
+});
+```
+
+## Type Definition Patterns
+
+### Complex Interface Hierarchies
+
+**Define comprehensive type structures:**
+
+```typescript
+export interface PacketLossMonitor {
+  id: number;
+  host: string;
+  name?: string;
+  interval: string; // Duration string, not number
+  packetCount: number;
+  enabled: boolean;
+  threshold: number;
+  lastRun?: string;
+  nextRun?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PacketLossResult {
+  id: number;
+  monitorId: number;
+  packetLoss: number;
+  minRtt: number;
+  maxRtt: number;
+  avgRtt: number;
+  stdDevRtt: number;
+  packetsSent: number;
+  packetsRecv: number;
+  usedMtr?: boolean;
+  hopCount?: number;
+  mtrData?: string; // JSON string containing MTRData
+  privilegedMode?: boolean;
+  createdAt: string;
+}
+```
+
+**Union types for specific values:**
+
+```typescript
+export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
+export type TestType = "speedtest" | "iperf" | "librespeed";
+```
+
+**Generic interfaces for API responses:**
+
+```typescript
+export interface PaginatedResponse<T> {
+  data: T[];
+  page: number;
+  limit: number;
+  total?: number;
+}
+```
+
+---
+
 ## File Organization
 
 ### Directory Structure
@@ -579,12 +1046,27 @@ src/
 ├── components/
 │   ├── auth/           # Authentication components
 │   ├── common/         # Shared components
-│   ├── speedtest/      # Feature-specific components
-│   └── ui/             # Base UI components
-├── utils/              # Utility functions
-├── types/              # Type definitions
-├── api/                # API layer
-└── context/            # React contexts
+│   ├── monitor/        # Monitor feature components
+│   ├── settings/       # Settings and configuration components
+│   ├── speedtest/      # Speed test features with deep nesting:
+│   │   ├── packetloss/ # Feature-specific organization:
+│   │   │   ├── components/    # Sub-feature components
+│   │   │   ├── hooks/         # Feature-specific hooks
+│   │   │   ├── types/         # Feature-specific types
+│   │   │   ├── utils/         # Feature-specific utilities
+│   │   │   └── constants/     # Feature-specific constants
+│   │   └── traceroute/ # Similar deep structure
+│   ├── icons/          # Custom icon components
+│   └── ui/             # Base UI components (shadcn/ui)
+├── api/                # API layer functions
+├── constants/          # Global constants
+├── context/            # React contexts
+├── hooks/              # Global custom hooks
+├── lib/                # Library utilities (utils.ts)
+├── types/              # Global type definitions
+├── utils/              # Global utility functions
+├── routes.tsx          # TanStack Router configuration
+└── main.tsx           # Application entry point
 ```
 
 ### Naming Conventions
@@ -625,6 +1107,101 @@ import { Type } from "@/types/types";
 
 ## Quick Reference
 
+### Component Architecture Shortcuts
+
+**CVA Button Variant:**
+
+```typescript
+const buttonVariants = cva(
+  "base-classes",
+  {
+    variants: {
+      variant: { default: "classes", destructive: "classes" },
+      size: { default: "classes", sm: "classes", lg: "classes" },
+    },
+    defaultVariants: { variant: "default", size: "default" },
+  }
+);
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+  asChild?: boolean;
+}
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button";
+    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
+  }
+);
+```
+
+**Status-based Component:**
+
+```typescript
+const statusColors = {
+  normal: "",
+  success: "ring-1 ring-emerald-500/20 bg-emerald-500/5",
+  warning: "ring-1 ring-amber-500/20 bg-amber-500/5",
+  error: "ring-1 ring-red-500/20 bg-red-500/5",
+};
+```
+
+### TanStack Query Shortcuts
+
+**Complex Query Configuration:**
+
+```typescript
+const query = useQuery({
+  queryKey: ["key", id],
+  queryFn: () => fetchData(id),
+  refetchInterval: enabled ? INTERVALS.STATUS : false,
+  staleTime: INTERVALS.STATUS / 2,
+  gcTime: 5 * 60 * 1000,
+  enabled: enabled && hasData,
+});
+```
+
+**Cache Manipulation:**
+
+```typescript
+// Direct update + invalidation pattern
+queryClient.setQueryData(["key", id], newData);
+queryClient.invalidateQueries({ queryKey: ["key", id], exact: true });
+```
+
+### API Pattern Shortcuts
+
+**Standard API Function:**
+
+```typescript
+export async function apiFunction(param: string) {
+  try {
+    const response = await fetch(getApiUrl(`/endpoint?param=${param}`));
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to fetch data");
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error:", error);
+    throw error;
+  }
+}
+```
+
+### Constants Pattern Shortcuts
+
+**Type-safe Constants:**
+
+```typescript
+export const CONFIG = {
+  VALUE1: 1000,
+  VALUE2: 2000,
+} as const;
+
+export type ConfigValue = typeof CONFIG[keyof typeof CONFIG];
+```
+
 ### Common Class Combinations
 
 **Card/Panel:**
@@ -638,14 +1215,21 @@ className =
 
 ```typescript
 className =
-  "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 hover:border-blue-700";
+  "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 shadow-lg";
+```
+
+**Button (Outline):**
+
+```typescript
+className =
+  "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800 shadow-lg";
 ```
 
 **Button (Secondary):**
 
 ```typescript
 className =
-  "bg-gray-200/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-800 hover:bg-gray-300/50 dark:hover:bg-gray-800";
+  "bg-gray-200/50 text-gray-900 hover:bg-gray-300/50 dark:bg-gray-800/50 dark:text-gray-100 dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-800 shadow-lg";
 ```
 
 **Input Field:**
@@ -711,5 +1295,33 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
 | Special        | `text-purple-600`  | `text-purple-400`  |
 
 ---
+
+## Recent Updates
+
+This style guide was thoroughly updated based on analysis of the current codebase patterns. The following major additions were made:
+
+### New Sections Added:
+- **Component Variant Architecture (CVA)**: Modern variant management with `class-variance-authority`
+- **Radix UI Integration Patterns**: Compound components and `asChild` prop patterns
+- **Advanced TanStack Query Patterns**: Complex caching strategies, conditional queries, and cache manipulation
+- **Custom Hook Patterns**: Polling, cleanup, and complex data management
+- **API Layer Patterns**: Consistent error handling and request patterns
+- **Constants and Configuration Patterns**: Type-safe configurations with `as const`
+- **Routing Patterns**: TanStack Router composition and authentication
+- **Type Definition Patterns**: Complex interfaces and type extraction
+
+### Updated Sections:
+- **Directory Structure**: Added actual deep nesting patterns used in the codebase
+- **Component Composition**: Added status-based styling patterns
+- **Quick Reference**: Added shortcuts for new patterns
+
+### Latest Update: Button Component Patterns (January 2025)
+
+- **Updated CVA Button Examples**: Now show complete variant definitions with proper dark mode support
+- **Added Button (Outline) Pattern**: Documented the full outline variant with explicit text colors
+- **Enhanced Dark Mode Guidelines**: Added emphasis on explicit text colors for accessibility
+- **Fixed Quick Reference**: Updated button shortcuts to match actual implementation patterns
+
+**Key Insight**: The actual Button component implementation was more comprehensive than the style guide examples, demonstrating the importance of keeping documentation aligned with production code.
 
 This style guide should be updated as new patterns emerge and the codebase evolves. When adding new components or patterns, ensure they follow these established conventions for consistency across the application.

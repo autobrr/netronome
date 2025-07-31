@@ -608,6 +608,7 @@ func (h *MonitorHandler) GetAgentSystemInfo(c *gin.Context) {
 			"hostname":       systemInfo.Hostname,
 			"kernel":         systemInfo.Kernel,
 			"vnstat_version": systemInfo.VnstatVersion,
+			"agent_version":  systemInfo.AgentVersion,
 			"interfaces":     interfaceMap,
 			"cpu_model":      systemInfo.CPUModel,
 			"cpu_cores":      systemInfo.CPUCores,
@@ -636,17 +637,34 @@ func (h *MonitorHandler) GetAgentSystemInfo(c *gin.Context) {
 		return
 	}
 
-	// Validate JSON
-	var systemData interface{}
+	// Parse the system data to add agent version
+	var systemData map[string]interface{}
 	if err := json.Unmarshal(body, &systemData); err != nil {
 		log.Error().Err(err).Msg("Invalid JSON response from agent")
 		c.JSON(http.StatusBadGateway, gin.H{"error": "Invalid JSON response from agent"})
 		return
 	}
 
-	// Return the system info JSON data
-	c.Header("Content-Type", "application/json")
-	c.Data(http.StatusOK, "application/json", body)
+	// Fetch agent version from /netronome/info endpoint  
+	agentBaseURL := strings.TrimSuffix(agent.URL, "/events?stream=live-data")
+	infoURL := agentBaseURL + "/netronome/info"
+	infoReq, infoErr := http.NewRequestWithContext(c.Request.Context(), "GET", infoURL, nil)
+	if infoErr == nil {
+		infoClient := &http.Client{Timeout: 5 * time.Second}
+		infoResp, infoRespErr := infoClient.Do(infoReq)
+		if infoRespErr == nil && infoResp.StatusCode == http.StatusOK {
+			defer infoResp.Body.Close()
+			var agentInfo struct {
+				Version string `json:"version"`
+			}
+			if decodeErr := json.NewDecoder(infoResp.Body).Decode(&agentInfo); decodeErr == nil && agentInfo.Version != "" {
+				systemData["agent_version"] = agentInfo.Version
+			}
+		}
+	}
+
+	// Return the augmented system info
+	c.JSON(http.StatusOK, systemData)
 }
 
 // GetAgentHardwareStats returns hardware statistics from an agent

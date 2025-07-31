@@ -9,6 +9,8 @@ import {
   ServerIcon,
   CpuChipIcon,
   ClockIcon,
+  InformationCircleIcon,
+  CodeBracketIcon,
 } from "@heroicons/react/24/outline";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faLinux, faApple } from "@fortawesome/free-brands-svg-icons";
@@ -53,11 +55,14 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
       transition={{ duration: 0.3 }}
       className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
     >
-      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-        System Information
-      </h3>
+      <div className="flex items-center space-x-2 sm:space-x-3 mb-4">
+        <InformationCircleIcon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-900 dark:text-white" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+          System Information
+        </h3>
+      </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         {/* Hostname */}
         <div className="flex items-start space-x-3">
           <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-900/20 flex-shrink-0">
@@ -114,6 +119,23 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
             </p>
           </div>
         </div>
+
+        {/* Agent Version */}
+        {systemInfo.agent_version && (
+          <div className="flex items-start space-x-3">
+            <div className="rounded-full bg-orange-100 p-2 dark:bg-orange-900/20 flex-shrink-0">
+              <CodeBracketIcon className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                Agent Version
+              </p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                {systemInfo.agent_version}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Network Interfaces */}

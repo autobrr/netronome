@@ -74,3 +74,10 @@ test-tailscale.md
 ai_docs/tailscale_ideas.md
 ai_docs/AGENT_UPDATE.md
 netronome.db.backup
+
+.mcp.json
+output/*
+web/dev-dist/sw.js*
+web/dev-dist/workbox-*.js*
+
+test/*

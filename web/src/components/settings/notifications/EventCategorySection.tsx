@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState } from "react";
+import React from "react";
 import { 
   ChevronRightIcon,
   RocketLaunchIcon,
@@ -13,16 +13,26 @@ import {
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import { EventRuleItem } from "./EventRuleItem";
+import { Card } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type {
   NotificationEvent,
   NotificationRule,
   NotificationRuleInput,
 } from "@/api/notifications";
 
+// Type for tracking rule changes
+interface RuleChange {
+  eventId: number;
+  enabled?: boolean;
+  threshold_value?: number;
+  threshold_operator?: "gt" | "lt" | "eq" | "gte" | "lte";
+}
+
 interface EventCategorySectionProps {
   category: string;
   events: NotificationEvent[];
-  pendingChanges: Map<number, any>;
+  pendingChanges: Map<number, RuleChange>;
   getRuleState: (eventId: number) => Partial<NotificationRule>;
   onUpdateRule: (
     eventId: number,
@@ -37,7 +47,6 @@ export const EventCategorySection: React.FC<EventCategorySectionProps> = ({
   getRuleState,
   onUpdateRule,
 }) => {
-  const [expanded, setExpanded] = useState(false);
 
   const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
   
@@ -69,50 +78,40 @@ export const EventCategorySection: React.FC<EventCategorySectionProps> = ({
   };
 
   return (
-    <div
+    <Card
       className={cn(
-        "rounded-lg border",
+        "overflow-hidden p-0 bg-transparent",
         categoryStyles[category as keyof typeof categoryStyles] ||
           "border-gray-200 dark:border-gray-800"
       )}
     >
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-colors rounded-t-lg"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex-shrink-0">
-            {getCategoryIcon()}
+      <Collapsible>
+        <CollapsibleTrigger className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-colors group">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0">
+              {getCategoryIcon()}
+            </div>
+            <div className="text-left">
+              <h5 className="font-semibold text-gray-900 dark:text-white">
+                {categoryTitle}
+              </h5>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                {enabledCount > 0 ? (
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                    {enabledCount} of {events.length} rules enabled
+                  </span>
+                ) : (
+                  <span>
+                    {events.length} {events.length === 1 ? "event" : "events"} available
+                  </span>
+                )}
+              </p>
+            </div>
           </div>
-          <div className="text-left">
-            <h5 className="font-semibold text-gray-900 dark:text-white">
-              {categoryTitle}
-            </h5>
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              {enabledCount > 0 ? (
-                <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                  {enabledCount} of {events.length} rules enabled
-                </span>
-              ) : (
-                <span>
-                  {events.length} {events.length === 1 ? "event" : "events"} available
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-        <div
-          className={cn(
-            "transition-transform duration-200",
-            expanded ? "rotate-90" : ""
-          )}
-        >
-          <ChevronRightIcon className="w-5 h-5 text-gray-400" />
-        </div>
-      </button>
+          <ChevronRightIcon className="w-5 h-5 text-gray-400 transition-transform duration-200 group-data-[state=open]:rotate-90" />
+        </CollapsibleTrigger>
 
-      {expanded && (
-        <div className="overflow-hidden">
+        <CollapsibleContent>
           <div className="p-4 space-y-3 border-t border-gray-200/50 dark:border-gray-800/50">
             {events.map((event) => (
               <EventRuleItem
@@ -124,8 +123,8 @@ export const EventCategorySection: React.FC<EventCategorySectionProps> = ({
               />
             ))}
           </div>
-        </div>
-      )}
-    </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   );
 };

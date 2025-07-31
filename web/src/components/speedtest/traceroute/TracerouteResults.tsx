@@ -13,7 +13,7 @@ import {
   formatTracerouteForClipboard,
   copyToClipboard,
 } from "@/utils/clipboard";
-import { STYLES, COPY_SUCCESS_DURATION } from "./constants/tracerouteConstants";
+import { COPY_SUCCESS_DURATION } from "./constants/tracerouteConstants";
 
 interface TracerouteResultsProps {
   results: TracerouteResult;
@@ -37,7 +37,7 @@ export const TracerouteResults: React.FC<TracerouteResultsProps> = ({
   };
 
   return (
-    <div className={STYLES.card}>
+    <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
           Traceroute Results

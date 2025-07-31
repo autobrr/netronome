@@ -6,6 +6,9 @@ package config
 import (
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTailscaleConfig_AutoDetection(t *testing.T) {
@@ -78,18 +81,13 @@ func TestTailscaleConfig_AutoDetection(t *testing.T) {
 			method, err := tt.config.GetEffectiveMethod()
 			
 			if tt.expectError {
-				if err == nil {
-					t.Errorf("expected error but got none")
-				} else if tt.errorContains != "" && !contains(err.Error(), tt.errorContains) {
-					t.Errorf("expected error to contain %q, got %q", tt.errorContains, err.Error())
+				require.Error(t, err, "expected error but got none")
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains, "error message mismatch")
 				}
 			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if method != tt.expectedMethod {
-					t.Errorf("expected method %q, got %q", tt.expectedMethod, method)
-				}
+				require.NoError(t, err, "unexpected error")
+				assert.Equal(t, tt.expectedMethod, method, "method mismatch")
 			}
 		})
 	}
@@ -174,15 +172,12 @@ func TestTailscaleConfig_Validation(t *testing.T) {
 			err := tt.config.Validate()
 			
 			if tt.expectError {
-				if err == nil {
-					t.Errorf("expected error but got none")
-				} else if tt.errorContains != "" && !contains(err.Error(), tt.errorContains) {
-					t.Errorf("expected error to contain %q, got %q", tt.errorContains, err.Error())
+				require.Error(t, err, "expected error but got none")
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains, "error message mismatch")
 				}
 			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
+				require.NoError(t, err, "unexpected error")
 			}
 		})
 	}
@@ -279,42 +274,18 @@ func TestTailscaleConfig_EnvironmentOverrides(t *testing.T) {
 			cfg.loadFromEnv()
 			
 			// Compare
-			if cfg.Enabled != tt.expected.Enabled {
-				t.Errorf("Enabled: expected %v, got %v", tt.expected.Enabled, cfg.Enabled)
-			}
-			if cfg.Method != tt.expected.Method {
-				t.Errorf("Method: expected %q, got %q", tt.expected.Method, cfg.Method)
-			}
-			if cfg.AuthKey != tt.expected.AuthKey {
-				t.Errorf("AuthKey: expected %q, got %q", tt.expected.AuthKey, cfg.AuthKey)
-			}
-			if cfg.Hostname != tt.expected.Hostname {
-				t.Errorf("Hostname: expected %q, got %q", tt.expected.Hostname, cfg.Hostname)
-			}
-			if cfg.Ephemeral != tt.expected.Ephemeral {
-				t.Errorf("Ephemeral: expected %v, got %v", tt.expected.Ephemeral, cfg.Ephemeral)
-			}
-			if cfg.StateDir != tt.expected.StateDir {
-				t.Errorf("StateDir: expected %q, got %q", tt.expected.StateDir, cfg.StateDir)
-			}
-			if cfg.ControlURL != tt.expected.ControlURL {
-				t.Errorf("ControlURL: expected %q, got %q", tt.expected.ControlURL, cfg.ControlURL)
-			}
-			if cfg.AgentPort != tt.expected.AgentPort {
-				t.Errorf("AgentPort: expected %d, got %d", tt.expected.AgentPort, cfg.AgentPort)
-			}
-			if cfg.AutoDiscover != tt.expected.AutoDiscover {
-				t.Errorf("AutoDiscover: expected %v, got %v", tt.expected.AutoDiscover, cfg.AutoDiscover)
-			}
-			if cfg.DiscoveryInterval != tt.expected.DiscoveryInterval {
-				t.Errorf("DiscoveryInterval: expected %q, got %q", tt.expected.DiscoveryInterval, cfg.DiscoveryInterval)
-			}
-			if cfg.DiscoveryPort != tt.expected.DiscoveryPort {
-				t.Errorf("DiscoveryPort: expected %d, got %d", tt.expected.DiscoveryPort, cfg.DiscoveryPort)
-			}
-			if cfg.DiscoveryPrefix != tt.expected.DiscoveryPrefix {
-				t.Errorf("DiscoveryPrefix: expected %q, got %q", tt.expected.DiscoveryPrefix, cfg.DiscoveryPrefix)
-			}
+			assert.Equal(t, tt.expected.Enabled, cfg.Enabled, "Enabled field mismatch")
+			assert.Equal(t, tt.expected.Method, cfg.Method, "Method field mismatch")
+			assert.Equal(t, tt.expected.AuthKey, cfg.AuthKey, "AuthKey field mismatch")
+			assert.Equal(t, tt.expected.Hostname, cfg.Hostname, "Hostname field mismatch")
+			assert.Equal(t, tt.expected.Ephemeral, cfg.Ephemeral, "Ephemeral field mismatch")
+			assert.Equal(t, tt.expected.StateDir, cfg.StateDir, "StateDir field mismatch")
+			assert.Equal(t, tt.expected.ControlURL, cfg.ControlURL, "ControlURL field mismatch")
+			assert.Equal(t, tt.expected.AgentPort, cfg.AgentPort, "AgentPort field mismatch")
+			assert.Equal(t, tt.expected.AutoDiscover, cfg.AutoDiscover, "AutoDiscover field mismatch")
+			assert.Equal(t, tt.expected.DiscoveryInterval, cfg.DiscoveryInterval, "DiscoveryInterval field mismatch")
+			assert.Equal(t, tt.expected.DiscoveryPort, cfg.DiscoveryPort, "DiscoveryPort field mismatch")
+			assert.Equal(t, tt.expected.DiscoveryPrefix, cfg.DiscoveryPrefix, "DiscoveryPrefix field mismatch")
 		})
 	}
 }
@@ -407,33 +378,15 @@ func TestTailscaleConfig_BackwardCompatibility(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			migrated := tt.oldStyle.Tailscale.MigrateFromOldFormat()
 			
-			if migrated.Enabled != tt.expected.Enabled {
-				t.Errorf("Enabled: expected %v, got %v", tt.expected.Enabled, migrated.Enabled)
-			}
-			if migrated.Method != tt.expected.Method {
-				t.Errorf("Method: expected %q, got %q", tt.expected.Method, migrated.Method)
-			}
-			if migrated.AuthKey != tt.expected.AuthKey {
-				t.Errorf("AuthKey: expected %q, got %q", tt.expected.AuthKey, migrated.AuthKey)
-			}
-			if migrated.Hostname != tt.expected.Hostname {
-				t.Errorf("Hostname: expected %q, got %q", tt.expected.Hostname, migrated.Hostname)
-			}
-			if migrated.AgentPort != tt.expected.AgentPort {
-				t.Errorf("AgentPort: expected %d, got %d", tt.expected.AgentPort, migrated.AgentPort)
-			}
-			if migrated.AutoDiscover != tt.expected.AutoDiscover {
-				t.Errorf("AutoDiscover: expected %v, got %v", tt.expected.AutoDiscover, migrated.AutoDiscover)
-			}
-			if migrated.DiscoveryInterval != tt.expected.DiscoveryInterval {
-				t.Errorf("DiscoveryInterval: expected %q, got %q", tt.expected.DiscoveryInterval, migrated.DiscoveryInterval)
-			}
-			if migrated.DiscoveryPort != tt.expected.DiscoveryPort {
-				t.Errorf("DiscoveryPort: expected %d, got %d", tt.expected.DiscoveryPort, migrated.DiscoveryPort)
-			}
-			if migrated.DiscoveryPrefix != tt.expected.DiscoveryPrefix {
-				t.Errorf("DiscoveryPrefix: expected %q, got %q", tt.expected.DiscoveryPrefix, migrated.DiscoveryPrefix)
-			}
+			assert.Equal(t, tt.expected.Enabled, migrated.Enabled, "Enabled field mismatch")
+			assert.Equal(t, tt.expected.Method, migrated.Method, "Method field mismatch")
+			assert.Equal(t, tt.expected.AuthKey, migrated.AuthKey, "AuthKey field mismatch")
+			assert.Equal(t, tt.expected.Hostname, migrated.Hostname, "Hostname field mismatch")
+			assert.Equal(t, tt.expected.AgentPort, migrated.AgentPort, "AgentPort field mismatch")
+			assert.Equal(t, tt.expected.AutoDiscover, migrated.AutoDiscover, "AutoDiscover field mismatch")
+			assert.Equal(t, tt.expected.DiscoveryInterval, migrated.DiscoveryInterval, "DiscoveryInterval field mismatch")
+			assert.Equal(t, tt.expected.DiscoveryPort, migrated.DiscoveryPort, "DiscoveryPort field mismatch")
+			assert.Equal(t, tt.expected.DiscoveryPrefix, migrated.DiscoveryPrefix, "DiscoveryPrefix field mismatch")
 		})
 	}
 }
@@ -474,9 +427,7 @@ func TestTailscaleConfig_IsAgentMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.config.IsAgentMode()
-			if result != tt.expected {
-				t.Errorf("expected IsAgentMode() to return %v, got %v", tt.expected, result)
-			}
+			assert.Equal(t, tt.expected, result, "IsAgentMode() result mismatch")
 		})
 	}
 }
@@ -516,18 +467,12 @@ func TestTailscaleConfig_IsServerDiscoveryMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.config.IsServerDiscoveryMode()
-			if result != tt.expected {
-				t.Errorf("expected IsServerDiscoveryMode() to return %v, got %v", tt.expected, result)
-			}
+			assert.Equal(t, tt.expected, result, "IsServerDiscoveryMode() result mismatch")
 		})
 	}
 }
 
 // Helper functions
-func contains(s, substr string) bool {
-	return len(substr) > 0 && len(s) >= len(substr) && s[0:len(substr)] == substr || len(s) > len(substr) && contains(s[1:], substr)
-}
-
 func splitEnvPair(env string) []string {
 	for i := 0; i < len(env); i++ {
 		if env[i] == '=' {

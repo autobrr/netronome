@@ -4,9 +4,17 @@
  */
 
 import React from "react";
-import { Switch, Input, Select } from "@headlessui/react";
 import { InformationCircleIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type {
   NotificationEvent,
   NotificationRule,
@@ -40,19 +48,10 @@ export const EventRuleItem: React.FC<EventRuleItemProps> = ({
       <div className="flex items-start gap-3">
         <Switch
           checked={isEnabled}
-          onChange={(checked) => onUpdateRule({ enabled: checked })}
-          className={cn(
-            "relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
-            isEnabled ? "bg-blue-600" : "bg-gray-200 dark:bg-gray-700"
-          )}
+          onCheckedChange={(checked) => onUpdateRule({ enabled: checked })}
+          className="data-[state=checked]:bg-blue-600"
         >
           <span className="sr-only">Enable notification for {event.name}</span>
-          <span
-            className={cn(
-              "inline-block h-4 w-4 rounded-full bg-white shadow-lg transition-transform duration-200",
-              isEnabled ? "translate-x-6" : "translate-x-1"
-            )}
-          />
         </Switch>
 
         <div className="flex-1">
@@ -90,19 +89,22 @@ export const EventRuleItem: React.FC<EventRuleItemProps> = ({
 
               <Select
                 value={ruleState.threshold_operator || "gt"}
-                onChange={(e) => {
+                onValueChange={(value) => {
                   onUpdateRule({
-                    threshold_operator: e.target
-                      .value as NotificationRuleInput["threshold_operator"],
+                    threshold_operator: value as NotificationRuleInput["threshold_operator"],
                   });
                 }}
-                className="w-40 px-3 py-1.5 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50 text-sm"
               >
-                <option value="gt">Greater than</option>
-                <option value="lt">Less than</option>
-                <option value="eq">Equal to</option>
-                <option value="gte">Greater or equal</option>
-                <option value="lte">Less or equal</option>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gt">Greater than</SelectItem>
+                  <SelectItem value="lt">Less than</SelectItem>
+                  <SelectItem value="eq">Equal to</SelectItem>
+                  <SelectItem value="gte">Greater or equal</SelectItem>
+                  <SelectItem value="lte">Less or equal</SelectItem>
+                </SelectContent>
               </Select>
 
               <div className="flex items-center gap-2">
@@ -116,7 +118,7 @@ export const EventRuleItem: React.FC<EventRuleItemProps> = ({
                     }
                   }}
                   placeholder="0"
-                  className="w-24 px-3 py-1.5 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 text-gray-700 dark:text-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/50 text-sm"
+                  className="w-24"
                 />
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                   {event.threshold_unit}

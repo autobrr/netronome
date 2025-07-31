@@ -8,7 +8,7 @@ import { motion } from "motion/react";
 import { TracerouteHop } from "@/types/types";
 import { CountryFlag } from "@/components/speedtest/packetloss/components/CountryFlag";
 import { formatRTT, getAverageRTT } from "../utils/tracerouteUtils";
-import { TABLE_COLUMNS, STYLES } from "../constants/tracerouteConstants";
+import { TABLE_COLUMNS } from "../constants/tracerouteConstants";
 
 interface TracerouteTableProps {
   hops: TracerouteHop[];
@@ -30,16 +30,16 @@ export const TracerouteTable: React.FC<TracerouteTableProps> = ({
     <div className="hidden md:block">
       <table className="w-full text-sm">
         <thead>
-          <tr className={STYLES.table.header}>
-            <th className={STYLES.table.headerCell}>{TABLE_COLUMNS.hop}</th>
-            <th className={STYLES.table.headerCell}>{TABLE_COLUMNS.host}</th>
-            <th className={STYLES.table.headerCell}>
+          <tr className="border-b border-gray-800">
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">{TABLE_COLUMNS.hop}</th>
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">{TABLE_COLUMNS.host}</th>
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">
               {TABLE_COLUMNS.provider}
             </th>
-            <th className={STYLES.table.headerCell}>{TABLE_COLUMNS.rtt1}</th>
-            <th className={STYLES.table.headerCell}>{TABLE_COLUMNS.rtt2}</th>
-            <th className={STYLES.table.headerCell}>{TABLE_COLUMNS.rtt3}</th>
-            <th className={STYLES.table.headerCell}>{TABLE_COLUMNS.average}</th>
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">{TABLE_COLUMNS.rtt1}</th>
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">{TABLE_COLUMNS.rtt2}</th>
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">{TABLE_COLUMNS.rtt3}</th>
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">{TABLE_COLUMNS.average}</th>
           </tr>
         </thead>
         <tbody>
@@ -75,10 +75,10 @@ const TracerouteTableRow: React.FC<TracerouteTableRowProps> = ({
     : {};
 
   return (
-    <RowComponent {...rowProps} className={STYLES.table.row}>
-      <td className={STYLES.table.cell}>{hop.number}</td>
+    <RowComponent {...rowProps} className="border-b border-gray-300/50 dark:border-gray-800/50 last:border-0 hover:bg-gray-200/30 dark:hover:bg-gray-800/30 transition-colors">
+      <td className="py-3 px-2 text-gray-700 dark:text-gray-300 text-center">{hop.number}</td>
       <td
-        className={STYLES.table.cell}
+        className="py-3 px-2 text-gray-700 dark:text-gray-300 text-center"
         title={hop.timeout ? "Request timed out" : hop.host}
       >
         {hop.timeout ? (
@@ -87,7 +87,7 @@ const TracerouteTableRow: React.FC<TracerouteTableRowProps> = ({
           hop.host
         )}
       </td>
-      <td className={STYLES.table.providerCell}>
+      <td className="py-3 px-2 min-w-[200px] max-w-[200px] text-center">
         {hop.as ? (
           <div className="flex items-center justify-center gap-2">
             <CountryFlag
@@ -105,7 +105,7 @@ const TracerouteTableRow: React.FC<TracerouteTableRowProps> = ({
           <span className="text-gray-500 dark:text-gray-500">—</span>
         )}
       </td>
-      <td className={STYLES.table.monoCell}>
+      <td className="py-3 px-2 text-center font-mono">
         {hop.timeout ? (
           <span className="text-gray-500">*</span>
         ) : (
@@ -114,7 +114,7 @@ const TracerouteTableRow: React.FC<TracerouteTableRowProps> = ({
           </span>
         )}
       </td>
-      <td className={STYLES.table.monoCell}>
+      <td className="py-3 px-2 text-center font-mono">
         {hop.timeout ? (
           <span className="text-gray-500">*</span>
         ) : (
@@ -123,7 +123,7 @@ const TracerouteTableRow: React.FC<TracerouteTableRowProps> = ({
           </span>
         )}
       </td>
-      <td className={STYLES.table.monoCell}>
+      <td className="py-3 px-2 text-center font-mono">
         {hop.timeout ? (
           <span className="text-gray-500">*</span>
         ) : (
@@ -132,7 +132,7 @@ const TracerouteTableRow: React.FC<TracerouteTableRowProps> = ({
           </span>
         )}
       </td>
-      <td className={STYLES.table.monoCell}>
+      <td className="py-3 px-2 text-center font-mono">
         {hop.timeout ? (
           <span className="text-gray-500">*</span>
         ) : (

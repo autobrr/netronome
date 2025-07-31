@@ -104,8 +104,15 @@ func ServeStatic(r *gin.Engine) {
 			return
 		}
 
-		// Handle static assets
-		if strings.HasPrefix(trimmedPath, "/assets/") || trimmedPath == "/favicon.ico" {
+		// Handle static assets and PWA files
+		if strings.HasPrefix(trimmedPath, "/assets/") ||
+			trimmedPath == "/favicon.ico" ||
+			trimmedPath == "/sw.js" ||
+			trimmedPath == "/manifest.webmanifest" ||
+			trimmedPath == "/manifest.json" ||
+			strings.HasPrefix(trimmedPath, "/pwa-") ||
+			strings.HasPrefix(trimmedPath, "/apple-touch-icon") ||
+			strings.HasPrefix(trimmedPath, "/favicon-") {
 			serveFileFromFS(c, strings.TrimPrefix(trimmedPath, "/"))
 			return
 		}
@@ -123,6 +130,11 @@ func ServeStatic(r *gin.Engine) {
 
 // serveFileFromFS serves a file from the embedded filesystem with proper headers
 func serveFileFromFS(c *gin.Context, filepath string) {
+	// Handle manifest.json -> manifest.webmanifest redirect
+	if filepath == "manifest.json" {
+		filepath = "manifest.webmanifest"
+	}
+
 	file, err := DistDirFS.Open(filepath)
 	if err != nil {
 		log.Debug().Str("filepath", filepath).Err(err).Msg("failed to open static file")
@@ -152,6 +164,10 @@ func serveFileFromFS(c *gin.Context, filepath string) {
 		contentType = "image/x-icon"
 	case ".png":
 		contentType = "image/png"
+	case ".webmanifest":
+		contentType = "application/manifest+json"
+	case ".json":
+		contentType = "application/json"
 	default:
 		contentType = "application/octet-stream"
 	}

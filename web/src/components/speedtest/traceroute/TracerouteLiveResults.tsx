@@ -7,7 +7,6 @@ import React from "react";
 import { TracerouteUpdate } from "@/types/types";
 import { TracerouteTable } from "./components/TracerouteTable";
 import { TracerouteMobileCards } from "./components/TracerouteMobileCards";
-import { STYLES } from "./constants/tracerouteConstants";
 
 interface TracerouteLiveResultsProps {
   tracerouteStatus: TracerouteUpdate;
@@ -22,7 +21,7 @@ export const TracerouteLiveResults: React.FC<TracerouteLiveResultsProps> = ({
   }
 
   return (
-    <div className={`mb-6 ${STYLES.card}`}>
+    <div className="mb-6 bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
           Traceroute Results (In Progress)

@@ -77,7 +77,7 @@ RUN export GOOS=$TARGETOS; \
     -X 'main.version=${VERSION}' \
     -X 'main.commit=${REVISION}' \
     -X 'main.buildTime=${BUILDTIME}'" \
-    -o /app/netronome cmd/netronome
+    -o /app/netronome ./cmd/netronome
 
 # build runner
 FROM alpine:latest

@@ -4,7 +4,7 @@ AGENT_BINARY_NAME=netronome-agent
 BUILD_DIR=bin
 DOCKER_IMAGE=netronome
 
-.PHONY: all build build-agent build-all clean run docker-build docker-run watch dev
+.PHONY: all build build-agent build-all clean run docker-build docker-run watch dev dev-expose
 
 all: build
 
@@ -51,6 +51,17 @@ docker-run: docker-build
 dev:
 	@echo "Starting development servers..."
 	@GIN_MODE=debug tmux new-session -d -s dev 'cd web && pnpm dev'
+	@touch web/dist/.gitkeep > /dev/null 2>&1
+	@GIN_MODE=debug tmux split-window -h 'make watch'
+	@tmux -2 attach-session -d
+
+# Development with live reload exposed on network
+dev-expose:
+	@echo "Starting development servers (exposed on network)..."
+	@echo "Frontend will be available at http://0.0.0.0:5173"
+	@echo "Backend will be available at http://0.0.0.0:7575"
+	@echo "You can access from other devices using your machine's IP address"
+	@GIN_MODE=debug tmux new-session -d -s dev 'cd web && pnpm dev --host 0.0.0.0'
 	@touch web/dist/.gitkeep > /dev/null 2>&1
 	@GIN_MODE=debug tmux split-window -h 'make watch'
 	@tmux -2 attach-session -d

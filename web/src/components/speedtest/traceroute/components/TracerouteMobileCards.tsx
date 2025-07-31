@@ -8,7 +8,6 @@ import { motion } from "motion/react";
 import { TracerouteHop } from "@/types/types";
 import { CountryFlag } from "@/components/speedtest/packetloss/components/CountryFlag";
 import { formatRTT, getAverageRTT } from "../utils/tracerouteUtils";
-import { STYLES } from "../constants/tracerouteConstants";
 
 interface TracerouteMobileCardsProps {
   hops: TracerouteHop[];
@@ -58,7 +57,7 @@ const TracerouteMobileCard: React.FC<TracerouteMobileCardProps> = ({
     : {};
 
   return (
-    <CardComponent {...cardProps} className={STYLES.mobileCard}>
+    <CardComponent {...cardProps} className="bg-gray-200/50 dark:bg-gray-800/50 rounded-lg p-4">
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-blue-600 dark:text-blue-400 font-semibold">

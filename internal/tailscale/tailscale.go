@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"tailscale.com/client/tailscale"
@@ -97,7 +98,17 @@ func GetSelfInfo(client Client) (hostname string, ips []string, err error) {
 		return "", nil, fmt.Errorf("no self information available")
 	}
 	
-	hostname = status.Self.HostName
+	// Use the actual Tailscale machine name (DNSName without suffix)
+	hostname = status.Self.DNSName
+	// Trim the MagicDNS suffix to get just the machine name
+	if hostname != "" && strings.Contains(hostname, ".") {
+		hostname = strings.Split(hostname, ".")[0]
+	}
+	// Fallback to HostName if DNSName is empty
+	if hostname == "" {
+		hostname = status.Self.HostName
+	}
+	
 	for _, ip := range status.Self.TailscaleIPs {
 		ips = append(ips, ip.String())
 	}

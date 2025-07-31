@@ -18,6 +18,7 @@ type TestOptions struct {
 	UseIperf         bool     `json:"useIperf"`
 	UseLibrespeed    bool     `json:"useLibrespeed"`
 	ServerHost       string   `json:"serverHost"`
+	ServerName       string   `json:"serverName"`
 }
 
 type SpeedUpdate struct {
@@ -330,6 +331,7 @@ type MonitorSystemInfo struct {
 	Hostname      string    `db:"hostname" json:"hostname"`
 	Kernel        string    `db:"kernel" json:"kernel"`
 	VnstatVersion string    `db:"vnstat_version" json:"vnstatVersion"`
+	AgentVersion  string    `db:"agent_version" json:"agentVersion"`
 	CPUModel      string    `db:"cpu_model" json:"cpuModel"`
 	CPUCores      int       `db:"cpu_cores" json:"cpuCores"`
 	CPUThreads    int       `db:"cpu_threads" json:"cpuThreads"`
@@ -348,15 +350,6 @@ type MonitorInterface struct {
 	LinkSpeed int       `db:"link_speed" json:"linkSpeed"` // Mbps
 	CreatedAt time.Time `db:"created_at" json:"createdAt"`
 	UpdatedAt time.Time `db:"updated_at" json:"updatedAt"`
-}
-
-// MonitorBandwidthSample represents periodic bandwidth snapshots
-type MonitorBandwidthSample struct {
-	ID               int64     `db:"id" json:"id"`
-	AgentID          int64     `db:"agent_id" json:"agentId"`
-	RxBytesPerSecond int64     `db:"rx_bytes_per_second" json:"rxBytesPerSecond"`
-	TxBytesPerSecond int64     `db:"tx_bytes_per_second" json:"txBytesPerSecond"`
-	CreatedAt        time.Time `db:"created_at" json:"createdAt"`
 }
 
 // MonitorPeakStats represents historical peak bandwidth

@@ -26,8 +26,8 @@ func (s *service) UpsertMonitorSystemInfo(ctx context.Context, agentID int64, in
 		// Insert new record
 		query := s.sqlBuilder.
 			Insert("monitor_agent_system_info").
-			Columns("agent_id", "hostname", "kernel", "vnstat_version", "cpu_model", "cpu_cores", "cpu_threads", "total_memory", "created_at", "updated_at").
-			Values(agentID, info.Hostname, info.Kernel, info.VnstatVersion, info.CPUModel, info.CPUCores, info.CPUThreads, info.TotalMemory, time.Now(), time.Now())
+			Columns("agent_id", "hostname", "kernel", "vnstat_version", "agent_version", "cpu_model", "cpu_cores", "cpu_threads", "total_memory", "created_at", "updated_at").
+			Values(agentID, info.Hostname, info.Kernel, info.VnstatVersion, info.AgentVersion, info.CPUModel, info.CPUCores, info.CPUThreads, info.TotalMemory, time.Now(), time.Now())
 
 		_, err := query.RunWith(s.db).ExecContext(ctx)
 		return err
@@ -50,6 +50,10 @@ func (s *service) UpsertMonitorSystemInfo(ctx context.Context, agentID int64, in
 	}
 	if info.VnstatVersion != "" {
 		update = update.Set("vnstat_version", info.VnstatVersion)
+		hasUpdates = true
+	}
+	if info.AgentVersion != "" {
+		update = update.Set("agent_version", info.AgentVersion)
 		hasUpdates = true
 	}
 	if info.CPUModel != "" {
@@ -80,13 +84,13 @@ func (s *service) UpsertMonitorSystemInfo(ctx context.Context, agentID int64, in
 // GetMonitorSystemInfo retrieves system information for an agent
 func (s *service) GetMonitorSystemInfo(ctx context.Context, agentID int64) (*types.MonitorSystemInfo, error) {
 	query := s.sqlBuilder.
-		Select("id", "agent_id", "hostname", "kernel", "vnstat_version", "cpu_model", "cpu_cores", "cpu_threads", "total_memory", "created_at", "updated_at").
+		Select("id", "agent_id", "hostname", "kernel", "vnstat_version", "agent_version", "cpu_model", "cpu_cores", "cpu_threads", "total_memory", "created_at", "updated_at").
 		From("monitor_agent_system_info").
 		Where(sq.Eq{"agent_id": agentID})
 
 	var info types.MonitorSystemInfo
 	err := query.RunWith(s.db).QueryRowContext(ctx).Scan(
-		&info.ID, &info.AgentID, &info.Hostname, &info.Kernel, &info.VnstatVersion,
+		&info.ID, &info.AgentID, &info.Hostname, &info.Kernel, &info.VnstatVersion, &info.AgentVersion,
 		&info.CPUModel, &info.CPUCores, &info.CPUThreads, &info.TotalMemory,
 		&info.CreatedAt, &info.UpdatedAt,
 	)
@@ -152,51 +156,6 @@ func (s *service) GetMonitorInterfaces(ctx context.Context, agentID int64) ([]ty
 	}
 
 	return interfaces, rows.Err()
-}
-
-// SaveMonitorBandwidthSample saves a bandwidth sample for an agent
-func (s *service) SaveMonitorBandwidthSample(ctx context.Context, agentID int64, rxBytes, txBytes int64) error {
-	query := s.sqlBuilder.
-		Insert("monitor_bandwidth_samples").
-		Columns("agent_id", "rx_bytes_per_second", "tx_bytes_per_second").
-		Values(agentID, rxBytes, txBytes)
-
-	_, err := query.RunWith(s.db).ExecContext(ctx)
-	return err
-}
-
-// GetMonitorBandwidthSamples retrieves bandwidth samples for an agent
-func (s *service) GetMonitorBandwidthSamples(ctx context.Context, agentID int64, hours int) ([]types.MonitorBandwidthSample, error) {
-	since := time.Now().Add(-time.Duration(hours) * time.Hour)
-
-	query := s.sqlBuilder.
-		Select("id", "agent_id", "rx_bytes_per_second", "tx_bytes_per_second", "created_at").
-		From("monitor_bandwidth_samples").
-		Where(sq.And{
-			sq.Eq{"agent_id": agentID},
-			sq.GtOrEq{"created_at": since},
-		}).
-		OrderBy("created_at DESC")
-
-	rows, err := query.RunWith(s.db).QueryContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var samples []types.MonitorBandwidthSample
-	for rows.Next() {
-		var sample types.MonitorBandwidthSample
-		if err := rows.Scan(
-			&sample.ID, &sample.AgentID, &sample.RxBytesPerSecond,
-			&sample.TxBytesPerSecond, &sample.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		samples = append(samples, sample)
-	}
-
-	return samples, rows.Err()
 }
 
 // UpsertMonitorPeakStats inserts or updates peak stats for an agent
@@ -349,7 +308,7 @@ func (s *service) GetMonitorLatestSnapshot(ctx context.Context, agentID int64, p
 // CleanupMonitorData removes old data based on retention policies
 func (s *service) CleanupMonitorData(ctx context.Context) error {
 	log.Info().Msg("Starting monitor data cleanup")
-	
+
 	// Start transaction
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -361,14 +320,14 @@ func (s *service) CleanupMonitorData(ctx context.Context) error {
 	// We collect every 30 seconds, so 2 hours gives us ~240 data points which is plenty
 	resourceCutoff := time.Now().Add(-2 * time.Hour)
 	log.Debug().Time("cutoff", resourceCutoff).Msg("Cleaning up resource stats")
-	
+
 	deleteQuery := s.sqlBuilder.Delete("monitor_resource_stats").Where(sq.Lt{"created_at": resourceCutoff})
 	result, err := deleteQuery.RunWith(tx).ExecContext(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to cleanup resource stats")
 		return err
 	}
-	
+
 	rowsDeleted, _ := result.RowsAffected()
 	log.Info().Int64("rows_deleted", rowsDeleted).Msg("Cleaned up resource stats")
 
@@ -411,7 +370,7 @@ func (s *service) CleanupMonitorData(ctx context.Context) error {
 		log.Error().Err(err).Msg("Failed to commit cleanup transaction")
 		return err
 	}
-	
+
 	log.Info().Msg("Monitor data cleanup completed successfully")
 	return nil
 }

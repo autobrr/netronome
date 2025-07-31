@@ -19,6 +19,7 @@ import {
   stopMonitorAgent,
 } from "@/api/monitor";
 import { MONITOR_REFRESH_INTERVALS } from "@/constants/monitorRefreshIntervals";
+import { showToast } from "@/components/common/Toast";
 
 interface UseMonitorAgentOptions {
   agent: MonitorAgent;
@@ -100,6 +101,14 @@ export const useMonitorAgent = ({
       queryClient.invalidateQueries({
         queryKey: ["monitor-agent-status", agent.id],
       });
+      showToast("Agent started", "success", {
+        description: `${agent.name} is now active`,
+      });
+    },
+    onError: (error: Error) => {
+      showToast("Failed to start agent", "error", {
+        description: error.message || "Unable to start the monitoring agent",
+      });
     },
   });
 
@@ -110,6 +119,14 @@ export const useMonitorAgent = ({
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       queryClient.invalidateQueries({
         queryKey: ["monitor-agent-status", agent.id],
+      });
+      showToast("Agent stopped", "success", {
+        description: `${agent.name} has been stopped`,
+      });
+    },
+    onError: (error: Error) => {
+      showToast("Failed to stop agent", "error", {
+        description: error.message || "Unable to stop the monitoring agent",
       });
     },
   });

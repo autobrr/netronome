@@ -14,6 +14,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { ClockIcon } from "@heroicons/react/24/outline";
 import { formatBytes } from "@/utils/formatBytes";
 import { motion } from "motion/react";
 
@@ -100,14 +101,17 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
       className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
     >
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-          {title}
-        </h3>
+        <div className="flex items-center space-x-2 sm:space-x-3">
+          <ClockIcon className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+            {title}
+          </h3>
+        </div>
         <div className="flex items-center space-x-1">
           {["6h", "12h", "24h", "48h", "7d", "30d"].map((range) => (
             <button
               key={range}
-              onClick={() => onTimeRangeChange?.(range as any)}
+              onClick={() => onTimeRangeChange?.(range as "6h" | "12h" | "24h" | "48h" | "7d" | "30d")}
               className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
                 selectedTimeRange === range
                   ? "bg-blue-600 text-white"

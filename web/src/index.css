@@ -4,6 +4,7 @@
  */
 
 @import "tailwindcss";
+@import "tw-animate-css";
 
 @variant dark (.dark &);
 
@@ -12,6 +13,31 @@
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+}
+
+/* Hide scrollbars on mobile/touch devices while maintaining scroll functionality */
+@media (max-width: 639px), (hover: none) and (pointer: coarse) {
+  /* For Webkit browsers (Safari, Chrome on iOS) */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* For Firefox */
+  * {
+    scrollbar-width: none;
+  }
+
+  /* For IE and Edge Legacy */
+  * {
+    -ms-overflow-style: none;
+  }
+}
+
+/* Ensure smooth scrolling on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  html {
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -242,6 +268,82 @@
 @layer utilities {
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out forwards;
+  }
+
+  /* Animation utilities for shadcn components */
+  .animate-in {
+    animation-duration: 0.2s;
+    animation-fill-mode: both;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .animate-out {
+    animation-duration: 0.15s;
+    animation-fill-mode: both;
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  }
+
+  .fade-in-0 {
+    animation-name: fade-in;
+  }
+
+  .fade-out-0 {
+    animation-name: fade-out;
+  }
+
+  .slide-up-2 {
+    animation-name: slide-up;
+    --slide-up-distance: 0.5rem;
+  }
+
+  .slide-down-2 {
+    animation-name: slide-down;
+    --slide-down-distance: 0.5rem;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      transform: translateY(var(--slide-up-distance, 0.5rem));
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-down {
+    from {
+      transform: translateY(calc(-1 * var(--slide-down-distance, 0.5rem)));
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  /* Radix UI state-based animations */
+  [data-state="open"].animate-in {
+    animation-name: fade-in, slide-down;
+  }
+
+  [data-state="closed"].animate-out {
+    animation-name: fade-out, slide-up;
   }
 }
 .pattern {

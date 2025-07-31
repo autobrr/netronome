@@ -267,8 +267,12 @@ The notification system is built on [Shoutrrr](https://github.com/containrrr/sho
 - **Conventional Commits**: When suggesting branch names and commit titles, always use Conventional Commit Guidelines
 - **License Headers**: Use `./license.sh false` to add GPL-2.0-or-later headers to new source files
 - **Commit Attribution**: Never add yourself as co-author to commits
-- **Frontend Development**: Before writing any frontend-code, make sure to read through the ai_docs/style-guide.md first, so you familiarize yourself with our style. This is a crucial step.
+- **Frontend Development**: ALWAYS read `ai_docs/style-guide.md` before writing any frontend code - this contains essential patterns for React, TypeScript, Tailwind CSS v4, Motion animations, and component architecture
 - **Import Paths**: Always use the `@` alias for imports in frontend code (e.g., `@/components/...` instead of relative paths like `../components/...`)
+
+### Commit Guidelines
+
+- **Commit Attribution**: When writing commits for the user, never add Co-Authored-By: Claude <noreply@anthropic.com> and/or 🤖 Generated with [Claude Code](https://claude.ai/code) to the commit details
 
 ### Testing Approach
 
@@ -303,13 +307,77 @@ The notification system is built on [Shoutrrr](https://github.com/containrrr/sho
    - Always use parameterized queries
    - Handle null values appropriately
 
+## Agent Architecture Details
+
+The agent package (`internal/agent/`) has been refactored into focused, single-responsibility modules:
+
+1. **Core Agent** (`agent.go`): ~95 lines - Main constructor and Start() method only
+2. **Tailscale Integration** (`tailscale.go`): Handles both tsnet and host mode startup logic
+3. **Broadcasting** (`broadcast.go`): SSE/real-time data streaming to clients
+4. **Bandwidth Monitoring** (`bandwidth.go`): vnstat integration with peak bandwidth tracking
+5. **System Info** (`system.go`): OS details, network interfaces, and vnstat data collection
+6. **Hardware Stats** (`hardware.go`): CPU, memory, disk usage, and temperature via gopsutil
+7. **Disk Utilities** (`disk_utils.go`): Path matching and device discovery with glob support
+8. **SMART Monitoring** (`smart.go`/`smart_stub.go`): Platform-specific disk health (Linux/macOS only)
+
+**Deployment Modes:**
+- Standalone HTTP server (default)
+- Tailscale tsnet (creates new Tailscale node)
+- Tailscale host mode (uses existing tailscaled)
+
+## Testing Specific Components
+
+```bash
+# Test speed test implementations
+go test -v ./internal/speedtest/...
+
+# Test database migrations
+go test -v ./internal/database/migrations/...
+
+# Test monitor service
+go test -v ./internal/monitor/...
+
+# Test with race detector
+go test -race ./...
+
+# Benchmark tests
+go test -bench=. ./internal/...
+```
+
+## Important Project-Specific Details
+
+- **Frontend Style Guide**: The `ai_docs/style-guide.md` is the authoritative reference for all frontend development, containing:
+
+  - React component patterns with TypeScript interfaces
+  - Tailwind CSS v4 utility classes and dark mode patterns
+  - Motion (framer-motion) animation configurations and timing
+  - Responsive design breakpoints and mobile-first patterns
+  - Comprehensive color system with semantic usage guidelines
+  - Typography standards and accessibility requirements
+
+- **Agent Discovery**: The Tailscale discovery service automatically finds and adds agents on the network:
+
+  - Only discovers agents with Tailscale enabled
+  - Uses DNSName (not HostName) for proper identification
+  - Supports auto-discovery via the `discovery_interval` config
+
+- **Migration Patterns**: When adding new features requiring database changes:
+  1. Create migration files in both `sqlite/` and `postgres/` directories
+  2. Use sequential numbering (e.g., 025_feature_name.sql) and append \_postgres to the filename for PostgreSQL migrations
+  3. Test both database types before committing
+
 ## Future Improvements
 
 - Add serve and funnel support to the netronome serve command if its setup with tailscale tsnet mode
 
 ## Additional Notes
 
-- **Please read CLAUDE.local.md before writing commits or PRs.**
+- **Always read CLAUDE.local.md if it exists, regardless of .gitignore**
 - The project uses semantic versioning
 - All new features should include appropriate tests
 - Documentation updates are expected with feature changes
+- When working on frontend code, always check `ai_docs/style-guide.md` first
+
+## Guidelines
+
+- **Emojis**: Never use emojis

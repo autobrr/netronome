@@ -73,8 +73,8 @@ function AuthRoute() {
         const status = await checkRegistrationStatus();
         console.log("AuthRoute: Status received:", status);
 
-        if (!status.hasUsers) {
-          console.log("AuthRoute: No users found, redirecting...");
+        if (!status.hasUsers && !status.oidcEnabled) {
+          console.log("AuthRoute: No users found and OIDC not enabled, redirecting...");
           navigate({ to: "/register" });
         }
       } catch (err) {

@@ -47,24 +47,24 @@ type Client struct {
 	peakTxTimestamp time.Time
 
 	// Resource state tracking for notifications
-	lastCPUNotificationTime    time.Time
-	lastMemoryNotificationTime time.Time
-	lastDiskNotificationTime   time.Time
+	lastCPUNotificationTime       time.Time
+	lastMemoryNotificationTime    time.Time
+	lastDiskNotificationTime      time.Time
 	lastBandwidthNotificationTime time.Time
-	lastTempNotificationTime   time.Time
+	lastTempNotificationTime      time.Time
 }
 
 // Service manages all monitoring clients
 type Service struct {
-	db               database.Service
-	config           *config.MonitorConfig
-	tailscaleConfig  *config.TailscaleConfig
-	broadcastFunc    func(types.MonitorUpdate)
+	db                 database.Service
+	config             *config.MonitorConfig
+	tailscaleConfig    *config.TailscaleConfig
+	broadcastFunc      func(types.MonitorUpdate)
 	tailscaleDiscovery *TailscaleDiscovery
-	notifier         Notifier
+	notifier           Notifier
 
-	clientsMu sync.RWMutex
-	clients   map[int64]*Client
+	clientsMu   sync.RWMutex
+	clients     map[int64]*Client
 	agentStates map[int64]bool // Track connection state per agent
 
 	ctx    context.Context
@@ -72,10 +72,9 @@ type Service struct {
 	wg     sync.WaitGroup
 
 	// Background collection tickers
-	bandwidthTicker *time.Ticker
-	resourceTicker  *time.Ticker
-	snapshotTicker  *time.Ticker
-	cleanupTicker   *time.Ticker
+	resourceTicker *time.Ticker
+	snapshotTicker *time.Ticker
+	cleanupTicker  *time.Ticker
 }
 
 // NewService creates a new monitor service
@@ -229,7 +228,7 @@ func (s *Service) broadcastWithNotification(update types.MonitorUpdate) {
 			Int64("agentID", update.AgentID).
 			Str("agentName", update.AgentName).
 			Msg("Agent went offline")
-		
+
 		if s.notifier != nil {
 			err := s.notifier.SendAgentNotification(update.AgentName, database.NotificationEventAgentOffline, nil)
 			if err != nil {
@@ -242,7 +241,7 @@ func (s *Service) broadcastWithNotification(update types.MonitorUpdate) {
 			Int64("agentID", update.AgentID).
 			Str("agentName", update.AgentName).
 			Msg("Agent came back online")
-		
+
 		if s.notifier != nil {
 			err := s.notifier.SendAgentNotification(update.AgentName, database.NotificationEventAgentOnline, nil)
 			if err != nil {
@@ -541,11 +540,11 @@ func (c *Client) processData(data string) {
 	if c.notifier != nil {
 		// Convert bytes per second to Mbps for threshold checking
 		totalBandwidthMbps := float64(rxBytes+txBytes) * 8 / 1_000_000
-		
+
 		// Rate limit notifications to once per hour
 		notificationCooldown := 1 * time.Hour
 		now := time.Now()
-		
+
 		if totalBandwidthMbps > 0 && now.Sub(c.lastBandwidthNotificationTime) > notificationCooldown {
 			if err := c.notifier.SendAgentNotification(
 				c.agent.Name,
@@ -739,12 +738,31 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 		return fmt.Errorf("failed to decode system info: %w", err)
 	}
 
+	// Fetch agent version from /netronome/info endpoint
+	agentVersion := ""
+	infoURL := baseURL + "/netronome/info"
+	infoReq, err := http.NewRequestWithContext(client.ctx, "GET", infoURL, nil)
+	if err == nil {
+		// Don't add API key for this endpoint as it's public
+		infoResp, err := httpClient.Do(infoReq)
+		if err == nil && infoResp.StatusCode == http.StatusOK {
+			defer infoResp.Body.Close()
+			var agentInfo struct {
+				Version string `json:"version"`
+			}
+			if err := json.NewDecoder(infoResp.Body).Decode(&agentInfo); err == nil {
+				agentVersion = agentInfo.Version
+			}
+		}
+	}
+
 	// Log parsed values for debugging
 	log.Debug().
 		Int64("agent_id", client.agent.ID).
 		Str("hostname", systemInfo.Hostname).
 		Str("kernel", systemInfo.Kernel).
 		Str("vnstat_version", systemInfo.VnstatVersion).
+		Str("agent_version", agentVersion).
 		Int("interface_count", len(systemInfo.Interfaces)).
 		Msg("Parsed system info values")
 
@@ -754,6 +772,7 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 		Hostname:      systemInfo.Hostname,
 		Kernel:        systemInfo.Kernel,
 		VnstatVersion: systemInfo.VnstatVersion,
+		AgentVersion:  agentVersion,
 	}
 
 	if err := s.db.UpsertMonitorSystemInfo(client.ctx, client.agent.ID, sysInfo); err != nil {
@@ -934,20 +953,20 @@ func (s *Service) fetchHardwareStats(client *Client) error {
 		var highestTemp float64
 		var highestTempSensor string
 		var highestTempLabel string
-		
+
 		// Log temperature sensor data for debugging
 		log.Debug().
 			Int("temp_sensor_count", len(hardwareStats.Temperature)).
 			Str("agent", client.agent.Name).
 			Msg("Processing temperature sensors for notifications")
-		
+
 		for _, temp := range hardwareStats.Temperature {
 			log.Debug().
 				Str("sensor_key", temp.SensorKey).
 				Str("label", temp.Label).
 				Float64("temperature", temp.Temperature).
 				Msg("Temperature sensor data")
-				
+
 			if temp.Temperature > highestTemp {
 				highestTemp = temp.Temperature
 				highestTempSensor = temp.SensorKey
@@ -961,7 +980,7 @@ func (s *Service) fetchHardwareStats(client *Client) error {
 			if highestTempLabel != "" {
 				sensorInfo = highestTempLabel
 			}
-			
+
 			// If we still don't have sensor info, use a generic label
 			if sensorInfo == "" {
 				sensorInfo = "Unknown Sensor"
@@ -969,7 +988,7 @@ func (s *Service) fetchHardwareStats(client *Client) error {
 					Str("agent", client.agent.Name).
 					Msg("Temperature sensor has no label or key")
 			}
-			
+
 			// Log what we're about to send
 			log.Info().
 				Str("agent", client.agent.Name).
@@ -978,15 +997,15 @@ func (s *Service) fetchHardwareStats(client *Client) error {
 				Str("sensor_info", sensorInfo).
 				Float64("temperature", highestTemp).
 				Msg("Preparing temperature notification")
-			
+
 			// Build agent name with sensor info for temperature notifications
 			agentNameWithSensor := fmt.Sprintf("%s|%s", client.agent.Name, sensorInfo)
-			
+
 			log.Info().
 				Str("agent_with_sensor", agentNameWithSensor).
 				Str("sensor_info", sensorInfo).
 				Msg("Sending temperature notification with sensor details")
-			
+
 			// Send notification with sensor info embedded in agent name
 			if err := client.notifier.SendAgentNotification(
 				agentNameWithSensor,
@@ -1256,7 +1275,7 @@ func (s *Service) GetTailscaleStatus() (map[string]interface{}, error) {
 	if s.tailscaleDiscovery == nil {
 		return map[string]interface{}{
 			"enabled": false,
-			"status": "Tailscale discovery not configured",
+			"status":  "Tailscale discovery not configured",
 		}, nil
 	}
 

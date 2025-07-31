@@ -9,6 +9,8 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   CalendarIcon,
+  ChartBarIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { MonitorAgent } from "@/api/monitor";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
@@ -176,11 +178,16 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
 
   if (!nativeData) {
     return (
-      <div className="text-center py-12">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="text-center py-12"
+      >
         <p className="text-lg text-gray-500 dark:text-gray-400">
           Loading bandwidth data...
         </p>
-      </div>
+      </motion.div>
     );
   }
 
@@ -188,23 +195,10 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
   const isFromCache = nativeData?.from_cache || false;
 
   return (
-    <div className="space-y-6">
-      {/* Description or Offline Banner */}
-      {isOffline && isFromCache ? (
+    <div className="space-y-4 sm:space-y-6">
+      {/* Offline Banner */}
+      {isOffline && isFromCache && (
         <MonitorOfflineBanner message="Showing cached bandwidth data. Real-time monitoring unavailable." />
-      ) : (
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
-            Real-time Bandwidth Monitoring
-          </h4>
-          <p className="text-sm text-blue-600 dark:text-blue-400">
-            Network bandwidth data collected from{" "}
-            <code className="bg-blue-500/10 px-1 rounded text-xs">vnstat</code>{" "}
-            running on the remote agent. Data shows actual bytes transferred
-            during each time period. Use the time range buttons to view
-            different periods of activity.
-          </p>
-        </div>
       )}
 
       {chartData.data.length > 0 ? (
@@ -216,15 +210,23 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
           onTimeRangeChange={setSelectedTimeRange}
         />
       ) : (
-        <div className="text-center py-12 bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800">
-          <p className="text-lg text-gray-500 dark:text-gray-400">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="text-center py-8 sm:py-12 bg-gray-50/95 dark:bg-gray-850/95 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800"
+        >
+          <div className="flex justify-center mb-3 sm:mb-4">
+            <ExclamationTriangleIcon className="h-8 w-8 sm:h-10 sm:w-10 text-amber-500 dark:text-amber-400" />
+          </div>
+          <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400">
             No bandwidth data available
           </p>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+          <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-1.5 sm:mt-2">
             The agent may have just been added or monitor hasn't collected
             enough data yet.
           </p>
-        </div>
+        </motion.div>
       )}
 
       {/* Total Statistics */}
@@ -233,32 +235,42 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
-          className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
+          className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-200 dark:border-gray-800"
         >
-          <div className="flex items-center space-x-3 mb-6">
-            <CalendarIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+          <div className="flex items-center space-x-2 sm:space-x-3 mb-4 sm:mb-6">
+            <CalendarIcon className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600 dark:text-purple-400" />
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white">
               Total Statistics
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* All-time totals */}
             {nativeData.interfaces[0].traffic.total && (
               <>
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 0.25 }}
+                  className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4"
+                >
                   <div className="flex items-center space-x-2 mb-2">
                     <ArrowDownIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
                       All-time Download
                     </span>
                   </div>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">
+                  <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
                     {formatBytes(nativeData.interfaces[0].traffic.total.rx)}
                   </p>
-                </div>
+                </motion.div>
 
-                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 0.3 }}
+                  className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4"
+                >
                   <div className="flex items-center space-x-2 mb-2">
                     <ArrowUpIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                     <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
@@ -268,9 +280,14 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                   <p className="text-xl font-bold text-gray-900 dark:text-white">
                     {formatBytes(nativeData.interfaces[0].traffic.total.tx)}
                   </p>
-                </div>
+                </motion.div>
 
-                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 0.35 }}
+                  className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4"
+                >
                   <div className="flex items-center space-x-2 mb-2">
                     <CalendarIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                     <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
@@ -283,7 +300,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                         nativeData.interfaces[0].traffic.total.tx
                     )}
                   </p>
-                </div>
+                </motion.div>
               </>
             )}
           </div>
@@ -292,35 +309,40 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
           <div className="grid gap-6 sm:grid-cols-2 mt-6">
             {/* Today */}
             {nativeData.interfaces[0].traffic.day?.[0] && (
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 dark:text-white mb-3">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3, delay: 0.4 }}
+                className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 sm:p-4"
+              >
+                <h4 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white mb-2 sm:mb-3">
                   Today
                 </h4>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center space-x-2">
-                      <ArrowDownIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 flex items-center space-x-1.5 sm:space-x-2">
+                      <ArrowDownIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400" />
                       <span>Downloaded</span>
                     </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
                       {formatBytes(nativeData.interfaces[0].traffic.day[0].rx)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center space-x-2">
-                      <ArrowUpIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 flex items-center space-x-1.5 sm:space-x-2">
+                      <ArrowUpIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 dark:text-emerald-400" />
                       <span>Uploaded</span>
                     </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
                       {formatBytes(nativeData.interfaces[0].traffic.day[0].tx)}
                     </span>
                   </div>
                   <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
                         Total
                       </span>
-                      <span className="text-sm font-bold text-gray-900 dark:text-white">
+                      <span className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white">
                         {formatBytes(
                           nativeData.interfaces[0].traffic.day[0].rx +
                             nativeData.interfaces[0].traffic.day[0].tx
@@ -329,33 +351,38 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {/* This Month */}
             {nativeData.interfaces[0].traffic.month?.[0] && (
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 dark:text-white mb-3">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3, delay: 0.45 }}
+                className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 sm:p-4"
+              >
+                <h4 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white mb-2 sm:mb-3">
                   This Month
                 </h4>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center space-x-2">
-                      <ArrowDownIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 flex items-center space-x-1.5 sm:space-x-2">
+                      <ArrowDownIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400" />
                       <span>Downloaded</span>
                     </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
                       {formatBytes(
                         nativeData.interfaces[0].traffic.month[0].rx
                       )}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center space-x-2">
-                      <ArrowUpIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 flex items-center space-x-1.5 sm:space-x-2">
+                      <ArrowUpIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 dark:text-emerald-400" />
                       <span>Uploaded</span>
                     </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
                       {formatBytes(
                         nativeData.interfaces[0].traffic.month[0].tx
                       )}
@@ -363,10 +390,10 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                   </div>
                   <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
                         Total
                       </span>
-                      <span className="text-sm font-bold text-gray-900 dark:text-white">
+                      <span className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white">
                         {formatBytes(
                           nativeData.interfaces[0].traffic.month[0].rx +
                             nativeData.interfaces[0].traffic.month[0].tx
@@ -375,7 +402,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
           </div>
         </motion.div>
@@ -387,22 +414,30 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.3 }}
-          className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
+          className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-200 dark:border-gray-800"
         >
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-6">
-            Peak Times & Averages
-          </h3>
+          <div className="flex items-center space-x-2 sm:space-x-3 mb-4 sm:mb-6">
+            <ChartBarIcon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white">
+              Peak Times & Averages
+            </h3>
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             {/* Peak Times */}
             <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
                 Peak Bandwidth
               </h4>
 
               {peakStats && (
                 <div className="space-y-3">
-                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.35 }}
+                    className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3"
+                  >
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-blue-600 dark:text-blue-400 flex items-center space-x-2">
                         <ArrowDownIcon className="h-4 w-4" />
@@ -412,9 +447,14 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                         {peakStats.peak_rx_string}
                       </span>
                     </div>
-                  </div>
+                  </motion.div>
 
-                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.4 }}
+                    className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3"
+                  >
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center space-x-2">
                         <ArrowUpIcon className="h-4 w-4" />
@@ -424,7 +464,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                         {peakStats.peak_tx_string}
                       </span>
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
               )}
             </div>
@@ -452,7 +492,12 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
 
                   return (
                     <div className="space-y-3">
-                      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, delay: 0.45 }}
+                        className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3"
+                      >
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600 dark:text-gray-400">
                             Avg Daily Download
@@ -461,9 +506,14 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                             {formatBytes(avgRx)}
                           </span>
                         </div>
-                      </div>
+                      </motion.div>
 
-                      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, delay: 0.5 }}
+                        className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3"
+                      >
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600 dark:text-gray-400">
                             Avg Daily Upload
@@ -472,9 +522,14 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                             {formatBytes(avgTx)}
                           </span>
                         </div>
-                      </div>
+                      </motion.div>
 
-                      <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, delay: 0.55 }}
+                        className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3"
+                      >
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-purple-600 dark:text-purple-400 font-medium">
                             Avg Daily Total
@@ -486,7 +541,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
                         <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                           Based on last 7 days
                         </p>
-                      </div>
+                      </motion.div>
                     </div>
                   );
                 })()}
