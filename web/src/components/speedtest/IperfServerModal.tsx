@@ -60,7 +60,7 @@ export function IperfServerModal({
         <div className="grid gap-4">
           {serverDetails ? (
             <>
-              <p className="text-muted-foreground text-sm">{message}</p>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">{message}</p>
               <div className="grid gap-3">
                 <Label htmlFor="serverName">Server Name</Label>
                 <Input
@@ -85,7 +85,7 @@ export function IperfServerModal({
               </div>
             </>
           ) : (
-            <p className="text-muted-foreground text-sm">{message}</p>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">{message}</p>
           )}
         </div>
 
