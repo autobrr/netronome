@@ -82,6 +82,7 @@ export const TracerouteTab: React.FC = () => {
   const [editingMonitor, setEditingMonitor] =
     useState<PacketLossMonitor | null>(null);
   const [formData, setFormData] = useState<MonitorFormData>(defaultFormData);
+  const [togglingMonitorIds, setTogglingMonitorIds] = useState<Set<number>>(new Set());
 
   // Save tab mode to localStorage when it changes
   useEffect(() => {
@@ -197,6 +198,9 @@ export const TracerouteTab: React.FC = () => {
 
   const startMutation = useMutation({
     mutationFn: startPacketLossMonitor,
+    onMutate: (monitorId) => {
+      setTogglingMonitorIds(prev => new Set(prev).add(monitorId));
+    },
     onSuccess: async (_, monitorId) => {
       queryClient.invalidateQueries({ queryKey: ["packetloss", "monitors"] });
       queryClient.invalidateQueries({
@@ -209,10 +213,20 @@ export const TracerouteTab: React.FC = () => {
         queryKey: ["packetloss", "history", monitorId],
       });
     },
+    onSettled: (_, __, monitorId) => {
+      setTogglingMonitorIds(prev => {
+        const next = new Set(prev);
+        next.delete(monitorId);
+        return next;
+      });
+    },
   });
 
   const stopMutation = useMutation({
     mutationFn: stopPacketLossMonitor,
+    onMutate: (monitorId) => {
+      setTogglingMonitorIds(prev => new Set(prev).add(monitorId));
+    },
     onSuccess: async (_, monitorId) => {
       queryClient.invalidateQueries({ queryKey: ["packetloss", "monitors"] });
       queryClient.invalidateQueries({
@@ -229,6 +243,13 @@ export const TracerouteTab: React.FC = () => {
         description: monitor
           ? `Stopped monitoring ${monitor.name}`
           : "Monitor is now inactive",
+      });
+    },
+    onSettled: (_, __, monitorId) => {
+      setTogglingMonitorIds(prev => {
+        const next = new Set(prev);
+        next.delete(monitorId);
+        return next;
       });
     },
     onError: (error) => {
@@ -480,13 +501,7 @@ export const TracerouteTab: React.FC = () => {
                 onDelete={(id) => deleteMutation.mutate(id)}
                 onToggle={handleToggle}
                 isLoading={monitorsLoading}
-                togglingMonitorId={
-                  startMutation.isPending
-                    ? startMutation.variables
-                    : stopMutation.isPending
-                    ? stopMutation.variables
-                    : null
-                }
+                togglingMonitorIds={togglingMonitorIds}
               />
             </div>
           </motion.div>
