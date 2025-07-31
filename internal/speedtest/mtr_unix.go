@@ -21,5 +21,21 @@ func configureMTRCommand(cmd *exec.Cmd) {
 // killMTRProcessGroup kills the process group for the MTR command
 func killMTRProcessGroup(pid int) error {
 	// Send SIGKILL to the process group (negative PID)
-	return syscall.Kill(-pid, syscall.SIGKILL)
+	err := syscall.Kill(-pid, syscall.SIGKILL)
+	
+	// If the process doesn't exist, that's fine - it already exited
+	if err == syscall.ESRCH {
+		return nil
+	}
+	
+	// On macOS, we might get EPERM if the process already exited
+	if err == syscall.EPERM {
+		// Check if the process still exists
+		if checkErr := syscall.Kill(-pid, 0); checkErr == syscall.ESRCH {
+			// Process doesn't exist, so it's fine
+			return nil
+		}
+	}
+	
+	return err
 }

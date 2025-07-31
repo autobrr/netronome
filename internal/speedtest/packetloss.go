@@ -1052,6 +1052,12 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 		// Configure platform-specific process attributes
 		configureMTRCommand(cmd)
 		
+		// Get stdout pipe BEFORE starting the command
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get stdout pipe: %w", err)
+		}
+		
 		// Start the command
 		if err := cmd.Start(); err != nil {
 			return nil, fmt.Errorf("failed to start MTR: %w", err)
@@ -1081,12 +1087,6 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 		// Create channels for output and errors
 		outputChan := make(chan []byte, 1)
 		errChan := make(chan error, 1)
-		
-		// Get stdout pipe
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get stdout pipe: %w", err)
-		}
 		
 		// Run command in goroutine
 		go func() {
