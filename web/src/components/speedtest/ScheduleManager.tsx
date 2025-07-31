@@ -184,7 +184,7 @@ export default function ScheduleManager({
     },
     refetchInterval: 30000, // Refetch every 30 seconds
     staleTime: 10000, // Consider data stale after 10 seconds
-  }) as { data: Schedule[]; isLoading: boolean; error: any };
+  }) as { data: Schedule[]; isLoading: boolean; error: Error | null };
 
   // Log when schedules data changes
   useEffect(() => {
@@ -213,14 +213,15 @@ export default function ScheduleManager({
       }, 60000); // Update every minute
 
       // Store timer ID for cleanup
-      (window as any)._scheduleManagerTimer = timer;
+      (window as Window & { _scheduleManagerTimer?: number })._scheduleManagerTimer = timer;
     }, initialDelay);
 
     return () => {
       window.clearTimeout(initialTimer);
-      if ((window as any)._scheduleManagerTimer) {
-        window.clearInterval((window as any)._scheduleManagerTimer);
-        delete (window as any)._scheduleManagerTimer;
+      const windowWithTimer = window as Window & { _scheduleManagerTimer?: number };
+      if (windowWithTimer._scheduleManagerTimer) {
+        window.clearInterval(windowWithTimer._scheduleManagerTimer);
+        delete windowWithTimer._scheduleManagerTimer;
       }
     };
   }, []);
@@ -614,7 +615,7 @@ export default function ScheduleManager({
                                   <span className="text-blue-600 dark:text-blue-400">
                                     {(() => {
                                       // Force re-calculation when updateTrigger changes
-                                      updateTrigger; // This ensures the component re-renders
+                                      void updateTrigger; // This ensures the component re-renders
                                       const nextRun = new Date(
                                         calculateNextRun(
                                           interval,

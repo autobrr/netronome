@@ -283,20 +283,20 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                             <div className="flex items-center space-x-1">
                               <ArrowDownIcon className="h-3 w-3 text-blue-500" />
                               <span className="text-xs text-gray-600 dark:text-gray-400">
-                                {formatBytes((data as any).download)}
+                                {formatBytes(data.download)}
                               </span>
                             </div>
                             <div className="flex items-center space-x-1">
                               <ArrowUpIcon className="h-3 w-3 text-green-500" />
                               <span className="text-xs text-gray-600 dark:text-gray-400">
-                                {formatBytes((data as any).upload)}
+                                {formatBytes(data.upload)}
                               </span>
                             </div>
                           </div>
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-gray-900 dark:text-white">
-                            {formatBytes((data as any).total)}
+                            {formatBytes(data.total)}
                           </p>
                         </div>
                       </div>

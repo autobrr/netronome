@@ -64,6 +64,12 @@ interface DashboardTabProps {
   onNavigateToVnstat?: (agentId?: number) => void;
 }
 
+interface DragHandleProps {
+  dragHandleRef?: (node: HTMLElement | null) => void;
+  dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
+  dragHandleClassName?: string;
+}
+
 interface SortableItemProps {
   id: string;
   children: React.ReactNode;
@@ -93,7 +99,7 @@ const SortableItem: React.FC<SortableItemProps> = ({
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      {React.cloneElement(children as React.ReactElement<any>, {
+      {React.cloneElement(children as React.ReactElement<DragHandleProps>, {
         dragHandleRef: setActivatorNodeRef,
         dragHandleListeners: listeners,
         dragHandleClassName,
@@ -110,7 +116,7 @@ interface DraggableSpeedHistoryChartProps {
   hasAnyTests?: boolean;
   hasCurrentRangeTests?: boolean;
   dragHandleRef?: (node: HTMLElement | null) => void;
-  dragHandleListeners?: any;
+  dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
   dragHandleClassName?: string;
 }
 
@@ -419,7 +425,7 @@ interface DraggableRecentSpeedtestsProps {
   isRecentTestsOpen: boolean;
   setIsRecentTestsOpen: (open: boolean) => void;
   dragHandleRef?: (node: HTMLElement | null) => void;
-  dragHandleListeners?: any;
+  dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
   dragHandleClassName?: string;
 }
 

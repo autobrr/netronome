@@ -111,7 +111,7 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
           {["6h", "12h", "24h", "48h", "7d", "30d"].map((range) => (
             <button
               key={range}
-              onClick={() => onTimeRangeChange?.(range as any)}
+              onClick={() => onTimeRangeChange?.(range as "6h" | "12h" | "24h" | "48h" | "7d" | "30d")}
               className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
                 selectedTimeRange === range
                   ? "bg-blue-600 text-white"

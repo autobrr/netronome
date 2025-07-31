@@ -42,7 +42,7 @@ export function PWAUpdatePrompt() {
           };
 
           wb.addEventListener("waiting", showSkipWaitingPrompt);
-          // @ts-ignore - externalwaiting is a valid event but not in the type definitions
+          // @ts-expect-error - externalwaiting is a valid event but not in the type definitions
           wb.addEventListener("externalwaiting", showSkipWaitingPrompt);
 
           // Register the service worker

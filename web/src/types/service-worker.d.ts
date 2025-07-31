@@ -1,9 +1,9 @@
 /// <reference lib="webworker" />
 
 declare interface ExtendableEvent extends Event {
-  waitUntil(fn: Promise<any>): void;
+  waitUntil(fn: Promise<unknown>): void;
 }
 
 declare interface Args {
-  [key: string]: any;
+  [key: string]: unknown;
 }
