@@ -7,6 +7,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"os"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -37,10 +38,14 @@ func GetMigrationFiles(dbType DatabaseType) ([]string, error) {
 		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}
 
-	log.Debug().
-		Str("basePath", basePath).
-		Str("suffix", suffix).
-		Msg("Looking for migration files")
+	// Only log debug info if not in test environment
+	isTest := strings.Contains(os.Args[0], ".test") || strings.HasSuffix(os.Args[0], "/test")
+	if !isTest {
+		log.Debug().
+			Str("basePath", basePath).
+			Str("suffix", suffix).
+			Msg("Looking for migration files")
+	}
 
 	entries, err := SchemaMigrations.ReadDir(basePath)
 	if err != nil {
@@ -48,7 +53,9 @@ func GetMigrationFiles(dbType DatabaseType) ([]string, error) {
 		return nil, fmt.Errorf("failed to read migrations directory: %w", err)
 	}
 
-	log.Debug().Int("entryCount", len(entries)).Msg("Found entries in migrations directory")
+	if !isTest {
+		log.Debug().Int("entryCount", len(entries)).Msg("Found entries in migrations directory")
+	}
 
 	var files []string
 	for _, entry := range entries {

@@ -35,9 +35,17 @@ var (
 // ZerologAdapter adapts zerolog.Logger to migrator.Logger
 type ZerologAdapter struct {
 	logger zerolog.Logger
+	quiet  bool
 }
 
 func (z *ZerologAdapter) Printf(format string, args ...interface{}) {
+	if z.quiet {
+		// Only log errors and warnings during tests
+		if strings.Contains(format, "failed") || strings.Contains(format, "error") {
+			z.logger.Error().Msgf(format, args...)
+		}
+		return
+	}
 	z.logger.Info().Msgf(format, args...)
 }
 
@@ -91,22 +99,19 @@ type Service interface {
 	// Monitor agent data operations
 	UpsertMonitorSystemInfo(ctx context.Context, agentID int64, info *types.MonitorSystemInfo) error
 	GetMonitorSystemInfo(ctx context.Context, agentID int64) (*types.MonitorSystemInfo, error)
-	
+
 	UpsertMonitorInterfaces(ctx context.Context, agentID int64, interfaces []types.MonitorInterface) error
 	GetMonitorInterfaces(ctx context.Context, agentID int64) ([]types.MonitorInterface, error)
-	
-	SaveMonitorBandwidthSample(ctx context.Context, agentID int64, rxBytes, txBytes int64) error
-	GetMonitorBandwidthSamples(ctx context.Context, agentID int64, hours int) ([]types.MonitorBandwidthSample, error)
-	
+
 	UpsertMonitorPeakStats(ctx context.Context, agentID int64, stats *types.MonitorPeakStats) error
 	GetMonitorPeakStats(ctx context.Context, agentID int64) (*types.MonitorPeakStats, error)
-	
+
 	SaveMonitorResourceStats(ctx context.Context, agentID int64, stats *types.MonitorResourceStats) error
 	GetMonitorResourceStats(ctx context.Context, agentID int64, hours int) ([]types.MonitorResourceStats, error)
-	
+
 	SaveMonitorHistoricalSnapshot(ctx context.Context, agentID int64, snapshot *types.MonitorHistoricalSnapshot) error
 	GetMonitorLatestSnapshot(ctx context.Context, agentID int64, periodType string) (*types.MonitorHistoricalSnapshot, error)
-	
+
 	CleanupMonitorData(ctx context.Context) error
 
 	// Embed NotificationService interface
@@ -333,7 +338,9 @@ func getMigrationVersion(fileName string) int {
 }
 
 func (s *service) InitializeTables(ctx context.Context) error {
-	logger := &ZerologAdapter{logger: log.Logger}
+	// Detect if we're in a test environment to reduce logging verbosity
+	isTest := strings.Contains(os.Args[0], ".test") || strings.HasSuffix(os.Args[0], "/test")
+	logger := &ZerologAdapter{logger: log.Logger, quiet: isTest}
 	m := migrator.NewMigrate(s.db,
 		migrator.WithLogger(logger),
 		migrator.WithEmbedFS(migrations.SchemaMigrations),

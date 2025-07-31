@@ -22,6 +22,9 @@ func stringPtr(s string) *string {
 	return &s
 }
 
+// Unit tests for database-specific behavior and error handling
+// For comprehensive integration tests, see packetloss_integration_test.go
+
 // mockResult simulates a PostgreSQL driver result that doesn't support LastInsertId
 type mockPostgresResult struct {
 	rowsAffected int64
@@ -35,7 +38,8 @@ func (m mockPostgresResult) RowsAffected() (int64, error) {
 	return m.rowsAffected, nil
 }
 
-func TestSavePacketLossResult_PostgreSQL(t *testing.T) {
+// TestSavePacketLossResult_PostgreSQLReturning verifies the RETURNING clause behavior
+func TestSavePacketLossResult_PostgreSQLReturning(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
@@ -47,36 +51,26 @@ func TestSavePacketLossResult_PostgreSQL(t *testing.T) {
 	}
 
 	result := &types.PacketLossResult{
-		MonitorID:      1,
-		PacketLoss:     5.5,
-		MinRTT:         10.1,
-		MaxRTT:         50.5,
-		AvgRTT:         25.3,
-		StdDevRTT:      5.2,
-		PacketsSent:    100,
-		PacketsRecv:    95,
-		UsedMTR:        true,
-		HopCount:       10,
-		MTRData:        stringPtr(`{"hops":[]}`),
-		PrivilegedMode: true,
-		CreatedAt:      time.Now(),
+		MonitorID:  1,
+		PacketLoss: 5.5,
+		CreatedAt:  time.Now(),
 	}
 
-	// Test the new code with RETURNING clause
-	mock.ExpectQuery(`INSERT INTO packet_loss_results`).
+	// Verify that PostgreSQL uses RETURNING clause
+	mock.ExpectQuery(`INSERT INTO packet_loss_results .+ RETURNING id`).
 		WithArgs(
 			result.MonitorID,
 			result.PacketLoss,
-			result.MinRTT,
-			result.MaxRTT,
-			result.AvgRTT,
-			result.StdDevRTT,
-			result.PacketsSent,
-			result.PacketsRecv,
-			result.UsedMTR,
-			result.HopCount,
-			result.MTRData,
-			result.PrivilegedMode,
+			sqlmock.AnyArg(), // MinRTT
+			sqlmock.AnyArg(), // MaxRTT
+			sqlmock.AnyArg(), // AvgRTT
+			sqlmock.AnyArg(), // StdDevRTT
+			sqlmock.AnyArg(), // PacketsSent
+			sqlmock.AnyArg(), // PacketsRecv
+			sqlmock.AnyArg(), // UsedMTR
+			sqlmock.AnyArg(), // HopCount
+			sqlmock.AnyArg(), // MTRData
+			sqlmock.AnyArg(), // PrivilegedMode
 			result.CreatedAt,
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(42))
@@ -84,11 +78,12 @@ func TestSavePacketLossResult_PostgreSQL(t *testing.T) {
 	err = s.SavePacketLossResult(result)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(42), result.ID)
-	
+
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestSavePacketLossResult_SQLite(t *testing.T) {
+// TestSavePacketLossResult_SQLiteLastInsertId verifies LastInsertId behavior
+func TestSavePacketLossResult_SQLiteLastInsertId(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
@@ -100,74 +95,58 @@ func TestSavePacketLossResult_SQLite(t *testing.T) {
 	}
 
 	result := &types.PacketLossResult{
-		MonitorID:      1,
-		PacketLoss:     5.5,
-		MinRTT:         10.1,
-		MaxRTT:         50.5,
-		AvgRTT:         25.3,
-		StdDevRTT:      5.2,
-		PacketsSent:    100,
-		PacketsRecv:    95,
-		UsedMTR:        true,
-		HopCount:       10,
-		MTRData:        stringPtr(`{"hops":[]}`),
-		PrivilegedMode: true,
-		CreatedAt:      time.Now(),
+		MonitorID:  1,
+		PacketLoss: 5.5,
+		CreatedAt:  time.Now(),
 	}
 
-	// Test SQLite with LastInsertId
+	// Verify that SQLite uses LastInsertId
 	mock.ExpectExec(`INSERT INTO packet_loss_results`).
 		WithArgs(
-			result.MonitorID,
-			result.PacketLoss,
-			result.MinRTT,
-			result.MaxRTT,
-			result.AvgRTT,
-			result.StdDevRTT,
-			result.PacketsSent,
-			result.PacketsRecv,
-			result.UsedMTR,
-			result.HopCount,
-			result.MTRData,
-			result.PrivilegedMode,
-			result.CreatedAt,
+			sqlmock.AnyArg(), // MonitorID
+			sqlmock.AnyArg(), // PacketLoss
+			sqlmock.AnyArg(), // MinRTT
+			sqlmock.AnyArg(), // MaxRTT
+			sqlmock.AnyArg(), // AvgRTT
+			sqlmock.AnyArg(), // StdDevRTT
+			sqlmock.AnyArg(), // PacketsSent
+			sqlmock.AnyArg(), // PacketsRecv
+			sqlmock.AnyArg(), // UsedMTR
+			sqlmock.AnyArg(), // HopCount
+			sqlmock.AnyArg(), // MTRData
+			sqlmock.AnyArg(), // PrivilegedMode
+			sqlmock.AnyArg(), // CreatedAt
 		).
 		WillReturnResult(sqlmock.NewResult(42, 1))
 
 	err = s.SavePacketLossResult(result)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(42), result.ID)
-	
+
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-// TestSavePacketLossResult_OldCode_PostgreSQLFailure demonstrates how the old code would fail
-func TestSavePacketLossResult_OldCode_PostgreSQLFailure(t *testing.T) {
+// TestPostgreSQLDriverLastInsertIdError demonstrates PostgreSQL driver behavior
+func TestPostgreSQLDriverLastInsertIdError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
 
-	// Simulate the old code behavior (without database type check)
-	result := &types.PacketLossResult{
-		MonitorID:   1,
-		PacketLoss:  5.5,
-	}
-
 	// Mock PostgreSQL driver behavior - Exec returns a result that doesn't support LastInsertId
-	mock.ExpectExec(`INSERT INTO packet_loss_results`).
+	mock.ExpectExec(`INSERT INTO test_table`).
 		WillReturnResult(mockPostgresResult{rowsAffected: 1})
 
-	// This simulates what the old code would have done
-	res, err := db.Exec(`INSERT INTO packet_loss_results (monitor_id, packet_loss) VALUES (?, ?)`, 
-		result.MonitorID, result.PacketLoss)
+	// Execute a query that would typically need LastInsertId
+	res, err := db.Exec(`INSERT INTO test_table (col) VALUES (?)`, "value")
 	require.NoError(t, err)
 
-	// This is where the old code would fail with PostgreSQL
+	// Verify that LastInsertId fails as expected for PostgreSQL
 	_, err = res.LastInsertId()
 	assert.Error(t, err)
 	assert.Equal(t, "LastInsertId is not supported by this driver", err.Error())
 }
 
+// TestSavePacketLossResult_UnsupportedDatabase verifies error handling for unsupported DB types
 func TestSavePacketLossResult_UnsupportedDatabase(t *testing.T) {
 	db, _, err := sqlmock.New()
 	require.NoError(t, err)
@@ -180,11 +159,37 @@ func TestSavePacketLossResult_UnsupportedDatabase(t *testing.T) {
 	}
 
 	result := &types.PacketLossResult{
-		MonitorID:  1,
-		CreatedAt:  time.Now(),
+		MonitorID: 1,
+		CreatedAt: time.Now(),
 	}
 
 	err = s.SavePacketLossResult(result)
 	assert.Error(t, err)
 	assert.Equal(t, "unsupported database type: unsupported", err.Error())
+}
+
+// TestSavePacketLossResult_QueryError verifies error handling when query fails
+func TestSavePacketLossResult_QueryError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	s := &service{
+		db:         db,
+		config:     config.DatabaseConfig{Type: config.Postgres},
+		sqlBuilder: sq.StatementBuilder.PlaceholderFormat(sq.Dollar),
+	}
+
+	result := &types.PacketLossResult{
+		MonitorID: 1,
+		CreatedAt: time.Now(),
+	}
+
+	// Simulate query error
+	mock.ExpectQuery(`INSERT INTO packet_loss_results`).
+		WillReturnError(errors.New("database connection lost"))
+
+	err = s.SavePacketLossResult(result)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "database connection lost")
 }

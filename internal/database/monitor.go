@@ -158,12 +158,12 @@ func (s *service) DeleteMonitorAgent(ctx context.Context, agentID int64) error {
 	// Delete associated data first (foreign key constraints)
 	tables := []string{
 		"monitor_agent_interfaces",
-		"monitor_agent_system_info", 
+		"monitor_agent_system_info",
 		"monitor_peak_stats",
 		"monitor_resource_stats",
 		"monitor_historical_snapshots",
 	}
-	
+
 	for _, table := range tables {
 		deleteQuery := s.sqlBuilder.Delete(table).Where(sq.Eq{"agent_id": agentID})
 		result, err := deleteQuery.RunWith(tx).ExecContext(ctx)
@@ -185,7 +185,7 @@ func (s *service) DeleteMonitorAgent(ctx context.Context, agentID int64) error {
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit delete transaction: %w", err)
 	}
-	
+
 	log.Info().Int64("agent_id", agentID).Msg("Successfully deleted monitor agent and all associated data")
 	return nil
 }
