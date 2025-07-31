@@ -1057,6 +1057,14 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 			return nil, fmt.Errorf("failed to start MTR: %w", err)
 		}
 		
+		// Log the process start
+		log.Info().
+			Int("pid", cmd.Process.Pid).
+			Int64("monitorID", monitor.ID).
+			Str("host", monitor.Host).
+			Strs("args", args).
+			Msg("Started MTR process")
+		
 		// Ensure cleanup on function exit
 		defer func() {
 			// Kill the process group to ensure all child processes are terminated
@@ -1104,15 +1112,39 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 		select {
 		case <-ctx.Done():
 			// Context timeout - kill the process group
+			log.Warn().
+				Int64("monitorID", monitor.ID).
+				Str("host", monitor.Host).
+				Int("timeout_seconds", monitor.PacketCount*3).
+				Msg("MTR command timed out, killing process group")
+			
 			if cmd.Process != nil {
-				if err := killMTRProcessGroup(cmd.Process.Pid); err != nil {
+				pid := cmd.Process.Pid
+				if err := killMTRProcessGroup(pid); err != nil {
 					log.Error().
 						Err(err).
+						Int("pid", pid).
 						Int64("monitorID", monitor.ID).
 						Msg("Failed to kill MTR process group on timeout")
+				} else {
+					log.Info().
+						Int("pid", pid).
+						Int64("monitorID", monitor.ID).
+						Msg("Successfully killed MTR process group")
 				}
 			}
-			return nil, fmt.Errorf("MTR command timed out")
+			
+			// Wait briefly for the goroutine to finish after kill
+			select {
+			case <-errChan:
+				// Process terminated after kill
+			case <-time.After(2 * time.Second):
+				// Process didn't terminate gracefully, but we've done our best
+				log.Error().
+					Int64("monitorID", monitor.ID).
+					Msg("MTR process did not terminate cleanly after kill")
+			}
+			return nil, fmt.Errorf("MTR command timed out after %d seconds", monitor.PacketCount*3)
 		case err := <-errChan:
 			return nil, err
 		case output := <-outputChan:
