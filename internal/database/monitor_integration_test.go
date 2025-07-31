@@ -139,11 +139,12 @@ func TestMonitorAgent_SystemInfo(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create system info
+		agentVersion := "1.0.0"
 		sysInfo := &types.MonitorSystemInfo{
 			Hostname:      "test-host",
 			Kernel:        "Linux 5.15.0 x86_64",
 			VnstatVersion: "2.10",
-			AgentVersion:  "1.0.0",
+			AgentVersion:  &agentVersion,
 			CPUModel:      "Intel Core i7",
 			CPUCores:      4,
 			CPUThreads:    8,

@@ -214,7 +214,7 @@ interface PacketLossMonitorListProps {
   onDelete: (monitorId: number) => void;
   onToggle: (monitorId: number, enabled: boolean) => void;
   isLoading: boolean;
-  togglingMonitorId?: number | null;
+  togglingMonitorIds?: Set<number>;
 }
 
 export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
@@ -226,7 +226,7 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
   onDelete,
   onToggle,
   isLoading,
-  togglingMonitorId = null,
+  togglingMonitorIds = new Set(),
 }) => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [monitorToDelete, setMonitorToDelete] =
@@ -323,7 +323,7 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
               <div className="flex items-center gap-1 ml-4">
                 <button
                   className={`p-1.5 rounded-md transition-colors duration-200 ${
-                    togglingMonitorId === monitor.id
+                    togglingMonitorIds.has(monitor.id)
                       ? "opacity-50 cursor-not-allowed"
                       : monitor.enabled
                       ? "hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400"
@@ -333,10 +333,10 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
                     e.stopPropagation();
                     onToggle(monitor.id, !monitor.enabled);
                   }}
-                  disabled={togglingMonitorId === monitor.id}
+                  disabled={togglingMonitorIds.has(monitor.id)}
                   title={monitor.enabled ? "Stop Monitor" : "Start Monitor"}
                 >
-                  {togglingMonitorId === monitor.id ? (
+                  {togglingMonitorIds.has(monitor.id) ? (
                     <div className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600 dark:border-gray-600 dark:border-t-gray-300" />
                   ) : monitor.enabled ? (
                     <StopIcon className="w-3.5 h-3.5" />

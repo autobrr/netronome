@@ -78,13 +78,14 @@ RUN --network=none --mount=target=. \
     -X 'main.buildTime=${BUILDTIME}'" \
     -o /app/netronome ./cmd/netronome
 
-FROM alpine:latest
+FROM alpine:3.22
 
 LABEL org.opencontainers.image.source="https://github.com/autobrr/netronome"
 LABEL org.opencontainers.image.licenses="GPL-2.0-or-later"
-LABEL org.opencontainers.image.base.name="alpine:latest"
+LABEL org.opencontainers.image.base.name="alpine:3.22"
 
-RUN apk add --no-cache sqlite iperf3 traceroute mtr tzdata
+# Install dependencies including tini for proper process reaping
+RUN apk add --no-cache tini sqlite iperf3 traceroute mtr tzdata
 
 ENV HOME="/data" \
     XDG_CONFIG_HOME="/data" \
@@ -105,5 +106,6 @@ RUN addgroup -S netronome && \
 
 USER netronome
 
-ENTRYPOINT ["netronome"]
+# Use tini as PID 1 to handle zombie process reaping
+ENTRYPOINT ["/sbin/tini", "--", "netronome"]
 CMD ["serve"]
