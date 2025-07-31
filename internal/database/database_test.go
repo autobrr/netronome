@@ -191,8 +191,7 @@ var testTablesToClear = []string{
 	"speed_tests",
 	"saved_iperf_servers",
 	"users",
-	"registration_status",
-	// Keep: notification_events, notification_categories, schema_migrations
+	// Keep: notification_events, notification_categories, schema_migrations, registration_status
 }
 
 // cleanTestData removes all test data but keeps schema and seed data

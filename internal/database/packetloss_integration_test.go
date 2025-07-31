@@ -264,7 +264,7 @@ func TestPacketLossMonitor_NotFound(t *testing.T) {
 		// Try to delete non-existent monitor
 		_ = td.Service.DeletePacketLossMonitor(99999)
 		// Deletion might not return error for non-existent records
-		// depending on implementation
+		// depending on implementation, so we explicitly ignore it
 	})
 }
 

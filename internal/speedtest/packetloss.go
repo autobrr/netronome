@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"os/exec"
 	"strings"
@@ -1044,8 +1045,83 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 			Msg("Running MTR in unprivileged mode (UDP)")
 	}
 
-	cmd := exec.CommandContext(ctx, "mtr", args...)
-	output, err := cmd.Output()
+	// Helper function to run MTR with proper cleanup
+	runMTRCommand := func(args []string) ([]byte, error) {
+		cmd := exec.CommandContext(ctx, "mtr", args...)
+		
+		// Configure platform-specific process attributes
+		configureMTRCommand(cmd)
+		
+		// Start the command
+		if err := cmd.Start(); err != nil {
+			return nil, fmt.Errorf("failed to start MTR: %w", err)
+		}
+		
+		// Ensure cleanup on function exit
+		defer func() {
+			// Kill the process group to ensure all child processes are terminated
+			if cmd.Process != nil {
+				if err := killMTRProcessGroup(cmd.Process.Pid); err != nil {
+					log.Error().
+						Err(err).
+						Int("pid", cmd.Process.Pid).
+						Msg("Failed to kill MTR process group during cleanup")
+				}
+			}
+		}()
+		
+		// Create channels for output and errors
+		outputChan := make(chan []byte, 1)
+		errChan := make(chan error, 1)
+		
+		// Get stdout pipe
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get stdout pipe: %w", err)
+		}
+		
+		// Run command in goroutine
+		go func() {
+			defer close(outputChan)
+			defer close(errChan)
+			
+			// Read all output
+			output, readErr := io.ReadAll(stdout)
+			
+			// Wait for command to finish
+			waitErr := cmd.Wait()
+			
+			if readErr != nil {
+				errChan <- fmt.Errorf("failed to read output: %w", readErr)
+			} else if waitErr != nil {
+				errChan <- fmt.Errorf("command failed: %w", waitErr)
+			} else {
+				outputChan <- output
+			}
+		}()
+		
+		// Wait for completion or timeout
+		select {
+		case <-ctx.Done():
+			// Context timeout - kill the process group
+			if cmd.Process != nil {
+				if err := killMTRProcessGroup(cmd.Process.Pid); err != nil {
+					log.Error().
+						Err(err).
+						Int64("monitorID", monitor.ID).
+						Msg("Failed to kill MTR process group on timeout")
+				}
+			}
+			return nil, fmt.Errorf("MTR command timed out")
+		case err := <-errChan:
+			return nil, err
+		case output := <-outputChan:
+			return output, nil
+		}
+	}
+
+	// Run MTR command
+	output, err := runMTRCommand(args)
 	if err != nil {
 		// If privileged mode failed, try UDP mode
 		if s.privilegedMode {
@@ -1055,8 +1131,7 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 				Msg("MTR privileged mode failed, trying UDP mode")
 
 			args = append([]string{"-u"}, args...)
-			cmd = exec.CommandContext(ctx, "mtr", args...)
-			output, err = cmd.Output()
+			output, err = runMTRCommand(args)
 			if err != nil {
 				return nil, fmt.Errorf("MTR failed in both ICMP and UDP modes: %w", err)
 			}
