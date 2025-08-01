@@ -97,6 +97,8 @@ cd web && pnpm tsc --noEmit
 
 ## High-Level Architecture
 
+**Important**: Netronome is a self-hosted, single-user application. The system is designed to allow only one user registration, and all features are built around this single-user model.
+
 ### Backend Architecture (Go)
 
 The backend follows a clean architecture pattern with dependency injection:
@@ -258,12 +260,19 @@ The notification system is built on [Shoutrrr](https://github.com/containrrr/sho
 
 ### Testing Approach
 
+**Important**: Since Netronome is a single-user application, tests should reflect this design:
+- Do NOT write tests for concurrent user creation or multi-user scenarios
+- The system enforces single-user registration at the database level
+- After the first user is created, subsequent registration attempts will fail with `ErrRegistrationDisabled`
+- Focus tests on single-user workflows and functionality
+
 1. **Backend Testing**
 
    - Unit tests for business logic
    - Integration tests for database operations
    - Mock interfaces for external dependencies
    - Use testify for assertions
+   - Avoid testing multi-user scenarios or concurrent user operations
 
 2. **Frontend Testing**
    - Component testing with React Testing Library
@@ -355,6 +364,7 @@ go test -bench=. ./internal/...
 - All new features should include appropriate tests
 - Documentation updates are expected with feature changes
 - When working on frontend code, always check `ai_docs/style-guide.md` first
+- **Single-User Design**: Remember that Netronome is designed for single-user self-hosting. Do not implement multi-user features or test concurrent user scenarios
 
 ## Guidelines
 
