@@ -115,6 +115,23 @@ Advanced network path analysis with:
   <img src=".github/assets/agents-systeminfo.png" alt="Agent System Information">
 </p>
 
+#### Binary Types
+
+Netronome provides two binary options for different deployment scenarios:
+
+- **`netronome`** - Full server binary (~66MB) with complete web interface, database, and agent functionality
+- **`netronome-agent`** - Lightweight agent-only binary (~32MB) optimized for distributed monitoring
+
+**When to use each:**
+- **Full Binary (`netronome`)**: Main server deployment, development, or when you need all commands
+- **Agent Binary (`netronome-agent`)**: Remote monitoring agents, resource-constrained deployments, or containerized agents
+
+Both binaries are included in release archives. The installation script automatically detects and prefers the lightweight agent binary when available.
+
+#### Agent Setup
+
+Netronome agents can be deployed using either binary depending on your needs:
+
 Monitor multiple servers from one dashboard:
 
 - CPU, memory, disk, and temperature metrics
@@ -181,6 +198,7 @@ Notes:
 1. **Download and Install**
 
    ```bash
+   # Download latest release
    wget $(curl -s https://api.github.com/repos/autobrr/netronome/releases/latest | grep download | grep linux_x86_64 | cut -d\" -f4)
    tar -C /usr/local/bin -xzf netronome*.tar.gz
    ```
@@ -780,18 +798,55 @@ Building Netronome creates a single binary with the frontend embedded:
 ### With Full SMART Support (Linux/macOS)
 
 ```bash
+# Clone the repository
 git clone https://github.com/autobrr/netronome
 cd netronome
-make build  # Builds frontend, embeds it, compiles Go binary
+
+# Build full server binary with web interface (requires frontend build)
+make build
+
+# Build lightweight agent-only binary (no frontend required)
+make build-agent  
+
+# Build both binaries
+make build-all
 ```
 
-### Without SMART Support
+**Build target details:**
+- **`make build`** - Full server binary (~66MB) with embedded web UI, database, all commands
+- **`make build-agent`** - Agent-only binary (~32MB) with just monitoring functionality
+- **`make build-all`** - Both binaries for comprehensive deployment options
+
+### Building with Full SMART Support
+
+The release binaries include most temperature monitoring (CPU, NVMe, battery) but lack SMART support for SATA/HDD temperatures and disk model names. To build with full SMART support on Linux or macOS:
+
+```bash
+# Build full server with SMART support (requires CGO, default when building locally)
+CGO_ENABLED=1 make build
+
+# Build agent with SMART support (requires CGO)
+CGO_ENABLED=1 make build-agent
+
+# The binaries will be in ./bin/ with full SMART support
+sudo ./bin/netronome agent  # Run with sudo for SATA/HDD temperature access
+sudo ./bin/netronome-agent  # Or use the dedicated agent binary
+```
+
+**Note**: SMART support requires `CGO_ENABLED=1` to interface with system disk libraries.
+
+### Building without SMART Support
+
+To build without SMART support (like the release binaries):
 
 ```bash
 # First build frontend
 cd web && pnpm install && pnpm build && cd ..
 # Then build Go binary
 CGO_ENABLED=0 go build -tags nosmart -o bin/netronome ./cmd/netronome
+
+# Agent binary without SMART  
+CGO_ENABLED=0 go build -tags nosmart -o bin/netronome-agent ./cmd/netronome-agent
 ```
 
 ### Docker Build

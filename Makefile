@@ -1,12 +1,14 @@
 # Build variables
 BINARY_NAME=netronome
+AGENT_BINARY_NAME=netronome-agent
 BUILD_DIR=bin
 DOCKER_IMAGE=netronome
 
-.PHONY: all build clean run docker-build docker-run watch dev dev-expose
+.PHONY: all build build-agent build-all clean run docker-build docker-run watch dev dev-expose
 
 all: build
 
+# Build the full server with web frontend
 build: 
 	@echo "Building frontend and backend..."
 	@mkdir -p $(BUILD_DIR)
@@ -14,6 +16,16 @@ build:
 	@cd web && pnpm install && pnpm build
 	@touch web/dist/.gitkeep
 	@go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/netronome
+
+# Build only the agent binary (no web frontend needed)
+build-agent:
+	@echo "Building agent binary..."
+	@mkdir -p $(BUILD_DIR)
+	@go build -o $(BUILD_DIR)/$(AGENT_BINARY_NAME) ./cmd/netronome-agent
+
+# Build both netronome and netronome-agent binaries
+build-all: build build-agent
+	@echo "Built both server and agent binaries"
 
 clean:
 	@echo "Cleaning up..."
