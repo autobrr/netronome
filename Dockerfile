@@ -83,7 +83,7 @@ RUN export GOOS=$TARGETOS; \
 FROM alpine:3.22
 
 # Install dependencies including tini for proper process reaping
-RUN apk add --no-cache tini sqlite iperf3 traceroute mtr tzdata
+RUN apk add --no-cache tini sqlite iperf3 traceroute mtr tzdata vnstat
 
 ENV HOME="/data" \
     XDG_CONFIG_HOME="/data" \
