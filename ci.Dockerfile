@@ -85,7 +85,7 @@ LABEL org.opencontainers.image.licenses="GPL-2.0-or-later"
 LABEL org.opencontainers.image.base.name="alpine:3.22"
 
 # Install dependencies including tini for proper process reaping
-RUN apk add --no-cache tini sqlite iperf3 traceroute mtr tzdata
+RUN apk add --no-cache tini sqlite iperf3 traceroute mtr tzdata vnstat
 
 ENV HOME="/data" \
     XDG_CONFIG_HOME="/data" \
