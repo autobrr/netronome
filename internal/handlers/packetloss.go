@@ -271,6 +271,23 @@ func (h *PacketLossHandler) StartMonitor(c *gin.Context) {
 		}
 	}
 
+	// Update last_run and next_run times before running the test
+	now := time.Now()
+	monitor.LastRun = &now
+	
+	// Calculate next run time based on the interval
+	nextRun := h.scheduler.CalculateNextRun(monitor.Interval, now)
+	if !nextRun.IsZero() {
+		monitor.NextRun = &nextRun
+	}
+	
+	// Update the monitor with new schedule times
+	if err := h.db.UpdatePacketLossMonitor(monitor); err != nil {
+		log.Error().Err(err).Int64("monitorID", id).Msg("Failed to update monitor schedule")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update monitor schedule"})
+		return
+	}
+
 	// Run a test immediately
 	h.service.RunScheduledTest(monitor)
 
