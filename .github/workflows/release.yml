@@ -127,7 +127,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download web production build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: web-dist
           path: web/dist
@@ -198,7 +198,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download web production build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: web-dist
           path: web/dist
@@ -264,7 +264,7 @@ jobs:
     needs: [docker]
     steps:
       - name: Download image digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: /tmp/digests
           pattern: docker-digests-*
