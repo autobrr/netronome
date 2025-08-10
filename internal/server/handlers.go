@@ -171,6 +171,11 @@ func (s *Server) handleCreateSchedule(c *gin.Context) {
 		return
 	}
 
+	// Calculate next_run on the server side using server's timezone
+	now := time.Now()
+	nextRun := s.scheduler.CalculateNextRun(schedule.Interval, now)
+	schedule.NextRun = nextRun
+
 	createdSchedule, err := s.db.CreateSchedule(c.Request.Context(), schedule)
 	if err != nil {
 		log.Error().Err(err).
@@ -191,6 +196,11 @@ func (s *Server) handleUpdateSchedule(c *gin.Context) {
 		_ = c.Error(fmt.Errorf("invalid schedule data: %w", err))
 		return
 	}
+
+	// Calculate next_run on the server side using server's timezone
+	now := time.Now()
+	nextRun := s.scheduler.CalculateNextRun(schedule.Interval, now)
+	schedule.NextRun = nextRun
 
 	err := s.db.UpdateSchedule(c.Request.Context(), schedule)
 	if err != nil {
