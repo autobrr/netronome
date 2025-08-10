@@ -261,7 +261,7 @@ export default function ScheduleManager({
       serverIds: selectedServers.map((s) => s.id),
       interval:
         scheduleType === "exact" ? `exact:${exactTimes.join(",")}` : interval,
-      nextRun: calculateNextRun(interval, scheduleType, exactTimes.join(",")),
+      // nextRun is now calculated server-side to use server timezone
       enabled,
       options: {
         enableDownload: true,
@@ -845,7 +845,7 @@ export default function ScheduleManager({
                                           Next run in:
                                         </span>{" "}
                                         <span className="font-medium text-blue-600 dark:text-blue-400">
-                                          {formatNextRun(schedule.nextRun)}
+                                          {schedule.nextRun ? formatNextRun(schedule.nextRun) : "Calculating..."}
                                         </span>
                                       </p>
                                     </div>

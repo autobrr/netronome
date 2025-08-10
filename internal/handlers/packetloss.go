@@ -137,11 +137,17 @@ func (h *PacketLossHandler) UpdateMonitor(c *gin.Context) {
 	existingMonitor.Enabled = updateData.Enabled
 	existingMonitor.Threshold = updateData.Threshold
 
-	// If the interval changed, we should reset next_run so the scheduler recalculates it
+	// If the interval changed, recalculate next_run using server timezone
 	if existingMonitor.Interval != updateData.Interval {
 		existingMonitor.Interval = updateData.Interval
-		// Clear next_run to force recalculation by the scheduler
-		existingMonitor.NextRun = nil
+		// Calculate next_run on the server side using server's timezone
+		now := time.Now()
+		nextRun := h.scheduler.CalculateNextRun(existingMonitor.Interval, now)
+		if !nextRun.IsZero() {
+			existingMonitor.NextRun = &nextRun
+		} else {
+			existingMonitor.NextRun = nil
+		}
 	}
 
 	// Log what we're about to save

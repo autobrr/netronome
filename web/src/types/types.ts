@@ -48,7 +48,7 @@ export interface Schedule {
   id?: number;
   serverIds: string[];
   interval: string;
-  nextRun: string;
+  nextRun?: string;
   enabled: boolean;
   options: {
     enableDownload: boolean;
