@@ -1,6 +1,14 @@
 #!/bin/bash
 # Copyright (c) 2024-2025, s0up and the autobrr contributors.
 # SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Netronome Agent Installation Script
+# This script intelligently downloads and installs the Netronome agent with the following features:
+# - Prefers netronome-agent binary when available for optimal size (future releases)
+# - Falls back to full netronome binary for backward compatibility
+# - Interactive configuration for Tailscale integration
+# - Maintains compatibility with existing installations
+# - Supports both interactive and non-interactive installation modes
 
 set -e
 
@@ -55,7 +63,7 @@ generate_api_key() {
     fi
 }
 
-# Function to get latest release URL
+# Function to get latest release URL with preference for agent binary
 get_latest_release_url() {
     local arch=$(uname -m)
     
@@ -76,16 +84,31 @@ get_latest_release_url() {
             ;;
     esac
     
-    # Get latest release URL from GitHub API
+    # Get latest release data from GitHub API
     local api_url="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
-    local download_url=$(curl -s $api_url | grep "browser_download_url.*${OS}_${arch}.tar.gz" | cut -d '"' -f 4)
+    local release_data=$(curl -s $api_url)
     
-    if [ -z "$download_url" ]; then
-        print_color $RED "Failed to get latest release URL"
-        exit 1
+    # NOTE: Agent-specific binaries (netronome-agent) will be available in future releases
+    # For now, we'll try to find them but gracefully fall back to the full binary
+    
+    # First try to find netronome-agent specific archives
+    local agent_download_url=$(echo "$release_data" | grep "browser_download_url.*netronome-agent.*${OS}_${arch}.tar.gz" | cut -d '"' -f 4 | head -1)
+    
+    if [ -n "$agent_download_url" ]; then
+        echo "agent:$agent_download_url"
+        return 0
     fi
     
-    echo "$download_url"
+    # Fallback to full netronome archives (current behavior until agent binaries are released)
+    local full_download_url=$(echo "$release_data" | grep "browser_download_url.*netronome.*${OS}_${arch}.tar.gz" | grep -v "netronome-agent" | cut -d '"' -f 4 | head -1)
+    
+    if [ -n "$full_download_url" ]; then
+        echo "full:$full_download_url"
+        return 0
+    fi
+    
+    print_color $RED "Failed to get latest release URL for ${OS}_${arch}"
+    exit 1
 }
 
 # Function to detect network interfaces
@@ -180,11 +203,18 @@ while [[ $# -gt 0 ]]; do
             echo "  --auto-update [true|false] Enable/disable automatic daily updates (default: prompt)"
             echo "  -h, --help               Show this help message"
             echo ""
+            echo "The script automatically:"
+            echo "  - Prefers netronome-agent binary when available"
+            echo "  - Falls back to full netronome binary if needed"
+            echo "  - Maintains compatibility with existing installations"
+            echo ""
             echo "The script will interactively prompt for:"
             echo "  - Network interface to monitor"
             echo "  - API key (or generate one)"
             echo "  - Host/IP to listen on"
             echo "  - Port number"
+            echo "  - Disk monitoring configuration"
+            echo "  - Tailscale integration settings"
             exit 0
             ;;
         *)
@@ -231,7 +261,7 @@ if [ "$UNINSTALL" = true ]; then
         systemctl daemon-reload
     fi
     
-    # Remove files
+    # Remove files (both possible binary names for thorough cleanup)
     sudo rm -rf $INSTALL_DIR
     sudo rm -rf $CONFIG_DIR
     
@@ -243,22 +273,31 @@ fi
 if [ "$UPDATE" = true ]; then
     print_color $YELLOW "Updating Netronome Agent..."
     
-    # Check if agent is installed
-    if [ ! -f "$INSTALL_DIR/netronome" ]; then
-        print_color $RED "Netronome agent is not installed at $INSTALL_DIR/netronome"
+    # Check if agent is installed (try both possible binary names)
+    BINARY_PATH=""
+    if [ -f "$INSTALL_DIR/netronome-agent" ]; then
+        BINARY_PATH="$INSTALL_DIR/netronome-agent"
+    elif [ -f "$INSTALL_DIR/netronome" ]; then
+        BINARY_PATH="$INSTALL_DIR/netronome"
+    else
+        print_color $RED "Netronome agent is not installed in $INSTALL_DIR"
         exit 1
     fi
     
     # Use the built-in update command
-    if sudo $INSTALL_DIR/netronome update; then
+    if sudo $BINARY_PATH update; then
         print_color $GREEN "Update completed successfully!"
         
         # Restart service
         if [ "$OS" = "darwin" ]; then
             if sudo launchctl list | grep -q $SERVICE_NAME; then
                 print_color $YELLOW "Restarting agent service..."
-                sudo launchctl unload /Library/LaunchDaemons/$SERVICE_NAME.plist
-                sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.plist
+                # Use modern launchctl commands
+                sudo launchctl kickstart -k system/$SERVICE_NAME || {
+                    # Fallback to traditional method if kickstart fails
+                    sudo launchctl unload /Library/LaunchDaemons/$SERVICE_NAME.plist
+                    sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.plist
+                }
                 print_color $GREEN "Service restarted"
             fi
         else
@@ -380,6 +419,10 @@ if [ "$INTERACTIVE_MODE" = true ]; then
     fi
 else
     # Non-interactive mode - Tailscale disabled by default
+    TAILSCALE_ENABLED="false"
+    TAILSCALE_METHOD=""
+    TAILSCALE_AUTH_KEY=""
+    TAILSCALE_HOSTNAME=""
     echo "Tailscale: disabled (auto-selected)"
 fi
 
@@ -492,6 +535,7 @@ else
     echo "Disk excludes: none (auto-selected)"
 fi
 
+
 # Create user if it doesn't exist
 create_user $USER_NAME
 
@@ -513,37 +557,72 @@ print_color $YELLOW "\nInstalling Netronome agent..."
 if [ -f "$TEST_DIR/netronome" ]; then
     print_color $BLUE "Using local test binary"
     sudo cp "$TEST_DIR/netronome" $INSTALL_DIR/
+    BINARY_NAME="netronome"
+elif [ -f "$TEST_DIR/netronome-agent" ]; then
+    print_color $BLUE "Using local test agent binary"
+    sudo cp "$TEST_DIR/netronome-agent" $INSTALL_DIR/
+    BINARY_NAME="netronome-agent"
 else
-    DOWNLOAD_URL=$(get_latest_release_url)
-    print_color $BLUE "Downloading from: $DOWNLOAD_URL"
+    DOWNLOAD_INFO=$(get_latest_release_url)
+    BINARY_TYPE=$(echo "$DOWNLOAD_INFO" | cut -d: -f1)
+    DOWNLOAD_URL=$(echo "$DOWNLOAD_INFO" | cut -d: -f2-)
+    
+    if [ "$BINARY_TYPE" = "agent" ]; then
+        print_color $BLUE "Downloading netronome-agent binary from: $DOWNLOAD_URL"
+        print_color $GREEN "✓ Using dedicated agent binary for optimal size"
+        BINARY_NAME="netronome-agent"
+    else
+        print_color $BLUE "Downloading full netronome binary from: $DOWNLOAD_URL"
+        print_color $YELLOW "ℹ Using full binary (agent-specific binaries will be available in future releases)"
+        BINARY_NAME="netronome"
+    fi
     
     # Create temp directory for extraction
     TEMP_EXTRACT_DIR="/tmp/netronome-extract-$$"
     mkdir -p "$TEMP_EXTRACT_DIR"
     cd "$TEMP_EXTRACT_DIR"
     
-    curl -L -o netronome-agent.tar.gz "$DOWNLOAD_URL"
-    tar -xzf netronome-agent.tar.gz
-    sudo cp netronome $INSTALL_DIR/
+    curl -L -o netronome-download.tar.gz "$DOWNLOAD_URL"
+    tar -xzf netronome-download.tar.gz
+    
+    # Find the binary in the extracted files
+    if [ -f "netronome-agent" ]; then
+        sudo cp netronome-agent $INSTALL_DIR/
+        BINARY_NAME="netronome-agent"
+        print_color $GREEN "✓ Found netronome-agent binary in archive"
+    elif [ -f "netronome" ]; then
+        sudo cp netronome $INSTALL_DIR/
+        BINARY_NAME="netronome"
+        print_color $GREEN "✓ Found netronome binary in archive"
+    else
+        print_color $RED "Could not find netronome or netronome-agent binary in downloaded archive"
+        print_color $YELLOW "Archive contents:"
+        ls -la
+        cd /tmp
+        rm -rf "$TEMP_EXTRACT_DIR"
+        exit 1
+    fi
     
     # Clean up temp directory
     cd /tmp
     rm -rf "$TEMP_EXTRACT_DIR"
 fi
 
-sudo chmod +x $INSTALL_DIR/netronome
+sudo chmod +x $INSTALL_DIR/$BINARY_NAME
 
 if [ "$OS" = "darwin" ]; then
-    sudo chown $USER_NAME:staff $INSTALL_DIR/netronome
+    sudo chown $USER_NAME:staff $INSTALL_DIR/$BINARY_NAME
 else
-    sudo chown $USER_NAME:$USER_NAME $INSTALL_DIR/netronome
+    sudo chown $USER_NAME:$USER_NAME $INSTALL_DIR/$BINARY_NAME
 fi
 
 # No cleanup needed as we use temp directory
 
-# Create configuration file
-print_color $YELLOW "\nCreating configuration..."
-sudo tee $CONFIG_DIR/agent.toml > /dev/null << EOF
+# Create configuration file only if Tailscale is not enabled
+if [ "$TAILSCALE_ENABLED" != "true" ]; then
+    print_color $YELLOW "\nCreating configuration..."
+    
+    sudo tee $CONFIG_DIR/agent.toml > /dev/null << EOF
 # Netronome Agent Configuration
 
 [agent]
@@ -558,48 +637,36 @@ disk_excludes = $DISK_EXCLUDES
 level = "info"
 EOF
 
-# Add Tailscale configuration if enabled
-if [ "$TAILSCALE_ENABLED" = "true" ]; then
-    sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
-
-[tailscale]
-enabled = true
-method = "$TAILSCALE_METHOD"
-EOF
-    
-    if [ "$TAILSCALE_METHOD" = "tsnet" ]; then
-        sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
-auth_key = "$TAILSCALE_AUTH_KEY"
-EOF
+    if [ "$OS" = "darwin" ]; then
+        sudo chown $USER_NAME:staff $CONFIG_DIR/agent.toml
+    else
+        sudo chown $USER_NAME:$USER_NAME $CONFIG_DIR/agent.toml
     fi
-    
-    if [ -n "$TAILSCALE_HOSTNAME" ]; then
-        sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
-hostname = "$TAILSCALE_HOSTNAME"
-EOF
-    fi
-fi
-
-if [ "$OS" = "darwin" ]; then
-    sudo chown $USER_NAME:staff $CONFIG_DIR/agent.toml
+    sudo chmod 600 $CONFIG_DIR/agent.toml
 else
-    sudo chown $USER_NAME:$USER_NAME $CONFIG_DIR/agent.toml
+    print_color $YELLOW "\nTailscale enabled - configuration will be passed via command line flags"
 fi
-sudo chmod 600 $CONFIG_DIR/agent.toml
 
 # Create service
 print_color $YELLOW "\nCreating service..."
 
 if [ "$OS" = "darwin" ]; then
     # Create launchd plist for macOS
-    # Build the arguments array
-    PLIST_ARGS="        <string>$INSTALL_DIR/netronome</string>
-        <string>agent</string>
+    # Build the arguments array based on binary type
+    if [ "$BINARY_NAME" = "netronome-agent" ]; then
+        PLIST_ARGS="        <string>$INSTALL_DIR/$BINARY_NAME</string>"
+    else
+        PLIST_ARGS="        <string>$INSTALL_DIR/$BINARY_NAME</string>
+        <string>agent</string>"
+    fi
+    
+    # Add config file flag if Tailscale is NOT enabled
+    if [ "$TAILSCALE_ENABLED" != "true" ]; then
+        PLIST_ARGS="$PLIST_ARGS
         <string>--config</string>
         <string>$CONFIG_DIR/agent.toml</string>"
-    
-    # Add Tailscale flags if enabled
-    if [ "$TAILSCALE_ENABLED" = "true" ]; then
+    else
+        # Add Tailscale flags
         PLIST_ARGS="$PLIST_ARGS
         <string>--tailscale</string>"
         
@@ -620,6 +687,25 @@ if [ "$OS" = "darwin" ]; then
         <string>$TAILSCALE_HOSTNAME</string>"
             fi
         fi
+        
+        # Add other necessary flags when using Tailscale
+        if [ -n "$INTERFACE" ]; then
+            PLIST_ARGS="$PLIST_ARGS
+        <string>--interface</string>
+        <string>$INTERFACE</string>"
+        fi
+        
+        if [ -n "$API_KEY" ]; then
+            PLIST_ARGS="$PLIST_ARGS
+        <string>--api-key</string>
+        <string>$API_KEY</string>"
+        fi
+        
+        PLIST_ARGS="$PLIST_ARGS
+        <string>--host</string>
+        <string>$HOST</string>
+        <string>--port</string>
+        <string>$PORT</string>"
     fi
     
     sudo tee /Library/LaunchDaemons/$SERVICE_NAME.plist > /dev/null << EOF
@@ -659,6 +745,8 @@ EOF
     
     # Load the service
     print_color $YELLOW "\nStarting service..."
+    # Use modern launchctl command with fallback
+    sudo launchctl bootstrap system /Library/LaunchDaemons/$SERVICE_NAME.plist 2>/dev/null || \
     sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.plist
     
     # Check if service is running
@@ -670,11 +758,18 @@ EOF
     fi
 else
     # Create systemd service for Linux
-    # Build the ExecStart command
-    EXEC_START="$INSTALL_DIR/netronome agent --config $CONFIG_DIR/agent.toml"
+    # Build the ExecStart command based on binary type
+    if [ "$BINARY_NAME" = "netronome-agent" ]; then
+        EXEC_START="$INSTALL_DIR/$BINARY_NAME"
+    else
+        EXEC_START="$INSTALL_DIR/$BINARY_NAME agent"
+    fi
     
-    # Add Tailscale flags if enabled
-    if [ "$TAILSCALE_ENABLED" = "true" ]; then
+    # Add config file or Tailscale flags
+    if [ "$TAILSCALE_ENABLED" != "true" ]; then
+        EXEC_START="$EXEC_START --config $CONFIG_DIR/agent.toml"
+    else
+        # Add Tailscale flags
         EXEC_START="$EXEC_START --tailscale"
         
         if [ "$TAILSCALE_METHOD" = "host" ]; then
@@ -686,6 +781,17 @@ else
                 EXEC_START="$EXEC_START --tailscale-hostname '$TAILSCALE_HOSTNAME'"
             fi
         fi
+        
+        # Add other necessary flags when using Tailscale
+        if [ -n "$INTERFACE" ]; then
+            EXEC_START="$EXEC_START --interface '$INTERFACE'"
+        fi
+        
+        if [ -n "$API_KEY" ]; then
+            EXEC_START="$EXEC_START --api-key '$API_KEY'"
+        fi
+        
+        EXEC_START="$EXEC_START --host $HOST --port $PORT"
     fi
     
     # Determine user based on Tailscale configuration
@@ -751,6 +857,9 @@ if [ "$SERVICE_RUNNING" = true ]; then
     if [ -n "$API_KEY" ]; then
         print_color $GREEN "API Key: $API_KEY"
     fi
+    if [ "$TAILSCALE_ENABLED" = "true" ]; then
+        print_color $GREEN "Tailscale: enabled ($TAILSCALE_METHOD mode)"
+    fi
     print_color $YELLOW "\nAdd this agent in Netronome with the above URL and API key."
     
     # Show service commands
@@ -761,8 +870,9 @@ if [ "$SERVICE_RUNNING" = true ]; then
     if [ "$OS" = "darwin" ]; then
         echo "View logs:        tail -f /tmp/netronome-agent.log"
         echo "Check status:     sudo launchctl list | grep $SERVICE_NAME"
-        echo "Stop service:     sudo launchctl unload /Library/LaunchDaemons/$SERVICE_NAME.plist"
-        echo "Start service:    sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.plist"
+        echo "Restart service:  sudo launchctl kickstart -k system/$SERVICE_NAME"
+        echo "Stop service:     sudo launchctl bootout system /Library/LaunchDaemons/$SERVICE_NAME.plist"
+        echo "Start service:    sudo launchctl bootstrap system /Library/LaunchDaemons/$SERVICE_NAME.plist"
     else
         echo "View logs:        journalctl -u $SERVICE_NAME -f"
         echo "Check status:     systemctl status $SERVICE_NAME"
@@ -770,8 +880,8 @@ if [ "$SERVICE_RUNNING" = true ]; then
         echo "Stop service:     systemctl stop $SERVICE_NAME"
     fi
     
-    echo "Update agent:     sudo $INSTALL_DIR/netronome update"
-    echo "Check version:    $INSTALL_DIR/netronome version"
+    echo "Update agent:     sudo $INSTALL_DIR/$BINARY_NAME update"
+    echo "Check version:    $INSTALL_DIR/$BINARY_NAME version"
     echo "Uninstall agent:  curl -sL https://raw.githubusercontent.com/autobrr/netronome/main/scripts/install-agent.sh | bash -s -- --uninstall"
     echo ""
     
@@ -825,6 +935,8 @@ if [ "$SERVICE_RUNNING" = true ]; then
 </plist>
 EOF
             
+            # Use modern launchctl command with fallback
+            sudo launchctl bootstrap system /Library/LaunchDaemons/$SERVICE_NAME.update.plist 2>/dev/null || \
             sudo launchctl load -w /Library/LaunchDaemons/$SERVICE_NAME.update.plist
             print_color $GREEN "✅ Automatic daily updates enabled!"
             print_color $YELLOW "Updates will run daily at 3:00 AM."

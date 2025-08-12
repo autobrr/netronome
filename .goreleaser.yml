@@ -41,11 +41,46 @@ builds:
         goarch: arm64
     main: ./cmd/netronome
     binary: netronome
+  - id: netronome-agent
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.buildTime={{.Date}}
+      - -X main.commit={{.Commit}}
+    tags:
+      - nosmart
+      - agent
+    goos:
+      - linux
+      - windows
+      - darwin
+      - freebsd
+    goarch:
+      - amd64
+      - arm
+      - arm64
+    goarm:
+      - 6
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: arm64
+      - goos: darwin
+        goarch: arm
+      - goos: freebsd
+        goarch: arm
+      - goos: freebsd
+        goarch: arm64
+    main: ./cmd/netronome-agent
+    binary: netronome-agent
 
 archives:
-  - id: netronome
-    builds:
-      - netronome
+  - id: netronome-full
     format_overrides:
       - goos: windows
         formats: ["zip"]
@@ -55,6 +90,9 @@ archives:
       {{- .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
 
 release:
   prerelease: auto
