@@ -17,13 +17,22 @@ export function PWAUpdatePrompt() {
 
   const updateServiceWorker = useCallback(async () => {
     if (registration?.waiting) {
+      // Clear the toast first
+      if (toastIdRef.current) {
+        toast.dismiss(toastIdRef.current);
+        toastIdRef.current = null;
+      }
+      
+      // Set a flag to prevent showing the prompt again after reload
+      sessionStorage.setItem('sw-just-updated', 'true');
+      
       // Post message to service worker to skip waiting
       registration.waiting.postMessage({ type: 'SKIP_WAITING' });
       
-      // Set up listener for controlling change
+      // Set up listener for controlling change - use once to avoid multiple listeners
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         window.location.reload();
-      });
+      }, { once: true });
     }
   }, [registration]);
 
@@ -50,8 +59,16 @@ export function PWAUpdatePrompt() {
           setRegistration(reg || null);
 
           // Check if there's already a waiting service worker
+          // But skip if we just reloaded (check if the page was reloaded recently)
           if (reg?.waiting) {
-            showSkipWaitingPrompt();
+            // Check if we have a flag in sessionStorage indicating we just updated
+            const justUpdated = sessionStorage.getItem('sw-just-updated');
+            if (!justUpdated) {
+              showSkipWaitingPrompt();
+            } else {
+              // Clear the flag after a short delay
+              sessionStorage.removeItem('sw-just-updated');
+            }
           }
 
 
