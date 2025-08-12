@@ -17,6 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +37,7 @@ import {
   ClockIcon,
   ArrowPathIcon,
   XMarkIcon as XMarkIconMini,
+  ChevronDownIcon,
 } from "@heroicons/react/20/solid";
 
 interface PacketLossMonitorFormProps {
@@ -225,97 +231,110 @@ export const PacketLossMonitorForm: React.FC<PacketLossMonitorFormProps> = ({
                     ) : (
                       <div>
                         <Label>Test Times</Label>
-                        <div className="space-y-2">
-                          {(formData.exactTimes || []).map((time, index) => (
-                            <div key={index} className="flex gap-2">
-                              <Select
-                                value={time}
-                                onValueChange={(value) => {
-                                  const newTimes = [
-                                    ...(formData.exactTimes || []),
-                                  ];
-                                  newTimes[index] = value;
-                                  onFormDataChange({
-                                    ...formData,
-                                    exactTimes: newTimes,
-                                  });
-                                }}
-                              >
-                                <SelectTrigger className="flex-1 bg-gray-200/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-900">
-                                  <SelectValue>
+                        <div className="space-y-3 mt-2">
+                          {/* Selected Times Display */}
+                          {formData.exactTimes && formData.exactTimes.length > 0 && (
+                            <div className="flex flex-wrap gap-2 p-3 bg-gray-200/50 dark:bg-gray-800/30 rounded-lg border border-gray-300 dark:border-gray-900">
+                              {formData.exactTimes.sort().map((time) => (
+                                <div
+                                  key={time}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-md border border-blue-500/30"
+                                >
+                                  <ClockIcon className="w-3.5 h-3.5" />
+                                  <span className="text-sm font-medium">
                                     {timeOptions.find(
                                       (opt) => opt.value === time
                                     )?.label || time}
-                                  </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {timeOptions.map((option) => {
-                                    const isAlreadySelected =
-                                      formData.exactTimes?.includes(
-                                        option.value
-                                      ) && option.value !== time;
-                                    return (
-                                      <SelectItem
-                                        key={option.value}
-                                        value={option.value}
-                                        disabled={isAlreadySelected}
-                                      >
-                                        <div className="flex items-center justify-between w-full">
-                                          <span>{option.label}</span>
-                                          {isAlreadySelected && (
-                                            <span className="text-xs text-gray-500 dark:text-gray-500 ml-2">
-                                              Already selected
-                                            </span>
-                                          )}
-                                        </div>
-                                      </SelectItem>
-                                    );
-                                  })}
-                                </SelectContent>
-                              </Select>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newTimes = (
-                                    formData.exactTimes || []
-                                  ).filter((_, i) => i !== index);
-                                  onFormDataChange({
-                                    ...formData,
-                                    exactTimes: newTimes,
-                                  });
-                                }}
-                                className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                              >
-                                <XMarkIconMini className="h-5 w-5" />
-                              </button>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newTimes = formData.exactTimes?.filter(t => t !== time) || [];
+                                      onFormDataChange({
+                                        ...formData,
+                                        exactTimes: newTimes,
+                                      });
+                                    }}
+                                    className="ml-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                                  >
+                                    <XMarkIconMini className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              // Find the first time that's not already selected
-                              const availableTime =
-                                timeOptions.find(
-                                  (opt) =>
-                                    !formData.exactTimes?.includes(opt.value)
-                                )?.value || "09:00";
+                          )}
 
-                              const newTimes = [
-                                ...(formData.exactTimes || []),
-                                availableTime,
-                              ];
-                              onFormDataChange({
-                                ...formData,
-                                exactTimes: newTimes,
-                              });
-                            }}
-                            className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                            disabled={
-                              formData.exactTimes?.length === timeOptions.length
-                            }
-                          >
-                            + Add another time
-                          </button>
+                          {/* Time Picker with Multi-Select */}
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full justify-between px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-gray-700 dark:text-gray-300 shadow-md hover:bg-gray-300/50 dark:hover:bg-gray-700/50"
+                              >
+                                <span>
+                                  {!formData.exactTimes || formData.exactTimes.length === 0
+                                    ? "Select times..."
+                                    : `${formData.exactTimes.length} time${formData.exactTimes.length !== 1 ? 's' : ''} selected`}
+                                </span>
+                                <ChevronDownIcon className="h-4 w-4 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 p-0" align="start">
+                              <div className="max-h-[400px] overflow-y-auto">
+                                <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+                                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Select times for daily packet loss tests
+                                  </p>
+                                </div>
+                                <div className="p-2 space-y-1">
+                                  {timeOptions.map((option) => (
+                                    <label
+                                      key={option.value}
+                                      className="flex items-center space-x-3 px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700/50 cursor-pointer"
+                                    >
+                                      <Checkbox
+                                        checked={formData.exactTimes?.includes(option.value) || false}
+                                        onCheckedChange={(checked) => {
+                                          const currentTimes = formData.exactTimes || [];
+                                          if (checked) {
+                                            onFormDataChange({
+                                              ...formData,
+                                              exactTimes: [...currentTimes, option.value],
+                                            });
+                                          } else {
+                                            onFormDataChange({
+                                              ...formData,
+                                              exactTimes: currentTimes.filter(t => t !== option.value),
+                                            });
+                                          }
+                                        }}
+                                      />
+                                      <span className="text-sm text-gray-700 dark:text-gray-300 select-none">
+                                        {option.label}
+                                      </span>
+                                    </label>
+                                  ))}
+                                </div>
+                                {formData.exactTimes && formData.exactTimes.length > 0 && (
+                                  <div className="p-2 border-t border-gray-200 dark:border-gray-700">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => onFormDataChange({
+                                        ...formData,
+                                        exactTimes: [],
+                                      })}
+                                      className="w-full text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                                    >
+                                      Clear all
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       </div>
                     )}

@@ -21,6 +21,12 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
   ChevronDownIcon,
   XMarkIcon,
   ClockIcon,
@@ -553,55 +559,65 @@ export default function ScheduleManager({
                                 </div>
                               )}
 
-                              {/* Time Picker */}
-                              <Select
-                                value=""
-                                onValueChange={(newTime: string) => {
-                                  if (
-                                    newTime &&
-                                    !exactTimes.includes(newTime)
-                                  ) {
-                                    setExactTimes([...exactTimes, newTime]);
-                                  }
-                                }}
-                              >
-                                <SelectTrigger className="w-full px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-gray-700 dark:text-gray-300 shadow-md">
-                                  <SelectValue placeholder={
-                                    exactTimes.length === 0
-                                      ? "Select times..."
-                                      : "Add another time..."
-                                  }>
-                                    {exactTimes.length === 0
-                                      ? "Select times..."
-                                      : "Add another time..."}
-                                  </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {timeOptions.map((option) => (
-                                    <SelectItem
-                                      key={option.value}
-                                      value={option.value}
-                                      disabled={exactTimes.includes(
-                                        option.value
-                                      )}
-                                      className={cn(
-                                        "flex items-center justify-between",
-                                        exactTimes.includes(option.value) &&
-                                          "opacity-50 cursor-not-allowed"
-                                      )}
-                                    >
-                                      <span>{option.label}</span>
-                                      {exactTimes.includes(
-                                        option.value
-                                      ) && (
-                                        <span className="text-xs text-gray-500 dark:text-gray-500 ml-2">
-                                          Added
-                                        </span>
-                                      )}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              {/* Time Picker with Multi-Select */}
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    className="w-full justify-between px-4 py-2 bg-gray-200/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-900 rounded-lg text-gray-700 dark:text-gray-300 shadow-md hover:bg-gray-300/50 dark:hover:bg-gray-700/50"
+                                  >
+                                    <span>
+                                      {exactTimes.length === 0
+                                        ? "Select times..."
+                                        : `${exactTimes.length} time${exactTimes.length !== 1 ? 's' : ''} selected`}
+                                    </span>
+                                    <ChevronDownIcon className="h-4 w-4 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80 p-0" align="start">
+                                  <div className="max-h-[400px] overflow-y-auto">
+                                    <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+                                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Select times for daily schedule
+                                      </p>
+                                    </div>
+                                    <div className="p-2 space-y-1">
+                                      {timeOptions.map((option) => (
+                                        <label
+                                          key={option.value}
+                                          className="flex items-center space-x-3 px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700/50 cursor-pointer"
+                                        >
+                                          <Checkbox
+                                            checked={exactTimes.includes(option.value)}
+                                            onCheckedChange={(checked) => {
+                                              if (checked) {
+                                                setExactTimes([...exactTimes, option.value]);
+                                              } else {
+                                                setExactTimes(exactTimes.filter(t => t !== option.value));
+                                              }
+                                            }}
+                                          />
+                                          <span className="text-sm text-gray-700 dark:text-gray-300 select-none">
+                                            {option.label}
+                                          </span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                    {exactTimes.length > 0 && (
+                                      <div className="p-2 border-t border-gray-200 dark:border-gray-700">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => setExactTimes([])}
+                                          className="w-full text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                                        >
+                                          Clear all
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
                             </div>
                           )}
 
