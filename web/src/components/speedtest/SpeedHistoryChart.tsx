@@ -59,6 +59,9 @@ interface SpeedHistoryChartProps {
   onServerFilterModeChange?: (mode: "all" | "single" | "multiple") => void;
   onSelectedSingleServerChange?: (server: string) => void;
   onSelectedMultipleServersChange?: (servers: Set<string>) => void;
+  // Multiple server display mode
+  multipleServerDisplayMode?: "overlay" | "separate";
+  onMultipleServerDisplayModeChange?: (mode: "overlay" | "separate") => void;
 }
 
 interface VisibleMetrics {
@@ -121,6 +124,9 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   onServerFilterModeChange,
   onSelectedSingleServerChange,
   onSelectedMultipleServersChange,
+  // Multiple server display mode props
+  multipleServerDisplayMode: propMultipleServerDisplayMode,
+  onMultipleServerDisplayModeChange,
 }) => {
   const isMobile = useIsMobile();
 
@@ -140,11 +146,13 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   const [internalServerFilterMode, setInternalServerFilterMode] = useState<"all" | "single" | "multiple">("all");
   const [internalSelectedSingleServer, setInternalSelectedSingleServer] = useState<string>("all");
   const [internalSelectedMultipleServers, setInternalSelectedMultipleServers] = useState<Set<string>>(new Set());
+  const [internalMultipleServerDisplayMode, setInternalMultipleServerDisplayMode] = useState<"overlay" | "separate">("overlay");
 
   // Use props if provided, otherwise use internal state
   const serverFilterMode = propServerFilterMode ?? internalServerFilterMode;
   const selectedSingleServer = propSelectedSingleServer ?? internalSelectedSingleServer;
   const selectedMultipleServers = propSelectedMultipleServers ?? internalSelectedMultipleServers;
+  const multipleServerDisplayMode = propMultipleServerDisplayMode ?? internalMultipleServerDisplayMode;
 
   const handleMetricToggle = (key: keyof VisibleMetrics) => {
     setVisibleMetrics((prev: VisibleMetrics) => {
@@ -216,7 +224,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         }),
         download: Number(item.downloadSpeed) || 0,
         upload: Number(item.uploadSpeed) || 0,
-        latency: Number(parseFloat(item.latency?.replace("ms", "")) || 0),
+        latency: Number(parseFloat(typeof item.latency === 'string' ? item.latency.replace("ms", "") : item.latency) || 0),
         jitter: Number(item.jitter) || 0,
         serverName: item.serverName || "Unknown Server",
         serverHost: item.serverHost || item.serverName || "Unknown Server",
@@ -251,16 +259,29 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
   // Apply server filtering
   const allResults = useMemo(() => {
+    console.log('allResults computation - inputs:', {
+      serverFilterMode,
+      selectedSingleServer,
+      selectedMultipleServers: Array.from(selectedMultipleServers),
+      filteredDataLength: filteredData.length,
+      availableServers: availableServers.map(s => s.name)
+    });
+
     if (serverFilterMode === "single" && selectedSingleServer !== "all") {
       const filtered = filteredData.filter(result => result.serverName === selectedSingleServer);
+      console.log(`Single server filter: ${selectedSingleServer}, found ${filtered.length} results`);
       return filtered;
     } else if (serverFilterMode === "multiple" && selectedMultipleServers.size > 0) {
-      const filtered = filteredData.filter(result => selectedMultipleServers.has(result.serverName));
+      const filtered = filteredData.filter(result => 
+        selectedMultipleServers.has(result.serverName) || selectedMultipleServers.has(result.serverHost)
+      );
+      console.log(`Multiple server filter: ${Array.from(selectedMultipleServers)}, found ${filtered.length} results`);
       return filtered;
     }
     
+    console.log(`No server filter applied, returning all ${filteredData.length} results`);
     return filteredData;
-  }, [filteredData, serverFilterMode, selectedSingleServer, selectedMultipleServers]);
+  }, [filteredData, serverFilterMode, selectedSingleServer, selectedMultipleServers, availableServers]);
 
   // Server filter handlers
   const handleServerDropdownChange = (value: string) => {
@@ -305,6 +326,248 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   const handleTimeRangeChange = (range: TimeRange) => {
     localStorage.setItem("speedtest-time-range", range);
     onTimeRangeChange(range);
+  };
+
+  // Function to render individual server charts for separate mode
+  const renderServerChart = (serverName: string, serverData: any[]) => {
+    return (
+      <div key={`server-${serverName}`} className="mb-6">
+        <div className="mb-2">
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {serverName} ({serverData.length} data points)
+          </h4>
+        </div>
+        <div className="h-80 bg-white/50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200/50 dark:border-gray-700/50">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={serverData}
+              margin={
+                isMobile
+                  ? { top: 5, right: 5, left: 0, bottom: 5 }
+                  : { top: 5, right: 30, left: 20, bottom: 25 }
+              }
+            >
+              <defs>
+                <linearGradient id={`downloadGradient-${serverName}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id={`uploadGradient-${serverName}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id={`latencyGradient-${serverName}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id={`jitterGradient-${serverName}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f87171" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#f87171" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+
+              <CartesianGrid
+                horizontal={true}
+                vertical={false}
+                stroke="var(--chart-text)"
+                opacity={0.3}
+              />
+              
+              <XAxis
+                dataKey="rawTimestamp"
+                height={isMobile ? 50 : 60}
+                tickMargin={isMobile ? 5 : 10}
+                tick={{ fontSize: isMobile ? 11 : 12, fill: "var(--chart-text)" }}
+                tickFormatter={(value) => {
+                  const date = new Date(value);
+                  return date.toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  });
+                }}
+                axisLine={false}
+                tickLine={false}
+              />
+
+              <YAxis
+                yAxisId="speed"
+                orientation="left"
+                stroke="var(--chart-text)"
+                fontSize={11}
+                axisLine={false}
+                tickLine={false}
+                scale="linear"
+                domain={[0, 1000]}
+                allowDataOverflow={false}
+                label={{
+                  value: "Speed (Mbps)",
+                  angle: -90,
+                  position: "insideLeft",
+                  style: { textAnchor: "middle", fill: "rgb(156, 163, 175)" },
+                }}
+              />
+
+              <YAxis
+                yAxisId="latency"
+                orientation="right"
+                stroke="var(--chart-text)"
+                fontSize={11}
+                axisLine={false}
+                tickLine={false}
+                scale="linear"
+                domain={[0, 200]}
+                allowDataOverflow={false}
+                label={{
+                  value: "Latency/Jitter (ms)",
+                  angle: 90,
+                  position: "insideRight",
+                  style: { textAnchor: "middle", fill: "rgb(251, 191, 36)" },
+                }}
+              />
+
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "rgba(17, 24, 39, 0.95)",
+                  border: "1px solid rgba(75, 85, 99, 0.3)",
+                  borderRadius: "0.5rem",
+                  boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+                }}
+                labelStyle={{
+                  color: "rgb(229, 231, 235)",
+                  fontSize: "12px",
+                  fontWeight: "medium",
+                }}
+                formatter={(value: number | string, name: string) => {
+                  if (typeof value === "number") {
+                    if (name === "Download" || name === "Upload") {
+                      return [`${value.toFixed(1)} Mbps`, name];
+                    } else if (name === "Latency" || name === "Jitter") {
+                      return [`${value.toFixed(1)} ms`, name];
+                    }
+                  }
+                  return [value, name];
+                }}
+                labelFormatter={(timestamp: number) => {
+                  return new Date(timestamp).toLocaleString();
+                }}
+              />
+
+              {visibleMetrics.download && (
+                <Area
+                  key="download"
+                  yAxisId="speed"
+                  type="monotone"
+                  dataKey="download"
+                  name="Download"
+                  stroke="#60a5fa"
+                  strokeWidth={3}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                  fill={`url(#downloadGradient-${serverName})`}
+                  className="!stroke-blue-400"
+                  animationDuration={1750}
+                  animationBegin={0}
+                  isAnimationActive={true}
+                />
+              )}
+              
+              {visibleMetrics.upload && (
+                <Area
+                  key="upload"
+                  yAxisId="speed"
+                  type="monotone"
+                  dataKey="upload"
+                  name="Upload"
+                  stroke="#34d399"
+                  strokeWidth={3}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                  fill={`url(#uploadGradient-${serverName})`}
+                  className="!stroke-emerald-400"
+                  animationDuration={1750}
+                  animationBegin={150}
+                  isAnimationActive={true}
+                />
+              )}
+
+              {visibleMetrics.latency && (
+                <Area
+                  key="latency"
+                  yAxisId="latency"
+                  type="monotone"
+                  dataKey="latency"
+                  name="Latency"
+                  stroke="#fbbf24"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                  fill={`url(#latencyGradient-${serverName})`}
+                  className="!stroke-amber-400"
+                  animationDuration={1750}
+                  animationBegin={300}
+                  isAnimationActive={true}
+                />
+              )}
+
+              {visibleMetrics.jitter && (
+                <Area
+                  key="jitter"
+                  yAxisId="latency"
+                  type="monotone"
+                  dataKey="jitter"
+                  name="Jitter"
+                  stroke="#c084fc"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                  fill={`url(#jitterGradient-${serverName})`}
+                  className="!stroke-purple-400"
+                  strokeDasharray="5 5"
+                  animationDuration={1750}
+                  animationBegin={0}
+                  isAnimationActive={true}
+                />
+              )}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  };
+
+  // Function to render charts based on display mode
+  const renderChartsBasedOnMode = () => {
+    if (serverFilterMode === "multiple" && selectedMultipleServers.size > 1 && multipleServerDisplayMode === "separate") {
+      // Group processed data by server for separate charts
+      const serverGroups: { [key: string]: any[] } = {};
+      
+      // allResults is already filtered for selected multiple servers
+      allResults.forEach(result => {
+        const serverKey = result.serverName || result.serverHost || "Unknown";
+        if (!serverGroups[serverKey]) {
+          serverGroups[serverKey] = [];
+        }
+        serverGroups[serverKey].push(result);
+      });
+
+      console.log('Separate chart mode - server groups:', serverGroups);
+      console.log('Separate chart mode - servers with data:', Object.keys(serverGroups).map(server => 
+        `${server}: ${serverGroups[server]?.length || 0} points`
+      ));
+
+      return (
+        <div className="space-y-6">
+          {Object.entries(serverGroups).map(([serverName, serverData]) => (
+            renderServerChart(serverName, serverData)
+          ))}
+        </div>
+      );
+    }
+    
+    // Default: show overlay chart (existing behavior)
+    return chart;
   };
 
   const chart = useMemo(
@@ -879,6 +1142,41 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                                   No servers available
                                 </div>
                               )}
+                              
+                              {/* Display Mode Selection */}
+                              {selectedMultipleServers.size > 0 && (
+                                <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                                  <div className="font-medium text-sm mb-2">Display Mode:</div>
+                                  <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id="overlay-mode"
+                                      checked={multipleServerDisplayMode === "overlay"}
+                                      onCheckedChange={(checked) => {
+                                        const mode = checked ? "overlay" : "separate";
+                                        if (onMultipleServerDisplayModeChange) onMultipleServerDisplayModeChange(mode);
+                                        else setInternalMultipleServerDisplayMode(mode);
+                                      }}
+                                    />
+                                    <label htmlFor="overlay-mode" className="text-sm cursor-pointer">
+                                      Overlay on same chart
+                                    </label>
+                                  </div>
+                                  <div className="flex items-center space-x-2 mt-1">
+                                    <Checkbox
+                                      id="separate-mode"
+                                      checked={multipleServerDisplayMode === "separate"}
+                                      onCheckedChange={(checked) => {
+                                        const mode = checked ? "separate" : "overlay";
+                                        if (onMultipleServerDisplayModeChange) onMultipleServerDisplayModeChange(mode);
+                                        else setInternalMultipleServerDisplayMode(mode);
+                                      }}
+                                    />
+                                    <label htmlFor="separate-mode" className="text-sm cursor-pointer">
+                                      Show in separate charts
+                                    </label>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </PopoverContent>
                         </Popover>
@@ -932,7 +1230,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                 </div>
 
                 {/* Chart Area */}
-                <div className="h-[250px] sm:h-[300px] md:h-[400px] -mx-3 sm:mx-0">
+                <div className={
+                  serverFilterMode === "multiple" && selectedMultipleServers.size > 1 && multipleServerDisplayMode === "separate"
+                    ? "min-h-[400px] -mx-3 sm:mx-0" // Dynamic height for multiple separate charts
+                    : "h-[250px] sm:h-[300px] md:h-[400px] -mx-3 sm:mx-0" // Fixed height for single/overlay charts
+                }>
                   <AnimatePresence mode="wait">
                     {isLoading ? (
                       <ChartSkeleton />
@@ -975,7 +1277,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                         transition={{ duration: 0.3 }}
                         className="h-full"
                       >
-                        {chart}
+                        {renderChartsBasedOnMode()}
                       </motion.div>
                     )}
                   </AnimatePresence>

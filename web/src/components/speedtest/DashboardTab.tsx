@@ -125,6 +125,9 @@ interface DraggableSpeedHistoryChartProps {
   onServerFilterModeChange: (mode: "all" | "single" | "multiple") => void;
   onSelectedSingleServerChange: (server: string) => void;
   onSelectedMultipleServersChange: (servers: Set<string>) => void;
+  // Multiple server display mode props
+  multipleServerDisplayMode: "overlay" | "separate";
+  onMultipleServerDisplayModeChange: (mode: "overlay" | "separate") => void;
 }
 
 const DraggableSpeedHistoryChart: React.FC<DraggableSpeedHistoryChartProps> = ({
@@ -181,6 +184,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const [serverFilterMode, setServerFilterMode] = useState<"all" | "single" | "multiple">("all");
   const [selectedSingleServer, setSelectedSingleServer] = useState<string>("all");
   const [selectedMultipleServers, setSelectedMultipleServers] = useState<Set<string>>(new Set());
+  const [multipleServerDisplayMode, setMultipleServerDisplayMode] = useState<"overlay" | "separate">("overlay");
 
   // Initialize drag sensors
   const sensors = useSensors(
@@ -423,6 +427,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                         onServerFilterModeChange={setServerFilterMode}
                         onSelectedSingleServerChange={setSelectedSingleServer}
                         onSelectedMultipleServersChange={setSelectedMultipleServers}
+                        multipleServerDisplayMode={multipleServerDisplayMode}
+                        onMultipleServerDisplayModeChange={setMultipleServerDisplayMode}
                       />
                     </SortableItem>
                   );
