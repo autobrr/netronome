@@ -410,6 +410,8 @@ export default function Main({ isPublic = false }: MainProps) {
     }
   }, [testStatus, queryClient, testType]);
 
+  console.log('[Main] Active tab:', activeTab, 'isPublic:', isPublic, 'hasAnyTests:', hasAnyTests);
+
   return (
     <div className="min-h-screen flex flex-col">
       <Container maxWidth="xl" className="pb-20 sm:pb-8 pt-16 sm:pt-20 md:pt-14 flex-1">
@@ -510,7 +512,9 @@ export default function Main({ isPublic = false }: MainProps) {
 
         {/* Tab Content */}
         <AnimatePresence mode="wait">
-          {(activeTab === "dashboard" || isPublic) && (
+          {(activeTab === "dashboard" || isPublic) && (() => {
+            console.log('[Main] Rendering dashboard tab, condition passed:', activeTab === "dashboard" || isPublic);
+            return (
             <motion.div
               key="dashboard"
               initial={{ opacity: 0, y: 20 }}
@@ -538,7 +542,8 @@ export default function Main({ isPublic = false }: MainProps) {
                 }}
               />
             </motion.div>
-          )}
+            );
+          })()}
 
           {!isPublic && activeTab === "speedtest" && (
             <motion.div

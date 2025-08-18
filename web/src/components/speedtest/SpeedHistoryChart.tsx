@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from "react";
+console.log('[SpeedHistoryChart] Component mounted');
 import {
   AreaChart,
   Area,
@@ -38,6 +39,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 interface SpeedHistoryChartProps {
@@ -119,6 +122,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
           jitter: true,
         };
   });
+
+  // Server filtering state
+  const [serverFilterMode, setServerFilterMode] = useState<"all" | "single" | "multiple">("all");
+  const [selectedSingleServer, setSelectedSingleServer] = useState<string>("all");
+  const [selectedMultipleServers, setSelectedMultipleServers] = useState<Set<string>>(new Set());
 
   const handleMetricToggle = (key: keyof VisibleMetrics) => {
     setVisibleMetrics((prev: VisibleMetrics) => {
@@ -205,6 +213,77 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
       );
   }, [data]);
 
+  // Extract available servers from results
+  const availableServers = useMemo(() => {
+    if (!filteredData || filteredData.length === 0) return [];
+    
+    const serverMap = new Map();
+    filteredData.forEach(result => {
+      if (result.serverName && !serverMap.has(result.serverName)) {
+        serverMap.set(result.serverName, {
+          id: result.serverName,
+          name: result.serverName,
+          host: result.serverHost || result.serverName
+        });
+      }
+    });
+    
+    console.log('[SpeedHistoryChart] Extracted servers from results:', Array.from(serverMap.values()));
+    return Array.from(serverMap.values());
+  }, [filteredData]);
+
+  // Apply server filtering
+  const allResults = useMemo(() => {
+    console.log('[SpeedHistoryChart] Filter state:', { 
+      serverFilterMode, 
+      selectedSingleServer, 
+      selectedMultipleServers: Array.from(selectedMultipleServers)
+    });
+
+    if (serverFilterMode === "single" && selectedSingleServer !== "all") {
+      const filtered = filteredData.filter(result => result.serverName === selectedSingleServer);
+      console.log('[SpeedHistoryChart] Single server filter applied:', selectedSingleServer, 'Results:', filtered.length);
+      return filtered;
+    } else if (serverFilterMode === "multiple" && selectedMultipleServers.size > 0) {
+      const filtered = filteredData.filter(result => selectedMultipleServers.has(result.serverName));
+      console.log('[SpeedHistoryChart] Multiple server filter applied:', Array.from(selectedMultipleServers), 'Results:', filtered.length);
+      return filtered;
+    }
+    
+    return filteredData;
+  }, [filteredData, serverFilterMode, selectedSingleServer, selectedMultipleServers]);
+
+  // Server filter handlers
+  const handleServerDropdownChange = (value: string) => {
+    console.log('[SpeedHistoryChart] Dropdown value changed:', value);
+    
+    if (value === "all") {
+      console.log('[SpeedHistoryChart] Setting to all servers');
+      setServerFilterMode("all");
+      setSelectedSingleServer("all");
+    } else if (value === "multiple") {
+      setServerFilterMode("multiple");
+    } else {
+      console.log('[SpeedHistoryChart] Setting to single server:', value);
+      setServerFilterMode("single");
+      setSelectedSingleServer(value);
+    }
+  };
+
+  const handleServerCheckboxChange = (serverId: string, checked: boolean) => {
+    console.log('[SpeedHistoryChart] Checkbox changed:', serverId, 'checked:', checked);
+    setSelectedMultipleServers(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(serverId);
+      } else {
+        newSet.delete(serverId);
+      }
+      console.log('[SpeedHistoryChart] New selected servers:', Array.from(newSet));
+      return newSet;
+    });
+  };
+
   const handleTimeRangeChange = (range: TimeRange) => {
     localStorage.setItem("speedtest-time-range", range);
     onTimeRangeChange(range);
@@ -214,8 +293,8 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
     () => (
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
-          key={`${timeRange}-${filteredData.length}`}
-          data={filteredData}
+          key={`${timeRange}-${allResults.length}`}
+          data={allResults}
           margin={
             isMobile
               ? { top: 5, right: 5, left: 0, bottom: 5 }
@@ -563,7 +642,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         </AreaChart>
       </ResponsiveContainer>
     ),
-    [filteredData, timeRange, visibleMetrics, isMobile, isPublic]
+    [allResults, timeRange, visibleMetrics, isMobile, isPublic, availableServers]
   );
 
   const [isOpen, setIsOpen] = useState(() => {
@@ -725,7 +804,70 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   </div>
 
                   {/* Desktop layout - Time Range Controls alongside metrics */}
-                  <div className="hidden sm:flex sm:justify-end sm:-mt-12">
+                  <div className="hidden sm:flex sm:justify-end sm:-mt-12 sm:gap-3">
+                    {/* Server Filter Controls */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Server:</span>
+                      
+                      {/* Server Selection Dropdown */}
+                      <Select
+                        value={serverFilterMode === "multiple" ? "multiple" : selectedSingleServer}
+                        onValueChange={handleServerDropdownChange}
+                      >
+                        <SelectTrigger className="w-[180px] px-3 py-1.5 text-xs">
+                          <SelectValue placeholder="Select servers..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All servers</SelectItem>
+                          <SelectItem value="multiple">Select multiple...</SelectItem>
+                          {availableServers.map((server) => (
+                            <SelectItem key={server.id} value={server.id}>
+                              {server.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {/* Multiple Server Selection Popover */}
+                      {serverFilterMode === "multiple" && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="text-xs">
+                              Multiple ({selectedMultipleServers.size})
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-3">
+                            <div className="space-y-2">
+                              <div className="font-medium text-sm">Select Servers:</div>
+                              {availableServers.length > 0 ? (
+                                <div className="space-y-2 max-h-48 overflow-y-auto">
+                                  {availableServers.map((server) => (
+                                    <div key={server.id} className="flex items-center space-x-2 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+                                      <Checkbox
+                                        id={server.id}
+                                        checked={selectedMultipleServers.has(server.id)}
+                                        onCheckedChange={(checked) => {
+                                          handleServerCheckboxChange(server.id, checked as boolean);
+                                        }}
+                                      />
+                                      <label htmlFor={server.id} className="text-sm cursor-pointer flex-1">
+                                        {server.name}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-sm text-gray-500">
+                                  No servers available
+                                </div>
+                              )}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                    </div>
+
+                    {/* Time Range */}
                     <Select
                       value={timeRange}
                       onValueChange={handleTimeRangeChange}

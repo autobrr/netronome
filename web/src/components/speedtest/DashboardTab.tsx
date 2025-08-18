@@ -178,6 +178,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     })
   );
 
+  console.log('[DashboardTab] Component rendering, hasAnyTests:', hasAnyTests, 'sectionOrder:', sectionOrder);
+
   // Persist recent tests open state to localStorage
   useEffect(() => {
     localStorage.setItem("recent-tests-open", isRecentTestsOpen.toString());
@@ -381,6 +383,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <div className="space-y-6">
               {sectionOrder.map((sectionId) => {
                 if (sectionId === "history") {
+                  console.log('[DashboardTab] Rendering history section with DraggableSpeedHistoryChart');
                   return (
                     <SortableItem key="history" id="history">
                       <DraggableSpeedHistoryChart
