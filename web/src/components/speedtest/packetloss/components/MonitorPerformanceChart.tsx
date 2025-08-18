@@ -161,7 +161,7 @@ export const MonitorPerformanceChart: React.FC<
               axisLine={false}
               tickLine={false}
               scale="linear"
-              domain={[0, 'dataMax + 1']}
+              domain={[0, 100]}
               label={{
                 value: "Packet Loss (%)",
                 angle: 90,
