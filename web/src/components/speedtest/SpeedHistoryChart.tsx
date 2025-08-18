@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useMemo, useEffect } from "react";
-console.log('[SpeedHistoryChart] Component mounted');
 import {
   AreaChart,
   Area,
@@ -53,6 +52,13 @@ interface SpeedHistoryChartProps {
   dragHandleRef?: (node: HTMLElement | null) => void;
   dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
   dragHandleClassName?: string;
+  // Server filtering props
+  serverFilterMode?: "all" | "single" | "multiple";
+  selectedSingleServer?: string;
+  selectedMultipleServers?: Set<string>;
+  onServerFilterModeChange?: (mode: "all" | "single" | "multiple") => void;
+  onSelectedSingleServerChange?: (server: string) => void;
+  onSelectedMultipleServersChange?: (servers: Set<string>) => void;
 }
 
 interface VisibleMetrics {
@@ -108,6 +114,13 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   dragHandleRef,
   dragHandleListeners,
   dragHandleClassName,
+  // Server filtering props
+  serverFilterMode: propServerFilterMode,
+  selectedSingleServer: propSelectedSingleServer,
+  selectedMultipleServers: propSelectedMultipleServers,
+  onServerFilterModeChange,
+  onSelectedSingleServerChange,
+  onSelectedMultipleServersChange,
 }) => {
   const isMobile = useIsMobile();
 
@@ -123,10 +136,15 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         };
   });
 
-  // Server filtering state
-  const [serverFilterMode, setServerFilterMode] = useState<"all" | "single" | "multiple">("all");
-  const [selectedSingleServer, setSelectedSingleServer] = useState<string>("all");
-  const [selectedMultipleServers, setSelectedMultipleServers] = useState<Set<string>>(new Set());
+  // Server filtering state - use props if provided, otherwise internal state
+  const [internalServerFilterMode, setInternalServerFilterMode] = useState<"all" | "single" | "multiple">("all");
+  const [internalSelectedSingleServer, setInternalSelectedSingleServer] = useState<string>("all");
+  const [internalSelectedMultipleServers, setInternalSelectedMultipleServers] = useState<Set<string>>(new Set());
+
+  // Use props if provided, otherwise use internal state
+  const serverFilterMode = propServerFilterMode ?? internalServerFilterMode;
+  const selectedSingleServer = propSelectedSingleServer ?? internalSelectedSingleServer;
+  const selectedMultipleServers = propSelectedMultipleServers ?? internalSelectedMultipleServers;
 
   const handleMetricToggle = (key: keyof VisibleMetrics) => {
     setVisibleMetrics((prev: VisibleMetrics) => {
@@ -228,25 +246,16 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
       }
     });
     
-    console.log('[SpeedHistoryChart] Extracted servers from results:', Array.from(serverMap.values()));
     return Array.from(serverMap.values());
   }, [filteredData]);
 
   // Apply server filtering
   const allResults = useMemo(() => {
-    console.log('[SpeedHistoryChart] Filter state:', { 
-      serverFilterMode, 
-      selectedSingleServer, 
-      selectedMultipleServers: Array.from(selectedMultipleServers)
-    });
-
     if (serverFilterMode === "single" && selectedSingleServer !== "all") {
       const filtered = filteredData.filter(result => result.serverName === selectedSingleServer);
-      console.log('[SpeedHistoryChart] Single server filter applied:', selectedSingleServer, 'Results:', filtered.length);
       return filtered;
     } else if (serverFilterMode === "multiple" && selectedMultipleServers.size > 0) {
       const filtered = filteredData.filter(result => selectedMultipleServers.has(result.serverName));
-      console.log('[SpeedHistoryChart] Multiple server filter applied:', Array.from(selectedMultipleServers), 'Results:', filtered.length);
       return filtered;
     }
     
@@ -255,33 +264,42 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
   // Server filter handlers
   const handleServerDropdownChange = (value: string) => {
-    console.log('[SpeedHistoryChart] Dropdown value changed:', value);
     
     if (value === "all") {
-      console.log('[SpeedHistoryChart] Setting to all servers');
-      setServerFilterMode("all");
-      setSelectedSingleServer("all");
+      if (onServerFilterModeChange) onServerFilterModeChange("all");
+      else setInternalServerFilterMode("all");
+      
+      if (onSelectedSingleServerChange) onSelectedSingleServerChange("all");
+      else setInternalSelectedSingleServer("all");
     } else if (value === "multiple") {
-      setServerFilterMode("multiple");
+      if (onServerFilterModeChange) onServerFilterModeChange("multiple");
+      else setInternalServerFilterMode("multiple");
     } else {
-      console.log('[SpeedHistoryChart] Setting to single server:', value);
-      setServerFilterMode("single");
-      setSelectedSingleServer(value);
+      if (onServerFilterModeChange) onServerFilterModeChange("single");
+      else setInternalServerFilterMode("single");
+      
+      if (onSelectedSingleServerChange) onSelectedSingleServerChange(value);
+      else setInternalSelectedSingleServer(value);
     }
   };
 
   const handleServerCheckboxChange = (serverId: string, checked: boolean) => {
-    console.log('[SpeedHistoryChart] Checkbox changed:', serverId, 'checked:', checked);
-    setSelectedMultipleServers(prev => {
+    const updateFunction = (prev: Set<string>) => {
       const newSet = new Set(prev);
       if (checked) {
         newSet.add(serverId);
       } else {
         newSet.delete(serverId);
       }
-      console.log('[SpeedHistoryChart] New selected servers:', Array.from(newSet));
       return newSet;
-    });
+    };
+
+    if (onSelectedMultipleServersChange) {
+      const newSet = updateFunction(selectedMultipleServers);
+      onSelectedMultipleServersChange(newSet);
+    } else {
+      setInternalSelectedMultipleServers(updateFunction);
+    }
   };
 
   const handleTimeRangeChange = (range: TimeRange) => {
