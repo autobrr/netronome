@@ -121,6 +121,36 @@ export default function Main({ isPublic = false }: MainProps) {
   const COMPREHENSIVE_SERVERS_CACHE_KEY = "netronome-comprehensive-servers";
   const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
 
+  // Function to check if cached data needs to be invalidated due to version mismatch
+  const checkCacheVersion = async (): Promise<boolean> => {
+    try {
+      // Get current cache version from API without fetching full data
+      const response = await fetch('/api/servers?testType=speedtest&comprehensive=true');
+      if (!response.ok) return false;
+      
+      const serverData: ComprehensiveServerData = await response.json();
+      const cached = localStorage.getItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
+      
+      if (!cached) return false;
+      
+      const parsedCache = JSON.parse(cached);
+      const cachedVersion = parsedCache.data?.cacheVersion;
+      const currentVersion = serverData.cacheVersion;
+      
+      // If versions don't match, invalidate cache
+      if (cachedVersion !== currentVersion) {
+        console.log(`Cache version mismatch: cached=${cachedVersion}, current=${currentVersion}`);
+        localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error checking cache version:", error);
+      return false;
+    }
+  };
+
   // Function to get cached comprehensive server data
   const getCachedComprehensiveData = (): ComprehensiveServerData | null => {
     try {
@@ -156,15 +186,28 @@ export default function Main({ isPublic = false }: MainProps) {
     }
   };
 
-  // Queries - Using comprehensive server data with caching
+  // Queries - Using comprehensive server data with version-aware caching
   const { data: comprehensiveServerData } = useQuery<ComprehensiveServerData>({
     queryKey: ["servers", "comprehensive", "speedtest"],
     queryFn: async () => {
+      // Check cache version first
+      const cacheValid = await checkCacheVersion();
+      
+      // If cache is valid and we have cached data, use it
+      if (cacheValid) {
+        const cached = getCachedComprehensiveData();
+        if (cached) {
+          console.log('Using valid cached comprehensive server data');
+          return cached;
+        }
+      }
+      
+      // Fetch fresh data
+      console.log('Fetching fresh comprehensive server data');
       const data = await getAllServersWithLocationInfo("speedtest");
       setCachedComprehensiveData(data); // Cache the fetched data
       return data;
     },
-    initialData: () => getCachedComprehensiveData() || undefined, // Use cached data if available
     enabled: !isPublic,
     staleTime: CACHE_DURATION, // Consider data fresh for 30 minutes
     gcTime: CACHE_DURATION * 2, // Keep in memory for 1 hour

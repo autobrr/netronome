@@ -307,11 +307,17 @@ func (r *SpeedtestNetRunner) GetAllServersWithLocationInfo() (map[string]interfa
 
 	// Create response with all server data and metadata
 	locations, _ := r.GetAvailableLocations()
+	
+	// Generate a cache version based on locations and server counts
+	cacheVersion := fmt.Sprintf("v1_%d_locations_%d_servers", len(locations), len(r.allServersCache))
+	
 	response := map[string]interface{}{
-		"locations":    locations,
-		"servers":      map[string][]ServerResponse{},
-		"allServers":   r.allServersCache,
-		"totalServers": len(r.allServersCache),
+		"locations":     locations,
+		"servers":       map[string][]ServerResponse{},
+		"allServers":    r.allServersCache,
+		"totalServers":  len(r.allServersCache),
+		"cacheVersion":  cacheVersion,
+		"lastUpdated":   time.Now().Format(time.RFC3339),
 	}
 
 	// Add servers grouped by location
@@ -324,6 +330,7 @@ func (r *SpeedtestNetRunner) GetAllServersWithLocationInfo() (map[string]interfa
 	log.Info().
 		Int("total_servers", len(r.allServersCache)).
 		Int("locations", len(r.locationCache)).
+		Str("cache_version", cacheVersion).
 		Msg("Returning comprehensive server data")
 
 	return response, nil
@@ -335,16 +342,32 @@ func (r *SpeedtestNetRunner) GetServersFromMultipleLocations() ([]ServerResponse
 	// Define major cities for global server coverage
 	// These correspond to the --city options available in speedtest-go
 	cities := []string{
-		"newyork",
-		"sanfrancisco",
-		"london",
-		"berlin",
-		"tokyo",
-		"sydney",
-		"singapore",
-		"delhi",
 		"brasilia",
+		"hongkong",
+		"tokyo",
+		"london",
+		"moscow",
+		"beijing",
+		"paris",
+		"sanfrancisco",
+		"newyork",
+		"yishun",      // Singapore area
+		"delhi",
+		"monterrey",
+		"berlin",
+		"maputo",
+		"honolulu",
+		"seoul",
+		"osaka",
+		"shanghai",
+		"urumqi",
+		"ottawa",
 		"capetown",
+		"sydney",
+		"perth",
+		"warsaw",
+		"kampala",
+		"bangkok",
 	}
 
 	var allServers []ServerResponse
@@ -446,16 +469,32 @@ func (r *SpeedtestNetRunner) initializeAllServers() error {
 
 	// Define all locations we want to fetch from
 	locations := []string{
-		"newyork",
-		"sanfrancisco",
-		"london",
-		"berlin",
-		"tokyo",
-		"sydney",
-		"singapore",
-		"delhi",
 		"brasilia",
+		"hongkong",
+		"tokyo",
+		"london",
+		"moscow",
+		"beijing",
+		"paris",
+		"sanfrancisco",
+		"newyork",
+		"yishun",      // Singapore area
+		"delhi",
+		"monterrey",
+		"berlin",
+		"maputo",
+		"honolulu",
+		"seoul",
+		"osaka",
+		"shanghai",
+		"urumqi",
+		"ottawa",
 		"capetown",
+		"sydney",
+		"perth",
+		"warsaw",
+		"kampala",
+		"bangkok",
 	}
 
 	var allServers []ServerResponse
@@ -734,16 +773,32 @@ func (r *SpeedtestNetRunner) GetAvailableLocations() ([]string, error) {
 	// Return the list of supported locations
 	locations := []string{
 		"local",
-		"newyork",
-		"sanfrancisco",
-		"london",
-		"berlin",
-		"tokyo",
-		"sydney",
-		"singapore",
-		"delhi",
 		"brasilia",
+		"hongkong",
+		"tokyo",
+		"london",
+		"moscow",
+		"beijing",
+		"paris",
+		"sanfrancisco",
+		"newyork",
+		"yishun",      // Singapore area
+		"delhi",
+		"monterrey",
+		"berlin",
+		"maputo",
+		"honolulu",
+		"seoul",
+		"osaka",
+		"shanghai",
+		"urumqi",
+		"ottawa",
 		"capetown",
+		"sydney",
+		"perth",
+		"warsaw",
+		"kampala",
+		"bangkok",
 	}
 
 	return locations, nil

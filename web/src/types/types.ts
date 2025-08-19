@@ -229,5 +229,6 @@ export interface ComprehensiveServerData {
   servers: Record<string, Server[]>;  // Backend returns 'servers', not 'serversByLocation'
   allServers: Server[];               // Backend also provides flattened list
   totalServers: number;
+  cacheVersion: string;               // Version string for cache invalidation
   lastUpdated: string;
 }
