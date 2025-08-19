@@ -18,6 +18,10 @@ import (
 type Service interface {
 	RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error)
 	GetServers(testType string) ([]ServerResponse, error)
+	GetServersWithOptions(testType string, includeGlobal bool) ([]ServerResponse, error)
+	GetServersByLocation(testType string, location string) ([]ServerResponse, error)
+	GetAvailableLocations(testType string) ([]string, error)
+	GetAllServersWithLocationInfo(testType string) (map[string]interface{}, error)
 	GetLibrespeedServers() ([]ServerResponse, error)
 	RunLibrespeedTest(ctx context.Context, opts *types.TestOptions) (*Result, error)
 	RunTraceroute(ctx context.Context, host string) (*TracerouteResult, error)
@@ -173,5 +177,87 @@ func (s *service) GetServers(testType string) ([]ServerResponse, error) {
 		return s.speedtestNetRunner.GetServers()
 	default:
 		return s.speedtestNetRunner.GetServers()
+	}
+}
+
+func (s *service) GetServersWithOptions(testType string, includeGlobal bool) ([]ServerResponse, error) {
+	switch testType {
+	case "librespeed":
+		return s.GetLibrespeedServers()
+	case "iperf3":
+		return s.iperfRunner.GetServers()
+	case "speedtest":
+		if includeGlobal {
+			return s.speedtestNetRunner.GetServersFromMultipleLocations()
+		}
+		return s.speedtestNetRunner.GetServers()
+	default:
+		if includeGlobal {
+			return s.speedtestNetRunner.GetServersFromMultipleLocations()
+		}
+		return s.speedtestNetRunner.GetServers()
+	}
+}
+
+func (s *service) GetServersByLocation(testType string, location string) ([]ServerResponse, error) {
+	switch testType {
+	case "librespeed":
+		return s.GetLibrespeedServers()
+	case "iperf3":
+		return s.iperfRunner.GetServers()
+	case "speedtest":
+		if location == "local" {
+			return s.speedtestNetRunner.GetServers()
+		}
+		return s.speedtestNetRunner.GetServersByLocation(location)
+	default:
+		if location == "local" {
+			return s.speedtestNetRunner.GetServers()
+		}
+		return s.speedtestNetRunner.GetServersByLocation(location)
+	}
+}
+
+func (s *service) GetAvailableLocations(testType string) ([]string, error) {
+	switch testType {
+	case "librespeed":
+		return []string{"local"}, nil
+	case "iperf3":
+		return []string{"local"}, nil
+	case "speedtest":
+		return s.speedtestNetRunner.GetAvailableLocations()
+	default:
+		return s.speedtestNetRunner.GetAvailableLocations()
+	}
+}
+
+func (s *service) GetAllServersWithLocationInfo(testType string) (map[string]interface{}, error) {
+	switch testType {
+	case "librespeed":
+		servers, err := s.GetLibrespeedServers()
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{
+			"locations": []string{"local"},
+			"servers": map[string][]ServerResponse{"local": servers},
+			"allServers": servers,
+			"totalServers": len(servers),
+		}, nil
+	case "iperf3":
+		servers, err := s.iperfRunner.GetServers()
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{
+			"locations": []string{"local"},
+			"servers": map[string][]ServerResponse{"local": servers},
+			"allServers": servers,
+			"totalServers": len(servers),
+		}, nil
+	case "speedtest":
+		return s.speedtestNetRunner.GetAllServersWithLocationInfo()
+	default:
+		return s.speedtestNetRunner.GetAllServersWithLocationInfo()
 	}
 }

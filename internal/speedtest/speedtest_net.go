@@ -24,16 +24,25 @@ type SpeedtestNetRunner struct {
 	config           config.SpeedTestConfig
 	progressCallback func(types.SpeedUpdate)
 	serverCache      []ServerResponse
+	allServersCache  []ServerResponse // Cache all servers from all locations
+	locationCache    map[string][]ServerResponse // Cache servers by location
 	cacheExpiry      time.Time
+	allServersCacheExpiry time.Time
+	locationCacheExpiry map[string]time.Time     // Cache expiry per location
 	cacheDuration    time.Duration
+	isInitialized    bool // Track if we've built the initial server lists
 }
 
 func NewSpeedtestNetRunner(cfg config.SpeedTestConfig) *SpeedtestNetRunner {
 	return &SpeedtestNetRunner{
-		client:        st.New(),
-		config:        cfg,
-		cacheDuration: 30 * time.Minute,
-		cacheExpiry:   time.Now(),
+		client:              st.New(),
+		config:              cfg,
+		cacheDuration:       30 * time.Minute,
+		cacheExpiry:         time.Now(),
+		allServersCacheExpiry: time.Now(),
+		locationCache:       make(map[string][]ServerResponse),
+		locationCacheExpiry: make(map[string]time.Time),
+		isInitialized:       false,
 	}
 }
 
@@ -272,46 +281,291 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 }
 
 func (r *SpeedtestNetRunner) GetServers() ([]ServerResponse, error) {
-	log.Trace().
-		Int("cache_size", len(r.serverCache)).
-		Time("cache_expiry", r.cacheExpiry).
-		Bool("cache_valid", time.Now().Before(r.cacheExpiry)).
-		Msg("Checking cache status")
-
-	if len(r.serverCache) > 0 && time.Now().Before(r.cacheExpiry) {
+	// Initialize all servers if not done yet
+	if err := r.initializeAllServers(); err != nil {
+		log.Error().Err(err).Msg("Failed to initialize servers, falling back to direct fetch")
+		return r.fetchLocalServers()
+	}
+	
+	// Return local servers from cache
+	if localServers, exists := r.locationCache["local"]; exists {
 		log.Debug().
-			Int("server_count", len(r.serverCache)).
-			Time("cache_expiry", r.cacheExpiry).
-			Msg("Returning cached speedtest servers")
-		return r.serverCache, nil
+			Int("server_count", len(localServers)).
+			Msg("Returning cached local servers")
+		return localServers, nil
+	}
+	
+	// Fallback if local servers not in cache
+	return r.fetchLocalServers()
+}
+
+func (r *SpeedtestNetRunner) GetAllServersWithLocationInfo() (map[string]interface{}, error) {
+	// Initialize all servers if not done yet
+	if err := r.initializeAllServers(); err != nil {
+		return nil, fmt.Errorf("failed to initialize servers: %w", err)
+	}
+	
+	// Create response with all server data and metadata
+	locations, _ := r.GetAvailableLocations()
+	response := map[string]interface{}{
+		"locations": locations,
+		"servers": map[string][]ServerResponse{},
+		"allServers": r.allServersCache,
+		"totalServers": len(r.allServersCache),
+	}
+	
+	// Add servers grouped by location
+	servers := make(map[string][]ServerResponse)
+	for location, locationServers := range r.locationCache {
+		servers[location] = locationServers
+	}
+	response["servers"] = servers
+	
+	log.Info().
+		Int("total_servers", len(r.allServersCache)).
+		Int("locations", len(r.locationCache)).
+		Msg("Returning comprehensive server data")
+	
+	return response, nil
+}
+
+func (r *SpeedtestNetRunner) GetServersFromMultipleLocations() ([]ServerResponse, error) {
+	log.Info().Msg("Fetching servers from multiple global locations")
+	
+	// Define major cities for global server coverage
+	// These correspond to the --city options available in speedtest-go
+	cities := []string{
+		"newyork",
+		"sanfrancisco", 
+		"london",
+		"berlin",
+		"tokyo",
+		"sydney",
+		"singapore",
+		"delhi",
+		"brasilia",
+		"capetown",
+	}
+	
+	var allServers []ServerResponse
+	serverMap := make(map[string]ServerResponse) // To avoid duplicates
+	
+	for _, cityName := range cities {
+		log.Debug().
+			Str("city", cityName).
+			Msg("Fetching servers for location")
+		
+		// Create a new client with location-specific user config
+		userConfig := &st.UserConfig{
+			CityFlag: cityName,
+		}
+		
+		locationClient := st.New(st.WithUserConfig(userConfig))
+		
+		// Fetch user info for this location
+		_, err := locationClient.FetchUserInfo()
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Str("city", cityName).
+				Msg("Failed to fetch user info for location")
+			continue
+		}
+		
+		// Fetch servers for this location
+		serverList, err := locationClient.FetchServers()
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Str("city", cityName).
+				Msg("Failed to fetch servers for location")
+			continue
+		}
+		
+		availableServers := serverList.Available()
+		if availableServers == nil {
+			log.Warn().
+				Str("city", cityName).
+				Msg("No available servers for location")
+			continue
+		}
+		
+		// Process servers and add to map to avoid duplicates
+		for _, server := range *availableServers {
+			// Use server ID as key to avoid duplicates
+			if _, exists := serverMap[server.ID]; !exists {
+				lat, _ := strconv.ParseFloat(server.Lat, 64)
+				lon, _ := strconv.ParseFloat(server.Lon, 64)
+				
+				serverMap[server.ID] = ServerResponse{
+					ID:           server.ID,
+					Name:         server.Name,
+					Host:         server.Host,
+					Distance:     server.Distance,
+					Country:      server.Country,
+					Sponsor:      server.Sponsor,
+					URL:          server.URL,
+					Lat:          lat,
+					Lon:          lon,
+					IsIperf:      false,
+					IsLibrespeed: false,
+				}
+			}
+		}
+		
+		log.Info().
+			Str("city", cityName).
+			Int("servers_found", len(*availableServers)).
+			Int("total_unique", len(serverMap)).
+			Msg("Processed servers for location")
+	}
+	
+	// Convert map to slice
+	for _, server := range serverMap {
+		allServers = append(allServers, server)
+	}
+	
+	// Sort by distance (using original distance from each server's perspective)
+	sort.Slice(allServers, func(i, j int) bool {
+		return allServers[i].Distance < allServers[j].Distance
+	})
+	
+	log.Info().
+		Int("total_global_servers", len(allServers)).
+		Msg("Successfully retrieved global server list")
+	
+	return allServers, nil
+}
+
+func (r *SpeedtestNetRunner) initializeAllServers() error {
+	if r.isInitialized && len(r.allServersCache) > 0 && time.Now().Before(r.allServersCacheExpiry) {
+		return nil // Already initialized and cache is valid
 	}
 
-	log.Debug().Msg("Cache miss, fetching fresh speedtest servers")
+	log.Info().Msg("Initializing comprehensive server list from all locations")
+	
+	// Define all locations we want to fetch from
+	locations := []string{
+		"newyork",
+		"sanfrancisco", 
+		"london",
+		"berlin",
+		"tokyo",
+		"sydney",
+		"singapore",
+		"delhi",
+		"brasilia",
+		"capetown",
+	}
+	
+	var allServers []ServerResponse
+	serverMap := make(map[string]ServerResponse) // To avoid duplicates
+	locationServers := make(map[string][]ServerResponse)
+	
+	// First, get local servers
+	log.Info().Msg("Fetching local servers")
+	localServers, err := r.fetchLocalServers()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to fetch local servers")
+		return err
+	}
+	
+	// Add local servers to the map
+	for _, server := range localServers {
+		serverMap[server.ID] = server
+	}
+	locationServers["local"] = localServers
+	
+	log.Info().
+		Int("local_servers", len(localServers)).
+		Msg("Fetched local servers")
+	
+	// Then fetch from all global locations
+	for _, location := range locations {
+		log.Info().
+			Str("location", location).
+			Msg("Fetching servers for location")
+		
+		locationServerList, err := r.fetchServersForLocation(location)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Str("location", location).
+				Msg("Failed to fetch servers for location, continuing with others")
+			continue
+		}
+		
+		// Add to location-specific cache
+		locationServers[location] = locationServerList
+		
+		// Add to global server map (avoiding duplicates)
+		for _, server := range locationServerList {
+			if _, exists := serverMap[server.ID]; !exists {
+				serverMap[server.ID] = server
+			}
+		}
+		
+		log.Info().
+			Str("location", location).
+			Int("location_servers", len(locationServerList)).
+			Int("total_unique", len(serverMap)).
+			Msg("Processed servers for location")
+	}
+	
+	// Convert map to slice for allServersCache
+	for _, server := range serverMap {
+		allServers = append(allServers, server)
+	}
+	
+	// Sort all servers by distance
+	sort.Slice(allServers, func(i, j int) bool {
+		return allServers[i].Distance < allServers[j].Distance
+	})
+	
+	// Cache everything
+	r.allServersCache = allServers
+	r.locationCache = locationServers
+	r.allServersCacheExpiry = time.Now().Add(r.cacheDuration)
+	
+	// Set expiry for all location caches
+	expiryTime := time.Now().Add(r.cacheDuration)
+	r.locationCacheExpiry["local"] = expiryTime
+	for _, location := range locations {
+		r.locationCacheExpiry[location] = expiryTime
+	}
+	
+	r.isInitialized = true
+	
+	log.Info().
+		Int("total_servers", len(allServers)).
+		Int("locations", len(locationServers)).
+		Msg("Successfully initialized comprehensive server list")
+	
+	return nil
+}
 
+func (r *SpeedtestNetRunner) fetchLocalServers() ([]ServerResponse, error) {
 	_, err := r.client.FetchUserInfo()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to fetch speedtest user info")
 		return nil, fmt.Errorf("failed to fetch user info: %w", err)
 	}
 
 	serverList, err := r.client.FetchServers()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to fetch speedtest servers")
 		return nil, fmt.Errorf("failed to fetch servers: %w", err)
 	}
 
 	availableServers := serverList.Available()
 	if availableServers == nil {
-		log.Error().Msg("No available speedtest servers found")
-		return nil, fmt.Errorf("no available servers found")
+		return []ServerResponse{}, nil
 	}
 
-	response := make([]ServerResponse, len(*availableServers))
-	for i, server := range *availableServers {
+	var servers []ServerResponse
+	for _, server := range *availableServers {
 		lat, _ := strconv.ParseFloat(server.Lat, 64)
 		lon, _ := strconv.ParseFloat(server.Lon, 64)
 
-		response[i] = ServerResponse{
+		servers = append(servers, ServerResponse{
 			ID:           server.ID,
 			Name:         server.Name,
 			Host:         server.Host,
@@ -323,20 +577,174 @@ func (r *SpeedtestNetRunner) GetServers() ([]ServerResponse, error) {
 			Lon:          lon,
 			IsIperf:      false,
 			IsLibrespeed: false,
-		}
+		})
 	}
 
-	sort.Slice(response, func(i, j int) bool {
-		return response[i].Distance < response[j].Distance
+	sort.Slice(servers, func(i, j int) bool {
+		return servers[i].Distance < servers[j].Distance
 	})
 
-	r.serverCache = response
-	r.cacheExpiry = time.Now().Add(r.cacheDuration)
+	return servers, nil
+}
 
-	log.Debug().
-		Int("server_count", len(response)).
-		Time("cache_expiry", r.cacheExpiry).
-		Msg("Retrieved and cached speedtest servers")
+func (r *SpeedtestNetRunner) fetchServersForLocation(location string) ([]ServerResponse, error) {
+	// Create a new client with location-specific user config
+	userConfig := &st.UserConfig{
+		CityFlag: location,
+	}
+	
+	locationClient := st.New(st.WithUserConfig(userConfig))
+	
+	// Fetch user info for this location
+	_, err := locationClient.FetchUserInfo()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch user info for location %s: %w", location, err)
+	}
+	
+	// Fetch servers for this location
+	serverList, err := locationClient.FetchServers()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch servers for location %s: %w", location, err)
+	}
+	
+	availableServers := serverList.Available()
+	if availableServers == nil {
+		return []ServerResponse{}, nil
+	}
+	
+	// Convert servers to our response format
+	var servers []ServerResponse
+	for _, server := range *availableServers {
+		lat, _ := strconv.ParseFloat(server.Lat, 64)
+		lon, _ := strconv.ParseFloat(server.Lon, 64)
+		
+		servers = append(servers, ServerResponse{
+			ID:           server.ID,
+			Name:         server.Name,
+			Host:         server.Host,
+			Distance:     server.Distance,
+			Country:      server.Country,
+			Sponsor:      server.Sponsor,
+			URL:          server.URL,
+			Lat:          lat,
+			Lon:          lon,
+			IsIperf:      false,
+			IsLibrespeed: false,
+		})
+	}
+	
+	// Sort by distance
+	sort.Slice(servers, func(i, j int) bool {
+		return servers[i].Distance < servers[j].Distance
+	})
+	
+	return servers, nil
+}
 
-	return response, nil
+func (r *SpeedtestNetRunner) GetServersByLocation(location string) ([]ServerResponse, error) {
+	// Check if we have cached servers for this location
+	if servers, exists := r.locationCache[location]; exists {
+		if expiry, expExists := r.locationCacheExpiry[location]; expExists && time.Now().Before(expiry) {
+			log.Debug().
+				Str("location", location).
+				Int("server_count", len(servers)).
+				Msg("Returning cached servers for location")
+			return servers, nil
+		}
+	}
+	
+	log.Info().
+		Str("location", location).
+		Msg("Fetching servers for specific location")
+	
+	// Create a new client with location-specific user config
+	userConfig := &st.UserConfig{
+		CityFlag: location,
+	}
+	
+	locationClient := st.New(st.WithUserConfig(userConfig))
+	
+	// Fetch user info for this location
+	_, err := locationClient.FetchUserInfo()
+	if err != nil {
+		log.Error().
+			Err(err).
+			Str("location", location).
+			Msg("Failed to fetch user info for location")
+		return nil, fmt.Errorf("failed to fetch user info for location %s: %w", location, err)
+	}
+	
+	// Fetch servers for this location
+	serverList, err := locationClient.FetchServers()
+	if err != nil {
+		log.Error().
+			Err(err).
+			Str("location", location).
+			Msg("Failed to fetch servers for location")
+		return nil, fmt.Errorf("failed to fetch servers for location %s: %w", location, err)
+	}
+	
+	availableServers := serverList.Available()
+	if availableServers == nil {
+		log.Warn().
+			Str("location", location).
+			Msg("No available servers for location")
+		return []ServerResponse{}, nil
+	}
+	
+	// Convert servers to our response format
+	var servers []ServerResponse
+	for _, server := range *availableServers {
+		lat, _ := strconv.ParseFloat(server.Lat, 64)
+		lon, _ := strconv.ParseFloat(server.Lon, 64)
+		
+		servers = append(servers, ServerResponse{
+			ID:           server.ID,
+			Name:         server.Name,
+			Host:         server.Host,
+			Distance:     server.Distance,
+			Country:      server.Country,
+			Sponsor:      server.Sponsor,
+			URL:          server.URL,
+			Lat:          lat,
+			Lon:          lon,
+			IsIperf:      false,
+			IsLibrespeed: false,
+		})
+	}
+	
+	// Sort by distance
+	sort.Slice(servers, func(i, j int) bool {
+		return servers[i].Distance < servers[j].Distance
+	})
+	
+	// Cache the results
+	r.locationCache[location] = servers
+	r.locationCacheExpiry[location] = time.Now().Add(r.cacheDuration)
+	
+	log.Info().
+		Str("location", location).
+		Int("server_count", len(servers)).
+		Msg("Successfully retrieved and cached servers for location")
+	
+	return servers, nil
+}
+
+func (r *SpeedtestNetRunner) GetAvailableLocations() ([]string, error) {
+	// Return the list of supported locations
+	locations := []string{
+		"local",
+		"newyork",
+		"sanfrancisco", 
+		"london",
+		"berlin",
+		"tokyo",
+		"sydney",
+		"singapore",
+		"delhi",
+		"brasilia",
+		"capetown",
+	}
+	
+	return locations, nil
 }

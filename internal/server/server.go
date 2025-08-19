@@ -230,6 +230,7 @@ func (s *Server) RegisterRoutes() {
 			protected.GET("/auth/user", s.auth.GetUserInfo)
 
 			protected.GET("/servers", s.handleGetServers)
+			protected.GET("/servers/locations", s.handleGetServerLocations)
 			protected.POST("/speedtest", s.handleSpeedTest)
 			protected.GET("/speedtest/status", s.handleSpeedTestStatus)
 			protected.GET("/speedtest/history", s.handleSpeedTestHistory)

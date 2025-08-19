@@ -29,6 +29,7 @@ import {
   TestOptions,
   PaginatedResponse,
   Schedule,
+  ComprehensiveServerData,
 } from "@/types/types";
 import {
   useQuery,
@@ -38,6 +39,7 @@ import {
 } from "@tanstack/react-query";
 import {
   getServers,
+  getAllServersWithLocationInfo,
   getHistory,
   getSchedules,
   runSpeedTest,
@@ -115,18 +117,72 @@ export default function Main({ isPublic = false }: MainProps) {
     localStorage.setItem("netronome-active-tab", tabId);
   };
 
-  // Queries
-  const { data: speedtestServers = [] } = useQuery({
-    queryKey: ["servers", "speedtest"],
-    queryFn: () => getServers("speedtest"),
+  // Cache key for comprehensive server data
+  const COMPREHENSIVE_SERVERS_CACHE_KEY = "netronome-comprehensive-servers";
+  const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+  // Function to get cached comprehensive server data
+  const getCachedComprehensiveData = (): ComprehensiveServerData | null => {
+    try {
+      const cached = localStorage.getItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
+      if (!cached) return null;
+      
+      const parsed = JSON.parse(cached);
+      const cacheAge = Date.now() - parsed.timestamp;
+      
+      if (cacheAge > CACHE_DURATION) {
+        localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
+        return null;
+      }
+      
+      return parsed.data;
+    } catch (error) {
+      console.error("Error reading comprehensive servers cache:", error);
+      localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
+      return null;
+    }
+  };
+
+  // Function to cache comprehensive server data
+  const setCachedComprehensiveData = (data: ComprehensiveServerData) => {
+    try {
+      const cacheData = {
+        data,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(COMPREHENSIVE_SERVERS_CACHE_KEY, JSON.stringify(cacheData));
+    } catch (error) {
+      console.error("Error caching comprehensive servers:", error);
+    }
+  };
+
+  // Queries - Using comprehensive server data with caching
+  const { data: comprehensiveServerData } = useQuery<ComprehensiveServerData>({
+    queryKey: ["servers", "comprehensive", "speedtest"],
+    queryFn: async () => {
+      const data = await getAllServersWithLocationInfo("speedtest");
+      setCachedComprehensiveData(data); // Cache the fetched data
+      return data;
+    },
+    initialData: () => getCachedComprehensiveData() || undefined, // Use cached data if available
     enabled: !isPublic,
-  }) as { data: Server[] };
+    staleTime: CACHE_DURATION, // Consider data fresh for 30 minutes
+    gcTime: CACHE_DURATION * 2, // Keep in memory for 1 hour
+  });
 
   const { data: librespeedServers = [] } = useQuery({
     queryKey: ["servers", "librespeed"],
     queryFn: () => getServers("librespeed"),
     enabled: !isPublic,
   }) as { data: Server[] };
+
+  // Extract speedtest servers from comprehensive data
+  const speedtestServers: Server[] = useMemo(() => {
+    if (!comprehensiveServerData) return [];
+    
+    // Use the pre-flattened allServers array from the backend
+    return comprehensiveServerData.allServers || [];
+  }, [comprehensiveServerData]);
 
   const allServers = useMemo(
     () => [...speedtestServers, ...librespeedServers],

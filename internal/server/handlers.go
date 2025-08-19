@@ -131,14 +131,66 @@ func (s *Server) handlePublicSpeedTestHistory(c *gin.Context) {
 
 func (s *Server) handleGetServers(c *gin.Context) {
 	testType := c.DefaultQuery("testType", "speedtest")
-
-	servers, err := s.speedtest.GetServers(testType)
-	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		_ = c.Error(fmt.Errorf("failed to get servers: %w", err))
+	includeGlobalStr := c.DefaultQuery("includeGlobal", "false")
+	location := c.Query("location")
+	comprehensive := c.DefaultQuery("comprehensive", "false")
+	
+	// Handle comprehensive server data request (all servers with location info)
+	if comprehensive == "true" {
+		data, err := s.speedtest.GetAllServersWithLocationInfo(testType)
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			_ = c.Error(fmt.Errorf("failed to get comprehensive server data: %w", err))
+			return
+		}
+		c.JSON(http.StatusOK, data)
 		return
 	}
-	c.JSON(http.StatusOK, servers)
+	
+	includeGlobal := includeGlobalStr == "true"
+	
+	// Handle location-specific requests
+	if location != "" {
+		servers, err := s.speedtest.GetServersByLocation(testType, location)
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			_ = c.Error(fmt.Errorf("failed to get servers for location %s: %w", location, err))
+			return
+		}
+		c.JSON(http.StatusOK, servers)
+		return
+	}
+	
+	// Handle global vs local requests
+	if includeGlobal {
+		servers, err := s.speedtest.GetServersWithOptions(testType, true)
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			_ = c.Error(fmt.Errorf("failed to get servers: %w", err))
+			return
+		}
+		c.JSON(http.StatusOK, servers)
+	} else {
+		servers, err := s.speedtest.GetServers(testType)
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			_ = c.Error(fmt.Errorf("failed to get servers: %w", err))
+			return
+		}
+		c.JSON(http.StatusOK, servers)
+	}
+}
+
+func (s *Server) handleGetServerLocations(c *gin.Context) {
+	testType := c.DefaultQuery("testType", "speedtest")
+	
+	locations, err := s.speedtest.GetAvailableLocations(testType)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		_ = c.Error(fmt.Errorf("failed to get available locations: %w", err))
+		return
+	}
+	c.JSON(http.StatusOK, locations)
 }
 
 func (s *Server) handleSpeedTestStatus(c *gin.Context) {

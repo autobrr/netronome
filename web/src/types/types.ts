@@ -222,3 +222,12 @@ export interface TimeFormatSettings {
   timezone: string;
   use24HourFormat: boolean;
 }
+
+// Comprehensive server data from backend
+export interface ComprehensiveServerData {
+  locations: string[];
+  servers: Record<string, Server[]>;  // Backend returns 'servers', not 'serversByLocation'
+  allServers: Server[];               // Backend also provides flattened list
+  totalServers: number;
+  lastUpdated: string;
+}
