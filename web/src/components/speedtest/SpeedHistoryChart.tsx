@@ -259,27 +259,16 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
   // Apply server filtering
   const allResults = useMemo(() => {
-    console.log('allResults computation - inputs:', {
-      serverFilterMode,
-      selectedSingleServer,
-      selectedMultipleServers: Array.from(selectedMultipleServers),
-      filteredDataLength: filteredData.length,
-      availableServers: availableServers.map(s => s.name)
-    });
-
     if (serverFilterMode === "single" && selectedSingleServer !== "all") {
       const filtered = filteredData.filter(result => result.serverName === selectedSingleServer);
-      console.log(`Single server filter: ${selectedSingleServer}, found ${filtered.length} results`);
       return filtered;
     } else if (serverFilterMode === "multiple" && selectedMultipleServers.size > 0) {
       const filtered = filteredData.filter(result => 
         selectedMultipleServers.has(result.serverName) || selectedMultipleServers.has(result.serverHost)
       );
-      console.log(`Multiple server filter: ${Array.from(selectedMultipleServers)}, found ${filtered.length} results`);
       return filtered;
     }
     
-    console.log(`No server filter applied, returning all ${filteredData.length} results`);
     return filteredData;
   }, [filteredData, serverFilterMode, selectedSingleServer, selectedMultipleServers, availableServers]);
 
@@ -417,13 +406,13 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                 axisLine={false}
                 tickLine={false}
                 scale="linear"
-                domain={[0, 200]}
+                domain={[0, "auto"]}
                 allowDataOverflow={false}
                 label={{
-                  value: "Latency/Jitter (ms)",
-                  angle: 90,
+                  value: "ms",
+                  angle: -90,
                   position: "insideRight",
-                  style: { textAnchor: "middle", fill: "rgb(251, 191, 36)" },
+                  style: { textAnchor: "middle", fill: "rgb(156, 163, 175)" },
                 }}
               />
 
@@ -551,11 +540,6 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         }
         serverGroups[serverKey].push(result);
       });
-
-      console.log('Separate chart mode - server groups:', serverGroups);
-      console.log('Separate chart mode - servers with data:', Object.keys(serverGroups).map(server => 
-        `${server}: ${serverGroups[server]?.length || 0} points`
-      ));
 
       return (
         <div className="space-y-6">
