@@ -119,37 +119,6 @@ export default function Main({ isPublic = false }: MainProps) {
 
   // Cache key for comprehensive server data
   const COMPREHENSIVE_SERVERS_CACHE_KEY = "netronome-comprehensive-servers";
-  const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
-
-  // Function to check if cached data needs to be invalidated due to version mismatch
-  const checkCacheVersion = async (): Promise<boolean> => {
-    try {
-      // Get current cache version from API without fetching full data
-      const response = await fetch('/api/servers?testType=speedtest&comprehensive=true');
-      if (!response.ok) return false;
-      
-      const serverData: ComprehensiveServerData = await response.json();
-      const cached = localStorage.getItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
-      
-      if (!cached) return false;
-      
-      const parsedCache = JSON.parse(cached);
-      const cachedVersion = parsedCache.data?.cacheVersion;
-      const currentVersion = serverData.cacheVersion;
-      
-      // If versions don't match, invalidate cache
-      if (cachedVersion !== currentVersion) {
-        console.log(`Cache version mismatch: cached=${cachedVersion}, current=${currentVersion}`);
-        localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
-        return false;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error("Error checking cache version:", error);
-      return false;
-    }
-  };
 
   // Function to get cached comprehensive server data
   const getCachedComprehensiveData = (): ComprehensiveServerData | null => {
@@ -158,13 +127,6 @@ export default function Main({ isPublic = false }: MainProps) {
       if (!cached) return null;
       
       const parsed = JSON.parse(cached);
-      const cacheAge = Date.now() - parsed.timestamp;
-      
-      if (cacheAge > CACHE_DURATION) {
-        localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
-        return null;
-      }
-      
       return parsed.data;
     } catch (error) {
       console.error("Error reading comprehensive servers cache:", error);
@@ -186,31 +148,36 @@ export default function Main({ isPublic = false }: MainProps) {
     }
   };
 
-  // Queries - Using comprehensive server data with version-aware caching
-  const { data: comprehensiveServerData } = useQuery<ComprehensiveServerData>({
+  // State for comprehensive server loading
+  const [useComprehensiveServers, setUseComprehensiveServers] = useState(() => {
+    // Check if we have cached comprehensive data on initialization
+    const cached = localStorage.getItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
+    return !!cached; // Use comprehensive servers if we have cached data
+  });
+
+  // Default speedtest servers (local, fast loading) - only used as fallback
+  const { data: defaultSpeedtestServers = [] } = useQuery({
+    queryKey: ["servers", "speedtest"],
+    queryFn: () => getServers("speedtest"),
+    enabled: !isPublic && !useComprehensiveServers, // Only fetch if not using comprehensive
+  }) as { data: Server[] };
+
+  // Comprehensive server data (global, loaded on demand or from cache)
+  const { data: comprehensiveServerData, isFetching: isLoadingComprehensive } = useQuery<ComprehensiveServerData>({
     queryKey: ["servers", "comprehensive", "speedtest"],
     queryFn: async () => {
-      // Check cache version first
-      const cacheValid = await checkCacheVersion();
-      
-      // If cache is valid and we have cached data, use it
-      if (cacheValid) {
-        const cached = getCachedComprehensiveData();
-        if (cached) {
-          console.log('Using valid cached comprehensive server data');
-          return cached;
-        }
+      const cached = getCachedComprehensiveData();
+      if (cached) {
+        console.log('Using cached comprehensive server data');
+        return cached;
       }
       
-      // Fetch fresh data
       console.log('Fetching fresh comprehensive server data');
       const data = await getAllServersWithLocationInfo("speedtest");
-      setCachedComprehensiveData(data); // Cache the fetched data
+      setCachedComprehensiveData(data);
       return data;
     },
-    enabled: !isPublic,
-    staleTime: CACHE_DURATION, // Consider data fresh for 30 minutes
-    gcTime: CACHE_DURATION * 2, // Keep in memory for 1 hour
+    enabled: !isPublic && useComprehensiveServers,
   });
 
   const { data: librespeedServers = [] } = useQuery({
@@ -219,13 +186,27 @@ export default function Main({ isPublic = false }: MainProps) {
     enabled: !isPublic,
   }) as { data: Server[] };
 
-  // Extract speedtest servers from comprehensive data
+  // Function to load comprehensive servers
+  const loadComprehensiveServers = () => {
+    setUseComprehensiveServers(true);
+  };
+
+  // Function to refresh comprehensive server list
+  const refreshComprehensiveServers = () => {
+    localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
+    queryClient.invalidateQueries({ queryKey: ["servers", "comprehensive", "speedtest"] });
+    showToast("Server list refreshed!", "success");
+  };
+
+  // Choose which speedtest servers to use
   const speedtestServers: Server[] = useMemo(() => {
-    if (!comprehensiveServerData) return [];
-    
-    // Use the pre-flattened allServers array from the backend
-    return comprehensiveServerData.allServers || [];
-  }, [comprehensiveServerData]);
+    if (useComprehensiveServers && comprehensiveServerData) {
+      // Use comprehensive servers if loaded
+      return comprehensiveServerData.allServers || [];
+    }
+    // Use default local servers
+    return defaultSpeedtestServers;
+  }, [useComprehensiveServers, comprehensiveServerData, defaultSpeedtestServers]);
 
   const allServers = useMemo(
     () => [...speedtestServers, ...librespeedServers],
@@ -661,6 +642,10 @@ export default function Main({ isPublic = false }: MainProps) {
                 onRunTest={runTest}
                 progress={progress}
                 allServers={allServers}
+                onLoadComprehensiveServers={loadComprehensiveServers}
+                onRefreshComprehensiveServers={refreshComprehensiveServers}
+                isLoadingComprehensive={isLoadingComprehensive}
+                useComprehensiveServers={useComprehensiveServers}
               />
             </motion.div>
           )}

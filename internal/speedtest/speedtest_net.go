@@ -281,13 +281,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 }
 
 func (r *SpeedtestNetRunner) GetServers() ([]ServerResponse, error) {
-	// Initialize all servers if not done yet
-	if err := r.initializeAllServers(); err != nil {
-		log.Error().Err(err).Msg("Failed to initialize servers, falling back to direct fetch")
-		return r.fetchLocalServers()
-	}
-
-	// Return local servers from cache
+	// Check if we have local servers cached first
 	if localServers, exists := r.locationCache["local"]; exists {
 		log.Debug().
 			Int("server_count", len(localServers)).
@@ -295,8 +289,22 @@ func (r *SpeedtestNetRunner) GetServers() ([]ServerResponse, error) {
 		return localServers, nil
 	}
 
-	// Fallback if local servers not in cache
-	return r.fetchLocalServers()
+	// Directly fetch local servers without initializing all locations
+	// This is much faster than initializeAllServers()
+	log.Debug().Msg("Fetching local servers directly")
+	localServers, err := r.fetchLocalServers()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch local servers: %w", err)
+	}
+
+	// Cache the local servers for future use
+	r.locationCache["local"] = localServers
+
+	log.Debug().
+		Int("server_count", len(localServers)).
+		Msg("Fetched and cached local servers")
+
+	return localServers, nil
 }
 
 func (r *SpeedtestNetRunner) GetAllServersWithLocationInfo() (map[string]interface{}, error) {
@@ -307,17 +315,17 @@ func (r *SpeedtestNetRunner) GetAllServersWithLocationInfo() (map[string]interfa
 
 	// Create response with all server data and metadata
 	locations, _ := r.GetAvailableLocations()
-	
+
 	// Generate a cache version based on locations and server counts
 	cacheVersion := fmt.Sprintf("v1_%d_locations_%d_servers", len(locations), len(r.allServersCache))
-	
+
 	response := map[string]interface{}{
-		"locations":     locations,
-		"servers":       map[string][]ServerResponse{},
-		"allServers":    r.allServersCache,
-		"totalServers":  len(r.allServersCache),
-		"cacheVersion":  cacheVersion,
-		"lastUpdated":   time.Now().Format(time.RFC3339),
+		"locations":    locations,
+		"servers":      map[string][]ServerResponse{},
+		"allServers":   r.allServersCache,
+		"totalServers": len(r.allServersCache),
+		"cacheVersion": cacheVersion,
+		"lastUpdated":  time.Now().Format(time.RFC3339),
 	}
 
 	// Add servers grouped by location
@@ -351,7 +359,7 @@ func (r *SpeedtestNetRunner) GetServersFromMultipleLocations() ([]ServerResponse
 		"paris",
 		"sanfrancisco",
 		"newyork",
-		"yishun",      // Singapore area
+		"yishun", // Singapore area
 		"delhi",
 		"monterrey",
 		"berlin",
@@ -478,7 +486,7 @@ func (r *SpeedtestNetRunner) initializeAllServers() error {
 		"paris",
 		"sanfrancisco",
 		"newyork",
-		"yishun",      // Singapore area
+		"yishun", // Singapore area
 		"delhi",
 		"monterrey",
 		"berlin",
@@ -782,7 +790,7 @@ func (r *SpeedtestNetRunner) GetAvailableLocations() ([]string, error) {
 		"paris",
 		"sanfrancisco",
 		"newyork",
-		"yishun",      // Singapore area
+		"yishun", // Singapore area
 		"delhi",
 		"monterrey",
 		"berlin",

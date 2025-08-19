@@ -46,6 +46,11 @@ interface ServerListProps {
   isLoading: boolean;
   testType: "speedtest" | "iperf" | "librespeed";
   onTestTypeChange: (testType: "speedtest" | "iperf" | "librespeed") => void;
+  // New props for comprehensive server loading
+  onLoadComprehensiveServers?: () => void;
+  onRefreshComprehensiveServers?: () => void;
+  isLoadingComprehensive?: boolean;
+  useComprehensiveServers?: boolean;
 }
 
 export const ServerList: React.FC<ServerListProps> = ({
@@ -58,6 +63,10 @@ export const ServerList: React.FC<ServerListProps> = ({
   isLoading,
   testType,
   onTestTypeChange,
+  onLoadComprehensiveServers,
+  onRefreshComprehensiveServers,
+  isLoadingComprehensive,
+  useComprehensiveServers,
 }) => {
   const getInitialDisplayCount = () => {
     if (typeof window !== "undefined") {
@@ -350,6 +359,31 @@ export const ServerList: React.FC<ServerListProps> = ({
                     >
                       Run
                     </Button>
+                    
+                    {/* Comprehensive Server Controls for Speedtest */}
+                    {testType === "speedtest" && (
+                      <div className="flex gap-2">
+                        {!useComprehensiveServers ? (
+                          <Button
+                            variant="outline"
+                            onClick={onLoadComprehensiveServers}
+                            disabled={isLoadingComprehensive}
+                            className="w-full sm:w-auto"
+                          >
+                            {isLoadingComprehensive ? "Loading..." : "Load Global Servers"}
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            onClick={onRefreshComprehensiveServers}
+                            disabled={isLoadingComprehensive}
+                            className="w-full sm:w-auto"
+                          >
+                            Refresh Global Servers
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {testType === "iperf" && (
