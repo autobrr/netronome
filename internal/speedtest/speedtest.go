@@ -239,9 +239,9 @@ func (s *service) GetAllServersWithLocationInfo(testType string) (map[string]int
 			return nil, err
 		}
 		return map[string]interface{}{
-			"locations": []string{"local"},
-			"servers": map[string][]ServerResponse{"local": servers},
-			"allServers": servers,
+			"locations":    []string{"local"},
+			"servers":      map[string][]ServerResponse{"local": servers},
+			"allServers":   servers,
 			"totalServers": len(servers),
 		}, nil
 	case "iperf3":
@@ -250,9 +250,9 @@ func (s *service) GetAllServersWithLocationInfo(testType string) (map[string]int
 			return nil, err
 		}
 		return map[string]interface{}{
-			"locations": []string{"local"},
-			"servers": map[string][]ServerResponse{"local": servers},
-			"allServers": servers,
+			"locations":    []string{"local"},
+			"servers":      map[string][]ServerResponse{"local": servers},
+			"allServers":   servers,
 			"totalServers": len(servers),
 		}, nil
 	case "speedtest":
