@@ -117,8 +117,9 @@ export default function Main({ isPublic = false }: MainProps) {
     localStorage.setItem("netronome-active-tab", tabId);
   };
 
-  // Cache key for comprehensive server data
+  // Cache keys for server data
   const COMPREHENSIVE_SERVERS_CACHE_KEY = "netronome-comprehensive-servers";
+  const LOCATION_SERVERS_CACHE_KEY = "netronome-location-servers";
 
   // Function to get cached comprehensive server data
   const getCachedComprehensiveData = (): ComprehensiveServerData | null => {
@@ -148,6 +149,18 @@ export default function Main({ isPublic = false }: MainProps) {
     }
   };
 
+  // Function to get cached location server data  
+  const getCachedLocationData = (): any => {
+    try {
+      const cached = localStorage.getItem(LOCATION_SERVERS_CACHE_KEY);
+      if (!cached) return null;
+      return JSON.parse(cached);
+    } catch (error) {
+      console.error("Error reading location server cache:", error);
+      return null;
+    }
+  };
+
   // State for comprehensive server loading
   const [useComprehensiveServers, setUseComprehensiveServers] = useState(() => {
     // Check if we have cached comprehensive data on initialization
@@ -168,13 +181,23 @@ export default function Main({ isPublic = false }: MainProps) {
     queryFn: async () => {
       const cached = getCachedComprehensiveData();
       if (cached) {
-        console.log('Using cached comprehensive server data');
+        console.log('🔄 Using cached comprehensive server data:', {
+          totalServers: cached.totalServers,
+          locations: cached.locations?.length || 0,
+          lastUpdated: cached.lastUpdated,
+          cacheAge: Math.round((Date.now() - new Date(cached.lastUpdated || 0).getTime()) / (1000 * 60)) + ' minutes ago'
+        });
         return cached;
       }
       
-      console.log('Fetching fresh comprehensive server data');
+      console.log('🌐 Fetching fresh comprehensive server data from API...');
       const data = await getAllServersWithLocationInfo("speedtest");
       setCachedComprehensiveData(data);
+      console.log('✅ Fresh comprehensive data cached:', {
+        totalServers: data.totalServers,
+        locations: data.locations?.length || 0,
+        fetchedAt: new Date().toISOString()
+      });
       return data;
     },
     enabled: !isPublic && useComprehensiveServers,
@@ -186,25 +209,37 @@ export default function Main({ isPublic = false }: MainProps) {
     enabled: !isPublic,
   }) as { data: Server[] };
 
-  // Function to load comprehensive servers
+  // Function to load comprehensive servers (kept for backward compatibility)
   const loadComprehensiveServers = () => {
     setUseComprehensiveServers(true);
   };
 
-  // Function to refresh comprehensive server list
-  const refreshComprehensiveServers = () => {
-    localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
-    queryClient.invalidateQueries({ queryKey: ["servers", "comprehensive", "speedtest"] });
-    showToast("Server list refreshed!", "success");
-  };
-
   // Choose which speedtest servers to use
   const speedtestServers: Server[] = useMemo(() => {
+    const servers: Server[] = [];
+    
+    // Add comprehensive servers if available
     if (useComprehensiveServers && comprehensiveServerData) {
-      // Use comprehensive servers if loaded
-      return comprehensiveServerData.allServers || [];
+      servers.push(...(comprehensiveServerData.allServers || []));
+      console.log('🌐 Added comprehensive servers:', comprehensiveServerData.allServers?.length || 0);
     }
-    // Use default local servers
+    
+    // Add location cache servers if available
+    const locationData = getCachedLocationData();
+    if (locationData && locationData.locations) {
+      const locationServers = Object.values(locationData.locations).flat() as Server[];
+      servers.push(...locationServers);
+      console.log('📍 Added location cache servers:', locationServers.length, 'from', Object.keys(locationData.locations).length, 'locations');
+    }
+    
+    // If we have servers from either cache, use them
+    if (servers.length > 0) {
+      console.log('🎯 Using combined cached servers:', servers.length, 'total servers');
+      return servers;
+    }
+    
+    // Fallback to default local servers
+    console.log('🏠 Using default local servers:', defaultSpeedtestServers.length);
     return defaultSpeedtestServers;
   }, [useComprehensiveServers, comprehensiveServerData, defaultSpeedtestServers]);
 
@@ -297,8 +332,8 @@ export default function Main({ isPublic = false }: MainProps) {
   // Mutations
   const speedTestMutation = useMutation({
     mutationFn: runSpeedTest,
-    onMutate: () => {
-      console.log("Starting speed test with options:", options);
+    onMutate: (actualOptions) => {
+      console.log("Starting speed test with options:", actualOptions);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["history"] });
@@ -642,10 +677,6 @@ export default function Main({ isPublic = false }: MainProps) {
                 onRunTest={runTest}
                 progress={progress}
                 allServers={allServers}
-                onLoadComprehensiveServers={loadComprehensiveServers}
-                onRefreshComprehensiveServers={refreshComprehensiveServers}
-                isLoadingComprehensive={isLoadingComprehensive}
-                useComprehensiveServers={useComprehensiveServers}
               />
             </motion.div>
           )}

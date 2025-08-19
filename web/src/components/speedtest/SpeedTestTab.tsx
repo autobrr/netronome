@@ -21,11 +21,6 @@ interface SpeedTestTabProps {
   onRunTest: () => Promise<void>;
   progress: TestProgressType | null;
   allServers: Server[];
-  // New props for comprehensive server loading
-  onLoadComprehensiveServers?: () => void;
-  onRefreshComprehensiveServers?: () => void;
-  isLoadingComprehensive?: boolean;
-  useComprehensiveServers?: boolean;
 }
 
 export const SpeedTestTab: React.FC<SpeedTestTabProps> = ({
@@ -37,10 +32,6 @@ export const SpeedTestTab: React.FC<SpeedTestTabProps> = ({
   isLoading,
   onRunTest,
   allServers,
-  onLoadComprehensiveServers,
-  onRefreshComprehensiveServers,
-  isLoadingComprehensive,
-  useComprehensiveServers,
 }) => {
   return (
     <div className="flex flex-col md:flex-row gap-6 md:items-start">
@@ -62,10 +53,6 @@ export const SpeedTestTab: React.FC<SpeedTestTabProps> = ({
           isLoading={isLoading}
           testType={testType}
           onTestTypeChange={onTestTypeChange}
-          onLoadComprehensiveServers={onLoadComprehensiveServers}
-          onRefreshComprehensiveServers={onRefreshComprehensiveServers}
-          isLoadingComprehensive={isLoadingComprehensive}
-          useComprehensiveServers={useComprehensiveServers}
         />
       </motion.div>
 

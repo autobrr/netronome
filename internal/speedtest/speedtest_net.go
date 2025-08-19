@@ -9,6 +9,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -68,15 +69,43 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 
 	var selectedServer *st.Server
 	if len(opts.ServerIDs) > 0 {
+		// First, try to find the server in the default server list
 		for _, server := range serverList {
 			for _, requestedID := range opts.ServerIDs {
 				if server.ID == requestedID {
 					selectedServer = server
+					log.Info().
+						Str("server_id", server.ID).
+						Str("server_name", server.Name).
+						Str("provider", server.Sponsor).
+						Msg("Found requested server in default server list")
 					break
 				}
 			}
 			if selectedServer != nil {
 				break
+			}
+		}
+
+		// If not found in default list, try to fetch the specific server by ID
+		if selectedServer == nil {
+			log.Info().
+				Str("requested_id", opts.ServerIDs[0]).
+				Msg("Server not found in default list, trying to fetch by ID")
+
+			specificServer, err := st.FetchServerByID(opts.ServerIDs[0])
+			if err != nil {
+				log.Warn().
+					Str("server_id", opts.ServerIDs[0]).
+					Err(err).
+					Msg("Failed to fetch specific server by ID, falling back to closest server")
+			} else {
+				selectedServer = specificServer
+				log.Info().
+					Str("server_id", specificServer.ID).
+					Str("server_name", specificServer.Name).
+					Str("provider", specificServer.Sponsor).
+					Msg("Successfully fetched specific server by ID")
 			}
 		}
 	}
@@ -86,6 +115,11 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 			return serverList[i].Distance < serverList[j].Distance
 		})
 		selectedServer = serverList[0]
+		log.Info().
+			Str("server_id", selectedServer.ID).
+			Str("server_name", selectedServer.Name).
+			Str("provider", selectedServer.Sponsor).
+			Msg("No specific server requested or found, using closest server")
 	}
 
 	log.Info().
@@ -428,9 +462,15 @@ func (r *SpeedtestNetRunner) GetServersFromMultipleLocations() ([]ServerResponse
 				lat, _ := strconv.ParseFloat(server.Lat, 64)
 				lon, _ := strconv.ParseFloat(server.Lon, 64)
 
+				// Extract city name from server.Name field which typically contains "City (Country)" format
+				cityName := server.Name
+				if strings.Contains(server.Name, "(") {
+					cityName = strings.TrimSpace(strings.Split(server.Name, "(")[0])
+				}
+
 				serverMap[server.ID] = ServerResponse{
 					ID:           server.ID,
-					Name:         server.Name,
+					Name:         server.Sponsor, // Provider name
 					Host:         server.Host,
 					Distance:     server.Distance,
 					Country:      server.Country,
@@ -438,6 +478,7 @@ func (r *SpeedtestNetRunner) GetServersFromMultipleLocations() ([]ServerResponse
 					URL:          server.URL,
 					Lat:          lat,
 					Lon:          lon,
+					City:         cityName, // Extracted city name
 					IsIperf:      false,
 					IsLibrespeed: false,
 				}
@@ -612,9 +653,15 @@ func (r *SpeedtestNetRunner) fetchLocalServers() ([]ServerResponse, error) {
 		lat, _ := strconv.ParseFloat(server.Lat, 64)
 		lon, _ := strconv.ParseFloat(server.Lon, 64)
 
+		// Extract city name from server.Name field which typically contains "City (Country)" format
+		cityName := server.Name
+		if strings.Contains(server.Name, "(") {
+			cityName = strings.TrimSpace(strings.Split(server.Name, "(")[0])
+		}
+
 		servers = append(servers, ServerResponse{
 			ID:           server.ID,
-			Name:         server.Name,
+			Name:         server.Sponsor, // Provider name
 			Host:         server.Host,
 			Distance:     server.Distance,
 			Country:      server.Country,
@@ -622,6 +669,7 @@ func (r *SpeedtestNetRunner) fetchLocalServers() ([]ServerResponse, error) {
 			URL:          server.URL,
 			Lat:          lat,
 			Lon:          lon,
+			City:         cityName, // Extracted city name
 			IsIperf:      false,
 			IsLibrespeed: false,
 		})
@@ -665,9 +713,15 @@ func (r *SpeedtestNetRunner) fetchServersForLocation(location string) ([]ServerR
 		lat, _ := strconv.ParseFloat(server.Lat, 64)
 		lon, _ := strconv.ParseFloat(server.Lon, 64)
 
+		// Extract city name from server.Name field which typically contains "City (Country)" format
+		cityName := server.Name
+		if strings.Contains(server.Name, "(") {
+			cityName = strings.TrimSpace(strings.Split(server.Name, "(")[0])
+		}
+
 		servers = append(servers, ServerResponse{
 			ID:           server.ID,
-			Name:         server.Name,
+			Name:         server.Sponsor, // Provider name
 			Host:         server.Host,
 			Distance:     server.Distance,
 			Country:      server.Country,
@@ -675,6 +729,7 @@ func (r *SpeedtestNetRunner) fetchServersForLocation(location string) ([]ServerR
 			URL:          server.URL,
 			Lat:          lat,
 			Lon:          lon,
+			City:         cityName, // Extracted city name
 			IsIperf:      false,
 			IsLibrespeed: false,
 		})
@@ -704,77 +759,143 @@ func (r *SpeedtestNetRunner) GetServersByLocation(location string) ([]ServerResp
 		Str("location", location).
 		Msg("Fetching servers for specific location")
 
-	// Create a new client with location-specific user config
-	userConfig := &st.UserConfig{
-		CityFlag: location,
+	// Parse lat,lon coordinates from location string
+	var lat, lon float64
+	var err error
+
+	if coords := strings.Split(location, ","); len(coords) == 2 {
+		lat, err = strconv.ParseFloat(strings.TrimSpace(coords[0]), 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid latitude in location %s: %w", location, err)
+		}
+		lon, err = strconv.ParseFloat(strings.TrimSpace(coords[1]), 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid longitude in location %s: %w", location, err)
+		}
+	} else {
+		return nil, fmt.Errorf("invalid location format %s, expected 'lat,lon'", location)
 	}
 
+	// Create a new client with location set to the specified coordinates
+	customLocation := st.NewLocation("Custom", lat, lon)
+	userConfig := &st.UserConfig{
+		Location: customLocation,
+	}
 	locationClient := st.New(st.WithUserConfig(userConfig))
 
 	// Fetch user info for this location
-	_, err := locationClient.FetchUserInfo()
+	_, err = locationClient.FetchUserInfo()
 	if err != nil {
-		log.Error().
-			Err(err).
-			Str("location", location).
-			Msg("Failed to fetch user info for location")
-		return nil, fmt.Errorf("failed to fetch user info for location %s: %w", location, err)
+		return nil, fmt.Errorf("failed to fetch user info: %w", err)
 	}
 
-	// Fetch servers for this location
+	// Fetch server list
 	serverList, err := locationClient.FetchServers()
 	if err != nil {
-		log.Error().
-			Err(err).
-			Str("location", location).
-			Msg("Failed to fetch servers for location")
-		return nil, fmt.Errorf("failed to fetch servers for location %s: %w", location, err)
+		return nil, fmt.Errorf("failed to fetch servers: %w", err)
 	}
 
+	// Get all available servers instead of using FindServer which might limit results
 	availableServers := serverList.Available()
 	if availableServers == nil {
 		log.Warn().
 			Str("location", location).
-			Msg("No available servers for location")
+			Msg("No servers available for location")
 		return []ServerResponse{}, nil
 	}
 
-	// Convert servers to our response format
+	log.Info().
+		Str("location", location).
+		Int("available_servers", len(*availableServers)).
+		Msg("Found servers for location")
+
+	// Convert to ServerResponse format
 	var servers []ServerResponse
-	for _, server := range *availableServers {
-		lat, _ := strconv.ParseFloat(server.Lat, 64)
-		lon, _ := strconv.ParseFloat(server.Lon, 64)
+	for i, server := range *availableServers {
+		serverLat, _ := strconv.ParseFloat(server.Lat, 64)
+		serverLon, _ := strconv.ParseFloat(server.Lon, 64)
+
+		// Debug: log server fields for first few servers to understand available data
+		if i < 3 {
+			log.Info().
+				Str("id", server.ID).
+				Str("name", server.Name).
+				Str("sponsor", server.Sponsor).
+				Str("country", server.Country).
+				Str("lat", server.Lat).
+				Str("lon", server.Lon).
+				Str("host", server.Host).
+				Str("url", server.URL).
+				Float64("distance", server.Distance).
+				Msg("Debug: Available server fields from location-based search")
+		}
+
+		// Extract city name from server.Name field which typically contains "City (Country)" format
+		cityName := server.Name
+		if strings.Contains(server.Name, "(") {
+			cityName = strings.TrimSpace(strings.Split(server.Name, "(")[0])
+		}
 
 		servers = append(servers, ServerResponse{
 			ID:           server.ID,
-			Name:         server.Name,
+			Name:         server.Sponsor, // Provider name (like "Kordia", "Megatel")
 			Host:         server.Host,
 			Distance:     server.Distance,
 			Country:      server.Country,
 			Sponsor:      server.Sponsor,
 			URL:          server.URL,
-			Lat:          lat,
-			Lon:          lon,
+			Lat:          serverLat,
+			Lon:          serverLon,
+			City:         cityName, // Extracted city name (like "Auckland")
 			IsIperf:      false,
 			IsLibrespeed: false,
 		})
 	}
 
-	// Sort by distance
+	// Sort by distance (closest first)
 	sort.Slice(servers, func(i, j int) bool {
 		return servers[i].Distance < servers[j].Distance
 	})
 
-	// Cache the results
+	// Limit to top 20 servers (like the CLI example)
+	if len(servers) > 20 {
+		servers = servers[:20]
+	}
+
+	// Cache the results for this location (valid for 30 minutes)
 	r.locationCache[location] = servers
-	r.locationCacheExpiry[location] = time.Now().Add(r.cacheDuration)
+	r.locationCacheExpiry[location] = time.Now().Add(30 * time.Minute)
 
 	log.Info().
 		Str("location", location).
 		Int("server_count", len(servers)).
-		Msg("Successfully retrieved and cached servers for location")
+		Msg("Successfully fetched and cached servers for location")
 
 	return servers, nil
+}
+
+// haversineDistance calculates the distance between two points on the Earth
+// using the Haversine formula. Returns distance in kilometers.
+func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
+	const R = 6371 // Earth's radius in kilometers
+
+	// Convert degrees to radians
+	lat1Rad := lat1 * math.Pi / 180
+	lon1Rad := lon1 * math.Pi / 180
+	lat2Rad := lat2 * math.Pi / 180
+	lon2Rad := lon2 * math.Pi / 180
+
+	// Calculate differences
+	dlat := lat2Rad - lat1Rad
+	dlon := lon2Rad - lon1Rad
+
+	// Haversine formula
+	a := math.Sin(dlat/2)*math.Sin(dlat/2) +
+		math.Cos(lat1Rad)*math.Cos(lat2Rad)*
+			math.Sin(dlon/2)*math.Sin(dlon/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	return R * c
 }
 
 func (r *SpeedtestNetRunner) GetAvailableLocations() ([]string, error) {

@@ -4,9 +4,10 @@
  */
 
 import React, { useState } from "react";
-import { Cog6ToothIcon, BellIcon, ClockIcon } from "@heroicons/react/24/outline";
+import { Cog6ToothIcon, BellIcon, ClockIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
 import { NotificationSettings } from "./settings/NotificationSettings";
 import { TimeFormatSettings } from "./settings/TimeFormatSettings";
+import { SpeedtestSettings } from "./settings/SpeedtestSettings";
 import { Button } from "@/components/ui/Button";
 import {
   Dialog,
@@ -40,6 +41,12 @@ const settingsSections: SettingsSection[] = [
     label: "Time & Date",
     icon: <ClockIcon className="w-4 h-4" />,
     component: TimeFormatSettings,
+  },
+  {
+    id: "speedtest",
+    label: "Speedtest Servers",
+    icon: <GlobeAltIcon className="w-4 h-4" />,
+    component: SpeedtestSettings,
   },
 ];
 
