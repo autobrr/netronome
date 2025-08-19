@@ -382,38 +382,37 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
               <YAxis
                 yAxisId="speed"
-                orientation="left"
-                stroke="var(--chart-text)"
-                fontSize={11}
-                axisLine={false}
-                tickLine={false}
-                scale="linear"
-                domain={[0, 1000]}
-                allowDataOverflow={false}
                 label={{
                   value: "Speed (Mbps)",
-                  angle: -90,
                   position: "insideLeft",
-                  style: { textAnchor: "middle", fill: "rgb(156, 163, 175)" },
+                  angle: -90,
+                  offset: 0,
+                  style: {
+                    textAnchor: "middle",
+                    fill: "var(--chart-text)",
+                  },
+                  dy: 0,
                 }}
+                tick={{ fontSize: 12, fill: "var(--chart-text)" }}
+                width={45}
+                domain={[0, "auto"]}
+                allowDataOverflow={false}
               />
 
               <YAxis
                 yAxisId="latency"
                 orientation="right"
-                stroke="var(--chart-text)"
-                fontSize={11}
-                axisLine={false}
-                tickLine={false}
-                scale="linear"
-                domain={[0, "auto"]}
-                allowDataOverflow={false}
                 label={{
                   value: "ms",
-                  angle: -90,
                   position: "insideRight",
-                  style: { textAnchor: "middle", fill: "rgb(156, 163, 175)" },
+                  angle: -90,
+                  offset: 0,
+                  style: { fill: "var(--chart-text)" },
                 }}
+                tick={{ fontSize: 12, fill: "var(--chart-text)" }}
+                width={45}
+                domain={[0, "auto"]}
+                allowDataOverflow={false}
               />
 
               <Tooltip
