@@ -7,6 +7,7 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { SpeedTestResult } from "@/types/types";
+import { formatters } from "@/utils/timeSettings";
 import {
   createSortableHeader,
   createRightAlignedSortableHeader,
@@ -53,12 +54,7 @@ export const speedTestColumns: ColumnDef<SpeedTestResult>[] = [
       const date = new Date(row.getValue("createdAt"));
       return (
         <span className="text-gray-700 dark:text-gray-300">
-          {date.toLocaleString(undefined, {
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+          {formatters.dateTime(date)}
         </span>
       );
     },
@@ -171,12 +167,7 @@ export const speedTestMobileColumns: ColumnDef<SpeedTestResult>[] = [
             </span>
           </div>
           <div className="text-gray-600 dark:text-gray-400 text-sm">
-            {new Date(test.createdAt).toLocaleString(undefined, {
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {formatters.dateTime(new Date(test.createdAt))}
           </div>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="flex justify-between items-center">

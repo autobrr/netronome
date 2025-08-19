@@ -30,6 +30,7 @@ import {
   FaWaveSquare,
   FaGripVertical,
 } from "react-icons/fa";
+import { formatters, useTimeSettings } from "@/utils/timeSettings";
 import { Button } from "@/components/ui/Button";
 import {
   Select,
@@ -129,6 +130,9 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   onMultipleServerDisplayModeChange,
 }) => {
   const isMobile = useIsMobile();
+  
+  // Listen for time settings changes to trigger re-renders
+  const { settings: timeSettings } = useTimeSettings();
 
   const [visibleMetrics, setVisibleMetrics] = useState<VisibleMetrics>(() => {
     const saved = localStorage.getItem("speedtest-visible-metrics");
@@ -216,12 +220,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
       )
       .map((item) => ({
         rawTimestamp: item.createdAt,
-        timestamp: new Date(item.createdAt).toLocaleString(undefined, {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "numeric",
-        }),
+        timestamp: formatters.dateTime(new Date(item.createdAt)),
         download: Number(item.downloadSpeed) || 0,
         upload: Number(item.uploadSpeed) || 0,
         latency: Number(parseFloat(typeof item.latency === 'string' ? item.latency.replace("ms", "") : item.latency) || 0),
@@ -369,12 +368,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                 tick={{ fontSize: isMobile ? 11 : 12, fill: "var(--chart-text)" }}
                 tickFormatter={(value) => {
                   const date = new Date(value);
-                  return date.toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  });
+                  return formatters.chartTick(date, timeRange);
                 }}
                 axisLine={false}
                 tickLine={false}
@@ -438,7 +432,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   return [value, name];
                 }}
                 labelFormatter={(timestamp: number) => {
-                  return new Date(timestamp).toLocaleString();
+                  return formatters.chartTooltip(new Date(timestamp), timeRange);
                 }}
               />
 
@@ -597,89 +591,25 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
             tick={{ fontSize: isMobile ? 11 : 12, fill: "var(--chart-text)" }}
             tickFormatter={(value) => {
               const date = new Date(value);
-
-              // Dynamic formatting based on time range
-              switch (timeRange) {
-                case "1d":
-                  // 24 hours: show time, with day name on desktop
-                  if (isMobile) {
-                    return date.toLocaleTimeString(undefined, {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    });
-                  }
-                  return date.toLocaleString(undefined, {
-                    weekday: "short",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  });
-
-                case "3d":
-                  // 3 days: show day and time
-                  if (isMobile) {
-                    return date.toLocaleString(undefined, {
-                      weekday: "short",
-                      hour: "numeric",
-                    });
-                  }
-                  return date.toLocaleString(undefined, {
-                    weekday: "short",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  });
-
-                case "1w":
-                  // 1 week: show date with optional time on desktop
-                  if (isMobile) {
-                    return date.toLocaleString(undefined, {
-                      month: "numeric",
-                      day: "numeric",
-                    });
-                  }
-                  return date.toLocaleString(undefined, {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  });
-
-                case "1m":
-                  // 1 month: show date
-                  if (isMobile) {
-                    return date.toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    });
-                  }
-                  return date.toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                  });
-
-                case "all": {
-                  // All time: show date with year if needed
-                  const now = new Date();
-                  const showYear = date.getFullYear() !== now.getFullYear();
-
-                  if (isMobile) {
-                    return date.toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: showYear ? "2-digit" : undefined,
-                    });
-                  }
-                  return date.toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    year: showYear ? "numeric" : undefined,
-                  });
+              
+              // Use centralized formatting that respects user timezone/format settings
+              if (isMobile) {
+                // Simplified mobile formatting
+                switch (timeRange) {
+                  case "1d":
+                  case "3d":
+                    return formatters.time(date);
+                  case "1w":
+                  case "1m":
+                    return formatters.chartTick(date, "1m"); // Use month-day format
+                  case "all":
+                    return formatters.chartTick(date, timeRange);
+                  default:
+                    return formatters.time(date);
                 }
-
-                default:
-                  // Fallback to time-based format
-                  return date.toLocaleTimeString(undefined, {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  });
+              } else {
+                // Full desktop formatting
+                return formatters.chartTick(date, timeRange);
               }
             }}
           />
@@ -783,12 +713,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
                 const formattedDate =
                   data.timestamp ||
-                  new Date(label).toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "numeric",
-                  });
+                  formatters.chartTooltip(new Date(label), timeRange);
 
                 return (
                   <>

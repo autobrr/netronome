@@ -212,3 +212,13 @@ export interface PacketLossUpdate {
   hopCount?: number;
   error?: string;
 }
+
+// User settings types
+export interface UserSettings {
+  timeFormat?: TimeFormatSettings;
+}
+
+export interface TimeFormatSettings {
+  timezone: string;
+  use24HourFormat: boolean;
+}

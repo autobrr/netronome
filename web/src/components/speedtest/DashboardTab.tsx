@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "motion/react";
 import { SpeedTestResult, TimeRange } from "@/types/types";
+import { formatters } from "@/utils/timeSettings";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import { MetricCard } from "@/components/common/MetricCard";
 import { FeaturedMonitorWidget } from "@/components/monitor/FeaturedMonitorWidget";
@@ -329,10 +330,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <div>
               Last test run:{" "}
               {(filteredLatestTestComputed || latestTest)?.createdAt
-                ? new Date((filteredLatestTestComputed || latestTest)!.createdAt).toLocaleString(undefined, {
-                    dateStyle: "short",
-                    timeStyle: "short",
-                  })
+                ? formatters.dateTime(new Date((filteredLatestTestComputed || latestTest)!.createdAt))
                 : "N/A"}
             </div>
           </div>

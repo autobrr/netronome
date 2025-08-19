@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { getApiUrl } from "@/utils/baseUrl";
 import { formatNextRun } from "@/utils/timeUtils";
+import { formatters } from "@/utils/timeSettings";
 import { Button } from "@/components/ui/Button";
 
 interface ScheduleManagerProps {
@@ -668,13 +669,13 @@ export default function ScheduleManager({
                                   {scheduleType === "exact" && (
                                     <span className="text-gray-500 dark:text-gray-500 text-xs ml-2">
                                       (
-                                      {new Date(
+                                      {formatters.dateTime(new Date(
                                         calculateNextRun(
                                           interval,
                                           scheduleType,
                                           exactTimes.join(",")
                                         )
-                                      ).toLocaleDateString()}
+                                      ))}
                                       )
                                     </span>
                                   )}
@@ -788,13 +789,9 @@ export default function ScheduleManager({
                                                       .substring(6)
                                                       .split(",");
                                                   if (times.length === 1) {
-                                                    return new Date(
+                                                    return formatters.time(new Date(
                                                       `2000-01-01T${times[0]}:00`
-                                                    ).toLocaleTimeString([], {
-                                                      hour: "numeric",
-                                                      minute: "2-digit",
-                                                      hour12: true,
-                                                    });
+                                                    ));
                                                   } else {
                                                     return `${times.length} times`;
                                                   }
@@ -844,13 +841,9 @@ export default function ScheduleManager({
                                                 .substring(6)
                                                 .split(",")
                                                 .map((time) =>
-                                                  new Date(
+                                                  formatters.time(new Date(
                                                     `2000-01-01T${time}:00`
-                                                  ).toLocaleTimeString([], {
-                                                    hour: "numeric",
-                                                    minute: "2-digit",
-                                                    hour12: true,
-                                                  })
+                                                  ))
                                                 )
                                                 .join(", ")}
                                             </span>
