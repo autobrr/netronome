@@ -20,7 +20,6 @@ export function SpeedtestSettings() {
   const [locationError, setLocationError] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set());
-  const [useLocationMode, setUseLocationMode] = useState(false); // New toggle
 
   const queryClient = useQueryClient();
   const COMPREHENSIVE_SERVERS_CACHE_KEY = "netronome-comprehensive-servers";
@@ -44,19 +43,6 @@ export function SpeedtestSettings() {
       console.error("Error reading comprehensive servers cache:", error);
       localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
       return null;
-    }
-  };
-
-  // Function to cache comprehensive server data
-  const setCachedComprehensiveData = (data: ComprehensiveServerData) => {
-    try {
-      const cacheData = {
-        data,
-        timestamp: Date.now(),
-      };
-      localStorage.setItem(COMPREHENSIVE_SERVERS_CACHE_KEY, JSON.stringify(cacheData));
-    } catch (error) {
-      console.error("Error caching comprehensive servers:", error);
     }
   };
 
@@ -129,124 +115,44 @@ export function SpeedtestSettings() {
         throw new Error('No servers found for this location');
       }
 
-      // Get existing comprehensive data or create new
-      const existingData = getCachedComprehensiveData();
-      console.log('📦 Existing cached data:', {
-        exists: !!existingData,
-        totalServers: existingData?.totalServers || 0,
-        locations: existingData?.locations || [],
-        lastUpdated: existingData?.lastUpdated || 'Never',
-        replaceMode: useLocationMode
+      // Always use location cache mode for coordinate-based queries
+      console.log('📍 Location cache mode: Using separate location-based cache');
+      
+      const existingLocationData = getCachedLocationData() || { 
+        locations: {}, 
+        totalServers: 0, 
+        lastUpdated: new Date().toISOString() 
+      };
+      
+      console.log('📦 Existing location data:', {
+        exists: !!existingLocationData,
+        totalServers: existingLocationData.totalServers,
+        locations: Object.keys(existingLocationData.locations),
+        lastUpdated: existingLocationData.lastUpdated
       });
 
-      if (useLocationMode) {
-        // Location Cache Mode: Store servers in separate location-based cache
-        console.log('� Location cache mode: Using separate location-based cache');
-        
-        const existingLocationData = getCachedLocationData() || { 
-          locations: {}, 
-          totalServers: 0, 
-          lastUpdated: new Date().toISOString() 
-        };
-        
-        console.log('📦 Existing location data:', {
-          exists: !!existingLocationData,
-          totalServers: existingLocationData.totalServers,
-          locations: Object.keys(existingLocationData.locations),
-          lastUpdated: existingLocationData.lastUpdated
-        });
+      // Add servers to location-based cache
+      const updatedLocationData: LocationServerData = {
+        ...existingLocationData,
+        locations: {
+          ...existingLocationData.locations,
+          [customLocation.trim()]: locationServers
+        },
+        totalServers: Object.values({
+          ...existingLocationData.locations,
+          [customLocation.trim()]: locationServers
+        }).reduce((total, servers) => total + servers.length, 0),
+        lastUpdated: new Date().toISOString()
+      };
 
-        // Add servers to location-based cache
-        const updatedLocationData: LocationServerData = {
-          ...existingLocationData,
-          locations: {
-            ...existingLocationData.locations,
-            [customLocation.trim()]: locationServers
-          },
-          totalServers: Object.values({
-            ...existingLocationData.locations,
-            [customLocation.trim()]: locationServers
-          }).reduce((total, servers) => total + servers.length, 0),
-          lastUpdated: new Date().toISOString()
-        };
+      setCachedLocationData(updatedLocationData);
+      console.log('✅ Updated location cache:', {
+        totalServers: updatedLocationData.totalServers,
+        locations: Object.keys(updatedLocationData.locations),
+        newLocationAdded: customLocation.trim()
+      });
 
-        setCachedLocationData(updatedLocationData);
-        console.log('✅ Updated location cache:', {
-          totalServers: updatedLocationData.totalServers,
-          locations: Object.keys(updatedLocationData.locations),
-          newLocationAdded: customLocation.trim()
-        });
-
-        showToast(`Added ${locationServers.length} servers for ${customLocation.trim()} to location cache!`, "success");
-      } else {
-        // Merge mode: Add to existing cache (original behavior)
-        // Debug: Check if the specific server IDs we're trying to add are really in the cache
-        if (existingData?.allServers) {
-          const serverIdsToAdd = locationServers.map((s: any) => s.id);
-          const serverIdsInCache = existingData.allServers.map((s: any) => s.id);
-          console.log('🔍 Server ID analysis:', {
-            serversToAdd: serverIdsToAdd,
-            firstFewInCache: serverIdsInCache.slice(0, 20),
-            '31137InCache': serverIdsInCache.includes('31137'),
-            '16514InCache': serverIdsInCache.includes('16514'),
-            '32880InCache': serverIdsInCache.includes('32880'),
-            totalInCache: serverIdsInCache.length
-          });
-        }
-        
-        if (existingData) {
-          // Merge new servers with existing ones (avoid duplicates by ID)
-          const existingIds = new Set(existingData.allServers?.map(s => s.id) || []);
-          const newServers = locationServers.filter((server: Server) => !existingIds.has(server.id));
-          console.log('🔄 New servers to add:', {
-            newCount: newServers.length,
-            existingCount: existingIds.size,
-            totalAfterMerge: (existingData.totalServers || 0) + newServers.length,
-            duplicateIds: locationServers.filter((server: Server) => existingIds.has(server.id)).map((s: any) => s.id),
-            newIds: newServers.map((s: any) => s.id),
-            sampleExistingIds: Array.from(existingIds).slice(0, 10),
-            existingIdsList: existingIds.size < 50 ? Array.from(existingIds).sort() : `Too many to show (${existingIds.size} total)`
-          });
-          
-          if (newServers.length > 0) {
-            const updatedData: ComprehensiveServerData = {
-              ...existingData,
-              allServers: [...(existingData.allServers || []), ...newServers],
-              servers: { ...existingData.servers, [customLocation.trim()]: locationServers },
-              locations: [...(existingData.locations || []), customLocation.trim()].filter((loc, index, arr) => arr.indexOf(loc) === index),
-              totalServers: (existingData.totalServers || 0) + newServers.length,
-              lastUpdated: new Date().toISOString(),
-            };
-            setCachedComprehensiveData(updatedData);
-            console.log('✅ Updated cached data successfully:', {
-              totalServers: updatedData.totalServers,
-              locations: updatedData.locations,
-              newLocationAdded: customLocation.trim()
-            });
-            showToast(`Added ${newServers.length} new servers for ${customLocation.trim()}. Total: ${updatedData.totalServers} servers`, "success");
-          } else {
-            showToast(`All ${locationServers.length} servers for ${customLocation.trim()} are already in your cache`, "info");
-          }
-        } else {
-          // Create new comprehensive data
-          console.log('Creating new comprehensive data');
-          const newData: ComprehensiveServerData = {
-            allServers: locationServers,
-            servers: { [customLocation.trim()]: locationServers },
-            locations: [customLocation.trim()],
-            totalServers: locationServers.length,
-            cacheVersion: "1.0",
-            lastUpdated: new Date().toISOString(),
-          };
-          setCachedComprehensiveData(newData);
-          console.log('🆕 New cached data created:', {
-            totalServers: newData.totalServers,
-            locations: newData.locations,
-            firstLocationAdded: customLocation.trim()
-          });
-          showToast(`Added ${locationServers.length} servers for ${customLocation.trim()}. Started with fresh cache!`, "success");
-        }
-      }
+      showToast(`Added ${locationServers.length} servers for ${customLocation.trim()} to location cache!`, "success");
       
       setCustomLocation("");
       // Force re-render by triggering React Query invalidation
@@ -314,9 +220,9 @@ export function SpeedtestSettings() {
               <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
                 <p className="font-semibold text-blue-800 dark:text-blue-300 mb-1">ℹ️ How it works:</p>
                 <p className="text-blue-700 dark:text-blue-400 text-xs">
-                  When you add servers by location, they're cached locally. 
-                  The app then uses these comprehensive servers instead of default local servers. 
-                  This is normal behavior - you're now using location-based servers!
+                  When you add servers by location coordinates, they're stored in a separate location-based cache. 
+                  The app uses servers from both the comprehensive cache and location cache for speedtest selection. 
+                  Location-based servers are fetched using precise coordinates for optimal geographic accuracy.
                 </p>
               </div>
               
@@ -476,19 +382,6 @@ export function SpeedtestSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
-            <div className="flex items-center space-x-2 p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-              <input
-                type="checkbox"
-                id="replaceMode"
-                checked={useLocationMode}
-                onChange={(e) => setUseLocationMode(e.target.checked)}
-                className="rounded"
-              />
-              <Label htmlFor="replaceMode" className="text-sm text-yellow-700 dark:text-yellow-300 cursor-pointer">
-                🔄 Replace existing servers instead of merging (recommended for location-based queries)
-              </Label>
-            </div>
-            
             <div>
               <Label htmlFor="location">Location (latitude,longitude)</Label>
               <Input
@@ -515,40 +408,6 @@ export function SpeedtestSettings() {
                 <MapPin className={`h-4 w-4 mr-2 ${isAddingLocation ? "animate-pulse" : ""}`} />
                 {isAddingLocation ? "Adding Servers..." : "Add Servers for Location"}
               </Button>
-              
-              <Button
-                onClick={() => handleAddLocation(true)}
-                disabled={isAddingLocation || !customLocation.trim()}
-                variant="outline"
-                className="px-3"
-                title="Force refresh - clear cache and fetch fresh servers"
-              >
-                🔄
-              </Button>
-              
-              <Button
-                onClick={() => {
-                  const cached = getCachedComprehensiveData();
-                  if (cached?.allServers) {
-                    console.log('🔍 CACHE INSPECTION:', {
-                      totalServers: cached.allServers.length,
-                      serverIds: cached.allServers.map((s: any) => s.id).sort(),
-                      serverNames: cached.allServers.map((s: any) => `${s.id}: ${s.name}`).slice(0, 50),
-                      locations: cached.locations,
-                      fullCache: cached
-                    });
-                    showToast(`Cache details logged to console (${cached.allServers.length} servers)`, "info");
-                  } else {
-                    console.log('No cache data found');
-                    showToast("No cache data found", "info");
-                  }
-                }}
-                variant="ghost"
-                className="px-2"
-                title="Inspect cache contents (debug)"
-              >
-                🔍
-              </Button>
             </div>
           </div>
 
@@ -562,69 +421,162 @@ export function SpeedtestSettings() {
       </Card>
 
       {/* Cached Servers Explorer */}
-      {cachedData && cachedData.locations && cachedData.locations.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Cached Servers Explorer</CardTitle>
-            <CardDescription>
-              Browse and explore your cached speedtest servers by location.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {cachedData.locations.map((location) => {
-              const servers = cachedData.servers?.[location] || [];
-              const isExpanded = expandedLocations.has(location);
-              
-              return (
-                <div key={location} className="border border-border/50 dark:border-border rounded-lg bg-card/50">
-                  <button
-                    onClick={() => toggleLocationExpansion(location)}
-                    className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/30 dark:hover:bg-muted/50 transition-colors rounded-t-lg"
-                  >
-                    <div>
-                      <p className="font-medium text-card-foreground">{location}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {servers.length} server{servers.length !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </button>
-                  
-                  {isExpanded && (
-                    <div className="border-t border-border/30 bg-muted/10 dark:bg-muted/20">
-                      <div className="p-3 space-y-3">
-                        {servers.map((server: Server, index: number) => (
-                          <div
-                            key={server.id || index}
-                            className="p-3 bg-card dark:bg-card/80 border border-border/30 rounded-md text-sm shadow-sm hover:shadow-md transition-shadow"
-                          >
-                            <p className="font-mono text-xs text-muted-foreground mb-2 break-all select-all">
-                              ID: {server.id}
-                            </p>
-                            <p className="text-card-foreground leading-relaxed">
-                              {formatServerInfo(server)}
-                            </p>
-                            {server.distance !== undefined && (
-                              <div className="mt-2 flex items-center text-xs text-muted-foreground">
-                                <span className="inline-block w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full mr-2"></span>
-                                {server.distance.toFixed(1)}km away
-                              </div>
-                            )}
-                          </div>
-                        ))}
+      {(() => {
+        const hasComprehensiveData = cachedData && cachedData.locations && cachedData.locations.length > 0;
+        const locationData = getCachedLocationData();
+        const hasLocationData = locationData && Object.keys(locationData.locations || {}).length > 0;
+        
+        if (!hasComprehensiveData && !hasLocationData) return null;
+        
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Cached Servers Explorer</CardTitle>
+              <CardDescription>
+                Browse and explore your cached speedtest servers from both comprehensive and location caches.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Comprehensive Cache Servers */}
+              {hasComprehensiveData && cachedData.locations.map((location) => {
+                const servers = cachedData.servers?.[location] || [];
+                const isExpanded = expandedLocations.has(location);
+                
+                return (
+                  <div key={`comp-${location}`} className="border border-border/50 dark:border-border rounded-lg bg-card/50">
+                    <button
+                      onClick={() => toggleLocationExpansion(location)}
+                      className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/30 dark:hover:bg-muted/50 transition-colors rounded-t-lg"
+                    >
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                          🌐 {location}
+                          <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
+                            Comprehensive
+                          </span>
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {servers.length} server{servers.length !== 1 ? 's' : ''}
+                        </p>
                       </div>
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      )}
+                    </button>
+                    
+                    {isExpanded && (
+                      <div className="border-t border-border/30 bg-muted/10 dark:bg-muted/20">
+                        <div className="p-3 space-y-3">
+                          {servers.map((server: Server, index: number) => (
+                            <div
+                              key={server.id || index}
+                              className="p-3 bg-card dark:bg-card/80 border border-border/30 rounded-md text-sm shadow-sm hover:shadow-md transition-shadow"
+                            >
+                              <p className="font-mono text-xs text-gray-600 dark:text-gray-400 mb-2 break-all select-all">
+                                ID: {server.id}
+                              </p>
+                              <p className="text-gray-900 dark:text-white leading-relaxed">
+                                {formatServerInfo(server)}
+                              </p>
+                              {server.distance !== undefined && (
+                                <div className="mt-2 flex items-center text-xs text-gray-600 dark:text-gray-400">
+                                  <span className="inline-block w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full mr-2"></span>
+                                  {server.distance.toFixed(1)}km away
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              
+              {/* Location Cache Servers */}
+              {hasLocationData && (() => {
+                // Group servers by country instead of location
+                const serversByCountry: Record<string, Server[]> = {};
+                Object.entries(locationData.locations).forEach(([, servers]) => {
+                  servers.forEach(server => {
+                    const country = server.country || 'Unknown Country';
+                    if (!serversByCountry[country]) {
+                      serversByCountry[country] = [];
+                    }
+                    serversByCountry[country].push(server);
+                  });
+                });
+
+                return Object.entries(serversByCountry).map(([country, servers]) => {
+                  const isExpanded = expandedLocations.has(`country-${country}`);
+                  
+                  return (
+                    <div key={`country-${country}`} className="border border-border/50 dark:border-border rounded-lg bg-card/50">
+                      <button
+                        onClick={() => toggleLocationExpansion(`country-${country}`)}
+                        className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/30 dark:hover:bg-muted/50 transition-colors rounded-t-lg"
+                      >
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                            📍 {country}
+                            <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded">
+                              Location-based
+                            </span>
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {servers.length} server{servers.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                        )}
+                      </button>
+                      
+                      {isExpanded && (
+                        <div className="border-t border-border/30 bg-muted/10 dark:bg-muted/20">
+                          <div className="p-3 space-y-3">
+                            {servers.map((server: Server, index: number) => (
+                              <div
+                                key={server.id || index}
+                                className="p-3 bg-card dark:bg-card/80 border border-border/30 rounded-md text-sm shadow-sm hover:shadow-md transition-shadow"
+                              >
+                                <p className="font-mono text-xs text-gray-600 dark:text-gray-400 mb-2 break-all select-all">
+                                  ID: {server.id}
+                                </p>
+                                <div className="space-y-1">
+                                  <p className="font-medium text-gray-900 dark:text-white">
+                                    {server.name || server.sponsor}
+                                  </p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400 break-all" title={server.host}>
+                                    {server.host}
+                                  </p>
+                                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                                    {server.country} - {server.distance !== undefined ? `${server.distance.toFixed(0)} km` : 'Distance unknown'}
+                                  </p>
+                                </div>
+                                {server.distance !== undefined && (
+                                  <div className="mt-2 flex items-center text-xs text-gray-600 dark:text-gray-400">
+                                    <span className="inline-block w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full mr-2"></span>
+                                    {server.distance.toFixed(1)}km away
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
+                  );
+                });
+              })()}
+            </CardContent>
+          </Card>
+        );
+      })()}
     </div>
   );
 }
