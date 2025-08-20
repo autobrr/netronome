@@ -235,10 +235,25 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     return tests;
   }, [tests, serverFilterMode, selectedSingleServer, selectedMultipleServers, forceRerender]);
 
-  // Get the latest test from filtered results
+  // Get the latest test from filtered results, but if no filtered results, show the actual latest test
   const filteredLatestTestComputed = useMemo(() => {
-    return filteredDisplayTests.length > 0 ? filteredDisplayTests[filteredDisplayTests.length - 1] : null;
-  }, [filteredDisplayTests]);
+    // If we have filtered results based on server selection, use the latest from filtered results
+    if (serverFilterMode !== "all" && filteredDisplayTests.length > 0) {
+      // Sort filtered tests by date descending to get the actual latest
+      const sortedFiltered = [...filteredDisplayTests].sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      return sortedFiltered[0];
+    }
+    // For "all" mode or no filtered results, return null to fall back to latestTest prop
+    return null;
+  }, [filteredDisplayTests, serverFilterMode]);
+
+  // The test to display in Latest Run section
+  const displayLatestTest = useMemo(() => {
+    const testToUse = filteredLatestTestComputed || latestTest;
+    return testToUse;
+  }, [filteredLatestTestComputed, latestTest, serverFilterMode]);
 
   const calculateAverage = (field: keyof SpeedTestResult): string => {
     const dataToUse = filteredDisplayTests.length > 0 ? filteredDisplayTests : tests;
@@ -340,44 +355,49 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             )}
           >
             Latest Run
+            {serverFilterMode !== "all" && displayLatestTest && (
+              <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                (filtered)
+              </span>
+            )}
           </h2>
           <div className="flex justify-between ml-1 items-center text-gray-600 dark:text-gray-400 text-sm mb-4">
             <div>
               Last test run:{" "}
-              {(filteredLatestTestComputed || latestTest)?.createdAt
-                ? formatters.dateTime(new Date((filteredLatestTestComputed || latestTest)!.createdAt))
-                : "N/A"}
+              {displayLatestTest?.createdAt ? (
+                formatters.dateTime(new Date(displayLatestTest.createdAt))
+              ) : "N/A"}
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 cursor-default relative">
             <MetricCard
               icon={<IoIosPulse className="w-5 h-5 text-amber-500" />}
               title="Latency"
-              value={parseFloat((filteredLatestTestComputed || latestTest)!.latency).toFixed(2)}
+              value={displayLatestTest ? parseFloat(displayLatestTest.latency).toFixed(2) : "N/A"}
               unit="ms"
               average={calculateAverage("latency")}
             />
             <MetricCard
               icon={<FaArrowDown className="w-5 h-5 text-blue-500" />}
               title="Download"
-              value={(filteredLatestTestComputed || latestTest)!.downloadSpeed.toFixed(2)}
+              value={displayLatestTest ? displayLatestTest.downloadSpeed.toFixed(2) : "N/A"}
               unit="Mbps"
               average={calculateAverage("downloadSpeed")}
             />
             <MetricCard
               icon={<FaArrowUp className="w-5 h-5 text-emerald-500" />}
               title="Upload"
-              value={(filteredLatestTestComputed || latestTest)!.uploadSpeed.toFixed(2)}
+              value={displayLatestTest ? displayLatestTest.uploadSpeed.toFixed(2) : "N/A"}
               unit="Mbps"
               average={calculateAverage("uploadSpeed")}
             />
             <MetricCard
               icon={<FaWaveSquare className="w-5 h-5 text-purple-400" />}
               title="Jitter"
-              value={(filteredLatestTestComputed || latestTest)!.jitter?.toFixed(2) ?? "N/A"}
+              value={displayLatestTest?.jitter?.toFixed(2) ?? "N/A"}
               unit="ms"
               average={
-                (filteredLatestTestComputed || latestTest)!.jitter ? calculateAverage("jitter") : undefined
+                displayLatestTest?.jitter ? calculateAverage("jitter") : undefined
               }
             />
 

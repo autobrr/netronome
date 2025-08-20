@@ -161,12 +161,11 @@ export default function Main({ isPublic = false }: MainProps) {
     }
   };
 
-  // State for comprehensive server loading
-  const [useComprehensiveServers, setUseComprehensiveServers] = useState(() => {
-    // Check if we have cached comprehensive data on initialization
+  // Determine if we should use comprehensive servers based on cached data
+  const useComprehensiveServers = useMemo(() => {
     const cached = localStorage.getItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
     return !!cached; // Use comprehensive servers if we have cached data
-  });
+  }, []);
 
   // Default speedtest servers (local, fast loading) - only used as fallback
   const { data: defaultSpeedtestServers = [] } = useQuery({
@@ -176,7 +175,7 @@ export default function Main({ isPublic = false }: MainProps) {
   }) as { data: Server[] };
 
   // Comprehensive server data (global, loaded on demand or from cache)
-  const { data: comprehensiveServerData, isFetching: isLoadingComprehensive } = useQuery<ComprehensiveServerData>({
+  const { data: comprehensiveServerData } = useQuery<ComprehensiveServerData>({
     queryKey: ["servers", "comprehensive", "speedtest"],
     queryFn: async () => {
       const cached = getCachedComprehensiveData();
@@ -208,11 +207,6 @@ export default function Main({ isPublic = false }: MainProps) {
     queryFn: () => getServers("librespeed"),
     enabled: !isPublic,
   }) as { data: Server[] };
-
-  // Function to load comprehensive servers (kept for backward compatibility)
-  const loadComprehensiveServers = () => {
-    setUseComprehensiveServers(true);
-  };
 
   // Choose which speedtest servers to use
   const speedtestServers: Server[] = useMemo(() => {
@@ -325,11 +319,18 @@ export default function Main({ isPublic = false }: MainProps) {
 
   // Use current time range history if available, otherwise fall back to all-time history for latest run
   const latestTest = useMemo(() => {
-    return history && history.length > 0
-      ? history[0]
-      : allTimeHistory.length > 0
-      ? allTimeHistory[0]
-      : null;
+    // Get the most recent test from available history
+    // History should be sorted by date descending (newest first), so take the first item
+    const historyToUse = history && history.length > 0 ? history : allTimeHistory;
+    
+    if (historyToUse.length === 0) return null;
+    
+    // Sort by createdAt descending to ensure we get the actual latest test
+    const sortedHistory = [...historyToUse].sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    
+    return sortedHistory[0] || null;
   }, [history, allTimeHistory]);
 
   const { data: schedules = [] } = useQuery({
@@ -354,9 +355,20 @@ export default function Main({ isPublic = false }: MainProps) {
     onMutate: (actualOptions) => {
       console.log("Starting speed test with options:", actualOptions);
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      console.log("Speed test completed successfully:", result);
+      
+      // Force refresh all queries to get the latest data
       queryClient.invalidateQueries({ queryKey: ["history"] });
       queryClient.invalidateQueries({ queryKey: ["history-chart"] });
+      queryClient.invalidateQueries({ queryKey: ["allTimeHistory"] });
+
+      // Also refetch immediately to get updated data
+      queryClient.refetchQueries({ queryKey: ["history"] });
+      queryClient.refetchQueries({ queryKey: ["allTimeHistory"] });
+      
+      console.log("Speed test result timestamp:", result?.timestamp);
+      
       setProgress(null);
       setTestStatus("complete");
     },

@@ -119,7 +119,8 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 			Str("server_id", selectedServer.ID).
 			Str("server_name", selectedServer.Name).
 			Str("provider", selectedServer.Sponsor).
-			Msg("No specific server requested or found, using closest server")
+			Float64("distance", selectedServer.Distance).
+			Msg("Selected closest server for testing")
 	}
 
 	log.Info().
