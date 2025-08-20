@@ -8,11 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RefreshCw, MapPin, Globe, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { RefreshCw, MapPin, Globe, Trash2, ChevronDown, ChevronRight, Settings } from "lucide-react";
 import { Server, ComprehensiveServerData } from "@/types/types";
 import { getApiUrl } from "@/utils/baseUrl";
 import { showToast } from "@/components/common/Toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatServerName, setShowCityInServerName as updateShowCitySetting } from "@/utils/serverDisplay";
 
 export function SpeedtestSettings() {
   const [customLocation, setCustomLocation] = useState("");
@@ -20,6 +21,14 @@ export function SpeedtestSettings() {
   const [locationError, setLocationError] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set());
+  const [showCityInServerName, setShowCityInServerName] = useState(() => {
+    try {
+      const saved = localStorage.getItem("netronome-show-city-in-server-name");
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
 
   const queryClient = useQueryClient();
   const COMPREHENSIVE_SERVERS_CACHE_KEY = "netronome-comprehensive-servers";
@@ -196,6 +205,18 @@ export function SpeedtestSettings() {
     setExpandedLocations(newExpanded);
   };
 
+  const handleShowCityToggle = (enabled: boolean) => {
+    setShowCityInServerName(enabled);
+    updateShowCitySetting(enabled); // This will dispatch the custom event
+    
+    showToast(
+      enabled 
+        ? "City names will now be shown in brackets next to server names" 
+        : "City names will no longer be shown in server names", 
+      "success"
+    );
+  };
+
   const formatServerInfo = (server: Server) => {
     const parts = [];
     if (server.name) parts.push(server.name);
@@ -277,6 +298,47 @@ export function SpeedtestSettings() {
           </CardContent>
         </Card>
       )}
+
+      {/* Display Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Display Settings
+          </CardTitle>
+          <CardDescription>
+            Customize how servers are displayed in the server selection interface.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <Label htmlFor="show-city" className="text-sm font-medium text-gray-900 dark:text-white">
+                Show City in Server Name
+              </Label>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                Display city location in brackets next to server sponsor name (e.g., "Leaptel (Brisbane)")
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                id="show-city"
+                type="checkbox"
+                checked={showCityInServerName}
+                onChange={(e) => handleShowCityToggle(e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2"
+              />
+            </div>
+          </div>
+          
+          <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              <strong>Preview:</strong> When enabled, servers like "Leaptel" will be displayed as 
+              "Leaptel (Brisbane)" to help distinguish between servers from the same provider in different cities.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Server Cache Status */}
       <Card>
@@ -549,7 +611,7 @@ export function SpeedtestSettings() {
                                 </p>
                                 <div className="space-y-1">
                                   <p className="font-medium text-gray-900 dark:text-white">
-                                    {server.name || server.sponsor}
+                                    {formatServerName(server)}
                                   </p>
                                   <p className="text-xs text-gray-600 dark:text-gray-400 break-all" title={server.host}>
                                     {server.host}

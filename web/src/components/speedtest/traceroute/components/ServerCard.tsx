@@ -7,6 +7,7 @@ import React from "react";
 import { motion } from "motion/react";
 import { Server } from "@/types/types";
 import { extractHostname } from "../utils/tracerouteUtils";
+import { formatServerName } from "@/utils/serverDisplay";
 import {
   getServerTypeLabel,
   getServerTypeColorClass,
@@ -42,7 +43,7 @@ export const ServerCard: React.FC<ServerCardProps> = ({
       >
         <div className="flex flex-col gap-1">
           <span className="text-blue-600 dark:text-blue-300 font-medium truncate">
-            {server.isIperf ? server.name : server.sponsor}
+            {server.isIperf ? server.name : formatServerName(server)}
           </span>
           <span className="text-gray-600 dark:text-gray-400 text-sm">
             {server.isIperf ? "iperf3 Server" : server.name}

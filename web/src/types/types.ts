@@ -13,6 +13,7 @@ export interface Server {
   sponsor: string;
   latitude: number;
   longitude: number;
+  city?: string; // Extracted city name for better server identification
   isIperf: boolean;
   isLibrespeed?: boolean;
 }
@@ -22,6 +23,7 @@ export interface SpeedTestResult {
   serverId: string;
   serverName: string;
   serverHost: string;
+  serverCity?: string; // City name stored when test was run
   testType: "speedtest" | "iperf3" | "librespeed";
   downloadSpeed: number;
   uploadSpeed: number;

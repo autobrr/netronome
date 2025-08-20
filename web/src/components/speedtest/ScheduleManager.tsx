@@ -37,6 +37,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { getApiUrl } from "@/utils/baseUrl";
 import { formatNextRun } from "@/utils/timeUtils";
 import { formatters } from "@/utils/timeSettings";
+import { formatServerName } from "@/utils/serverDisplay";
 import { Button } from "@/components/ui/Button";
 
 interface ScheduleManagerProps {
@@ -412,7 +413,7 @@ export default function ScheduleManager({
           }
           return (
             <span key={id}>
-              {server.sponsor} - {server.name} -{" "}
+              {formatServerName(server)} - {server.name} -{" "}
               <span className="text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_rgba(251,191,36,0.8)]">
                 speedtest.net
               </span>

@@ -9,6 +9,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "motion/react";
 import { SpeedTestResult, TimeRange } from "@/types/types";
 import { formatters } from "@/utils/timeSettings";
+import { subscribeToShowCitySetting } from "@/utils/serverDisplay";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import { MetricCard } from "@/components/common/MetricCard";
 import { FeaturedMonitorWidget } from "@/components/monitor/FeaturedMonitorWidget";
@@ -187,6 +188,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const [selectedMultipleServers, setSelectedMultipleServers] = useState<Set<string>>(new Set());
   const [multipleServerDisplayMode, setMultipleServerDisplayMode] = useState<"overlay" | "separate">("overlay");
 
+  // State to trigger re-renders when city display setting changes
+  const [forceRerender, setForceRerender] = useState(0);
+
   // Initialize drag sensors
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -208,7 +212,18 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     );
   }, [sectionOrder]);
 
-  const displayedTests = tests.slice(0, displayCount);
+  // Subscribe to city display setting changes to trigger re-renders
+  useEffect(() => {
+    const unsubscribeCitySetting = subscribeToShowCitySetting(() => {
+      setForceRerender(prev => prev + 1); // Trigger re-render when setting changes
+    });
+    
+    return unsubscribeCitySetting;
+  }, []);
+
+  const displayedTests = useMemo(() => {
+    return tests.slice(0, displayCount);
+  }, [tests, displayCount, forceRerender]);
 
   // Apply server filtering to tests (same logic as in SpeedHistoryChart)
   const filteredDisplayTests = useMemo(() => {
@@ -218,7 +233,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       return tests.filter(test => selectedMultipleServers.has(test.serverName));
     }
     return tests;
-  }, [tests, serverFilterMode, selectedSingleServer, selectedMultipleServers]);
+  }, [tests, serverFilterMode, selectedSingleServer, selectedMultipleServers, forceRerender]);
 
   // Get the latest test from filtered results
   const filteredLatestTestComputed = useMemo(() => {
@@ -440,6 +455,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                         setDisplayCount={setDisplayCount}
                         isRecentTestsOpen={isRecentTestsOpen}
                         setIsRecentTestsOpen={setIsRecentTestsOpen}
+                        forceRerender={forceRerender}
                       />
                     </SortableItem>
                   );
@@ -465,6 +481,7 @@ interface DraggableRecentSpeedtestsProps {
   dragHandleRef?: (node: HTMLElement | null) => void;
   dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
   dragHandleClassName?: string;
+  forceRerender?: number;
 }
 
 const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
@@ -477,6 +494,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
   dragHandleRef,
   dragHandleListeners,
   dragHandleClassName,
+  forceRerender = 0,
 }) => {
   return (
     <div className="shadow-lg rounded-xl overflow-hidden">
@@ -534,6 +552,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
             {/* Desktop Table View */}
             <div className="hidden md:block">
               <DataTable
+                key={`desktop-table-${forceRerender}`}
                 columns={speedTestColumns}
                 data={displayedTests}
                 showPagination={false}
@@ -548,6 +567,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
             {/* Mobile Card View */}
             <div className="md:hidden">
               <DataTable
+                key={`mobile-table-${forceRerender}`}
                 columns={speedTestMobileColumns}
                 data={displayedTests}
                 showPagination={false}

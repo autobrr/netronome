@@ -19,6 +19,7 @@ type TestOptions struct {
 	UseLibrespeed    bool     `json:"useLibrespeed"`
 	ServerHost       string   `json:"serverHost"`
 	ServerName       string   `json:"serverName"`
+	ServerCity       string   `json:"serverCity"`
 }
 
 type SpeedUpdate struct {
@@ -48,6 +49,7 @@ type SpeedTestResult struct {
 	ServerName    string    `json:"serverName"`
 	ServerID      string    `json:"serverId"`
 	ServerHost    *string   `json:"serverHost,omitempty"`
+	ServerCity    *string   `json:"serverCity,omitempty"`
 	TestType      string    `json:"testType"`
 	DownloadSpeed float64   `json:"downloadSpeed"`
 	UploadSpeed   float64   `json:"uploadSpeed"`

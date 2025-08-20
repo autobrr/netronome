@@ -38,7 +38,7 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 
 	var serverHost *string
 	var serverID string
-	
+
 	switch testType {
 	case "iperf3":
 		serverHost = &opts.ServerHost
@@ -56,10 +56,16 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 		jitterPtr = &result.Jitter
 	}
 
+	var serverCity *string
+	if opts.ServerCity != "" {
+		serverCity = &opts.ServerCity
+	}
+
 	dbResult, err := h.db.SaveSpeedTest(ctx, types.SpeedTestResult{
 		ServerName:    result.Server,
 		ServerID:      serverID,
 		ServerHost:    serverHost,
+		ServerCity:    serverCity,
 		TestType:      testType,
 		DownloadSpeed: result.DownloadSpeed,
 		UploadSpeed:   result.UploadSpeed,
@@ -81,7 +87,7 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 			Int64("result_id", dbResult.ID).
 			Str("test_type", testType).
 			Msg("Successfully saved test result to database")
-		
+
 		h.SendNotification(dbResult)
 	}
 
@@ -98,7 +104,7 @@ func (h *DefaultResultHandler) SendNotification(result *types.SpeedTestResult) {
 			Upload:     result.UploadSpeed,
 			Ping:       parsePingValue(result.Latency),
 			Jitter:     getJitterValue(result.Jitter),
-			ISP:        "", // ISP not available in types.SpeedTestResult
+			ISP:        "",    // ISP not available in types.SpeedTestResult
 			Failed:     false, // Assuming successful test if we got here
 		}
 		h.notifier.SendSpeedTestNotification(notifResult)

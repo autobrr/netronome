@@ -30,7 +30,8 @@ import {
   FaWaveSquare,
   FaGripVertical,
 } from "react-icons/fa";
-import { formatters, useTimeSettings } from "@/utils/timeSettings";
+import { formatters } from "@/utils/timeSettings";
+import { formatServerNameFromResult, subscribeToShowCitySetting, getShowCityInServerName } from "@/utils/serverDisplay";
 import { Button } from "@/components/ui/Button";
 import {
   Select,
@@ -131,8 +132,15 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 }) => {
   const isMobile = useIsMobile();
   
-  // Listen for time settings changes to trigger re-renders
-  const { settings: timeSettings } = useTimeSettings();
+  // Subscribe to display setting changes
+  const [forceRerender, setForceRerender] = useState(0); // For triggering re-renders when settings change
+  useEffect(() => {
+    const unsubscribeCitySetting = subscribeToShowCitySetting(() => {
+      setForceRerender(prev => prev + 1); // Trigger re-render when setting changes
+    });
+    
+    return unsubscribeCitySetting;
+  }, []);
 
   const [visibleMetrics, setVisibleMetrics] = useState<VisibleMetrics>(() => {
     const saved = localStorage.getItem("speedtest-visible-metrics");
@@ -227,6 +235,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         jitter: Number(item.jitter) || 0,
         serverName: item.serverName || "Unknown Server",
         serverHost: item.serverHost || item.serverName || "Unknown Server",
+        serverCity: item.serverCity,
         testType: item.testType || "speedtest",
       }))
       .filter(
@@ -243,33 +252,57 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
     if (!filteredData || filteredData.length === 0) return [];
     
     const serverMap = new Map();
+    const showCityInServerName = getShowCityInServerName(); // Get current setting
+    
     filteredData.forEach(result => {
-      if (result.serverName && !serverMap.has(result.serverName)) {
-        serverMap.set(result.serverName, {
-          id: result.serverName,
-          name: result.serverName,
-          host: result.serverHost || result.serverName
-        });
+      if (result.serverName) {
+        // Create unique key based on city setting
+        // If city display is off, group all cities under same server name
+        const serverKey = (showCityInServerName && result.serverCity) 
+          ? `${result.serverName}-${result.serverCity}`
+          : result.serverName;
+        
+        if (!serverMap.has(serverKey)) {
+          const serverEntry = {
+            id: serverKey,
+            name: result.serverName,
+            host: result.serverHost || result.serverName,
+            city: showCityInServerName ? result.serverCity : undefined
+          };
+          serverMap.set(serverKey, serverEntry);
+        }
       }
     });
     
     return Array.from(serverMap.values());
-  }, [filteredData]);
+  }, [filteredData, forceRerender]); // Include forceRerender to update when setting changes
 
   // Apply server filtering
   const allResults = useMemo(() => {
+    const showCityInServerName = getShowCityInServerName(); // Get current setting
+    
     if (serverFilterMode === "single" && selectedSingleServer !== "all") {
-      const filtered = filteredData.filter(result => result.serverName === selectedSingleServer);
+      const filtered = filteredData.filter(result => {
+        // Create the same server key as used in availableServers
+        const serverKey = (showCityInServerName && result.serverCity) 
+          ? `${result.serverName}-${result.serverCity}`
+          : result.serverName;
+        return serverKey === selectedSingleServer;
+      });
       return filtered;
     } else if (serverFilterMode === "multiple" && selectedMultipleServers.size > 0) {
-      const filtered = filteredData.filter(result => 
-        selectedMultipleServers.has(result.serverName) || selectedMultipleServers.has(result.serverHost)
-      );
+      const filtered = filteredData.filter(result => {
+        // Create the same server key as used in availableServers
+        const serverKey = (showCityInServerName && result.serverCity) 
+          ? `${result.serverName}-${result.serverCity}`
+          : result.serverName;
+        return selectedMultipleServers.has(serverKey);
+      });
       return filtered;
     }
     
     return filteredData;
-  }, [filteredData, serverFilterMode, selectedSingleServer, selectedMultipleServers, availableServers]);
+  }, [filteredData, serverFilterMode, selectedSingleServer, selectedMultipleServers, availableServers, forceRerender]); // Include forceRerender to update when setting changes
 
   // Server filter handlers
   const handleServerDropdownChange = (value: string) => {
@@ -318,11 +351,15 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
   // Function to render individual server charts for separate mode
   const renderServerChart = (serverName: string, serverData: any[]) => {
+    // Get server city from first result for better formatting
+    const serverCity = serverData.length > 0 ? serverData[0].serverCity : undefined;
+    const displayName = formatServerNameFromResult(serverName, serverCity);
+    
     return (
       <div key={`server-${serverName}`} className="mb-6">
         <div className="mb-2">
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {serverName} ({serverData.length} data points)
+            {displayName} ({serverData.length} data points)
           </h4>
         </div>
         <div className="h-80 bg-white/50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200/50 dark:border-gray-700/50">
@@ -728,7 +765,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     >
                       {shouldRedact
                         ? "redacted host"
-                        : data.serverHost || data.serverName}
+                        : formatServerNameFromResult(data.serverName, data.serverHost)}
                       {data.testType && (
                         <span
                           style={{
@@ -831,7 +868,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         </AreaChart>
       </ResponsiveContainer>
     ),
-    [allResults, timeRange, visibleMetrics, isMobile, isPublic, availableServers]
+    [allResults, timeRange, visibleMetrics, isMobile, isPublic, forceRerender]
   );
 
   const [isOpen, setIsOpen] = useState(() => {
@@ -1011,7 +1048,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                           <SelectItem value="multiple">Select multiple...</SelectItem>
                           {availableServers.map((server) => (
                             <SelectItem key={server.id} value={server.id}>
-                              {server.name}
+                              {formatServerNameFromResult(server.name, server.city)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1040,7 +1077,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                                         }}
                                       />
                                       <label htmlFor={server.id} className="text-sm cursor-pointer flex-1">
-                                        {server.name}
+                                        {formatServerNameFromResult(server.name, server.city)}
                                       </label>
                                     </div>
                                   ))}

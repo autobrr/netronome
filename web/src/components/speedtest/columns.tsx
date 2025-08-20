@@ -13,6 +13,7 @@ import {
   createRightAlignedSortableHeader,
 } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
+import { formatServerNameFromResult } from "@/utils/serverDisplay";
 
 // Helper function to format speed
 const formatSpeed = (speed: number) => {
@@ -63,14 +64,20 @@ export const speedTestColumns: ColumnDef<SpeedTestResult>[] = [
   {
     accessorKey: "serverName",
     header: "Server",
-    cell: ({ row }) => (
-      <span
-        className="text-gray-700 dark:text-gray-300 truncate block max-w-[180px] font-medium"
-        title={row.getValue("serverName")}
-      >
-        {row.getValue("serverName")}
-      </span>
-    ),
+    cell: ({ row }) => {
+      const serverName = row.getValue("serverName") as string;
+      const serverCity = row.original.serverCity;
+      const displayName = formatServerNameFromResult(serverName, serverCity);
+      
+      return (
+        <span
+          className="text-gray-700 dark:text-gray-300 truncate block max-w-[180px] font-medium"
+          title={displayName}
+        >
+          {displayName}
+        </span>
+      );
+    },
     enableHiding: false, // Always show server
   },
   {
@@ -150,12 +157,13 @@ export const speedTestMobileColumns: ColumnDef<SpeedTestResult>[] = [
     cell: ({ row }) => {
       const test = row.original;
       const testType = test.testType;
+      const displayName = formatServerNameFromResult(test.serverName, test.serverCity);
 
       return (
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="text-gray-700 dark:text-gray-300 text-base font-medium truncate flex-1 mr-2">
-              {test.serverName}
+              {displayName}
             </div>
             <span
               className={cn(

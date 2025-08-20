@@ -216,26 +216,34 @@ export default function Main({ isPublic = false }: MainProps) {
 
   // Choose which speedtest servers to use
   const speedtestServers: Server[] = useMemo(() => {
-    const servers: Server[] = [];
+    const serversById: Map<string, Server> = new Map();
     
     // Add comprehensive servers if available
     if (useComprehensiveServers && comprehensiveServerData) {
-      servers.push(...(comprehensiveServerData.allServers || []));
-      console.log('🌐 Added comprehensive servers:', comprehensiveServerData.allServers?.length || 0);
+      const comprehensiveServers = comprehensiveServerData.allServers || [];
+      comprehensiveServers.forEach(server => {
+        serversById.set(server.id, server);
+      });
+      console.log('🌐 Added comprehensive servers:', comprehensiveServers.length);
     }
     
-    // Add location cache servers if available
+    // Add location cache servers if available (will override duplicates from comprehensive)
     const locationData = getCachedLocationData();
     if (locationData && locationData.locations) {
       const locationServers = Object.values(locationData.locations).flat() as Server[];
-      servers.push(...locationServers);
+      locationServers.forEach(server => {
+        serversById.set(server.id, server);
+      });
       console.log('📍 Added location cache servers:', locationServers.length, 'from', Object.keys(locationData.locations).length, 'locations');
     }
     
+    // Convert back to array
+    const uniqueServers = Array.from(serversById.values());
+    
     // If we have servers from either cache, use them
-    if (servers.length > 0) {
-      console.log('🎯 Using combined cached servers:', servers.length, 'total servers');
-      return servers;
+    if (uniqueServers.length > 0) {
+      console.log('🎯 Using deduplicated cached servers:', uniqueServers.length, 'total unique servers');
+      return uniqueServers;
     }
     
     // Fallback to default local servers
@@ -243,10 +251,21 @@ export default function Main({ isPublic = false }: MainProps) {
     return defaultSpeedtestServers;
   }, [useComprehensiveServers, comprehensiveServerData, defaultSpeedtestServers]);
 
-  const allServers = useMemo(
-    () => [...speedtestServers, ...librespeedServers],
-    [speedtestServers, librespeedServers]
-  );
+  const allServers = useMemo(() => {
+    const serversById: Map<string, Server> = new Map();
+    
+    // Add speedtest servers first
+    speedtestServers.forEach(server => {
+      serversById.set(server.id, server);
+    });
+    
+    // Add librespeed servers (will override duplicates if any)
+    librespeedServers.forEach(server => {
+      serversById.set(server.id, server);
+    });
+    
+    return Array.from(serversById.values());
+  }, [speedtestServers, librespeedServers]);
 
   const servers = useMemo(() => {
     if (testType === "librespeed") return librespeedServers;
@@ -424,6 +443,7 @@ export default function Main({ isPublic = false }: MainProps) {
             : [],
         serverHost: testType === "iperf" ? selectedServers[0].host : undefined,
         serverName: testType === "iperf" ? selectedServers[0].name : undefined,
+        serverCity: selectedServers[0].city,
       });
     } catch (error) {
       console.error("Error running test:", error);
