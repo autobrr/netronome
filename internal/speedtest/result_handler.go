@@ -30,6 +30,8 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 	log.Debug().
 		Str("test_type", testType).
 		Str("server", result.Server).
+		Str("server_city_from_opts", opts.ServerCity).
+		Bool("is_scheduled", opts.IsScheduled).
 		Float64("download_speed", result.DownloadSpeed).
 		Float64("upload_speed", result.UploadSpeed).
 		Str("latency", result.Latency).

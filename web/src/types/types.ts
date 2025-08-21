@@ -60,6 +60,7 @@ export interface Schedule {
     useLibrespeed?: boolean;
     serverHost: string | undefined;
     serverName?: string | undefined;
+    serverCity?: string | undefined; // City information for scheduled tests
   };
 }
 
@@ -73,6 +74,7 @@ export interface TestOptions {
   serverIds?: string[];
   serverHost?: string;
   serverName?: string;
+  serverCity?: string; // City information for test execution
 }
 
 export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
