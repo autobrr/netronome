@@ -21,7 +21,7 @@ import (
 )
 
 type SpeedtestNetRunner struct {
-	client                *st.Speedtest
+	client           *st.Speedtest
 	config           config.SpeedTestConfig
 	progressCallback func(types.SpeedUpdate)
 	serverCache      []ServerResponse

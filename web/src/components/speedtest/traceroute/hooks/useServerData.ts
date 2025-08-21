@@ -22,8 +22,9 @@ export const useServerData = () => {
     DEFAULT_SERVER_DISPLAY_COUNT,
   );
   const [iperfServers, setIperfServers] = useState<SavedIperfServer[]>([]);
+  const [comprehensiveServers, setComprehensiveServers] = useState<Server[]>([]);
 
-  // Fetch speedtest servers
+  // Fetch speedtest servers (local)
   const { data: speedtestServers = [] } = useQuery({
     queryKey: ["servers", "speedtest"],
     queryFn: () => getServers("speedtest"),
@@ -34,6 +35,56 @@ export const useServerData = () => {
     queryKey: ["servers", "librespeed"],
     queryFn: () => getServers("librespeed"),
   }) as { data: Server[] };
+
+  // Fetch comprehensive speedtest.net servers from localStorage cache first, then fallback to API
+  useEffect(() => {
+    const COMPREHENSIVE_SERVERS_CACHE_KEY = "netronome-comprehensive-servers";
+    
+    const loadSpeedtestServers = () => {
+      try {
+        // Check localStorage cache first
+        const cachedData = localStorage.getItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
+        if (cachedData) {
+          const parsedData = JSON.parse(cachedData);
+          if (parsedData.data && parsedData.data.allServers && Array.isArray(parsedData.data.allServers)) {
+            setComprehensiveServers(parsedData.data.allServers);
+            return; // Use cached data, don't fetch from API
+          }
+        }
+        
+        // No valid cache found, servers will be empty
+        // This will fallback to the existing speedtest server handling
+        setComprehensiveServers([]);
+      } catch (error) {
+        console.error("Failed to load speedtest servers from cache:", error);
+        setComprehensiveServers([]);
+      }
+    };
+    
+    // Load servers on mount
+    loadSpeedtestServers();
+    
+    // Listen for localStorage changes (when comprehensive servers are fetched in settings)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === COMPREHENSIVE_SERVERS_CACHE_KEY) {
+        loadSpeedtestServers();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom events from same window (since storage events don't fire in same window)
+    const handleCustomStorageChange = () => {
+      loadSpeedtestServers();
+    };
+    
+    window.addEventListener('netronome-comprehensive-servers-updated', handleCustomStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('netronome-comprehensive-servers-updated', handleCustomStorageChange);
+    };
+  }, []);
 
   // Fetch iperf servers
   useEffect(() => {
@@ -54,8 +105,13 @@ export const useServerData = () => {
 
   // Combine all servers
   const allServers = useMemo(() => {
-    return combineServers(speedtestServers, librespeedServers, iperfServers);
-  }, [speedtestServers, librespeedServers, iperfServers]);
+    // Use comprehensive servers if available, otherwise fall back to local speedtest servers
+    const speedtestServerList = comprehensiveServers.length > 0 
+      ? comprehensiveServers 
+      : speedtestServers;
+        
+    return combineServers(speedtestServerList, librespeedServers, iperfServers);
+  }, [speedtestServers, librespeedServers, iperfServers, comprehensiveServers]);
 
   // Filter and sort servers
   const filteredServers = useMemo(() => {

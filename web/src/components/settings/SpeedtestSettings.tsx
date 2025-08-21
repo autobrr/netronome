@@ -269,6 +269,9 @@ export function SpeedtestSettings() {
       localStorage.setItem(COMPREHENSIVE_SERVERS_CACHE_KEY, JSON.stringify(cacheData));
       setRefreshKey(prev => prev + 1); // Trigger refresh after caching new data
       
+      // Dispatch custom event for same-window components (like traceroute)
+      window.dispatchEvent(new CustomEvent('netronome-comprehensive-servers-updated'));
+      
       // Invalidate React Query cache to refresh components
       queryClient.invalidateQueries({ queryKey: ["servers", "comprehensive", "speedtest"] });
       
