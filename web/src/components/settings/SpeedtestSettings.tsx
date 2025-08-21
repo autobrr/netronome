@@ -22,6 +22,7 @@ export function SpeedtestSettings() {
   const [locationError, setLocationError] = useState("");
   const [isFetchingComprehensive, setIsFetchingComprehensive] = useState(false);
   const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set());
+  const [refreshKey, setRefreshKey] = useState(0);
   const [showCityInServerName, setShowCityInServerName] = useState(() => {
     try {
       const saved = localStorage.getItem("netronome-show-city-in-server-name");
@@ -44,6 +45,9 @@ export function SpeedtestSettings() {
   // Function to get cached comprehensive server data
   const getCachedComprehensiveData = (): ComprehensiveServerData | null => {
     try {
+      // refreshKey dependency ensures this re-runs when cache is modified
+      if (refreshKey < 0) return null; // This will never be true, but creates dependency
+      
       const cached = localStorage.getItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
       if (!cached) return null;
       
@@ -52,6 +56,7 @@ export function SpeedtestSettings() {
     } catch (error) {
       console.error("Error reading comprehensive servers cache:", error);
       localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
+      setRefreshKey(prev => prev + 1); // Trigger refresh after clearing
       return null;
     }
   };
@@ -59,6 +64,8 @@ export function SpeedtestSettings() {
   // Functions for location-based server caching
   const getCachedLocationData = (): LocationServerData | null => {
     try {
+      if (refreshKey < 0) return null;
+
       const cached = localStorage.getItem(LOCATION_SERVERS_CACHE_KEY);
       if (!cached) return null;
       return JSON.parse(cached);
@@ -71,6 +78,7 @@ export function SpeedtestSettings() {
   const setCachedLocationData = (data: LocationServerData) => {
     try {
       localStorage.setItem(LOCATION_SERVERS_CACHE_KEY, JSON.stringify(data));
+      setRefreshKey(prev => prev + 1); // Trigger refresh after cache update
     } catch (error) {
       console.error("Error caching location servers:", error);
     }
@@ -179,7 +187,7 @@ export function SpeedtestSettings() {
   const handleClearCache = () => {
     localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
     localStorage.removeItem(LOCATION_SERVERS_CACHE_KEY);
-    queryClient.invalidateQueries({ queryKey: ["servers", "comprehensive", "speedtest"] });
+    setRefreshKey(prev => prev + 1); // Trigger refresh after clearing cache
     showToast("Both comprehensive and location caches cleared! App will use default local servers.", "info");
   };
 
@@ -259,6 +267,7 @@ export function SpeedtestSettings() {
         timestamp: Date.now()
       };
       localStorage.setItem(COMPREHENSIVE_SERVERS_CACHE_KEY, JSON.stringify(cacheData));
+      setRefreshKey(prev => prev + 1); // Trigger refresh after caching new data
       
       // Invalidate React Query cache to refresh components
       queryClient.invalidateQueries({ queryKey: ["servers", "comprehensive", "speedtest"] });
