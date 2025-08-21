@@ -136,6 +136,11 @@ func (s *Server) handleGetServers(c *gin.Context) {
 
 	// Handle comprehensive server data request (all servers with location info)
 	if comprehensive == "true" {
+		// Set up progress callback for broadcasting updates during server initialization
+		s.speedtest.SetBroadcastUpdate(func(update types.SpeedUpdate) {
+			s.BroadcastUpdate(update)
+		})
+
 		data, err := s.speedtest.GetAllServersWithLocationInfo(testType)
 		if err != nil {
 			c.Status(http.StatusInternalServerError)

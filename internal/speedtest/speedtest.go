@@ -68,6 +68,8 @@ func New(db database.Service, cfg config.SpeedTestConfig, notifier *notification
 
 func (s *service) SetBroadcastUpdate(broadcastUpdate func(types.SpeedUpdate)) {
 	s.broadcastUpdate = broadcastUpdate
+	// Also set the broadcast update on the speedtest.net runner for server initialization progress
+	s.speedtestNetRunner.SetProgressCallback(broadcastUpdate)
 }
 
 func (s *service) SetBroadcastTracerouteUpdate(broadcastUpdate func(types.TracerouteUpdate)) {

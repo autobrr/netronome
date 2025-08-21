@@ -316,12 +316,16 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 }
 
 func (r *SpeedtestNetRunner) GetServers() ([]ServerResponse, error) {
-	// Check if we have local servers cached first
+	// Check if we have local servers cached first and if they're still valid
 	if localServers, exists := r.locationCache["local"]; exists {
-		log.Debug().
-			Int("server_count", len(localServers)).
-			Msg("Returning cached local servers")
-		return localServers, nil
+		if expiry, expiryExists := r.locationCacheExpiry["local"]; expiryExists && time.Now().Before(expiry) {
+			log.Debug().
+				Int("server_count", len(localServers)).
+				Msg("Returning cached local servers")
+			return localServers, nil
+		} else {
+			log.Debug().Msg("Local server cache expired, will fetch fresh servers")
+		}
 	}
 
 	// Directly fetch local servers without initializing all locations
@@ -334,6 +338,7 @@ func (r *SpeedtestNetRunner) GetServers() ([]ServerResponse, error) {
 
 	// Cache the local servers for future use
 	r.locationCache["local"] = localServers
+	r.locationCacheExpiry["local"] = time.Now().Add(r.cacheDuration)
 
 	log.Debug().
 		Int("server_count", len(localServers)).
@@ -517,6 +522,17 @@ func (r *SpeedtestNetRunner) initializeAllServers() error {
 
 	log.Info().Msg("Initializing comprehensive server list from all locations")
 
+	// Send initial progress update
+	if r.progressCallback != nil {
+		r.progressCallback(types.SpeedUpdate{
+			Type:       "info",
+			ServerName: "Initializing comprehensive server list...",
+			Progress:   0,
+			IsComplete: false,
+			TestType:   "speedtest",
+		})
+	}
+
 	// Define all locations we want to fetch from
 	locations := []string{
 		"brasilia",
@@ -551,8 +567,23 @@ func (r *SpeedtestNetRunner) initializeAllServers() error {
 	serverMap := make(map[string]ServerResponse) // To avoid duplicates
 	locationServers := make(map[string][]ServerResponse)
 
+	totalSteps := len(locations) + 1 // +1 for local servers
+	currentStep := 0
+
 	// First, get local servers
 	log.Info().Msg("Fetching local servers")
+	if r.progressCallback != nil {
+		currentStep++
+		progress := float64(currentStep) / float64(totalSteps) * 100
+		r.progressCallback(types.SpeedUpdate{
+			Type:       "info",
+			ServerName: fmt.Sprintf("Fetching local servers... (%d/%d)", currentStep, totalSteps),
+			Progress:   progress,
+			IsComplete: false,
+			TestType:   "speedtest",
+		})
+	}
+
 	localServers, err := r.fetchLocalServers()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to fetch local servers")
@@ -571,9 +602,21 @@ func (r *SpeedtestNetRunner) initializeAllServers() error {
 
 	// Then fetch from all global locations
 	for _, location := range locations {
+		currentStep++
 		log.Info().
 			Str("location", location).
 			Msg("Fetching servers for location")
+
+		if r.progressCallback != nil {
+			progress := float64(currentStep) / float64(totalSteps) * 100
+			r.progressCallback(types.SpeedUpdate{
+				Type:       "info",
+				ServerName: fmt.Sprintf("Fetching servers from %s... (%d/%d)", location, currentStep, totalSteps),
+				Progress:   progress,
+				IsComplete: false,
+				TestType:   "speedtest",
+			})
+		}
 
 		locationServerList, err := r.fetchServersForLocation(location)
 		if err != nil {
@@ -624,6 +667,17 @@ func (r *SpeedtestNetRunner) initializeAllServers() error {
 	}
 
 	r.isInitialized = true
+
+	// Send completion progress update
+	if r.progressCallback != nil {
+		r.progressCallback(types.SpeedUpdate{
+			Type:       "info",
+			ServerName: fmt.Sprintf("Successfully initialized %d servers from %d locations", len(allServers), len(locationServers)),
+			Progress:   100,
+			IsComplete: true,
+			TestType:   "speedtest",
+		})
+	}
 
 	log.Info().
 		Int("total_servers", len(allServers)).

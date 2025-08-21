@@ -8,18 +8,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RefreshCw, MapPin, Globe, Trash2, ChevronDown, ChevronRight, Settings } from "lucide-react";
+import { MapPin, Globe, Trash2, ChevronDown, ChevronRight, Settings, Download } from "lucide-react";
 import { Server, ComprehensiveServerData } from "@/types/types";
 import { getApiUrl } from "@/utils/baseUrl";
 import { showToast } from "@/components/common/Toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { getAllServersWithLocationInfo } from "@/api/speedtest";
 import { formatServerName, setShowCityInServerName as updateShowCitySetting } from "@/utils/serverDisplay";
 
 export function SpeedtestSettings() {
   const [customLocation, setCustomLocation] = useState("");
   const [isAddingLocation, setIsAddingLocation] = useState(false);
   const [locationError, setLocationError] = useState("");
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isFetchingComprehensive, setIsFetchingComprehensive] = useState(false);
   const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set());
   const [showCityInServerName, setShowCityInServerName] = useState(() => {
     try {
@@ -175,24 +176,102 @@ export function SpeedtestSettings() {
     }
   };
 
-  const handleRefreshServers = async () => {
-    setIsRefreshing(true);
-    try {
-      localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
-      queryClient.invalidateQueries({ queryKey: ["servers", "comprehensive", "speedtest"] });
-      showToast("Server cache cleared and refreshed", "success");
-    } catch (error) {
-      showToast("Failed to refresh servers", "error");
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
   const handleClearCache = () => {
     localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
     localStorage.removeItem(LOCATION_SERVERS_CACHE_KEY);
     queryClient.invalidateQueries({ queryKey: ["servers", "comprehensive", "speedtest"] });
     showToast("Both comprehensive and location caches cleared! App will use default local servers.", "info");
+  };
+
+  const handleFetchComprehensive = async () => {
+    setIsFetchingComprehensive(true);
+    
+    let pollInterval: NodeJS.Timeout | null = null;
+    const stopPolling = () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    };
+
+    try {
+      // Clear the cache to force fresh fetch
+      localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
+      
+      // Start polling for progress updates
+      pollInterval = setInterval(async () => {
+        try {
+          const response = await fetch(getApiUrl("/speedtest/status"), {
+            headers: {
+              "Cache-Control": "no-cache",
+              "Pragma": "no-cache",
+            },
+          });
+          
+          if (response.ok) {
+            const update = await response.json();
+            
+            // Show toast for server initialization progress messages
+            if (update && update.type === "info" && update.serverName) {
+              if (update.serverName.includes("Fetching servers from") || 
+                  update.serverName.includes("Processed servers for") ||
+                  update.serverName.includes("Initializing comprehensive") ||
+                  update.serverName.includes("Successfully initialized")) {
+                
+                // Extract key information for more concise toasts
+                let message = update.serverName;
+                let type: "info" | "success" = "info";
+                
+                if (update.serverName.includes("Successfully initialized")) {
+                  type = "success";
+                  message = update.serverName;
+                } else if (update.serverName.includes("Fetching servers from")) {
+                  // Extract location from "Fetching servers from shanghai... (15/27)"
+                  const match = update.serverName.match(/Fetching servers from (\w+).*?\((\d+)\/(\d+)\)/);
+                  if (match) {
+                    const [, location, current, total] = match;
+                    message = `${location.toUpperCase()}: Fetching servers (${current}/${total})`;
+                  }
+                } else if (update.serverName.includes("Initializing comprehensive")) {
+                  message = "Starting comprehensive server fetch...";
+                }
+                
+                showToast(message, type);
+                console.log('📡 Server fetch progress:', update);
+              }
+            }
+          }
+        } catch (error) {
+          // Ignore polling errors - the main fetch will handle real errors
+          console.debug('Progress polling error (ignored):', error);
+        }
+      }, 1000); // Poll every second
+      
+      // Fetch fresh comprehensive server data
+      const data = await getAllServersWithLocationInfo("speedtest");
+      
+      // Stop polling once the main request completes
+      stopPolling();
+      
+      // Cache the new data
+      const cacheData = {
+        data,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(COMPREHENSIVE_SERVERS_CACHE_KEY, JSON.stringify(cacheData));
+      
+      // Invalidate React Query cache to refresh components
+      queryClient.invalidateQueries({ queryKey: ["servers", "comprehensive", "speedtest"] });
+      
+      showToast(`Comprehensive server fetch complete! ${data.totalServers || 0} servers from ${data.locations?.length || 0} locations.`, "success");
+    } catch (error) {
+      stopPolling();
+      console.error('Error fetching comprehensive servers:', error);
+      showToast("Failed to fetch comprehensive servers", "error");
+    } finally {
+      stopPolling();
+      setIsFetchingComprehensive(false);
+    }
   };
 
   const toggleLocationExpansion = (location: string) => {
@@ -333,8 +412,8 @@ export function SpeedtestSettings() {
           
           <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <p className="text-sm text-blue-700 dark:text-blue-300">
-              <strong>Preview:</strong> When enabled, servers like "Leaptel" will be displayed as 
-              "Leaptel (Brisbane)" to help distinguish between servers from the same provider in different cities.
+              <strong>Preview:</strong> When enabled, servers like "CSM" will be displayed as 
+              "CSM (New York)" to help distinguish between servers from the same provider in different cities.
             </p>
           </div>
         </CardContent>
@@ -411,21 +490,21 @@ export function SpeedtestSettings() {
           <div className="flex gap-2 justify-end pt-4 border-t border-border/50">
             <Button
               variant="outline"
-              onClick={handleRefreshServers}
-              disabled={isRefreshing}
-              size="sm"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
-              {isRefreshing ? "Refreshing..." : "Refresh"}
-            </Button>
-            <Button
-              variant="outline"
               onClick={handleClearCache}
-              disabled={isRefreshing}
+              disabled={isFetchingComprehensive}
               size="sm"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Clear Both Caches
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleFetchComprehensive}
+              disabled={isFetchingComprehensive}
+              size="sm"
+            >
+              <Download className={`h-4 w-4 mr-2 ${isFetchingComprehensive ? "animate-spin" : ""}`} />
+              {isFetchingComprehensive ? "Fetching..." : "Fetch All Servers"}
             </Button>
           </div>
         </CardContent>
