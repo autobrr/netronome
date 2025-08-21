@@ -22,28 +22,20 @@ import (
 
 type SpeedtestNetRunner struct {
 	client                *st.Speedtest
-	config                config.SpeedTestConfig
-	progressCallback      func(types.SpeedUpdate)
-	serverCache           []ServerResponse
-	allServersCache       []ServerResponse            // Cache all servers from all locations
-	locationCache         map[string][]ServerResponse // Cache servers by location
-	cacheExpiry           time.Time
-	allServersCacheExpiry time.Time
-	locationCacheExpiry   map[string]time.Time // Cache expiry per location
-	cacheDuration         time.Duration
-	isInitialized         bool // Track if we've built the initial server lists
+	config           config.SpeedTestConfig
+	progressCallback func(types.SpeedUpdate)
+	serverCache      []ServerResponse
+	allServersCache  []ServerResponse            // Cache all servers from all locations
+	locationCache    map[string][]ServerResponse // Cache servers by location
+	isInitialized    bool                        // Track if we've built the initial server lists
 }
 
 func NewSpeedtestNetRunner(cfg config.SpeedTestConfig) *SpeedtestNetRunner {
 	return &SpeedtestNetRunner{
-		client:                st.New(),
-		config:                cfg,
-		cacheDuration:         30 * time.Minute,
-		cacheExpiry:           time.Now(),
-		allServersCacheExpiry: time.Now(),
-		locationCache:         make(map[string][]ServerResponse),
-		locationCacheExpiry:   make(map[string]time.Time),
-		isInitialized:         false,
+		client:        st.New(),
+		config:        cfg,
+		locationCache: make(map[string][]ServerResponse),
+		isInitialized: false,
 	}
 }
 
@@ -316,16 +308,12 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 }
 
 func (r *SpeedtestNetRunner) GetServers() ([]ServerResponse, error) {
-	// Check if we have local servers cached first and if they're still valid
+	// Check if we have local servers cached first
 	if localServers, exists := r.locationCache["local"]; exists {
-		if expiry, expiryExists := r.locationCacheExpiry["local"]; expiryExists && time.Now().Before(expiry) {
-			log.Debug().
-				Int("server_count", len(localServers)).
-				Msg("Returning cached local servers")
-			return localServers, nil
-		} else {
-			log.Debug().Msg("Local server cache expired, will fetch fresh servers")
-		}
+		log.Debug().
+			Int("server_count", len(localServers)).
+			Msg("Returning cached local servers")
+		return localServers, nil
 	}
 
 	// Directly fetch local servers without initializing all locations
@@ -338,7 +326,6 @@ func (r *SpeedtestNetRunner) GetServers() ([]ServerResponse, error) {
 
 	// Cache the local servers for future use
 	r.locationCache["local"] = localServers
-	r.locationCacheExpiry["local"] = time.Now().Add(r.cacheDuration)
 
 	log.Debug().
 		Int("server_count", len(localServers)).
@@ -516,7 +503,7 @@ func (r *SpeedtestNetRunner) GetServersFromMultipleLocations() ([]ServerResponse
 }
 
 func (r *SpeedtestNetRunner) initializeAllServers() error {
-	if r.isInitialized && len(r.allServersCache) > 0 && time.Now().Before(r.allServersCacheExpiry) {
+	if r.isInitialized && len(r.allServersCache) > 0 {
 		return nil // Already initialized and cache is valid
 	}
 
@@ -657,14 +644,6 @@ func (r *SpeedtestNetRunner) initializeAllServers() error {
 	// Cache everything
 	r.allServersCache = allServers
 	r.locationCache = locationServers
-	r.allServersCacheExpiry = time.Now().Add(r.cacheDuration)
-
-	// Set expiry for all location caches
-	expiryTime := time.Now().Add(r.cacheDuration)
-	r.locationCacheExpiry["local"] = expiryTime
-	for _, location := range locations {
-		r.locationCacheExpiry[location] = expiryTime
-	}
 
 	r.isInitialized = true
 
@@ -801,13 +780,11 @@ func (r *SpeedtestNetRunner) fetchServersForLocation(location string) ([]ServerR
 func (r *SpeedtestNetRunner) GetServersByLocation(location string) ([]ServerResponse, error) {
 	// Check if we have cached servers for this location
 	if servers, exists := r.locationCache[location]; exists {
-		if expiry, expExists := r.locationCacheExpiry[location]; expExists && time.Now().Before(expiry) {
-			log.Debug().
-				Str("location", location).
-				Int("server_count", len(servers)).
-				Msg("Returning cached servers for location")
-			return servers, nil
-		}
+		log.Debug().
+			Str("location", location).
+			Int("server_count", len(servers)).
+			Msg("Returning cached servers for location")
+		return servers, nil
 	}
 
 	log.Info().
@@ -917,9 +894,8 @@ func (r *SpeedtestNetRunner) GetServersByLocation(location string) ([]ServerResp
 		servers = servers[:20]
 	}
 
-	// Cache the results for this location (valid for 30 minutes)
+	// Cache the results for this location
 	r.locationCache[location] = servers
-	r.locationCacheExpiry[location] = time.Now().Add(30 * time.Minute)
 
 	log.Info().
 		Str("location", location).

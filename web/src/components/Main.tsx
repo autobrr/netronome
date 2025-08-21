@@ -180,23 +180,11 @@ export default function Main({ isPublic = false }: MainProps) {
     queryFn: async () => {
       const cached = getCachedComprehensiveData();
       if (cached) {
-        console.log('🔄 Using cached comprehensive server data:', {
-          totalServers: cached.totalServers,
-          locations: cached.locations?.length || 0,
-          lastUpdated: cached.lastUpdated,
-          cacheAge: Math.round((Date.now() - new Date(cached.lastUpdated || 0).getTime()) / (1000 * 60)) + ' minutes ago'
-        });
         return cached;
       }
       
-      console.log('🌐 Fetching fresh comprehensive server data from API...');
       const data = await getAllServersWithLocationInfo("speedtest");
       setCachedComprehensiveData(data);
-      console.log('✅ Fresh comprehensive data cached:', {
-        totalServers: data.totalServers,
-        locations: data.locations?.length || 0,
-        fetchedAt: new Date().toISOString()
-      });
       return data;
     },
     enabled: !isPublic && useComprehensiveServers,
@@ -218,7 +206,6 @@ export default function Main({ isPublic = false }: MainProps) {
       comprehensiveServers.forEach(server => {
         serversById.set(server.id, server);
       });
-      console.log('🌐 Added comprehensive servers:', comprehensiveServers.length);
     }
     
     // Add location cache servers if available (will override duplicates from comprehensive)
@@ -228,7 +215,6 @@ export default function Main({ isPublic = false }: MainProps) {
       locationServers.forEach(server => {
         serversById.set(server.id, server);
       });
-      console.log('📍 Added location cache servers:', locationServers.length, 'from', Object.keys(locationData.locations).length, 'locations');
     }
     
     // Convert back to array
@@ -236,12 +222,10 @@ export default function Main({ isPublic = false }: MainProps) {
     
     // If we have servers from either cache, use them
     if (uniqueServers.length > 0) {
-      console.log('🎯 Using deduplicated cached servers:', uniqueServers.length, 'total unique servers');
       return uniqueServers;
     }
     
     // Fallback to default local servers
-    console.log('🏠 Using default local servers:', defaultSpeedtestServers.length);
     return defaultSpeedtestServers;
   }, [useComprehensiveServers, comprehensiveServerData, defaultSpeedtestServers]);
 
