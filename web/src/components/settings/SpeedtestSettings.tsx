@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MapPin, Globe, Trash2, ChevronDown, ChevronRight, Settings, Download } from "lucide-react";
+import { MapPin, Globe, Trash2, ChevronDown, ChevronRight, Settings, Download, Info, Bug, Folder } from "lucide-react";
 import { Server, ComprehensiveServerData } from "@/types/types";
 import { getApiUrl } from "@/utils/baseUrl";
 import { showToast } from "@/components/common/Toast";
@@ -102,12 +102,12 @@ export function SpeedtestSettings() {
     setLocationError("");
     setIsAddingLocation(true);
 
-    console.log('🌍 Adding servers for location:', customLocation.trim(), force ? '(FORCE)' : '(normal)');
+    console.log('Adding servers for location:', customLocation.trim(), force ? '(FORCE)' : '(normal)');
 
     try {
       // If force mode, clear existing location cache first  
       if (force) {
-        console.log('🧹 Force mode: clearing existing location cache');
+        console.log('Force mode: clearing existing location cache');
         localStorage.removeItem(LOCATION_SERVERS_CACHE_KEY);
       }
 
@@ -134,7 +134,7 @@ export function SpeedtestSettings() {
       }
 
       // Always use location cache mode for coordinate-based queries
-      console.log('📍 Location cache mode: Using separate location-based cache');
+      console.log('Location cache mode: Using separate location-based cache');
       
       const existingLocationData = getCachedLocationData() || { 
         locations: {}, 
@@ -142,7 +142,7 @@ export function SpeedtestSettings() {
         lastUpdated: new Date().toISOString() 
       };
       
-      console.log('📦 Existing location data:', {
+      console.log('Existing location data:', {
         exists: !!existingLocationData,
         totalServers: existingLocationData.totalServers,
         locations: Object.keys(existingLocationData.locations),
@@ -164,7 +164,7 @@ export function SpeedtestSettings() {
       };
 
       setCachedLocationData(updatedLocationData);
-      console.log('✅ Updated location cache:', {
+      console.log('Updated location cache:', {
         totalServers: updatedLocationData.totalServers,
         locations: Object.keys(updatedLocationData.locations),
         newLocationAdded: customLocation.trim()
@@ -245,7 +245,7 @@ export function SpeedtestSettings() {
                 }
                 
                 showToast(message, type);
-                console.log('📡 Server fetch progress:', update);
+                console.log('Server fetch progress:', update);
               }
             }
           }
@@ -324,13 +324,17 @@ export function SpeedtestSettings() {
         <Card className="border-yellow-200 dark:border-yellow-800">
           <CardHeader>
             <CardTitle className="text-sm text-yellow-700 dark:text-yellow-300 flex items-center gap-2">
-              🐛 Debug Information
+              <Bug className="h-4 w-4" />
+              Debug Information
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xs font-mono space-y-2 text-card-foreground">
               <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
-                <p className="font-semibold text-blue-800 dark:text-blue-300 mb-1">ℹ️ How it works:</p>
+                <p className="font-semibold text-blue-800 dark:text-blue-300 mb-1 flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  How it works:
+                </p>
                 <p className="text-blue-700 dark:text-blue-400 text-xs">
                   When you add servers by location coordinates, they're stored in a separate location-based cache. 
                   The app uses servers from both the comprehensive cache and location cache for speedtest selection. 
@@ -361,8 +365,9 @@ export function SpeedtestSettings() {
               
               {cachedData && (
                 <details className="mt-3">
-                  <summary className="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline">
-                    📁 View Cache Structure ({Object.keys(cachedData.servers || {}).length} locations)
+                  <summary className="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                    <Folder className="h-4 w-4" />
+                    View Cache Structure ({Object.keys(cachedData.servers || {}).length} locations)
                   </summary>
                   <div className="mt-2 p-3 bg-muted/20 dark:bg-muted/30 rounded border">
                     <div className="space-y-2">
@@ -449,7 +454,8 @@ export function SpeedtestSettings() {
             <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="flex-1">
                 <p className="font-medium text-blue-800 dark:text-blue-200 flex items-center gap-2">
-                  🌐 Comprehensive Cache
+                  <Globe className="h-4 w-4" />
+                  Comprehensive Cache
                 </p>
                 <p className="text-sm text-blue-600 dark:text-blue-300">
                   {cachedData ? 
@@ -469,7 +475,8 @@ export function SpeedtestSettings() {
             <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
               <div className="flex-1">
                 <p className="font-medium text-green-800 dark:text-green-200 flex items-center gap-2">
-                  📍 Location Cache
+                  <MapPin className="h-4 w-4" />
+                  Location Cache
                 </p>
                 {(() => {
                   const locationData = getCachedLocationData();
@@ -603,7 +610,8 @@ export function SpeedtestSettings() {
                     >
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                          🌐 {location}
+                          <Globe className="h-4 w-4" />
+                          {location}
                           <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
                             Comprehensive
                           </span>
@@ -673,7 +681,8 @@ export function SpeedtestSettings() {
                       >
                         <div>
                           <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                            📍 {country}
+                            <MapPin className="h-4 w-4" />
+                            {country}
                             <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded">
                               Location-based
                             </span>

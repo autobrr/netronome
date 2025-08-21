@@ -9,6 +9,8 @@ import { SavedIperfServer, Server } from "@/types/types";
 import {
   ChevronDownIcon,
   XMarkIcon,
+  WrenchScrewdriverIcon,
+  SignalIcon,
 } from "@heroicons/react/20/solid";
 import { IperfServerModal } from "./IperfServerModal";
 import { getApiUrl } from "@/utils/baseUrl";
@@ -431,7 +433,9 @@ export const ServerList: React.FC<ServerListProps> = ({
                       {filteredIperfServers.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 px-4">
                           <div className="text-center max-w-md">
-                            <div className="text-gray-600 dark:text-gray-400 text-lg mb-2">🔧</div>
+                            <div className="text-gray-600 dark:text-gray-400 text-lg mb-2">
+                              <WrenchScrewdriverIcon className="h-6 w-6 mx-auto" />
+                            </div>
                             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">
                               No iperf3 servers found
                             </h3>
@@ -533,7 +537,9 @@ export const ServerList: React.FC<ServerListProps> = ({
                       testType === "librespeed" ? (
                         <div className="flex flex-col items-center justify-center py-12 px-4">
                           <div className="text-center max-w-md">
-                            <div className="text-gray-600 dark:text-gray-400 text-lg mb-2">📡</div>
+                            <div className="text-gray-600 dark:text-gray-400 text-lg mb-2">
+                              <SignalIcon className="h-6 w-6 mx-auto" />
+                            </div>
                             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">
                               No Librespeed servers found
                             </h3>
