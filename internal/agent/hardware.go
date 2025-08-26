@@ -357,8 +357,8 @@ func getZFSARCSize() uint64 {
 	}
 
 	// Parse the arcstats file to find the size
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(string(data), "\n")
+	for line := range lines {
 		fields := strings.Fields(line)
 		if len(fields) >= 3 && fields[0] == "size" {
 			size, err := strconv.ParseUint(fields[2], 10, 64)

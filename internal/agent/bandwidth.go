@@ -43,7 +43,7 @@ func (a *Agent) handleHistoricalExport(c *gin.Context) {
 	}
 
 	// Parse the JSON to add timezone information
-	var bandwidthData map[string]interface{}
+	var bandwidthData map[string]any
 	if err := json.Unmarshal(output, &bandwidthData); err != nil {
 		log.Error().Err(err).Msg("Failed to parse bandwidth data JSON")
 		c.JSON(http.StatusInternalServerError, gin.H{
