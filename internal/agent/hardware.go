@@ -131,13 +131,13 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 		stats.Memory.ZFSArc = zfsArcSize
 
 		// Calculate used memory
-		// On Linux, the Used field from gopsutil includes cache/buffers
-		// We need to be careful about how we calculate "used" memory
+		// On Linux, exclude cache/buffers from "used" memory since they can be freed
+		// Available already accounts for memory that can be reclaimed
 		if runtime.GOOS == "linux" {
-			// Linux calculation: Total - Free - Buffers - Cached
-			// This gives us the actual application memory usage
-			stats.Memory.Used = vmStat.Total - vmStat.Free
-			// The UsedPercent should reflect total used including cache/buffers
+			// Linux calculation: Total - Available
+			// This gives us the actual application memory usage (excluding cache/buffers)
+			stats.Memory.Used = vmStat.Total - vmStat.Available
+			// The UsedPercent should reflect application memory usage only
 			stats.Memory.UsedPercent = float64(stats.Memory.Used) / float64(vmStat.Total) * 100
 		} else {
 			// For other systems, use the provided values
