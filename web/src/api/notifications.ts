@@ -107,7 +107,7 @@ export const notificationsApi = {
 
   // Events
   getEvents: async (category?: string): Promise<NotificationEvent[]> => {
-    const url = category 
+    const url = category
       ? getApiUrl(`/notifications/events?category=${encodeURIComponent(category)}`)
       : getApiUrl("/notifications/events");
     const response = await fetch(url, {
@@ -208,7 +208,7 @@ export const SHOUTRRR_SERVICES = [
   { value: "ntfy", label: "ntfy", example: "ntfy://TOPIC@HOSTNAME" },
   { value: "opsgenie", label: "OpsGenie", example: "opsgenie://APIKEY" },
   { value: "pushbullet", label: "Pushbullet", example: "pushbullet://APIKEY" },
-  { value: "pushover", label: "Pushover", example: "pushover://TOKEN@USER" },
+  { value: "pushover", label: "Pushover", example: "pushover://:API_TOKEN@USER_KEY" },
   { value: "rocketchat", label: "Rocket.Chat", example: "rocketchat://HOSTNAME/TOKEN@CHANNEL" },
   { value: "slack", label: "Slack", example: "slack://TOKEN@CHANNEL" },
   { value: "teams", label: "Microsoft Teams", example: "teams://WEBHOOK_URL" },
