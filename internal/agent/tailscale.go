@@ -52,7 +52,7 @@ func (a *Agent) startWithTailscale(ctx context.Context) error {
 		Hostname:  hostname,
 		AuthKey:   a.tailscaleConfig.AuthKey,
 		Ephemeral: a.tailscaleConfig.Ephemeral,
-		Logf: func(format string, args ...interface{}) {
+		Logf: func(format string, args ...any) {
 			log.Debug().Msgf("[tsnet] "+format, args...)
 		},
 	}
@@ -204,16 +204,16 @@ func (a *Agent) startWithHostTailscale(ctx context.Context) error {
 }
 
 // GetTailscaleStatus returns the current Tailscale connection status
-func (a *Agent) GetTailscaleStatus() (map[string]interface{}, error) {
+func (a *Agent) GetTailscaleStatus() (map[string]any, error) {
 	if !a.useTailscale || a.tailscaleConfig == nil {
-		return map[string]interface{}{
+		return map[string]any{
 			"enabled": false,
 			"status":  "disabled",
 		}, nil
 	}
 
 	method, _ := a.tailscaleConfig.GetEffectiveMethod()
-	result := map[string]interface{}{
+	result := map[string]any{
 		"enabled": true,
 		"method":  method,
 	}

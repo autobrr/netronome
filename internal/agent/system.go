@@ -203,15 +203,15 @@ func (a *Agent) getSystemInfo() (*SystemInfo, error) {
 
 			// Get vnstat interface alias if configured
 			if output, err := exec.Command("vnstat", "--json", "-i", iface.Name).Output(); err == nil {
-				var interfaceData map[string]interface{}
+				var interfaceData map[string]any
 				if json.Unmarshal(output, &interfaceData) == nil {
-					if interfaces, ok := interfaceData["interfaces"].([]interface{}); ok && len(interfaces) > 0 {
-						if ifaceData, ok := interfaces[0].(map[string]interface{}); ok {
+					if interfaces, ok := interfaceData["interfaces"].([]any); ok && len(interfaces) > 0 {
+						if ifaceData, ok := interfaces[0].(map[string]any); ok {
 							if alias, ok := ifaceData["alias"].(string); ok {
 								ifaceInfo.Alias = alias
 							}
-							if traffic, ok := ifaceData["traffic"].(map[string]interface{}); ok {
-								if total, ok := traffic["total"].(map[string]interface{}); ok {
+							if traffic, ok := ifaceData["traffic"].(map[string]any); ok {
+								if total, ok := traffic["total"].(map[string]any); ok {
 									if rx, ok := total["rx"].(float64); ok {
 										if tx, ok := total["tx"].(float64); ok {
 											ifaceInfo.BytesTotal = int64(rx + tx)
