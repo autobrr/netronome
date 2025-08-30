@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"os"
 	"testing"
 	"time"
 )
@@ -63,6 +64,93 @@ func TestCalculateNextRun(t *testing.T) {
 			
 			// Log the actual values for debugging
 			t.Logf("Interval: %s, Duration: %v, NextRun: %v", tt.interval, duration, got)
+		})
+	}
+}
+
+func TestCalculateNextRunWithTimezones(t *testing.T) {
+	s := &service{}
+	
+	// Test the critical bug: ensure negative time differences never happen
+	// This simulates the exact scenario where TZ=US/New_York causes every-minute execution
+	tests := []struct {
+		name     string
+		timezone string
+		interval string
+	}{
+		{
+			name:     "America/New_York with exact time",
+			timezone: "America/New_York",
+			interval: "exact:14:00",
+		},
+		{
+			name:     "America/Chicago with exact time", 
+			timezone: "America/Chicago",
+			interval: "exact:14:00",
+		},
+		{
+			name:     "Europe/London with exact time",
+			timezone: "Europe/London", 
+			interval: "exact:14:00",
+		},
+	}
+	
+	// Save original TZ
+	originalTZ := os.Getenv("TZ")
+	defer func() {
+		if originalTZ != "" {
+			os.Setenv("TZ", originalTZ)  
+		} else {
+			os.Unsetenv("TZ")
+		}
+	}()
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set the TZ environment variable (this is what causes the bug)
+			os.Setenv("TZ", tt.timezone)
+			
+			// Test at different times of day
+			testTimes := []struct {
+				hour int
+				name string
+			}{
+				{10, "morning"},
+				{14, "exactly_at_target"},
+				{16, "afternoon"},
+				{20, "evening"},
+			}
+			
+			for _, testTime := range testTimes {
+				// Create a test time
+				now := time.Now()
+				from := time.Date(now.Year(), now.Month(), now.Day(), testTime.hour, 30, 0, 0, time.Local)
+				
+				// Calculate next run
+				nextRun := s.calculateNextRun(tt.interval, from)
+				
+				if nextRun.IsZero() {
+					t.Errorf("calculateNextRun() returned zero time for %s", testTime.name)
+					continue
+				}
+				
+				// The critical check: ensure time difference is never negative
+				diff := nextRun.Sub(from)
+				if diff < 0 {
+					t.Errorf("CRITICAL BUG: Negative time difference %v at %s would cause every-minute execution!", 
+						diff, testTime.name)
+					t.Errorf("From: %v, NextRun: %v", from, nextRun)
+				}
+				
+				// Ensure minimum time is at least 1 minute (to avoid every-minute execution)
+				if diff < time.Minute {
+					t.Errorf("Time difference too small (%v) at %s, could cause frequent execution", 
+						diff, testTime.name)
+				}
+				
+				t.Logf("TZ=%s, %s: From=%v, NextRun=%v, Diff=%v", 
+					tt.timezone, testTime.name, from, nextRun, diff)
+			}
 		})
 	}
 }

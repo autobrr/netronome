@@ -289,7 +289,7 @@ func (s *service) calculateNextRun(interval string, from time.Time) time.Time {
 			}
 
 			// Check today
-			todayRun := time.Date(from.Year(), from.Month(), from.Day(), hour, minute, 0, 0, from.Location())
+			todayRun := time.Date(from.Year(), from.Month(), from.Day(), hour, minute, 0, 0, time.Local)
 			if todayRun.After(from) {
 				diff := todayRun.Sub(from)
 				if diff < minTimeDiff {
