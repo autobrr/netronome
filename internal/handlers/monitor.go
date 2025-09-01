@@ -19,6 +19,7 @@ import (
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/monitor"
 	"github.com/autobrr/netronome/internal/types"
+	"github.com/autobrr/netronome/internal/utils"
 )
 
 // MonitorHandler handles monitoring endpoints
@@ -116,6 +117,12 @@ func (h *MonitorHandler) CreateAgent(c *gin.Context) {
 		}
 	}
 
+	// Auto-detect Tailscale agents based on URL (if not already set by discovery)
+	if !agent.IsTailscale && utils.IsTailscaleURL(agent.URL) {
+		agent.IsTailscale = true
+		log.Debug().Str("url", agent.URL).Msg("Auto-detected Tailscale agent based on URL")
+	}
+
 	// Create agent in database
 	createdAgent, err := h.db.CreateMonitorAgent(c.Request.Context(), &agent)
 	if err != nil {
@@ -173,11 +180,24 @@ func (h *MonitorHandler) UpdateAgent(c *gin.Context) {
 		agent.APIKey = existingAgent.APIKey
 	}
 
-	// Preserve Tailscale-specific fields that should never be modified
-	agent.IsTailscale = existingAgent.IsTailscale
+	// Preserve discovery-specific fields that should never be modified for auto-discovered agents
 	agent.TailscaleHostname = existingAgent.TailscaleHostname
 	agent.DiscoveredAt = existingAgent.DiscoveredAt
 	agent.Interface = existingAgent.Interface
+	
+	// Handle IsTailscale field: preserve if auto-discovered, otherwise auto-detect
+	if existingAgent.DiscoveredAt != nil {
+		// This was auto-discovered, preserve the Tailscale flag
+		agent.IsTailscale = existingAgent.IsTailscale
+	} else {
+		// This is a manually created agent, auto-detect based on URL
+		agent.IsTailscale = utils.IsTailscaleURL(agent.URL)
+		if agent.IsTailscale && !existingAgent.IsTailscale {
+			log.Debug().Str("url", agent.URL).Msg("Auto-detected Tailscale agent based on URL during update")
+		} else if !agent.IsTailscale && existingAgent.IsTailscale {
+			log.Debug().Str("url", agent.URL).Msg("Agent URL no longer appears to be Tailscale during update")
+		}
+	}
 
 	// Set the ID from URL
 	agent.ID = id
