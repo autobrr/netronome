@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import { formatters } from "@/utils/timeSettings";
 import { motion } from "motion/react";
 import { MonitorAgent } from "@/api/monitor";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
@@ -147,7 +148,7 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
           className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4 sm:mt-6"
         >
           {hardwareStats?.from_cache || systemInfo?.from_cache ? "Data collected" : "Last updated"}:{" "}
-          {new Date((hardwareStats?.updated_at || systemInfo?.updated_at) || Date.now()).toLocaleTimeString()}
+          {formatters.time(new Date((hardwareStats?.updated_at || systemInfo?.updated_at) || Date.now()))}
           {(hardwareStats?.from_cache || systemInfo?.from_cache) && " (cached)"}
         </motion.div>
       )}

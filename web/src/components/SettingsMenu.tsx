@@ -4,8 +4,10 @@
  */
 
 import React, { useState } from "react";
-import { Cog6ToothIcon, BellIcon } from "@heroicons/react/24/outline";
+import { Cog6ToothIcon, BellIcon, ClockIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
 import { NotificationSettings } from "./settings/NotificationSettings";
+import { TimeFormatSettings } from "./settings/TimeFormatSettings";
+import { SpeedtestSettings } from "./settings/SpeedtestSettings";
 import { Button } from "@/components/ui/Button";
 import {
   Dialog,
@@ -33,6 +35,18 @@ const settingsSections: SettingsSection[] = [
     label: "Notifications",
     icon: <BellIcon className="w-4 h-4" />,
     component: NotificationSettings,
+  },
+  {
+    id: "time",
+    label: "Time & Date",
+    icon: <ClockIcon className="w-4 h-4" />,
+    component: TimeFormatSettings,
+  },
+  {
+    id: "speedtest",
+    label: "Speedtest Servers",
+    icon: <GlobeAltIcon className="w-4 h-4" />,
+    component: SpeedtestSettings,
   },
 ];
 

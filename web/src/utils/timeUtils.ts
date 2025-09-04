@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+import { formatters } from "./timeSettings";
+
 export const formatNextRun = (dateString: string): string => {
   const date = new Date(dateString);
   const now = new Date();
@@ -19,3 +21,6 @@ export const formatNextRun = (dateString: string): string => {
     return `in ${days} day${days !== 1 ? "s" : ""}`;
   }
 };
+
+// Export formatters for consistency
+export { formatters };

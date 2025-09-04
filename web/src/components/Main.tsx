@@ -29,6 +29,7 @@ import {
   TestOptions,
   PaginatedResponse,
   Schedule,
+  ComprehensiveServerData,
 } from "@/types/types";
 import {
   useQuery,
@@ -38,6 +39,7 @@ import {
 } from "@tanstack/react-query";
 import {
   getServers,
+  getAllServersWithLocationInfo,
   getHistory,
   getSchedules,
   runSpeedTest,
@@ -115,12 +117,78 @@ export default function Main({ isPublic = false }: MainProps) {
     localStorage.setItem("netronome-active-tab", tabId);
   };
 
-  // Queries
-  const { data: speedtestServers = [] } = useQuery({
+  // Cache keys for server data
+  const COMPREHENSIVE_SERVERS_CACHE_KEY = "netronome-comprehensive-servers";
+  const LOCATION_SERVERS_CACHE_KEY = "netronome-location-servers";
+
+  // Function to get cached comprehensive server data
+  const getCachedComprehensiveData = (): ComprehensiveServerData | null => {
+    try {
+      const cached = localStorage.getItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
+      if (!cached) return null;
+      
+      const parsed = JSON.parse(cached);
+      return parsed.data;
+    } catch (error) {
+      console.error("Error reading comprehensive servers cache:", error);
+      localStorage.removeItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
+      return null;
+    }
+  };
+
+  // Function to cache comprehensive server data
+  const setCachedComprehensiveData = (data: ComprehensiveServerData) => {
+    try {
+      const cacheData = {
+        data,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(COMPREHENSIVE_SERVERS_CACHE_KEY, JSON.stringify(cacheData));
+    } catch (error) {
+      console.error("Error caching comprehensive servers:", error);
+    }
+  };
+
+  // Function to get cached location server data  
+  const getCachedLocationData = (): any => {
+    try {
+      const cached = localStorage.getItem(LOCATION_SERVERS_CACHE_KEY);
+      if (!cached) return null;
+      return JSON.parse(cached);
+    } catch (error) {
+      console.error("Error reading location server cache:", error);
+      return null;
+    }
+  };
+
+  // Determine if we should use comprehensive servers based on cached data
+  const useComprehensiveServers = useMemo(() => {
+    const cached = localStorage.getItem(COMPREHENSIVE_SERVERS_CACHE_KEY);
+    return !!cached; // Use comprehensive servers if we have cached data
+  }, []);
+
+  // Default speedtest servers (local, fast loading) - only used as fallback
+  const { data: defaultSpeedtestServers = [] } = useQuery({
     queryKey: ["servers", "speedtest"],
     queryFn: () => getServers("speedtest"),
-    enabled: !isPublic,
+    enabled: !isPublic && !useComprehensiveServers, // Only fetch if not using comprehensive
   }) as { data: Server[] };
+
+  // Comprehensive server data (global, loaded on demand or from cache)
+  const { data: comprehensiveServerData } = useQuery<ComprehensiveServerData>({
+    queryKey: ["servers", "comprehensive", "speedtest"],
+    queryFn: async () => {
+      const cached = getCachedComprehensiveData();
+      if (cached) {
+        return cached;
+      }
+      
+      const data = await getAllServersWithLocationInfo("speedtest");
+      setCachedComprehensiveData(data);
+      return data;
+    },
+    enabled: !isPublic && useComprehensiveServers,
+  });
 
   const { data: librespeedServers = [] } = useQuery({
     queryKey: ["servers", "librespeed"],
@@ -128,10 +196,54 @@ export default function Main({ isPublic = false }: MainProps) {
     enabled: !isPublic,
   }) as { data: Server[] };
 
-  const allServers = useMemo(
-    () => [...speedtestServers, ...librespeedServers],
-    [speedtestServers, librespeedServers]
-  );
+  // Choose which speedtest servers to use
+  const speedtestServers: Server[] = useMemo(() => {
+    const serversById: Map<string, Server> = new Map();
+    
+    // Add comprehensive servers if available
+    if (useComprehensiveServers && comprehensiveServerData) {
+      const comprehensiveServers = comprehensiveServerData.allServers || [];
+      comprehensiveServers.forEach(server => {
+        serversById.set(server.id, server);
+      });
+    }
+    
+    // Add location cache servers if available (will override duplicates from comprehensive)
+    const locationData = getCachedLocationData();
+    if (locationData && locationData.locations) {
+      const locationServers = Object.values(locationData.locations).flat() as Server[];
+      locationServers.forEach(server => {
+        serversById.set(server.id, server);
+      });
+    }
+    
+    // Convert back to array
+    const uniqueServers = Array.from(serversById.values());
+    
+    // If we have servers from either cache, use them
+    if (uniqueServers.length > 0) {
+      return uniqueServers;
+    }
+    
+    // Fallback to default local servers
+    return defaultSpeedtestServers;
+  }, [useComprehensiveServers, comprehensiveServerData, defaultSpeedtestServers]);
+
+  const allServers = useMemo(() => {
+    const serversById: Map<string, Server> = new Map();
+    
+    // Add speedtest servers first
+    speedtestServers.forEach(server => {
+      serversById.set(server.id, server);
+    });
+    
+    // Add librespeed servers (will override duplicates if any)
+    librespeedServers.forEach(server => {
+      serversById.set(server.id, server);
+    });
+    
+    return Array.from(serversById.values());
+  }, [speedtestServers, librespeedServers]);
 
   const servers = useMemo(() => {
     if (testType === "librespeed") return librespeedServers;
@@ -191,11 +303,18 @@ export default function Main({ isPublic = false }: MainProps) {
 
   // Use current time range history if available, otherwise fall back to all-time history for latest run
   const latestTest = useMemo(() => {
-    return history && history.length > 0
-      ? history[0]
-      : allTimeHistory.length > 0
-      ? allTimeHistory[0]
-      : null;
+    // Get the most recent test from available history
+    // History should be sorted by date descending (newest first), so take the first item
+    const historyToUse = history && history.length > 0 ? history : allTimeHistory;
+    
+    if (historyToUse.length === 0) return null;
+    
+    // Sort by createdAt descending to ensure we get the actual latest test
+    const sortedHistory = [...historyToUse].sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    
+    return sortedHistory[0] || null;
   }, [history, allTimeHistory]);
 
   const { data: schedules = [] } = useQuery({
@@ -217,12 +336,23 @@ export default function Main({ isPublic = false }: MainProps) {
   // Mutations
   const speedTestMutation = useMutation({
     mutationFn: runSpeedTest,
-    onMutate: () => {
-      console.log("Starting speed test with options:", options);
+    onMutate: (actualOptions) => {
+      console.log("Starting speed test with options:", actualOptions);
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      console.log("Speed test completed successfully:", result);
+      
+      // Force refresh all queries to get the latest data
       queryClient.invalidateQueries({ queryKey: ["history"] });
       queryClient.invalidateQueries({ queryKey: ["history-chart"] });
+      queryClient.invalidateQueries({ queryKey: ["allTimeHistory"] });
+
+      // Also refetch immediately to get updated data
+      queryClient.refetchQueries({ queryKey: ["history"] });
+      queryClient.refetchQueries({ queryKey: ["allTimeHistory"] });
+      
+      console.log("Speed test result timestamp:", result?.timestamp);
+      
       setProgress(null);
       setTestStatus("complete");
     },
@@ -309,6 +439,7 @@ export default function Main({ isPublic = false }: MainProps) {
             : [],
         serverHost: testType === "iperf" ? selectedServers[0].host : undefined,
         serverName: testType === "iperf" ? selectedServers[0].name : undefined,
+        serverCity: selectedServers[0].city,
       });
     } catch (error) {
       console.error("Error running test:", error);
@@ -510,7 +641,8 @@ export default function Main({ isPublic = false }: MainProps) {
 
         {/* Tab Content */}
         <AnimatePresence mode="wait">
-          {(activeTab === "dashboard" || isPublic) && (
+          {(activeTab === "dashboard" || isPublic) && (() => {
+            return (
             <motion.div
               key="dashboard"
               initial={{ opacity: 0, y: 20 }}
@@ -538,7 +670,8 @@ export default function Main({ isPublic = false }: MainProps) {
                 }}
               />
             </motion.div>
-          )}
+            );
+          })()}
 
           {!isPublic && activeTab === "speedtest" && (
             <motion.div

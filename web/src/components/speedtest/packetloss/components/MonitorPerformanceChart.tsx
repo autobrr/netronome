@@ -4,6 +4,7 @@
  */
 
 import React, { useMemo } from "react";
+import { formatters } from "@/utils/timeSettings";
 import {
   LineChart,
   Line,
@@ -33,12 +34,7 @@ export const MonitorPerformanceChart: React.FC<
         const date = new Date(result.createdAt);
 
         // Use consistent formatting for all data points
-        const timeLabel = date.toLocaleString(undefined, {
-          month: "numeric",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        });
+        const timeLabel = formatters.dateTime(date);
 
         return {
           time: timeLabel,

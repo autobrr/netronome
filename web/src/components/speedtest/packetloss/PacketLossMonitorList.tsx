@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from "react";
+import { formatters } from "@/utils/timeSettings";
 import {
   TrashIcon,
   PlayIcon,
@@ -45,13 +46,9 @@ const MonitorStatusDisplay: React.FC<MonitorStatusDisplayProps> = ({
                         key={index}
                         className="inline-flex items-center px-1.5 py-0.5 bg-gray-500/10 text-gray-600 dark:text-gray-400 rounded text-xs border border-gray-500/20"
                       >
-                        {new Date(
+                        {formatters.time(new Date(
                           `2000-01-01T${time.trim()}:00`
-                        ).toLocaleTimeString([], {
-                          hour: "numeric",
-                          minute: "2-digit",
-                          hour12: true,
-                        })}
+                        ))}
                       </span>
                     ))}
                   {monitor.interval.substring(6).split(",").length > 3 && (
@@ -164,13 +161,9 @@ const MonitorStatusDisplay: React.FC<MonitorStatusDisplayProps> = ({
                           : "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20"
                       }`}
                     >
-                      {new Date(
+                      {formatters.time(new Date(
                         `2000-01-01T${time.trim()}:00`
-                      ).toLocaleTimeString([], {
-                        hour: "numeric",
-                        minute: "2-digit",
-                        hour12: true,
-                      })}
+                      ))}
                     </span>
                   ))}
                 {monitor.interval.substring(6).split(",").length > 3 && (

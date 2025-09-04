@@ -230,6 +230,7 @@ func (s *Server) RegisterRoutes() {
 			protected.GET("/auth/user", s.auth.GetUserInfo)
 
 			protected.GET("/servers", s.handleGetServers)
+			protected.GET("/servers/locations", s.handleGetServerLocations)
 			protected.POST("/speedtest", s.handleSpeedTest)
 			protected.GET("/speedtest/status", s.handleSpeedTestStatus)
 			protected.GET("/speedtest/history", s.handleSpeedTestHistory)
@@ -281,14 +282,14 @@ func (s *Server) RegisterRoutes() {
 			protected.POST("/notifications/channels", s.handleCreateNotificationChannel)
 			protected.PUT("/notifications/channels/:id", s.handleUpdateNotificationChannel)
 			protected.DELETE("/notifications/channels/:id", s.handleDeleteNotificationChannel)
-			
+
 			protected.GET("/notifications/events", s.handleGetNotificationEvents)
-			
+
 			protected.GET("/notifications/rules", s.handleGetNotificationRules)
 			protected.POST("/notifications/rules", s.handleCreateNotificationRule)
 			protected.PUT("/notifications/rules/:id", s.handleUpdateNotificationRule)
 			protected.DELETE("/notifications/rules/:id", s.handleDeleteNotificationRule)
-			
+
 			protected.POST("/notifications/test", s.handleTestNotification)
 			protected.GET("/notifications/history", s.handleGetNotificationHistory)
 		}

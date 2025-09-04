@@ -9,6 +9,9 @@ import {
   PlusIcon,
   InformationCircleIcon,
   TrashIcon,
+  RocketLaunchIcon,
+  SignalIcon,
+  ComputerDesktopIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
@@ -364,7 +367,7 @@ export const MobileNotificationView: React.FC<MobileNotificationViewProps> = ({
                   </h4>
                   <div className="space-y-3">
                     <div className="flex items-start gap-2">
-                      <span className="text-base">🚀</span>
+                      <RocketLaunchIcon className="h-5 w-5 text-gray-600 dark:text-gray-400 mt-0.5" />
                       <div className="text-sm">
                         <span className="font-medium text-gray-900 dark:text-white">
                           Speed Tests
@@ -375,7 +378,7 @@ export const MobileNotificationView: React.FC<MobileNotificationViewProps> = ({
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
-                      <span className="text-base">📡</span>
+                      <SignalIcon className="h-5 w-5 text-gray-600 dark:text-gray-400 mt-0.5" />
                       <div className="text-sm">
                         <span className="font-medium text-gray-900 dark:text-white">
                           Packet Loss
@@ -386,7 +389,7 @@ export const MobileNotificationView: React.FC<MobileNotificationViewProps> = ({
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
-                      <span className="text-base">🖥️</span>
+                      <ComputerDesktopIcon className="h-5 w-5 text-gray-600 dark:text-gray-400 mt-0.5" />
                       <div className="text-sm">
                         <span className="font-medium text-gray-900 dark:text-white">
                           Agent Status

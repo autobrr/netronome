@@ -36,6 +36,8 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { getApiUrl } from "@/utils/baseUrl";
 import { formatNextRun } from "@/utils/timeUtils";
+import { formatters } from "@/utils/timeSettings";
+import { formatServerName } from "@/utils/serverDisplay";
 import { Button } from "@/components/ui/Button";
 
 interface ScheduleManagerProps {
@@ -277,6 +279,7 @@ export default function ScheduleManager({
         useLibrespeed: isLibrespeedServer,
         serverHost: isIperfServer ? selectedServers[0].host : undefined,
         serverName: isIperfServer ? selectedServers[0].name : undefined,
+        serverCity: selectedServers[0].city || undefined, // Include city information
       },
     };
 
@@ -411,7 +414,7 @@ export default function ScheduleManager({
           }
           return (
             <span key={id}>
-              {server.sponsor} - {server.name} -{" "}
+              {formatServerName(server)} - {server.name} -{" "}
               <span className="text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_rgba(251,191,36,0.8)]">
                 speedtest.net
               </span>
@@ -668,13 +671,13 @@ export default function ScheduleManager({
                                   {scheduleType === "exact" && (
                                     <span className="text-gray-500 dark:text-gray-500 text-xs ml-2">
                                       (
-                                      {new Date(
+                                      {formatters.dateTime(new Date(
                                         calculateNextRun(
                                           interval,
                                           scheduleType,
                                           exactTimes.join(",")
                                         )
-                                      ).toLocaleDateString()}
+                                      ))}
                                       )
                                     </span>
                                   )}
@@ -788,13 +791,9 @@ export default function ScheduleManager({
                                                       .substring(6)
                                                       .split(",");
                                                   if (times.length === 1) {
-                                                    return new Date(
+                                                    return formatters.time(new Date(
                                                       `2000-01-01T${times[0]}:00`
-                                                    ).toLocaleTimeString([], {
-                                                      hour: "numeric",
-                                                      minute: "2-digit",
-                                                      hour12: true,
-                                                    });
+                                                    ));
                                                   } else {
                                                     return `${times.length} times`;
                                                   }
@@ -844,13 +843,9 @@ export default function ScheduleManager({
                                                 .substring(6)
                                                 .split(",")
                                                 .map((time) =>
-                                                  new Date(
+                                                  formatters.time(new Date(
                                                     `2000-01-01T${time}:00`
-                                                  ).toLocaleTimeString([], {
-                                                    hour: "numeric",
-                                                    minute: "2-digit",
-                                                    hour12: true,
-                                                  })
+                                                  ))
                                                 )
                                                 .join(", ")}
                                             </span>

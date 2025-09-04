@@ -9,6 +9,8 @@ import { SavedIperfServer, Server } from "@/types/types";
 import {
   ChevronDownIcon,
   XMarkIcon,
+  WrenchScrewdriverIcon,
+  SignalIcon,
 } from "@heroicons/react/20/solid";
 import { IperfServerModal } from "./IperfServerModal";
 import { getApiUrl } from "@/utils/baseUrl";
@@ -35,6 +37,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
+import { formatServerName, subscribeToShowCitySetting } from "@/utils/serverDisplay";
 
 interface ServerListProps {
   servers: Server[];
@@ -88,11 +91,21 @@ export const ServerList: React.FC<ServerListProps> = ({
     const saved = localStorage.getItem("server-list-open");
     return saved === null ? true : saved === "true";
   });
+  const [forceRerender, setForceRerender] = useState(0); // For triggering re-renders when settings change
 
   // Persist server list open state to localStorage
   useEffect(() => {
     localStorage.setItem("server-list-open", isOpen.toString());
   }, [isOpen]);
+
+  // Subscribe to display setting changes
+  useEffect(() => {
+    const unsubscribe = subscribeToShowCitySetting(() => {
+      setForceRerender(prev => prev + 1); // Trigger re-render when setting changes
+    });
+    
+    return unsubscribe;
+  }, []);
 
   // Handle window resize for responsive display counts
   useEffect(() => {
@@ -241,7 +254,7 @@ export const ServerList: React.FC<ServerListProps> = ({
     });
 
     return filtered.sort((a, b) => a.distance - b.distance);
-  }, [servers, searchTerm, filterCountry]);
+  }, [servers, searchTerm, filterCountry, forceRerender]);
 
   return (
     <Collapsible
@@ -420,7 +433,9 @@ export const ServerList: React.FC<ServerListProps> = ({
                       {filteredIperfServers.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 px-4">
                           <div className="text-center max-w-md">
-                            <div className="text-gray-600 dark:text-gray-400 text-lg mb-2">🔧</div>
+                            <div className="text-gray-600 dark:text-gray-400 text-lg mb-2">
+                              <WrenchScrewdriverIcon className="h-6 w-6 mx-auto" />
+                            </div>
                             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">
                               No iperf3 servers found
                             </h3>
@@ -522,7 +537,9 @@ export const ServerList: React.FC<ServerListProps> = ({
                       testType === "librespeed" ? (
                         <div className="flex flex-col items-center justify-center py-12 px-4">
                           <div className="text-center max-w-md">
-                            <div className="text-gray-600 dark:text-gray-400 text-lg mb-2">📡</div>
+                            <div className="text-gray-600 dark:text-gray-400 text-lg mb-2">
+                              <SignalIcon className="h-6 w-6 mx-auto" />
+                            </div>
                             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">
                               No Librespeed servers found
                             </h3>
@@ -576,7 +593,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                                   >
                                     <div className="flex flex-col gap-1">
                                       <span className="text-blue-600 dark:text-blue-300 font-medium truncate">
-                                        {server.sponsor}
+                                        {formatServerName(server)}
                                       </span>
                                       <span className="text-gray-600 dark:text-gray-400 text-sm">
                                         {server.name}

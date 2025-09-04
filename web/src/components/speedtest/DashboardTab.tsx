@@ -5,9 +5,11 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "motion/react";
 import { SpeedTestResult, TimeRange } from "@/types/types";
+import { formatters } from "@/utils/timeSettings";
+import { subscribeToShowCitySetting } from "@/utils/serverDisplay";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import { MetricCard } from "@/components/common/MetricCard";
 import { FeaturedMonitorWidget } from "@/components/monitor/FeaturedMonitorWidget";
@@ -118,6 +120,16 @@ interface DraggableSpeedHistoryChartProps {
   dragHandleRef?: (node: HTMLElement | null) => void;
   dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
   dragHandleClassName?: string;
+  // Server filtering props
+  serverFilterMode: "all" | "single" | "multiple";
+  selectedSingleServer: string;
+  selectedMultipleServers: Set<string>;
+  onServerFilterModeChange: (mode: "all" | "single" | "multiple") => void;
+  onSelectedSingleServerChange: (server: string) => void;
+  onSelectedMultipleServersChange: (servers: Set<string>) => void;
+  // Multiple server display mode props
+  multipleServerDisplayMode: "overlay" | "separate";
+  onMultipleServerDisplayModeChange: (mode: "overlay" | "separate") => void;
 }
 
 const DraggableSpeedHistoryChart: React.FC<DraggableSpeedHistoryChartProps> = ({
@@ -170,6 +182,15 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   // State for share button hover
   const [isShareHovered, setIsShareHovered] = useState(false);
 
+  // Server filtering state
+  const [serverFilterMode, setServerFilterMode] = useState<"all" | "single" | "multiple">("all");
+  const [selectedSingleServer, setSelectedSingleServer] = useState<string>("all");
+  const [selectedMultipleServers, setSelectedMultipleServers] = useState<Set<string>>(new Set());
+  const [multipleServerDisplayMode, setMultipleServerDisplayMode] = useState<"overlay" | "separate">("overlay");
+
+  // State to trigger re-renders when city display setting changes
+  const [forceRerender, setForceRerender] = useState(0);
+
   // Initialize drag sensors
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -191,12 +212,54 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     );
   }, [sectionOrder]);
 
-  const displayedTests = tests.slice(0, displayCount);
+  // Subscribe to city display setting changes to trigger re-renders
+  useEffect(() => {
+    const unsubscribeCitySetting = subscribeToShowCitySetting(() => {
+      setForceRerender(prev => prev + 1); // Trigger re-render when setting changes
+    });
+    
+    return unsubscribeCitySetting;
+  }, []);
+
+  const displayedTests = useMemo(() => {
+    return tests.slice(0, displayCount);
+  }, [tests, displayCount, forceRerender]);
+
+  // Apply server filtering to tests (same logic as in SpeedHistoryChart)
+  const filteredDisplayTests = useMemo(() => {
+    if (serverFilterMode === "single" && selectedSingleServer !== "all") {
+      return tests.filter(test => test.serverName === selectedSingleServer);
+    } else if (serverFilterMode === "multiple" && selectedMultipleServers.size > 0) {
+      return tests.filter(test => selectedMultipleServers.has(test.serverName));
+    }
+    return tests;
+  }, [tests, serverFilterMode, selectedSingleServer, selectedMultipleServers, forceRerender]);
+
+  // Get the latest test from filtered results, but if no filtered results, show the actual latest test
+  const filteredLatestTestComputed = useMemo(() => {
+    // If we have filtered results based on server selection, use the latest from filtered results
+    if (serverFilterMode !== "all" && filteredDisplayTests.length > 0) {
+      // Sort filtered tests by date descending to get the actual latest
+      const sortedFiltered = [...filteredDisplayTests].sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      return sortedFiltered[0];
+    }
+    // For "all" mode or no filtered results, return null to fall back to latestTest prop
+    return null;
+  }, [filteredDisplayTests, serverFilterMode]);
+
+  // The test to display in Latest Run section
+  const displayLatestTest = useMemo(() => {
+    const testToUse = filteredLatestTestComputed || latestTest;
+    return testToUse;
+  }, [filteredLatestTestComputed, latestTest, serverFilterMode]);
 
   const calculateAverage = (field: keyof SpeedTestResult): string => {
-    if (tests.length === 0) return "N/A";
+    const dataToUse = filteredDisplayTests.length > 0 ? filteredDisplayTests : tests;
+    if (dataToUse.length === 0) return "N/A";
 
-    const validValues = tests
+    const validValues = dataToUse
       .map((test) => {
         const value = test[field];
         if (typeof value === "string") {
@@ -292,47 +355,49 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             )}
           >
             Latest Run
+            {serverFilterMode !== "all" && displayLatestTest && (
+              <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                (filtered)
+              </span>
+            )}
           </h2>
           <div className="flex justify-between ml-1 items-center text-gray-600 dark:text-gray-400 text-sm mb-4">
             <div>
               Last test run:{" "}
-              {latestTest?.createdAt
-                ? new Date(latestTest.createdAt).toLocaleString(undefined, {
-                    dateStyle: "short",
-                    timeStyle: "short",
-                  })
-                : "N/A"}
+              {displayLatestTest?.createdAt ? (
+                formatters.dateTime(new Date(displayLatestTest.createdAt))
+              ) : "N/A"}
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 cursor-default relative">
             <MetricCard
               icon={<IoIosPulse className="w-5 h-5 text-amber-500" />}
               title="Latency"
-              value={parseFloat(latestTest.latency).toFixed(2)}
+              value={displayLatestTest ? parseFloat(displayLatestTest.latency).toFixed(2) : "N/A"}
               unit="ms"
               average={calculateAverage("latency")}
             />
             <MetricCard
               icon={<FaArrowDown className="w-5 h-5 text-blue-500" />}
               title="Download"
-              value={latestTest.downloadSpeed.toFixed(2)}
+              value={displayLatestTest ? displayLatestTest.downloadSpeed.toFixed(2) : "N/A"}
               unit="Mbps"
               average={calculateAverage("downloadSpeed")}
             />
             <MetricCard
               icon={<FaArrowUp className="w-5 h-5 text-emerald-500" />}
               title="Upload"
-              value={latestTest.uploadSpeed.toFixed(2)}
+              value={displayLatestTest ? displayLatestTest.uploadSpeed.toFixed(2) : "N/A"}
               unit="Mbps"
               average={calculateAverage("uploadSpeed")}
             />
             <MetricCard
               icon={<FaWaveSquare className="w-5 h-5 text-purple-400" />}
               title="Jitter"
-              value={latestTest.jitter?.toFixed(2) ?? "N/A"}
+              value={displayLatestTest?.jitter?.toFixed(2) ?? "N/A"}
               unit="ms"
               average={
-                latestTest.jitter ? calculateAverage("jitter") : undefined
+                displayLatestTest?.jitter ? calculateAverage("jitter") : undefined
               }
             />
 
@@ -389,6 +454,14 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                         isPublic={isPublic}
                         hasAnyTests={hasAnyTests}
                         hasCurrentRangeTests={tests.length > 0}
+                        serverFilterMode={serverFilterMode}
+                        selectedSingleServer={selectedSingleServer}
+                        selectedMultipleServers={selectedMultipleServers}
+                        onServerFilterModeChange={setServerFilterMode}
+                        onSelectedSingleServerChange={setSelectedSingleServer}
+                        onSelectedMultipleServersChange={setSelectedMultipleServers}
+                        multipleServerDisplayMode={multipleServerDisplayMode}
+                        onMultipleServerDisplayModeChange={setMultipleServerDisplayMode}
                       />
                     </SortableItem>
                   );
@@ -402,6 +475,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                         setDisplayCount={setDisplayCount}
                         isRecentTestsOpen={isRecentTestsOpen}
                         setIsRecentTestsOpen={setIsRecentTestsOpen}
+                        forceRerender={forceRerender}
                       />
                     </SortableItem>
                   );
@@ -427,6 +501,7 @@ interface DraggableRecentSpeedtestsProps {
   dragHandleRef?: (node: HTMLElement | null) => void;
   dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
   dragHandleClassName?: string;
+  forceRerender?: number;
 }
 
 const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
@@ -439,6 +514,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
   dragHandleRef,
   dragHandleListeners,
   dragHandleClassName,
+  forceRerender = 0,
 }) => {
   return (
     <div className="shadow-lg rounded-xl overflow-hidden">
@@ -496,6 +572,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
             {/* Desktop Table View */}
             <div className="hidden md:block">
               <DataTable
+                key={`desktop-table-${forceRerender}`}
                 columns={speedTestColumns}
                 data={displayedTests}
                 showPagination={false}
@@ -510,6 +587,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
             {/* Mobile Card View */}
             <div className="md:hidden">
               <DataTable
+                key={`mobile-table-${forceRerender}`}
                 columns={speedTestMobileColumns}
                 data={displayedTests}
                 showPagination={false}

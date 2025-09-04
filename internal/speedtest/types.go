@@ -33,6 +33,7 @@ type ServerResponse struct {
 	URL          string  `json:"url"`
 	Lat          float64 `json:"lat,string"`
 	Lon          float64 `json:"lon,string"`
+	City         string  `json:"city"`
 	IsIperf      bool    `json:"isIperf"`
 	IsLibrespeed bool    `json:"isLibrespeed"`
 }
@@ -57,13 +58,13 @@ type SpeedUpdate struct {
 type TestRunner interface {
 	// RunTest executes a speed test and returns the result
 	RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error)
-	
+
 	// GetServers returns available servers for this test type
 	GetServers() ([]ServerResponse, error)
-	
+
 	// GetTestType returns the test type identifier
 	GetTestType() string
-	
+
 	// SetProgressCallback sets the callback for progress updates
 	SetProgressCallback(callback func(types.SpeedUpdate))
 }

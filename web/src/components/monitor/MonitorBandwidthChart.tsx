@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import { formatters } from "@/utils/timeSettings";
 import {
   AreaChart,
   Area,
@@ -60,11 +61,11 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
     const date = new Date(tickItem);
     switch (timeFormat) {
       case "hour":
-        return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        return formatters.time(date);
       case "day":
-        return date.toLocaleDateString([], { month: "short", day: "numeric" });
+        return formatters.chartTick(date, "1w"); // Use week-style formatting for daily
       case "month":
-        return date.toLocaleDateString([], { month: "short", year: "numeric" });
+        return formatters.chartTick(date, "all"); // Use all-time style for monthly
       default:
         return tickItem;
     }
@@ -167,7 +168,7 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
               }}
               labelStyle={{ color: "#E5E7EB" }}
               formatter={formatTooltipValue}
-              labelFormatter={(label) => new Date(label).toLocaleString()}
+              labelFormatter={(label) => formatters.dateTime(new Date(label))}
             />
             <Legend
               verticalAlign="top"

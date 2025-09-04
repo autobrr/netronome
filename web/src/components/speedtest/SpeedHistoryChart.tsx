@@ -30,6 +30,8 @@ import {
   FaWaveSquare,
   FaGripVertical,
 } from "react-icons/fa";
+import { formatters } from "@/utils/timeSettings";
+import { formatServerNameFromResult, subscribeToShowCitySetting, getShowCityInServerName } from "@/utils/serverDisplay";
 import { Button } from "@/components/ui/Button";
 import {
   Select,
@@ -38,6 +40,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 interface SpeedHistoryChartProps {
@@ -50,6 +54,16 @@ interface SpeedHistoryChartProps {
   dragHandleRef?: (node: HTMLElement | null) => void;
   dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
   dragHandleClassName?: string;
+  // Server filtering props
+  serverFilterMode?: "all" | "single" | "multiple";
+  selectedSingleServer?: string;
+  selectedMultipleServers?: Set<string>;
+  onServerFilterModeChange?: (mode: "all" | "single" | "multiple") => void;
+  onSelectedSingleServerChange?: (server: string) => void;
+  onSelectedMultipleServersChange?: (servers: Set<string>) => void;
+  // Multiple server display mode
+  multipleServerDisplayMode?: "overlay" | "separate";
+  onMultipleServerDisplayModeChange?: (mode: "overlay" | "separate") => void;
 }
 
 interface VisibleMetrics {
@@ -105,8 +119,28 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   dragHandleRef,
   dragHandleListeners,
   dragHandleClassName,
+  // Server filtering props
+  serverFilterMode: propServerFilterMode,
+  selectedSingleServer: propSelectedSingleServer,
+  selectedMultipleServers: propSelectedMultipleServers,
+  onServerFilterModeChange,
+  onSelectedSingleServerChange,
+  onSelectedMultipleServersChange,
+  // Multiple server display mode props
+  multipleServerDisplayMode: propMultipleServerDisplayMode,
+  onMultipleServerDisplayModeChange,
 }) => {
   const isMobile = useIsMobile();
+  
+  // Subscribe to display setting changes
+  const [forceRerender, setForceRerender] = useState(0); // For triggering re-renders when settings change
+  useEffect(() => {
+    const unsubscribeCitySetting = subscribeToShowCitySetting(() => {
+      setForceRerender(prev => prev + 1); // Trigger re-render when setting changes
+    });
+    
+    return unsubscribeCitySetting;
+  }, []);
 
   const [visibleMetrics, setVisibleMetrics] = useState<VisibleMetrics>(() => {
     const saved = localStorage.getItem("speedtest-visible-metrics");
@@ -119,6 +153,18 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
           jitter: true,
         };
   });
+
+  // Server filtering state - use props if provided, otherwise internal state
+  const [internalServerFilterMode, setInternalServerFilterMode] = useState<"all" | "single" | "multiple">("all");
+  const [internalSelectedSingleServer, setInternalSelectedSingleServer] = useState<string>("all");
+  const [internalSelectedMultipleServers, setInternalSelectedMultipleServers] = useState<Set<string>>(new Set());
+  const [internalMultipleServerDisplayMode, setInternalMultipleServerDisplayMode] = useState<"overlay" | "separate">("overlay");
+
+  // Use props if provided, otherwise use internal state
+  const serverFilterMode = propServerFilterMode ?? internalServerFilterMode;
+  const selectedSingleServer = propSelectedSingleServer ?? internalSelectedSingleServer;
+  const selectedMultipleServers = propSelectedMultipleServers ?? internalSelectedMultipleServers;
+  const multipleServerDisplayMode = propMultipleServerDisplayMode ?? internalMultipleServerDisplayMode;
 
   const handleMetricToggle = (key: keyof VisibleMetrics) => {
     setVisibleMetrics((prev: VisibleMetrics) => {
@@ -182,18 +228,14 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
       )
       .map((item) => ({
         rawTimestamp: item.createdAt,
-        timestamp: new Date(item.createdAt).toLocaleString(undefined, {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "numeric",
-        }),
+        timestamp: formatters.dateTime(new Date(item.createdAt)),
         download: Number(item.downloadSpeed) || 0,
         upload: Number(item.uploadSpeed) || 0,
-        latency: Number(parseFloat(item.latency?.replace("ms", "")) || 0),
+        latency: Number(parseFloat(typeof item.latency === 'string' ? item.latency.replace("ms", "") : item.latency) || 0),
         jitter: Number(item.jitter) || 0,
         serverName: item.serverName || "Unknown Server",
         serverHost: item.serverHost || item.serverName || "Unknown Server",
+        serverCity: item.serverCity,
         testType: item.testType || "speedtest",
       }))
       .filter(
@@ -205,17 +247,349 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
       );
   }, [data]);
 
+  // Extract available servers from results
+  const availableServers = useMemo(() => {
+    if (!filteredData || filteredData.length === 0) return [];
+    
+    const serverMap = new Map();
+    const showCityInServerName = getShowCityInServerName(); // Get current setting
+    
+    filteredData.forEach(result => {
+      if (result.serverName) {
+        // Create unique key based on city setting
+        // If city display is off, group all cities under same server name
+        const serverKey = (showCityInServerName && result.serverCity) 
+          ? `${result.serverName}-${result.serverCity}`
+          : result.serverName;
+        
+        if (!serverMap.has(serverKey)) {
+          const serverEntry = {
+            id: serverKey,
+            name: result.serverName,
+            host: result.serverHost || result.serverName,
+            city: showCityInServerName ? result.serverCity : undefined
+          };
+          serverMap.set(serverKey, serverEntry);
+        }
+      }
+    });
+    
+    return Array.from(serverMap.values());
+  }, [filteredData, forceRerender]); // Include forceRerender to update when setting changes
+
+  // Apply server filtering
+  const allResults = useMemo(() => {
+    const showCityInServerName = getShowCityInServerName(); // Get current setting
+    
+    if (serverFilterMode === "single" && selectedSingleServer !== "all") {
+      const filtered = filteredData.filter(result => {
+        // Create the same server key as used in availableServers
+        const serverKey = (showCityInServerName && result.serverCity) 
+          ? `${result.serverName}-${result.serverCity}`
+          : result.serverName;
+        return serverKey === selectedSingleServer;
+      });
+      return filtered;
+    } else if (serverFilterMode === "multiple" && selectedMultipleServers.size > 0) {
+      const filtered = filteredData.filter(result => {
+        // Create the same server key as used in availableServers
+        const serverKey = (showCityInServerName && result.serverCity) 
+          ? `${result.serverName}-${result.serverCity}`
+          : result.serverName;
+        return selectedMultipleServers.has(serverKey);
+      });
+      return filtered;
+    }
+    
+    return filteredData;
+  }, [filteredData, serverFilterMode, selectedSingleServer, selectedMultipleServers, availableServers, forceRerender]); // Include forceRerender to update when setting changes
+
+  // Server filter handlers
+  const handleServerDropdownChange = (value: string) => {
+    
+    if (value === "all") {
+      if (onServerFilterModeChange) onServerFilterModeChange("all");
+      else setInternalServerFilterMode("all");
+      
+      if (onSelectedSingleServerChange) onSelectedSingleServerChange("all");
+      else setInternalSelectedSingleServer("all");
+    } else if (value === "multiple") {
+      if (onServerFilterModeChange) onServerFilterModeChange("multiple");
+      else setInternalServerFilterMode("multiple");
+    } else {
+      if (onServerFilterModeChange) onServerFilterModeChange("single");
+      else setInternalServerFilterMode("single");
+      
+      if (onSelectedSingleServerChange) onSelectedSingleServerChange(value);
+      else setInternalSelectedSingleServer(value);
+    }
+  };
+
+  const handleServerCheckboxChange = (serverId: string, checked: boolean) => {
+    const updateFunction = (prev: Set<string>) => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(serverId);
+      } else {
+        newSet.delete(serverId);
+      }
+      return newSet;
+    };
+
+    if (onSelectedMultipleServersChange) {
+      const newSet = updateFunction(selectedMultipleServers);
+      onSelectedMultipleServersChange(newSet);
+    } else {
+      setInternalSelectedMultipleServers(updateFunction);
+    }
+  };
+
   const handleTimeRangeChange = (range: TimeRange) => {
     localStorage.setItem("speedtest-time-range", range);
     onTimeRangeChange(range);
+  };
+
+  // Function to render individual server charts for separate mode
+  const renderServerChart = (serverName: string, serverData: any[]) => {
+    // Get server city from first result for better formatting
+    const serverCity = serverData.length > 0 ? serverData[0].serverCity : undefined;
+    const displayName = formatServerNameFromResult(serverName, serverCity);
+    
+    return (
+      <div key={`server-${serverName}`} className="mb-6">
+        <div className="mb-2">
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {displayName} ({serverData.length} data points)
+          </h4>
+        </div>
+        <div className="h-80 bg-white/50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200/50 dark:border-gray-700/50">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={serverData}
+              margin={
+                isMobile
+                  ? { top: 5, right: 5, left: 0, bottom: 5 }
+                  : { top: 5, right: 30, left: 20, bottom: 25 }
+              }
+            >
+              <defs>
+                <linearGradient id={`downloadGradient-${serverName}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id={`uploadGradient-${serverName}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id={`latencyGradient-${serverName}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id={`jitterGradient-${serverName}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f87171" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#f87171" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+
+              <CartesianGrid
+                horizontal={true}
+                vertical={false}
+                stroke="var(--chart-text)"
+                opacity={0.3}
+              />
+              
+              <XAxis
+                dataKey="rawTimestamp"
+                height={isMobile ? 50 : 60}
+                tickMargin={isMobile ? 5 : 10}
+                tick={{ fontSize: isMobile ? 11 : 12, fill: "var(--chart-text)" }}
+                tickFormatter={(value) => {
+                  const date = new Date(value);
+                  return formatters.chartTick(date, timeRange);
+                }}
+                axisLine={false}
+                tickLine={false}
+              />
+
+              <YAxis
+                yAxisId="speed"
+                label={{
+                  value: "Speed (Mbps)",
+                  position: "insideLeft",
+                  angle: -90,
+                  offset: 0,
+                  style: {
+                    textAnchor: "middle",
+                    fill: "var(--chart-text)",
+                  },
+                  dy: 0,
+                }}
+                tick={{ fontSize: 12, fill: "var(--chart-text)" }}
+                width={45}
+                domain={[0, "auto"]}
+                allowDataOverflow={false}
+              />
+
+              <YAxis
+                yAxisId="latency"
+                orientation="right"
+                label={{
+                  value: "ms",
+                  position: "insideRight",
+                  angle: -90,
+                  offset: 0,
+                  style: { fill: "var(--chart-text)" },
+                }}
+                tick={{ fontSize: 12, fill: "var(--chart-text)" }}
+                width={45}
+                domain={[0, "auto"]}
+                allowDataOverflow={false}
+              />
+
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "rgba(17, 24, 39, 0.95)",
+                  border: "1px solid rgba(75, 85, 99, 0.3)",
+                  borderRadius: "0.5rem",
+                  boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+                }}
+                labelStyle={{
+                  color: "rgb(229, 231, 235)",
+                  fontSize: "12px",
+                  fontWeight: "medium",
+                }}
+                formatter={(value: number | string, name: string) => {
+                  if (typeof value === "number") {
+                    if (name === "Download" || name === "Upload") {
+                      return [`${value.toFixed(1)} Mbps`, name];
+                    } else if (name === "Latency" || name === "Jitter") {
+                      return [`${value.toFixed(1)} ms`, name];
+                    }
+                  }
+                  return [value, name];
+                }}
+                labelFormatter={(timestamp: number) => {
+                  return formatters.chartTooltip(new Date(timestamp), timeRange);
+                }}
+              />
+
+              {visibleMetrics.download && (
+                <Area
+                  key="download"
+                  yAxisId="speed"
+                  type="monotone"
+                  dataKey="download"
+                  name="Download"
+                  stroke="#60a5fa"
+                  strokeWidth={3}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                  fill={`url(#downloadGradient-${serverName})`}
+                  className="!stroke-blue-400"
+                  animationDuration={1750}
+                  animationBegin={0}
+                  isAnimationActive={true}
+                />
+              )}
+              
+              {visibleMetrics.upload && (
+                <Area
+                  key="upload"
+                  yAxisId="speed"
+                  type="monotone"
+                  dataKey="upload"
+                  name="Upload"
+                  stroke="#34d399"
+                  strokeWidth={3}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                  fill={`url(#uploadGradient-${serverName})`}
+                  className="!stroke-emerald-400"
+                  animationDuration={1750}
+                  animationBegin={150}
+                  isAnimationActive={true}
+                />
+              )}
+
+              {visibleMetrics.latency && (
+                <Area
+                  key="latency"
+                  yAxisId="latency"
+                  type="monotone"
+                  dataKey="latency"
+                  name="Latency"
+                  stroke="#fbbf24"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                  fill={`url(#latencyGradient-${serverName})`}
+                  className="!stroke-amber-400"
+                  animationDuration={1750}
+                  animationBegin={300}
+                  isAnimationActive={true}
+                />
+              )}
+
+              {visibleMetrics.jitter && (
+                <Area
+                  key="jitter"
+                  yAxisId="latency"
+                  type="monotone"
+                  dataKey="jitter"
+                  name="Jitter"
+                  stroke="#c084fc"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                  fill={`url(#jitterGradient-${serverName})`}
+                  className="!stroke-purple-400"
+                  strokeDasharray="5 5"
+                  animationDuration={1750}
+                  animationBegin={0}
+                  isAnimationActive={true}
+                />
+              )}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  };
+
+  // Function to render charts based on display mode
+  const renderChartsBasedOnMode = () => {
+    if (serverFilterMode === "multiple" && selectedMultipleServers.size > 1 && multipleServerDisplayMode === "separate") {
+      // Group processed data by server for separate charts
+      const serverGroups: { [key: string]: any[] } = {};
+      
+      // allResults is already filtered for selected multiple servers
+      allResults.forEach(result => {
+        const serverKey = result.serverName || result.serverHost || "Unknown";
+        if (!serverGroups[serverKey]) {
+          serverGroups[serverKey] = [];
+        }
+        serverGroups[serverKey].push(result);
+      });
+
+      return (
+        <div className="space-y-6">
+          {Object.entries(serverGroups).map(([serverName, serverData]) => (
+            renderServerChart(serverName, serverData)
+          ))}
+        </div>
+      );
+    }
+    
+    // Default: show overlay chart (existing behavior)
+    return chart;
   };
 
   const chart = useMemo(
     () => (
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
-          key={`${timeRange}-${filteredData.length}`}
-          data={filteredData}
+          key={`${timeRange}-${allResults.length}`}
+          data={allResults}
           margin={
             isMobile
               ? { top: 5, right: 5, left: 0, bottom: 5 }
@@ -254,89 +628,25 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
             tick={{ fontSize: isMobile ? 11 : 12, fill: "var(--chart-text)" }}
             tickFormatter={(value) => {
               const date = new Date(value);
-
-              // Dynamic formatting based on time range
-              switch (timeRange) {
-                case "1d":
-                  // 24 hours: show time, with day name on desktop
-                  if (isMobile) {
-                    return date.toLocaleTimeString(undefined, {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    });
-                  }
-                  return date.toLocaleString(undefined, {
-                    weekday: "short",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  });
-
-                case "3d":
-                  // 3 days: show day and time
-                  if (isMobile) {
-                    return date.toLocaleString(undefined, {
-                      weekday: "short",
-                      hour: "numeric",
-                    });
-                  }
-                  return date.toLocaleString(undefined, {
-                    weekday: "short",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  });
-
-                case "1w":
-                  // 1 week: show date with optional time on desktop
-                  if (isMobile) {
-                    return date.toLocaleString(undefined, {
-                      month: "numeric",
-                      day: "numeric",
-                    });
-                  }
-                  return date.toLocaleString(undefined, {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  });
-
-                case "1m":
-                  // 1 month: show date
-                  if (isMobile) {
-                    return date.toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    });
-                  }
-                  return date.toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                  });
-
-                case "all": {
-                  // All time: show date with year if needed
-                  const now = new Date();
-                  const showYear = date.getFullYear() !== now.getFullYear();
-
-                  if (isMobile) {
-                    return date.toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: showYear ? "2-digit" : undefined,
-                    });
-                  }
-                  return date.toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    year: showYear ? "numeric" : undefined,
-                  });
+              
+              // Use centralized formatting that respects user timezone/format settings
+              if (isMobile) {
+                // Simplified mobile formatting
+                switch (timeRange) {
+                  case "1d":
+                  case "3d":
+                    return formatters.time(date);
+                  case "1w":
+                  case "1m":
+                    return formatters.chartTick(date, "1m"); // Use month-day format
+                  case "all":
+                    return formatters.chartTick(date, timeRange);
+                  default:
+                    return formatters.time(date);
                 }
-
-                default:
-                  // Fallback to time-based format
-                  return date.toLocaleTimeString(undefined, {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  });
+              } else {
+                // Full desktop formatting
+                return formatters.chartTick(date, timeRange);
               }
             }}
           />
@@ -440,12 +750,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
                 const formattedDate =
                   data.timestamp ||
-                  new Date(label).toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "numeric",
-                  });
+                  formatters.chartTooltip(new Date(label), timeRange);
 
                 return (
                   <>
@@ -460,7 +765,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     >
                       {shouldRedact
                         ? "redacted host"
-                        : data.serverHost || data.serverName}
+                        : formatServerNameFromResult(data.serverName, data.serverHost)}
                       {data.testType && (
                         <span
                           style={{
@@ -563,7 +868,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         </AreaChart>
       </ResponsiveContainer>
     ),
-    [filteredData, timeRange, visibleMetrics, isMobile, isPublic]
+    [allResults, timeRange, visibleMetrics, isMobile, isPublic, forceRerender]
   );
 
   const [isOpen, setIsOpen] = useState(() => {
@@ -725,7 +1030,105 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   </div>
 
                   {/* Desktop layout - Time Range Controls alongside metrics */}
-                  <div className="hidden sm:flex sm:justify-end sm:-mt-12">
+                  <div className="hidden sm:flex sm:justify-end sm:-mt-12 sm:gap-3">
+                    {/* Server Filter Controls */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Server:</span>
+                      
+                      {/* Server Selection Dropdown */}
+                      <Select
+                        value={serverFilterMode === "multiple" ? "multiple" : selectedSingleServer}
+                        onValueChange={handleServerDropdownChange}
+                      >
+                        <SelectTrigger className="w-[180px] px-3 py-1.5 text-xs">
+                          <SelectValue placeholder="Select servers..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All servers</SelectItem>
+                          <SelectItem value="multiple">Select multiple...</SelectItem>
+                          {availableServers.map((server) => (
+                            <SelectItem key={server.id} value={server.id}>
+                              {formatServerNameFromResult(server.name, server.city)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {/* Multiple Server Selection Popover */}
+                      {serverFilterMode === "multiple" && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="text-xs">
+                              Multiple ({selectedMultipleServers.size})
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-3">
+                            <div className="space-y-2">
+                              <div className="font-medium text-sm">Select Servers:</div>
+                              {availableServers.length > 0 ? (
+                                <div className="space-y-2 max-h-48 overflow-y-auto">
+                                  {availableServers.map((server) => (
+                                    <div key={server.id} className="flex items-center space-x-2 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+                                      <Checkbox
+                                        id={server.id}
+                                        checked={selectedMultipleServers.has(server.id)}
+                                        onCheckedChange={(checked) => {
+                                          handleServerCheckboxChange(server.id, checked as boolean);
+                                        }}
+                                      />
+                                      <label htmlFor={server.id} className="text-sm cursor-pointer flex-1">
+                                        {formatServerNameFromResult(server.name, server.city)}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-sm text-gray-500">
+                                  No servers available
+                                </div>
+                              )}
+                              
+                              {/* Display Mode Selection */}
+                              {selectedMultipleServers.size > 0 && (
+                                <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                                  <div className="font-medium text-sm mb-2">Display Mode:</div>
+                                  <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id="overlay-mode"
+                                      checked={multipleServerDisplayMode === "overlay"}
+                                      onCheckedChange={(checked) => {
+                                        const mode = checked ? "overlay" : "separate";
+                                        if (onMultipleServerDisplayModeChange) onMultipleServerDisplayModeChange(mode);
+                                        else setInternalMultipleServerDisplayMode(mode);
+                                      }}
+                                    />
+                                    <label htmlFor="overlay-mode" className="text-sm cursor-pointer">
+                                      Overlay on same chart
+                                    </label>
+                                  </div>
+                                  <div className="flex items-center space-x-2 mt-1">
+                                    <Checkbox
+                                      id="separate-mode"
+                                      checked={multipleServerDisplayMode === "separate"}
+                                      onCheckedChange={(checked) => {
+                                        const mode = checked ? "separate" : "overlay";
+                                        if (onMultipleServerDisplayModeChange) onMultipleServerDisplayModeChange(mode);
+                                        else setInternalMultipleServerDisplayMode(mode);
+                                      }}
+                                    />
+                                    <label htmlFor="separate-mode" className="text-sm cursor-pointer">
+                                      Show in separate charts
+                                    </label>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                    </div>
+
+                    {/* Time Range */}
                     <Select
                       value={timeRange}
                       onValueChange={handleTimeRangeChange}
@@ -772,7 +1175,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                 </div>
 
                 {/* Chart Area */}
-                <div className="h-[250px] sm:h-[300px] md:h-[400px] -mx-3 sm:mx-0">
+                <div className={
+                  serverFilterMode === "multiple" && selectedMultipleServers.size > 1 && multipleServerDisplayMode === "separate"
+                    ? "min-h-[400px] -mx-3 sm:mx-0" // Dynamic height for multiple separate charts
+                    : "h-[250px] sm:h-[300px] md:h-[400px] -mx-3 sm:mx-0" // Fixed height for single/overlay charts
+                }>
                   <AnimatePresence mode="wait">
                     {isLoading ? (
                       <ChartSkeleton />
@@ -815,7 +1222,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                         transition={{ duration: 0.3 }}
                         className="h-full"
                       >
-                        {chart}
+                        {renderChartsBasedOnMode()}
                       </motion.div>
                     )}
                   </AnimatePresence>

@@ -13,6 +13,7 @@ export interface Server {
   sponsor: string;
   latitude: number;
   longitude: number;
+  city?: string; // Extracted city name for better server identification
   isIperf: boolean;
   isLibrespeed?: boolean;
 }
@@ -22,6 +23,7 @@ export interface SpeedTestResult {
   serverId: string;
   serverName: string;
   serverHost: string;
+  serverCity?: string; // City name stored when test was run
   testType: "speedtest" | "iperf3" | "librespeed";
   downloadSpeed: number;
   uploadSpeed: number;
@@ -58,6 +60,7 @@ export interface Schedule {
     useLibrespeed?: boolean;
     serverHost: string | undefined;
     serverName?: string | undefined;
+    serverCity?: string | undefined; // City information for scheduled tests
   };
 }
 
@@ -71,6 +74,7 @@ export interface TestOptions {
   serverIds?: string[];
   serverHost?: string;
   serverName?: string;
+  serverCity?: string; // City information for test execution
 }
 
 export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
@@ -211,4 +215,24 @@ export interface PacketLossUpdate {
   usedMtr?: boolean;
   hopCount?: number;
   error?: string;
+}
+
+// User settings types
+export interface UserSettings {
+  timeFormat?: TimeFormatSettings;
+}
+
+export interface TimeFormatSettings {
+  timezone: string;
+  use24HourFormat: boolean;
+}
+
+// Comprehensive server data from backend
+export interface ComprehensiveServerData {
+  locations: string[];
+  servers: Record<string, Server[]>;  // Backend returns 'servers', not 'serversByLocation'
+  allServers: Server[];               // Backend also provides flattened list
+  totalServers: number;
+  cacheVersion: string;               // Version string for cache invalidation
+  lastUpdated: string;
 }

@@ -174,6 +174,7 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 			Time("next_run", schedule.NextRun).
 			Str("interval", schedule.Interval).
 			Bool("is_iperf", schedule.Options.UseIperf).
+			Str("server_city", schedule.Options.ServerCity).
 			Msg("Running scheduled test")
 
 		testCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)

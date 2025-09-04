@@ -4,6 +4,7 @@
  */
 
 import React, { Fragment, useState } from "react";
+import { formatters } from "@/utils/timeSettings";
 import { motion } from "motion/react";
 import { ChevronUpDownIcon } from "@heroicons/react/24/solid";
 import { PacketLossResult, PacketLossMonitor } from "@/types/types";
@@ -35,12 +36,7 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
   };
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const month = date.toLocaleDateString("en-US", { month: "short" });
-    const day = date.getDate();
-    const hours = date.getHours().toString().padStart(2, "0");
-    const minutes = date.getMinutes().toString().padStart(2, "0");
-    return `${month} ${day}, ${hours}:${minutes}`;
+    return formatters.dateTime(new Date(dateStr));
   };
 
   return (

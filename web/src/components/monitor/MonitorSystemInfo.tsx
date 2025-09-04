@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import { formatters } from "@/utils/timeSettings";
 import { motion } from "motion/react";
 import {
   ServerIcon,
@@ -190,7 +191,7 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
                 {isOffline ? "Last Seen" : "Last Sync"}
               </p>
               <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {new Date(systemInfo.updated_at).toLocaleTimeString()}
+                {formatters.time(new Date(systemInfo.updated_at))}
               </p>
             </div>
             {isOffline && systemInfo.from_cache && (

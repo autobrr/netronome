@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from "react";
+import { formatters } from "@/utils/timeSettings";
 import { EyeIcon, EyeSlashIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
@@ -117,7 +118,7 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
                   {agent.discoveredAt && (
                     <p className="text-xs text-blue-700 dark:text-blue-300">
                       Auto-discovered on{" "}
-                      {new Date(agent.discoveredAt).toLocaleDateString()}
+                      {formatters.dateTime(new Date(agent.discoveredAt))}
                     </p>
                   )}
                   {isAutoDiscoveredTailscale && (
