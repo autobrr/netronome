@@ -8,6 +8,7 @@ import { Schedule, Server, SavedIperfServer } from "@/types/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSchedules } from "@/api/speedtest";
 import { showToast } from "@/components/common/Toast";
+import { formatDateWithSettings, formatTimeWithSettings, getTimeFormatSettings } from "@/utils/timeSettings";
 import {
   Select,
   SelectContent,
@@ -116,37 +117,73 @@ const calculateNextRun = (
   if (scheduleType === "exact" && exactTime) {
     const now = new Date();
     const times = exactTime.split(",");
+    const timeSettings = getTimeFormatSettings();
+    
+    console.log("[calculateNextRun] Current time:", now.toISOString(), "Local:", now.toString());
+    console.log("[calculateNextRun] Timezone setting:", timeSettings.timezone);
+    console.log("[calculateNextRun] Exact times:", times);
+
+    // Get user's actual timezone
+    const userTimezone = timeSettings.timezone === "auto" 
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone 
+      : timeSettings.timezone;
+    
+    console.log("[calculateNextRun] Using timezone:", userTimezone);
 
     let closestTime: Date | null = null;
     let minDiff = Infinity;
 
     // Check each time to find the next upcoming one
-    for (const timeStr of times) {
-      const [hours, minutes] = timeStr.trim().split(":").map(Number);
+    for (const timeEntry of times) {
+      const [hours, minutes] = timeEntry.trim().split(":").map(Number);
+      console.log(`[calculateNextRun] Processing time: ${hours}:${minutes.toString().padStart(2, '0')}`);
 
-      // Try today
-      const todayRun = new Date(now);
-      todayRun.setHours(hours, minutes, 0, 0);
+      // Create a date for today at the specified time in the user's timezone
+      const today = new Date();
+      const todayInUserTz = new Date(today.toLocaleString("en-US", { timeZone: userTimezone }));
+      const todayUTC = new Date(today.toLocaleString("en-US", { timeZone: "UTC" }));
+      const timezoneOffset = todayInUserTz.getTime() - todayUTC.getTime();
+      
+      // Create the target time for today in the user's timezone
+      const todayRun = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes, 0, 0);
+      todayRun.setTime(todayRun.getTime() - timezoneOffset);
+      
+      console.log("[calculateNextRun] Today run:", todayRun.toISOString(), "Local:", todayRun.toString());
+      console.log("[calculateNextRun] Timezone offset:", timezoneOffset / (1000 * 60), "minutes");
 
       if (todayRun > now) {
         const diff = todayRun.getTime() - now.getTime();
+        const diffHours = diff / (1000 * 60 * 60);
+        console.log(`[calculateNextRun] Today run is future, diff: ${diffHours.toFixed(2)} hours`);
         if (diff < minDiff) {
           minDiff = diff;
           closestTime = todayRun;
+          console.log("[calculateNextRun] Today run is closest so far");
         }
+      } else {
+        console.log("[calculateNextRun] Today run has passed");
       }
 
       // Try tomorrow
-      const tomorrowRun = new Date(todayRun);
-      tomorrowRun.setDate(tomorrowRun.getDate() + 1);
-      const tomorrowDiff = tomorrowRun.getTime() - now.getTime();
+      const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, hours, minutes, 0, 0);
+      tomorrow.setTime(tomorrow.getTime() - timezoneOffset);
+      
+      console.log("[calculateNextRun] Tomorrow run:", tomorrow.toISOString(), "Local:", tomorrow.toString());
+      
+      const tomorrowDiff = tomorrow.getTime() - now.getTime();
+      const tomorrowDiffHours = tomorrowDiff / (1000 * 60 * 60);
+      console.log(`[calculateNextRun] Tomorrow diff: ${tomorrowDiffHours.toFixed(2)} hours`);
+      
       if (tomorrowDiff < minDiff) {
         minDiff = tomorrowDiff;
-        closestTime = tomorrowRun;
+        closestTime = tomorrow;
+        console.log("[calculateNextRun] Tomorrow run is closest so far");
       }
     }
 
-    return closestTime ? closestTime.toISOString() : new Date().toISOString();
+    const result = closestTime ? closestTime.toISOString() : new Date().toISOString();
+    console.log("[calculateNextRun] Final result:", result, "Closest time:", closestTime?.toString());
+    return result;
   } else {
     const milliseconds = parseInterval(intervalStr);
     return new Date(Date.now() + milliseconds).toISOString();
@@ -668,13 +705,14 @@ export default function ScheduleManager({
                                   {scheduleType === "exact" && (
                                     <span className="text-gray-500 dark:text-gray-500 text-xs ml-2">
                                       (
-                                      {new Date(
+                                      {formatDateWithSettings(
                                         calculateNextRun(
                                           interval,
                                           scheduleType,
                                           exactTimes.join(",")
-                                        )
-                                      ).toLocaleDateString()}
+                                        ),
+                                        { year: "numeric", month: "short", day: "numeric" }
+                                      )}
                                       )
                                     </span>
                                   )}
@@ -788,13 +826,9 @@ export default function ScheduleManager({
                                                       .substring(6)
                                                       .split(",");
                                                   if (times.length === 1) {
-                                                    return new Date(
+                                                    return formatTimeWithSettings(
                                                       `2000-01-01T${times[0]}:00`
-                                                    ).toLocaleTimeString([], {
-                                                      hour: "numeric",
-                                                      minute: "2-digit",
-                                                      hour12: true,
-                                                    });
+                                                    );
                                                   } else {
                                                     return `${times.length} times`;
                                                   }
@@ -844,13 +878,9 @@ export default function ScheduleManager({
                                                 .substring(6)
                                                 .split(",")
                                                 .map((time) =>
-                                                  new Date(
+                                                  formatTimeWithSettings(
                                                     `2000-01-01T${time}:00`
-                                                  ).toLocaleTimeString([], {
-                                                    hour: "numeric",
-                                                    minute: "2-digit",
-                                                    hour12: true,
-                                                  })
+                                                  )
                                                 )
                                                 .join(", ")}
                                             </span>

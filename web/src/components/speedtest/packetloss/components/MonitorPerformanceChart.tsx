@@ -14,6 +14,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { PacketLossResult } from "@/types/types";
+import { formatters } from "@/utils/timeSettings";
 
 interface MonitorPerformanceChartProps {
   historyList: PacketLossResult[];
@@ -32,13 +33,8 @@ export const MonitorPerformanceChart: React.FC<
       .map((result) => {
         const date = new Date(result.createdAt);
 
-        // Use consistent formatting for all data points
-        const timeLabel = date.toLocaleString(undefined, {
-          month: "numeric",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        });
+        // Use timezone-aware formatting for all data points
+        const timeLabel = formatters.chartTick(date, "1d");
 
         return {
           time: timeLabel,

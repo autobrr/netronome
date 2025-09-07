@@ -51,6 +51,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { formatDateTimeWithSettings } from "@/utils/timeSettings";
 
 interface DashboardTabProps {
   latestTest: SpeedTestResult | null;
@@ -101,7 +102,7 @@ const SortableItem: React.FC<SortableItemProps> = ({
     <div ref={setNodeRef} style={style} {...attributes}>
       {React.cloneElement(children as React.ReactElement<DragHandleProps>, {
         dragHandleRef: setActivatorNodeRef,
-        dragHandleListeners: listeners,
+        dragHandleListeners: listeners as any,
         dragHandleClassName,
       })}
     </div>
@@ -297,10 +298,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <div>
               Last test run:{" "}
               {latestTest?.createdAt
-                ? new Date(latestTest.createdAt).toLocaleString(undefined, {
-                    dateStyle: "short",
-                    timeStyle: "short",
-                  })
+                ? formatDateTimeWithSettings(latestTest.createdAt)
                 : "N/A"}
             </div>
           </div>

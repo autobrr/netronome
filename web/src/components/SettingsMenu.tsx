@@ -4,8 +4,9 @@
  */
 
 import React, { useState } from "react";
-import { Cog6ToothIcon, BellIcon } from "@heroicons/react/24/outline";
+import { Cog6ToothIcon, BellIcon, ClockIcon } from "@heroicons/react/24/outline";
 import { NotificationSettings } from "./settings/NotificationSettings";
+import { TimeFormatSettings } from "./settings/TimeFormatSettings";
 import { Button } from "@/components/ui/Button";
 import {
   Dialog,
@@ -34,11 +35,17 @@ const settingsSections: SettingsSection[] = [
     icon: <BellIcon className="w-4 h-4" />,
     component: NotificationSettings,
   },
+  {
+    id: "time-format",
+    label: "Time & Timezone",
+    icon: <ClockIcon className="w-4 h-4" />,
+    component: TimeFormatSettings,
+  },
 ];
 
 export const SettingsMenu: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
-  const [activeSection, setActiveSection] = useState<string>("notifications");
+  const [activeSection, setActiveSection] = useState<string>(settingsSections[0].id);
 
   const handleSectionClick = (sectionId: string) => {
     setActiveSection(sectionId);

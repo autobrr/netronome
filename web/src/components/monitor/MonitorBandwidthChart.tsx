@@ -17,6 +17,7 @@ import {
 import { ClockIcon } from "@heroicons/react/24/outline";
 import { formatBytes } from "@/utils/formatBytes";
 import { motion } from "motion/react";
+import { formatters } from "@/utils/timeSettings";
 
 interface BandwidthData {
   time: string;
@@ -60,11 +61,11 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
     const date = new Date(tickItem);
     switch (timeFormat) {
       case "hour":
-        return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        return formatters.time(date);
       case "day":
-        return date.toLocaleDateString([], { month: "short", day: "numeric" });
+        return formatters.chartTick(date, "1w");
       case "month":
-        return date.toLocaleDateString([], { month: "short", year: "numeric" });
+        return formatters.chartTick(date, "1m");
       default:
         return tickItem;
     }
@@ -167,7 +168,7 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
               }}
               labelStyle={{ color: "#E5E7EB" }}
               formatter={formatTooltipValue}
-              labelFormatter={(label) => new Date(label).toLocaleString()}
+              labelFormatter={(label) => formatters.chartTooltip(label, "1d")}
             />
             <Legend
               verticalAlign="top"

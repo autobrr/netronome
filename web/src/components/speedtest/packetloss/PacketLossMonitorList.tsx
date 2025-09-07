@@ -14,6 +14,7 @@ import {
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { PacketLossMonitor } from "@/types/types";
+import { formatTimeWithSettings } from "@/utils/timeSettings";
 import { formatInterval } from "./utils/packetLossUtils";
 import { DeleteMonitorModal } from "./DeleteMonitorModal";
 import { MonitorStatus } from "./types/monitorStatus";
@@ -40,18 +41,14 @@ const MonitorStatusDisplay: React.FC<MonitorStatusDisplayProps> = ({
                     .substring(6)
                     .split(",")
                     .slice(0, 3) // Show max 3 times on first line
-                    .map((time, index) => (
+                    .map((time: string, index: number) => (
                       <span
                         key={index}
                         className="inline-flex items-center px-1.5 py-0.5 bg-gray-500/10 text-gray-600 dark:text-gray-400 rounded text-xs border border-gray-500/20"
                       >
-                        {new Date(
+                        {formatTimeWithSettings(
                           `2000-01-01T${time.trim()}:00`
-                        ).toLocaleTimeString([], {
-                          hour: "numeric",
-                          minute: "2-digit",
-                          hour12: true,
-                        })}
+                        )}
                       </span>
                     ))}
                   {monitor.interval.substring(6).split(",").length > 3 && (
@@ -155,7 +152,7 @@ const MonitorStatusDisplay: React.FC<MonitorStatusDisplayProps> = ({
                   .substring(6)
                   .split(",")
                   .slice(0, 3) // Show max 3 times on first line
-                  .map((time, index) => (
+                  .map((time: string, index: number) => (
                     <span
                       key={index}
                       className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs border ${
@@ -164,13 +161,9 @@ const MonitorStatusDisplay: React.FC<MonitorStatusDisplayProps> = ({
                           : "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20"
                       }`}
                     >
-                      {new Date(
+                      {formatTimeWithSettings(
                         `2000-01-01T${time.trim()}:00`
-                      ).toLocaleTimeString([], {
-                        hour: "numeric",
-                        minute: "2-digit",
-                        hour12: true,
-                      })}
+                      )}
                     </span>
                   ))}
                 {monitor.interval.substring(6).split(",").length > 3 && (

@@ -11,6 +11,7 @@ import { MonitorSystemInfo } from "../MonitorSystemInfo";
 import { MonitorHardwareStats } from "../MonitorHardwareStats";
 import { MonitorOfflineBanner } from "../MonitorOfflineBanner";
 import { ServerIcon } from "@heroicons/react/24/outline";
+import { formatters } from "@/utils/timeSettings";
 
 interface MonitorSystemTabProps {
   agent: MonitorAgent;
@@ -147,7 +148,7 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
           className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4 sm:mt-6"
         >
           {hardwareStats?.from_cache || systemInfo?.from_cache ? "Data collected" : "Last updated"}:{" "}
-          {new Date((hardwareStats?.updated_at || systemInfo?.updated_at) || Date.now()).toLocaleTimeString()}
+          {formatters.time(new Date((hardwareStats?.updated_at || systemInfo?.updated_at) || Date.now()))}
           {(hardwareStats?.from_cache || systemInfo?.from_cache) && " (cached)"}
         </motion.div>
       )}

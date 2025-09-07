@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MonitorAgent, CreateAgentRequest } from "@/api/monitor";
+import { formatDateWithSettings } from "@/utils/timeSettings";
 
 interface MonitorAgentFormProps {
   agent?: MonitorAgent | null;
@@ -117,7 +118,11 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
                   {agent.discoveredAt && (
                     <p className="text-xs text-blue-700 dark:text-blue-300">
                       Auto-discovered on{" "}
-                      {new Date(agent.discoveredAt).toLocaleDateString()}
+                      {formatDateWithSettings(agent.discoveredAt, { 
+                        year: "numeric", 
+                        month: "long", 
+                        day: "numeric" 
+                      })}
                     </p>
                   )}
                   {isAutoDiscoveredTailscale && (
