@@ -8,7 +8,13 @@ import { Schedule, Server, SavedIperfServer } from "@/types/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSchedules } from "@/api/speedtest";
 import { showToast } from "@/components/common/Toast";
-import { formatDateWithSettings, formatTimeWithSettings, getTimeFormatSettings } from "@/utils/timeSettings";
+import {
+  formatDateWithSettings,
+  formatTimeWithSettings,
+  getTimeFormatSettings,
+  calculateNextRunInUserTimezone,
+  convertUserTimeToUTC
+} from "@/utils/timeSettings";
 import {
   Select,
   SelectContent,
@@ -115,75 +121,28 @@ const calculateNextRun = (
   exactTime?: string
 ): string => {
   if (scheduleType === "exact" && exactTime) {
-    const now = new Date();
-    const times = exactTime.split(",");
     const timeSettings = getTimeFormatSettings();
-    
-    console.log("[calculateNextRun] Current time:", now.toISOString(), "Local:", now.toString());
-    console.log("[calculateNextRun] Timezone setting:", timeSettings.timezone);
-    console.log("[calculateNextRun] Exact times:", times);
-
-    // Get user's actual timezone
-    const userTimezone = timeSettings.timezone === "auto" 
-      ? Intl.DateTimeFormat().resolvedOptions().timeZone 
+    const userTimezone = timeSettings.timezone === "auto"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
       : timeSettings.timezone;
-    
-    console.log("[calculateNextRun] Using timezone:", userTimezone);
 
+    const times = exactTime.split(",");
     let closestTime: Date | null = null;
     let minDiff = Infinity;
+    const now = new Date();
 
-    // Check each time to find the next upcoming one
+    // Find the next upcoming time
     for (const timeEntry of times) {
-      const [hours, minutes] = timeEntry.trim().split(":").map(Number);
-      console.log(`[calculateNextRun] Processing time: ${hours}:${minutes.toString().padStart(2, '0')}`);
+      const nextRun = calculateNextRunInUserTimezone(timeEntry.trim(), userTimezone);
+      const diff = nextRun.getTime() - now.getTime();
 
-      // Create a date for today at the specified time in the user's timezone
-      const today = new Date();
-      const todayInUserTz = new Date(today.toLocaleString("en-US", { timeZone: userTimezone }));
-      const todayUTC = new Date(today.toLocaleString("en-US", { timeZone: "UTC" }));
-      const timezoneOffset = todayInUserTz.getTime() - todayUTC.getTime();
-      
-      // Create the target time for today in the user's timezone
-      const todayRun = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes, 0, 0);
-      todayRun.setTime(todayRun.getTime() - timezoneOffset);
-      
-      console.log("[calculateNextRun] Today run:", todayRun.toISOString(), "Local:", todayRun.toString());
-      console.log("[calculateNextRun] Timezone offset:", timezoneOffset / (1000 * 60), "minutes");
-
-      if (todayRun > now) {
-        const diff = todayRun.getTime() - now.getTime();
-        const diffHours = diff / (1000 * 60 * 60);
-        console.log(`[calculateNextRun] Today run is future, diff: ${diffHours.toFixed(2)} hours`);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestTime = todayRun;
-          console.log("[calculateNextRun] Today run is closest so far");
-        }
-      } else {
-        console.log("[calculateNextRun] Today run has passed");
-      }
-
-      // Try tomorrow
-      const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, hours, minutes, 0, 0);
-      tomorrow.setTime(tomorrow.getTime() - timezoneOffset);
-      
-      console.log("[calculateNextRun] Tomorrow run:", tomorrow.toISOString(), "Local:", tomorrow.toString());
-      
-      const tomorrowDiff = tomorrow.getTime() - now.getTime();
-      const tomorrowDiffHours = tomorrowDiff / (1000 * 60 * 60);
-      console.log(`[calculateNextRun] Tomorrow diff: ${tomorrowDiffHours.toFixed(2)} hours`);
-      
-      if (tomorrowDiff < minDiff) {
-        minDiff = tomorrowDiff;
-        closestTime = tomorrow;
-        console.log("[calculateNextRun] Tomorrow run is closest so far");
+      if (diff > 0 && diff < minDiff) {
+        minDiff = diff;
+        closestTime = nextRun;
       }
     }
 
-    const result = closestTime ? closestTime.toISOString() : new Date().toISOString();
-    console.log("[calculateNextRun] Final result:", result, "Closest time:", closestTime?.toString());
-    return result;
+    return closestTime ? closestTime.toISOString() : new Date().toISOString();
   } else {
     const milliseconds = parseInterval(intervalStr);
     return new Date(Date.now() + milliseconds).toISOString();
@@ -300,11 +259,24 @@ export default function ScheduleManager({
     const isIperfServer = selectedServers[0].isIperf;
     const isLibrespeedServer = selectedServers[0].isLibrespeed;
 
+    // Get user's timezone for conversion
+    const timeSettings = getTimeFormatSettings();
+    const userTimezone = timeSettings.timezone === "auto"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : timeSettings.timezone;
+
+    // Convert exact times from user timezone to UTC for backend storage
+    let scheduleTimes = exactTimes;
+    if (scheduleType === "exact") {
+      scheduleTimes = exactTimes.map(time =>
+        convertUserTimeToUTC(time, userTimezone)
+      );
+    }
+
     const newSchedule: Schedule = {
       serverIds: selectedServers.map((s) => s.id),
       interval:
-        scheduleType === "exact" ? `exact:${exactTimes.join(",")}` : interval,
-      // nextRun is now calculated server-side to use server timezone
+        scheduleType === "exact" ? `exact:${scheduleTimes.join(",")}` : interval,
       enabled,
       options: {
         enableDownload: true,

@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import { formatInTimeZone, toZonedTime, fromZonedTime } from 'date-fns-tz';
 
 export interface TimeFormatSettings {
   timezone: string;
@@ -280,12 +281,137 @@ export const formatDate = (
 };
 
 /**
+ * Convert a UTC date to a specific timezone
+ */
+export const convertUTCToTimezone = (
+  utcDate: Date | string,
+  timezone: string
+): Date => {
+  const date = typeof utcDate === 'string' ? new Date(utcDate) : utcDate;
+  return toZonedTime(date, timezone);
+};
+
+/**
+ * Convert a date from a specific timezone to UTC
+ */
+export const convertTimezoneToUTC = (
+  localDate: Date,
+  timezone: string
+): Date => {
+  return fromZonedTime(localDate, timezone);
+};
+
+/**
+ * Format a UTC date in a specific timezone
+ */
+export const formatUTCInTimezone = (
+  utcDate: Date | string,
+  timezone: string,
+  format: string
+): string => {
+  return formatInTimeZone(utcDate, timezone, format);
+};
+
+/**
+ * Convert user's selected time (HH:MM) to UTC for backend storage
+ * Using a reference date to handle timezone offset calculation
+ * @param timeString - Time in HH:MM format (e.g., "14:00")
+ * @param userTimezone - User's timezone (e.g., "America/New_York")
+ * @returns UTC time in HH:MM format
+ */
+export const convertUserTimeToUTC = (
+  timeString: string,
+  userTimezone: string
+): string => {
+  const [hours, minutes] = timeString.split(':').map(Number);
+
+  // Use today's date for the conversion to handle DST correctly
+  const today = new Date();
+  const dateInUserTz = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+    hours,
+    minutes,
+    0,
+    0
+  );
+
+  // Convert from user's timezone to UTC using date-fns-tz
+  // fromZonedTime treats the input as if it's in the specified timezone
+  const utcDate = fromZonedTime(dateInUserTz, userTimezone);
+
+  // Extract UTC hours and minutes
+  const utcHours = utcDate.getUTCHours().toString().padStart(2, '0');
+  const utcMinutes = utcDate.getUTCMinutes().toString().padStart(2, '0');
+
+  return `${utcHours}:${utcMinutes}`;
+};
+
+/**
+ * Calculate next run time for a schedule in user's timezone
+ * @param scheduleTime - Time in HH:MM format (in user's timezone)
+ * @param userTimezone - User's timezone
+ * @returns Next run date/time in UTC
+ */
+export const calculateNextRunInUserTimezone = (
+  scheduleTime: string,
+  userTimezone: string
+): Date => {
+  const [hours, minutes] = scheduleTime.split(':').map(Number);
+  const now = new Date();
+
+  // Create a date for today at the specified time
+  const todayLocal = new Date();
+  todayLocal.setHours(hours, minutes, 0, 0);
+
+  // Convert from user's timezone to UTC
+  const todayUTC = fromZonedTime(todayLocal, userTimezone);
+
+  // If the time has already passed today, schedule for tomorrow
+  if (todayUTC <= now) {
+    const tomorrowLocal = new Date(todayLocal);
+    tomorrowLocal.setDate(tomorrowLocal.getDate() + 1);
+    return fromZonedTime(tomorrowLocal, userTimezone);
+  }
+
+  return todayUTC;
+};
+
+/**
  * Specialized formatters for common use cases
  */
 export const formatters = {
-  time: (date: Date | string) => formatTimeWithSettings(date),
-  dateTime: (date: Date | string) => formatDateTimeWithSettings(date),
-  
+  time: (date: Date | string) => {
+    const settings = getTimeFormatSettings();
+    const timezone = getEffectiveTimezone(settings);
+
+    if (timezone && timezone !== 'auto') {
+      return formatInTimeZone(
+        date,
+        timezone,
+        settings.use24HourFormat ? 'HH:mm' : 'h:mm a'
+      );
+    }
+
+    return formatTimeWithSettings(date);
+  },
+
+  dateTime: (date: Date | string) => {
+    const settings = getTimeFormatSettings();
+    const timezone = getEffectiveTimezone(settings);
+
+    if (timezone && timezone !== 'auto') {
+      return formatInTimeZone(
+        date,
+        timezone,
+        settings.use24HourFormat ? 'MMM d, yyyy HH:mm' : 'MMM d, yyyy h:mm a'
+      );
+    }
+
+    return formatDateTimeWithSettings(date);
+  },
+
   // Chart-specific formatters
   chartTick: (date: Date | string, timeRange: string, isMobile?: boolean) => {
     const settings = getTimeFormatSettings();
@@ -338,7 +464,7 @@ export const formatters = {
           day: "numeric",
         }, settings);
         
-      case "all":
+      case "all": {
         const now = new Date();
         const showYear = dateObj.getFullYear() !== now.getFullYear();
         if (isMobile) {
@@ -353,7 +479,8 @@ export const formatters = {
           day: "numeric",
           ...(showYear && { year: "numeric" }),
         }, settings);
-        
+      }
+
       default:
         return formatDateWithSettings(dateObj, {
           hour: "numeric",

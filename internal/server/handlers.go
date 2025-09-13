@@ -171,8 +171,8 @@ func (s *Server) handleCreateSchedule(c *gin.Context) {
 		return
 	}
 
-	// Calculate next_run on the server side using server's timezone
-	now := time.Now()
+	// Calculate next_run using UTC (frontend sends UTC times)
+	now := time.Now().UTC()
 	nextRun := s.scheduler.CalculateNextRun(schedule.Interval, now)
 	schedule.NextRun = nextRun
 
@@ -197,8 +197,8 @@ func (s *Server) handleUpdateSchedule(c *gin.Context) {
 		return
 	}
 
-	// Calculate next_run on the server side using server's timezone
-	now := time.Now()
+	// Calculate next_run using UTC (frontend sends UTC times)
+	now := time.Now().UTC()
 	nextRun := s.scheduler.CalculateNextRun(schedule.Interval, now)
 	schedule.NextRun = nextRun
 
