@@ -16,6 +16,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faLinux, faApple } from "@fortawesome/free-brands-svg-icons";
 import { SystemInfo, InterfaceInfo } from "@/api/monitor";
 import { formatBytes } from "@/utils/formatBytes";
+import { formatters } from "@/utils/timeSettings";
 
 interface MonitorSystemInfoProps {
   systemInfo: SystemInfo;
@@ -190,7 +191,7 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
                 {isOffline ? "Last Seen" : "Last Sync"}
               </p>
               <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {new Date(systemInfo.updated_at).toLocaleTimeString()}
+                {formatters.time(systemInfo.updated_at)}
               </p>
             </div>
             {isOffline && systemInfo.from_cache && (

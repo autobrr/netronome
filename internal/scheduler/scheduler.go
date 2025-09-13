@@ -263,6 +263,9 @@ func (s *service) isValidScheduleInterval(interval string) bool {
 //
 // The jitter prevents thundering herd problem when multiple monitors have the same interval.
 func (s *service) calculateNextRun(interval string, from time.Time) time.Time {
+	// Ensure we're working in UTC
+	from = from.UTC()
+
 	if strings.HasPrefix(interval, "exact:") {
 		// Extract time part - supports multiple times separated by comma
 		timePart := strings.TrimPrefix(interval, "exact:")
@@ -288,8 +291,8 @@ func (s *service) calculateNextRun(interval string, from time.Time) time.Time {
 				continue
 			}
 
-			// Check today
-			todayRun := time.Date(from.Year(), from.Month(), from.Day(), hour, minute, 0, 0, from.Location())
+			// Check today - interpret times as UTC since frontend sends UTC
+			todayRun := time.Date(from.Year(), from.Month(), from.Day(), hour, minute, 0, 0, time.UTC)
 			if todayRun.After(from) {
 				diff := todayRun.Sub(from)
 				if diff < minTimeDiff {

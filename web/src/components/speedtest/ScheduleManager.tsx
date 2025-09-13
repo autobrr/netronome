@@ -9,6 +9,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSchedules } from "@/api/speedtest";
 import { showToast } from "@/components/common/Toast";
 import {
+  formatDateWithSettings,
+  formatTimeWithSettings,
+  getTimeFormatSettings,
+  calculateNextRunInUserTimezone,
+  convertUserTimeToUTC
+} from "@/utils/timeSettings";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -114,35 +121,24 @@ const calculateNextRun = (
   exactTime?: string
 ): string => {
   if (scheduleType === "exact" && exactTime) {
-    const now = new Date();
-    const times = exactTime.split(",");
+    const timeSettings = getTimeFormatSettings();
+    const userTimezone = timeSettings.timezone === "auto"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : timeSettings.timezone;
 
+    const times = exactTime.split(",");
     let closestTime: Date | null = null;
     let minDiff = Infinity;
+    const now = new Date();
 
-    // Check each time to find the next upcoming one
-    for (const timeStr of times) {
-      const [hours, minutes] = timeStr.trim().split(":").map(Number);
+    // Find the next upcoming time
+    for (const timeEntry of times) {
+      const nextRun = calculateNextRunInUserTimezone(timeEntry.trim(), userTimezone);
+      const diff = nextRun.getTime() - now.getTime();
 
-      // Try today
-      const todayRun = new Date(now);
-      todayRun.setHours(hours, minutes, 0, 0);
-
-      if (todayRun > now) {
-        const diff = todayRun.getTime() - now.getTime();
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestTime = todayRun;
-        }
-      }
-
-      // Try tomorrow
-      const tomorrowRun = new Date(todayRun);
-      tomorrowRun.setDate(tomorrowRun.getDate() + 1);
-      const tomorrowDiff = tomorrowRun.getTime() - now.getTime();
-      if (tomorrowDiff < minDiff) {
-        minDiff = tomorrowDiff;
-        closestTime = tomorrowRun;
+      if (diff > 0 && diff < minDiff) {
+        minDiff = diff;
+        closestTime = nextRun;
       }
     }
 
@@ -263,11 +259,24 @@ export default function ScheduleManager({
     const isIperfServer = selectedServers[0].isIperf;
     const isLibrespeedServer = selectedServers[0].isLibrespeed;
 
+    // Get user's timezone for conversion
+    const timeSettings = getTimeFormatSettings();
+    const userTimezone = timeSettings.timezone === "auto"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : timeSettings.timezone;
+
+    // Convert exact times from user timezone to UTC for backend storage
+    let scheduleTimes = exactTimes;
+    if (scheduleType === "exact") {
+      scheduleTimes = exactTimes.map(time =>
+        convertUserTimeToUTC(time, userTimezone)
+      );
+    }
+
     const newSchedule: Schedule = {
       serverIds: selectedServers.map((s) => s.id),
       interval:
-        scheduleType === "exact" ? `exact:${exactTimes.join(",")}` : interval,
-      // nextRun is now calculated server-side to use server timezone
+        scheduleType === "exact" ? `exact:${scheduleTimes.join(",")}` : interval,
       enabled,
       options: {
         enableDownload: true,
@@ -668,13 +677,14 @@ export default function ScheduleManager({
                                   {scheduleType === "exact" && (
                                     <span className="text-gray-500 dark:text-gray-500 text-xs ml-2">
                                       (
-                                      {new Date(
+                                      {formatDateWithSettings(
                                         calculateNextRun(
                                           interval,
                                           scheduleType,
                                           exactTimes.join(",")
-                                        )
-                                      ).toLocaleDateString()}
+                                        ),
+                                        { year: "numeric", month: "short", day: "numeric" }
+                                      )}
                                       )
                                     </span>
                                   )}
@@ -788,13 +798,9 @@ export default function ScheduleManager({
                                                       .substring(6)
                                                       .split(",");
                                                   if (times.length === 1) {
-                                                    return new Date(
+                                                    return formatTimeWithSettings(
                                                       `2000-01-01T${times[0]}:00`
-                                                    ).toLocaleTimeString([], {
-                                                      hour: "numeric",
-                                                      minute: "2-digit",
-                                                      hour12: true,
-                                                    });
+                                                    );
                                                   } else {
                                                     return `${times.length} times`;
                                                   }
@@ -844,13 +850,9 @@ export default function ScheduleManager({
                                                 .substring(6)
                                                 .split(",")
                                                 .map((time) =>
-                                                  new Date(
+                                                  formatTimeWithSettings(
                                                     `2000-01-01T${time}:00`
-                                                  ).toLocaleTimeString([], {
-                                                    hour: "numeric",
-                                                    minute: "2-digit",
-                                                    hour12: true,
-                                                  })
+                                                  )
                                                 )
                                                 .join(", ")}
                                             </span>
