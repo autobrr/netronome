@@ -247,10 +247,35 @@ func (s *service) isValidScheduleInterval(interval string) bool {
 
 		return true
 	} else {
-		// Try to parse as duration
-		_, err := time.ParseDuration(interval)
+		// Try to parse as duration, but first normalize custom units
+		normalizedInterval := s.normalizeDuration(interval)
+		_, err := time.ParseDuration(normalizedInterval)
 		return err == nil
 	}
+}
+
+// normalizeDuration converts custom duration units (d, w) to Go-compatible units
+func (s *service) normalizeDuration(interval string) string {
+	// Handle days (d) - convert to hours
+	if strings.HasSuffix(interval, "d") {
+		if daysStr := strings.TrimSuffix(interval, "d"); daysStr != "" {
+			if days, err := strconv.Atoi(daysStr); err == nil {
+				return strconv.Itoa(days*24) + "h"
+			}
+		}
+	}
+
+	// Handle weeks (w) - convert to hours
+	if strings.HasSuffix(interval, "w") {
+		if weeksStr := strings.TrimSuffix(interval, "w"); weeksStr != "" {
+			if weeks, err := strconv.Atoi(weeksStr); err == nil {
+				return strconv.Itoa(weeks*24*7) + "h"
+			}
+		}
+	}
+
+	// Return as-is for standard Go durations
+	return interval
 }
 
 // calculateNextRun calculates the next run time based on interval type.
@@ -318,8 +343,9 @@ func (s *service) calculateNextRun(interval string, from time.Time) time.Time {
 		jitter := time.Duration(rand.Int63n(60)+1) * time.Second
 		return nextRun.Add(jitter)
 	} else {
-		// Parse as duration
-		duration, err := time.ParseDuration(interval)
+		// Parse as duration - normalize custom units first
+		normalizedInterval := s.normalizeDuration(interval)
+		duration, err := time.ParseDuration(normalizedInterval)
 		if err != nil {
 			return time.Time{}
 		}
