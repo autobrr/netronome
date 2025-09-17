@@ -65,18 +65,25 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
     setShowApiKey(false); // Reset visibility when dialog opens
   }, [agent, isOpen]);
 
+  const sanitizeUrl = (value: string) => {
+    // Trim whitespace and drop the SSE streaming suffix if the agent URL was copied from the events endpoint
+    let cleanUrl = value.trim();
+    cleanUrl = cleanUrl.replace(/\/events\?stream=live-data$/, "");
+    return cleanUrl;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    const sanitizedData: CreateAgentRequest = {
+      ...formData,
+      url: sanitizeUrl(formData.url),
+    };
+    setFormData(sanitizedData);
+    onSubmit(sanitizedData);
   };
 
   const handleUrlChange = (value: string) => {
-    // Clean up the URL - remove any trailing slashes and the SSE endpoint if present
-    let cleanUrl = value.trim();
-    if (cleanUrl.endsWith("/")) {
-      cleanUrl = cleanUrl.slice(0, -1);
-    }
-    setFormData({ ...formData, url: cleanUrl });
+    setFormData({ ...formData, url: value });
   };
 
   const generateApiKey = () => {
