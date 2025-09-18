@@ -538,7 +538,7 @@ export default function Main({ isPublic = false }: MainProps) {
                 }}
               />
             </motion.div>
-          )}
+            )}
 
           {!isPublic && activeTab === "speedtest" && (
             <motion.div
