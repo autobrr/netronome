@@ -763,25 +763,6 @@ func (s *PacketLossService) processResults(monitor *PacketLossMonitor, stats *pr
 			}
 		}
 	}
-
-	// Update monitor schedule if scheduler is available
-	if s.scheduler != nil {
-		// Get the monitor config to get the interval
-		monitorConfig, err := s.db.GetPacketLossMonitor(monitor.ID)
-		if err == nil && monitorConfig.Enabled {
-			if err := s.scheduler.UpdateMonitorSchedule(monitor.ID, monitorConfig.Interval); err != nil {
-				log.Error().
-					Err(err).
-					Int64("monitorID", monitor.ID).
-					Msg("Failed to update monitor schedule after test completion")
-			} else {
-				log.Debug().
-					Int64("monitorID", monitor.ID).
-					Str("interval", monitorConfig.Interval).
-					Msg("Updated monitor schedule after test completion")
-			}
-		}
-	}
 }
 
 // sendPacketLossNotification sends a notification for packet loss events
