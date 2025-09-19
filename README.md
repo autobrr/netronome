@@ -157,6 +157,7 @@ The following tools enable specific features (automatically included in Docker):
 - **librespeed-cli** - For LibreSpeed testing
 - **traceroute** - For basic network path discovery (usually pre-installed)
 - **mtr** - For advanced packet loss analysis per hop (optional, falls back to traceroute)
+  - Windows users should get the binary from https://github.com/dqos/WinMTRCmd/releases
 - **vnstat** - For bandwidth monitoring on agents (optional but recommended)
 
 Install on Linux:
@@ -208,6 +209,27 @@ Notes:
    ```bash
    systemctl enable --now netronome@$USER
    ```
+
+### Windows Generic
+
+1. **Download and Install**
+```cmd
+Get the latest binary from https://github.com/autobrr/netronome/releases
+Unzip the release into a folder
+Place any third party binaries in the same folder
+Add the folder to Windows environment variables - restart explorer.exe (and any open terminals)
+```
+
+2. **Create a Windows Task Schedule**
+```cmd
+https://www.windowscentral.com/how-create-automated-task-using-task-scheduler-windows-10
+```
+
+3. **Create Config**
+```cmd
+Run `netronome generate-config`
+Edit config.toml to suit `C:\Users\{USERNAME}\.config\netronome`
+```
 
 ### Docker Installation
 

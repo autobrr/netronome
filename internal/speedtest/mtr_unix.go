@@ -6,6 +6,7 @@
 package speedtest
 
 import (
+	"fmt"
 	"os/exec"
 	"syscall"
 )
@@ -39,4 +40,32 @@ func killMTRProcessGroup(pid int) error {
 	}
 	
 	return err
+}
+
+// buildMTRArgs builds Unix-specific MTR arguments
+// On Unix, we can use the -j flag for JSON output directly
+func buildMTRArgs(host string, packetCount int, privilegedMode bool) ([]string, string, error) {
+	args := []string{
+		"-4",                                         // Force IPv4
+		"-j",                                         // JSON output
+		"-c", fmt.Sprintf("%d", packetCount),         // Number of cycles
+		"-i", "1",                                    // 1 second interval
+		"--no-dns",                                   // Skip DNS resolution for speed
+		host,
+	}
+	
+	// Add UDP mode if not privileged
+	if !privilegedMode {
+		args = append([]string{"-u"}, args...)
+	}
+	
+	// Return empty string to indicate Unix doesn't need parsing
+	return args, "", nil
+}
+
+// parseMTROutput parses Unix MTR JSON output (no-op since it's already JSON)
+func parseMTROutput(outputData []byte, host string) ([]byte, error) {
+	// This should never be called on Unix since we get JSON directly
+	// But we provide it for interface consistency
+	return nil, fmt.Errorf("parseMTROutput should not be called on Unix systems")
 }

@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -763,25 +764,6 @@ func (s *PacketLossService) processResults(monitor *PacketLossMonitor, stats *pr
 			}
 		}
 	}
-
-	// Update monitor schedule if scheduler is available
-	if s.scheduler != nil {
-		// Get the monitor config to get the interval
-		monitorConfig, err := s.db.GetPacketLossMonitor(monitor.ID)
-		if err == nil && monitorConfig.Enabled {
-			if err := s.scheduler.UpdateMonitorSchedule(monitor.ID, monitorConfig.Interval); err != nil {
-				log.Error().
-					Err(err).
-					Int64("monitorID", monitor.ID).
-					Msg("Failed to update monitor schedule after test completion")
-			} else {
-				log.Debug().
-					Int64("monitorID", monitor.ID).
-					Str("interval", monitorConfig.Interval).
-					Msg("Updated monitor schedule after test completion")
-			}
-		}
-	}
 }
 
 // sendPacketLossNotification sends a notification for packet loss events
@@ -993,6 +975,13 @@ type mtrReport struct {
 
 // runMTRTest runs an MTR test and returns statistics
 func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Statistics, error) {
+	if _, err := exec.LookPath("mtr"); err != nil {
+		if runtime.GOOS == "windows" {
+			return nil, fmt.Errorf("WinMTRCmd not found: please install from https://github.com/dqos/WinMTRCmd/releases and add to PATH")
+		}
+		return nil, fmt.Errorf("mtr not found: please install mtr package for your system")
+	}
+
 	// Initialize GeoIP databases if not already done
 	// This is a workaround since PacketLossService doesn't have access to the main service
 	if countryDB == nil && asnDB == nil {
@@ -1017,28 +1006,22 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(monitor.PacketCount*6)*time.Second)
 	defer cancel()
 
-	// Build MTR command with JSON output
-	args := []string{
-		"-4",                                         // Force IPv4
-		"-j",                                         // JSON output
-		"-c", fmt.Sprintf("%d", monitor.PacketCount), // Number of cycles
-		"-i", "1", // 1 second interval
-		"--no-dns", // Skip DNS resolution for speed
-		monitor.Host,
+	// Build platform-specific MTR command arguments
+	args, platformFlag, err := buildMTRArgs(monitor.Host, monitor.PacketCount, s.privilegedMode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build MTR arguments: %w", err)
 	}
 
 	// Track if we're using privileged mode
 	actuallyPrivileged := s.privilegedMode
 
-	// Try privileged mode first (ICMP)
+	// Log MTR mode
 	if s.privilegedMode {
 		log.Info().
 			Int64("monitorID", monitor.ID).
 			Str("host", monitor.Host).
 			Msg("Running MTR in privileged mode (ICMP)")
 	} else {
-		// Use UDP mode if unprivileged
-		args = append([]string{"-u"}, args...)
 		log.Info().
 			Int64("monitorID", monitor.ID).
 			Str("host", monitor.Host).
@@ -1046,14 +1029,17 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 	}
 
 	// Helper function to run MTR with proper cleanup
-	runMTRCommand := func(args []string) ([]byte, error) {
+	runMTRCommand := func(args []string, platformFlag string) ([]byte, error) {
 		cmd := exec.CommandContext(ctx, "mtr", args...)
 
 		// Configure platform-specific process attributes
 		configureMTRCommand(cmd)
 
-		// Get stdout pipe BEFORE starting the command
-		stdout, err := cmd.StdoutPipe()
+		var stdout io.ReadCloser
+		var err error
+
+		// Get stdout pipe for both platforms
+		stdout, err = cmd.StdoutPipe()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get stdout pipe: %w", err)
 		}
@@ -1071,10 +1057,13 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 			Strs("args", args).
 			Msg("Started MTR process")
 
+		// Track if the command completed successfully
+		var commandCompleted bool
+
 		// Ensure cleanup on function exit
 		defer func() {
-			// Kill the process group to ensure all child processes are terminated
-			if cmd.Process != nil {
+			// Only try to kill the process if it didn't complete successfully
+			if cmd.Process != nil && !commandCompleted {
 				if err := killMTRProcessGroup(cmd.Process.Pid); err != nil {
 					log.Error().
 						Err(err).
@@ -1093,18 +1082,40 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 			defer close(outputChan)
 			defer close(errChan)
 
-			// Read all output
+			// Read all output from stdout
 			output, readErr := io.ReadAll(stdout)
 
 			// Wait for command to finish
 			waitErr := cmd.Wait()
-
-			if readErr != nil {
-				errChan <- fmt.Errorf("failed to read output: %w", readErr)
-			} else if waitErr != nil {
+			if waitErr != nil {
 				errChan <- fmt.Errorf("command failed: %w", waitErr)
+				return
+			}
+
+			// Mark command as completed successfully
+			commandCompleted = true
+
+			// On Windows, parse the text output and convert to JSON
+			// On Unix, the output is already JSON
+			if platformFlag == "windows" {
+				// Windows: parse the text output
+				if readErr != nil {
+					errChan <- fmt.Errorf("failed to read output: %w", readErr)
+				} else {
+					parsed, parseErr := parseMTROutput(output, monitor.Host)
+					if parseErr != nil {
+						errChan <- fmt.Errorf("failed to parse MTR output: %w", parseErr)
+					} else {
+						outputChan <- parsed
+					}
+				}
 			} else {
-				outputChan <- output
+				// Unix: output is already JSON, use as-is
+				if readErr != nil {
+					errChan <- fmt.Errorf("failed to read output: %w", readErr)
+				} else {
+					outputChan <- output
+				}
 			}
 		}()
 
@@ -1153,7 +1164,7 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 	}
 
 	// Run MTR command
-	output, err := runMTRCommand(args)
+	output, err := runMTRCommand(args, platformFlag)
 	if err != nil {
 		// If privileged mode failed, try UDP mode
 		if s.privilegedMode {
@@ -1162,8 +1173,13 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 				Int64("monitorID", monitor.ID).
 				Msg("MTR privileged mode failed, trying UDP mode")
 
-			args = append([]string{"-u"}, args...)
-			output, err = runMTRCommand(args)
+			// Rebuild args with UDP mode for retry
+			retryArgs, retryPlatformFlag, buildErr := buildMTRArgs(monitor.Host, monitor.PacketCount, false)
+			if buildErr != nil {
+				return nil, fmt.Errorf("failed to build retry MTR arguments: %w", buildErr)
+			}
+
+			output, err = runMTRCommand(retryArgs, retryPlatformFlag)
 			if err != nil {
 				return nil, fmt.Errorf("MTR failed in both ICMP and UDP modes: %w", err)
 			}

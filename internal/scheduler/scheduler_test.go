@@ -47,7 +47,7 @@ func TestCalculateNextRun(t *testing.T) {
 	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := s.calculateNextRun(tt.interval, tt.from)
+			got := s.calculateNextRun(tt.interval, tt.from, false)
 			if got.IsZero() {
 				t.Errorf("calculateNextRun() returned zero time")
 				return
