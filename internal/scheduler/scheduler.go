@@ -87,6 +87,7 @@ func (s *service) Start(ctx context.Context) {
 // - For exact times (e.g., "exact:14:00"), finds the next occurrence
 // - For durations (e.g., "1h"), schedules from the current time
 // - This prevents network flooding after downtime and ensures fresh data
+
 func (s *service) initializeSchedules(ctx context.Context) {
 	schedules, err := s.db.GetSchedules(ctx)
 	if err != nil {
@@ -94,7 +95,7 @@ func (s *service) initializeSchedules(ctx context.Context) {
 		return
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	for _, schedule := range schedules {
 		if !schedule.Enabled {
 			continue
@@ -163,21 +164,26 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 		return
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	for _, schedule := range schedules {
 		if !schedule.Enabled || schedule.NextRun.After(now) {
 			continue
 		}
 
+		scheduledStart := schedule.NextRun.UTC()
+		if schedule.NextRun.IsZero() {
+			scheduledStart = now
+		}
+
 		log.Info().
 			Int64("schedule_id", schedule.ID).
-			Time("next_run", schedule.NextRun).
+			Time("scheduled_start_utc", scheduledStart).
 			Str("interval", schedule.Interval).
 			Bool("is_iperf", schedule.Options.UseIperf).
 			Msg("Running scheduled test")
 
 		testCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		go func(schedule types.Schedule, ctx context.Context, cancel context.CancelFunc) {
+		go func(schedule types.Schedule, scheduledStart time.Time, ctx context.Context, cancel context.CancelFunc) {
 			defer cancel()
 			schedule.Options.IsScheduled = true
 			result, err := s.speedtest.RunTest(ctx, &schedule.Options)
@@ -195,7 +201,7 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 				Float64("upload_speed", result.UploadSpeed).
 				Msg("Scheduled test completed")
 
-			nextRun := s.calculateNextRun(schedule.Interval, now, false)
+			nextRun := s.calculateNextRun(schedule.Interval, scheduledStart, false)
 			if nextRun.IsZero() {
 				log.Error().
 					Int64("schedule_id", schedule.ID).
@@ -204,7 +210,13 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 				return
 			}
 
-			schedule.LastRun = &now
+			nowUTC := time.Now().UTC()
+			if nextRun.Before(nowUTC) {
+				nextRun = s.calculateNextRun(schedule.Interval, nowUTC, false)
+			}
+
+			lastRun := nowUTC
+			schedule.LastRun = &lastRun
 			schedule.NextRun = nextRun
 
 			if err := s.db.UpdateSchedule(ctx, schedule); err != nil {
@@ -213,7 +225,7 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 					Int64("schedule_id", schedule.ID).
 					Msg("Error updating schedule")
 			}
-		}(schedule, testCtx, cancel)
+		}(schedule, scheduledStart, testCtx, cancel)
 	}
 }
 
@@ -385,7 +397,7 @@ func (s *service) initializePacketLossMonitors(ctx context.Context) {
 		return
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	for _, monitor := range monitors {
 		if !monitor.Enabled {
 			continue
@@ -559,7 +571,7 @@ func (s *service) checkAndRunPacketLossMonitors(ctx context.Context) {
 
 // UpdateMonitorSchedule updates a monitor's last_run and next_run times after a test completes
 func (s *service) UpdateMonitorSchedule(monitorID int64, interval string) error {
-	now := time.Now()
+	now := time.Now().UTC()
 
 	// Get the monitor to update
 	monitor, err := s.db.GetPacketLossMonitor(monitorID)
@@ -578,7 +590,8 @@ func (s *service) UpdateMonitorSchedule(monitorID int64, interval string) error 
 	}
 
 	// Update the monitor
-	monitor.LastRun = &now
+	lastRun := now
+	monitor.LastRun = &lastRun
 	monitor.NextRun = &nextRun
 
 	log.Debug().

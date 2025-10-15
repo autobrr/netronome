@@ -149,6 +149,39 @@ const calculateNextRun = (
   }
 };
 
+const formatExactTimeFromUTC = (time: string): string => {
+  const trimmed = time.trim();
+  const [hourStr, minuteStr] = trimmed.split(":");
+  const hours = Number(hourStr);
+  const minutes = Number(minuteStr);
+
+  if (
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return trimmed;
+  }
+
+  const today = new Date();
+  const candidate = new Date(
+    Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth(),
+      today.getUTCDate(),
+      hours,
+      minutes,
+      0,
+      0
+    )
+  );
+
+  return formatTimeWithSettings(candidate);
+};
+
 export default function ScheduleManager({
   servers,
   selectedServers,
@@ -798,8 +831,8 @@ export default function ScheduleManager({
                                                       .substring(6)
                                                       .split(",");
                                                   if (times.length === 1) {
-                                                    return formatTimeWithSettings(
-                                                      `2000-01-01T${times[0]}:00`
+                                                    return formatExactTimeFromUTC(
+                                                      times[0]
                                                     );
                                                   } else {
                                                     return `${times.length} times`;
@@ -850,9 +883,7 @@ export default function ScheduleManager({
                                                 .substring(6)
                                                 .split(",")
                                                 .map((time) =>
-                                                  formatTimeWithSettings(
-                                                    `2000-01-01T${time}:00`
-                                                  )
+                                                  formatExactTimeFromUTC(time)
                                                 )
                                                 .join(", ")}
                                             </span>
