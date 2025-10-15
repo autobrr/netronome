@@ -6,6 +6,7 @@ package speedtest
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -38,7 +39,7 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 
 	var serverHost *string
 	var serverID string
-	
+
 	switch testType {
 	case "iperf3":
 		serverHost = &opts.ServerHost
@@ -56,7 +57,13 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 		jitterPtr = &result.Jitter
 	}
 
-	dbResult, err := h.db.SaveSpeedTest(ctx, types.SpeedTestResult{
+	// Give the DB write up to 10s while still respecting upstream cancellations and values.
+	saveCtx, saveCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer saveCancel()
+
+	createdAt := time.Now().UTC()
+
+	dbResult, err := h.db.SaveSpeedTest(saveCtx, types.SpeedTestResult{
 		ServerName:    result.Server,
 		ServerID:      serverID,
 		ServerHost:    serverHost,
@@ -66,6 +73,7 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 		Latency:       result.Latency,
 		Jitter:        jitterPtr,
 		IsScheduled:   opts.IsScheduled,
+		CreatedAt:     createdAt,
 	})
 	if err != nil {
 		log.Error().Err(err).
@@ -81,7 +89,7 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 			Int64("result_id", dbResult.ID).
 			Str("test_type", testType).
 			Msg("Successfully saved test result to database")
-		
+
 		h.SendNotification(dbResult)
 	}
 
@@ -98,7 +106,7 @@ func (h *DefaultResultHandler) SendNotification(result *types.SpeedTestResult) {
 			Upload:     result.UploadSpeed,
 			Ping:       parsePingValue(result.Latency),
 			Jitter:     getJitterValue(result.Jitter),
-			ISP:        "", // ISP not available in types.SpeedTestResult
+			ISP:        "",    // ISP not available in types.SpeedTestResult
 			Failed:     false, // Assuming successful test if we got here
 		}
 		h.notifier.SendSpeedTestNotification(notifResult)

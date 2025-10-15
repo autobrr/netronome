@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "motion/react";
+import { ColumnDef } from "@tanstack/react-table";
 import { SpeedTestResult, TimeRange } from "@/types/types";
 import { SpeedHistoryChart } from "./SpeedHistoryChart";
 import { MetricCard } from "@/components/common/MetricCard";
@@ -33,7 +34,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { DataTable } from "@/components/ui/data-table";
-import { speedTestColumns, speedTestMobileColumns } from "./columns";
+import { getSpeedTestColumns, getSpeedTestMobileColumns } from "./columns";
 import {
   DndContext,
   closestCenter,
@@ -51,7 +52,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { formatDateTimeWithSettings } from "@/utils/timeSettings";
+import { formatDateTimeWithSettings, useTimeSettings } from "@/utils/timeSettings";
 
 interface DashboardTabProps {
   latestTest: SpeedTestResult | null;
@@ -166,11 +167,17 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   onNavigateToSpeedTest,
   onNavigateToVnstat,
 }) => {
+  const { settings } = useTimeSettings();
   const [displayCount, setDisplayCount] = useState(5);
   const [isRecentTestsOpen, setIsRecentTestsOpen] = useState(() => {
     const saved = localStorage.getItem("recent-tests-open");
     return saved === null ? true : saved === "true";
   });
+  const columns = useMemo(() => getSpeedTestColumns(settings), [settings]);
+  const mobileColumns = useMemo(
+    () => getSpeedTestMobileColumns(settings),
+    [settings]
+  );
 
   // Initialize section order from localStorage or default
   const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
@@ -330,7 +337,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <div>
               Last test run:{" "}
               {latestTest?.createdAt
-                ? formatDateTimeWithSettings(latestTest.createdAt)
+                ? formatDateTimeWithSettings(latestTest.createdAt, settings)
                 : "N/A"}
             </div>
           </div>
@@ -440,6 +447,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                         setDisplayCount={setDisplayCount}
                         isRecentTestsOpen={isRecentTestsOpen}
                         setIsRecentTestsOpen={setIsRecentTestsOpen}
+                        columns={columns}
+                        mobileColumns={mobileColumns}
                       />
                     </SortableItem>
                   );
@@ -462,6 +471,8 @@ interface DraggableRecentSpeedtestsProps {
   setDisplayCount: (count: number | ((prev: number) => number)) => void;
   isRecentTestsOpen: boolean;
   setIsRecentTestsOpen: (open: boolean) => void;
+  columns: ColumnDef<SpeedTestResult>[];
+  mobileColumns: ColumnDef<SpeedTestResult>[];
   dragHandleRef?: (node: HTMLElement | null) => void;
   dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
   dragHandleClassName?: string;
@@ -474,6 +485,8 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
   setDisplayCount,
   isRecentTestsOpen,
   setIsRecentTestsOpen,
+  columns,
+  mobileColumns,
   dragHandleRef,
   dragHandleListeners,
   dragHandleClassName,
@@ -534,7 +547,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
             {/* Desktop Table View */}
             <div className="hidden md:block">
               <DataTable
-                columns={speedTestColumns}
+                columns={columns}
                 data={displayedTests}
                 showPagination={false}
                 showColumnVisibility={true}
@@ -548,7 +561,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
             {/* Mobile Card View */}
             <div className="md:hidden">
               <DataTable
-                columns={speedTestMobileColumns}
+                columns={mobileColumns}
                 data={displayedTests}
                 showPagination={false}
                 showColumnVisibility={false}

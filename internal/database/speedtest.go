@@ -6,8 +6,7 @@ package database
 import (
 	"context"
 	"fmt"
-
-	sq "github.com/Masterminds/squirrel"
+	"time"
 
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/types"
@@ -26,12 +25,13 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 		"is_scheduled":   result.IsScheduled,
 	}
 
-	// Use provided created_at if available, otherwise use current timestamp
-	if !result.CreatedAt.IsZero() {
-		data["created_at"] = result.CreatedAt
+	// Use provided created_at if available, otherwise default to current UTC time
+	if result.CreatedAt.IsZero() {
+		result.CreatedAt = time.Now().UTC()
 	} else {
-		data["created_at"] = sq.Expr("CURRENT_TIMESTAMP")
+		result.CreatedAt = result.CreatedAt.UTC()
 	}
+	data["created_at"] = result.CreatedAt
 
 	var id int64
 
@@ -151,6 +151,8 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan speed test result: %w", err)
 		}
+
+		result.CreatedAt = result.CreatedAt.UTC()
 		results = append(results, result)
 	}
 
