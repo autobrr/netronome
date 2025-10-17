@@ -61,6 +61,8 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 	saveCtx, saveCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer saveCancel()
 
+	createdAt := time.Now().UTC()
+
 	dbResult, err := h.db.SaveSpeedTest(saveCtx, types.SpeedTestResult{
 		ServerName:    result.Server,
 		ServerID:      serverID,
@@ -71,6 +73,7 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 		Latency:       result.Latency,
 		Jitter:        jitterPtr,
 		IsScheduled:   opts.IsScheduled,
+		CreatedAt:     createdAt,
 	})
 	if err != nil {
 		log.Error().Err(err).

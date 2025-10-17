@@ -12,7 +12,7 @@ import {
   createRightAlignedSortableHeader,
 } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
-import { formatDateTimeWithSettings } from "@/utils/timeSettings";
+import { TimeFormatSettings, formatDateTimeWithSettings } from "@/utils/timeSettings";
 
 // Helper function to format speed
 const formatSpeed = (speed: number) => {
@@ -46,7 +46,9 @@ const getTestTypeDisplayName = (testType: string) => {
   }
 };
 
-export const speedTestColumns: ColumnDef<SpeedTestResult>[] = [
+export const getSpeedTestColumns = (
+  settings?: TimeFormatSettings
+): ColumnDef<SpeedTestResult>[] => [
   {
     accessorKey: "createdAt",
     header: createSortableHeader("Date"),
@@ -54,7 +56,7 @@ export const speedTestColumns: ColumnDef<SpeedTestResult>[] = [
       const date = new Date(row.getValue("createdAt"));
       return (
         <span className="text-gray-700 dark:text-gray-300">
-          {formatDateTimeWithSettings(date)}
+          {formatDateTimeWithSettings(date, settings)}
         </span>
       );
     },
@@ -144,7 +146,9 @@ export const speedTestColumns: ColumnDef<SpeedTestResult>[] = [
 ];
 
 // Mobile-friendly columns with fewer fields
-export const speedTestMobileColumns: ColumnDef<SpeedTestResult>[] = [
+export const getSpeedTestMobileColumns = (
+  settings?: TimeFormatSettings
+): ColumnDef<SpeedTestResult>[] => [
   {
     id: "summary",
     cell: ({ row }) => {
@@ -167,7 +171,7 @@ export const speedTestMobileColumns: ColumnDef<SpeedTestResult>[] = [
             </span>
           </div>
           <div className="text-gray-600 dark:text-gray-400 text-sm">
-            {formatDateTimeWithSettings(test.createdAt)}
+            {formatDateTimeWithSettings(test.createdAt, settings)}
           </div>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="flex justify-between items-center">
