@@ -205,7 +205,7 @@ export const SHOUTRRR_SERVICES = [
   { value: "join", label: "Join", example: "join://APIKEY@DEVICE/?icon=URL&title=TITLE" },
   { value: "mattermost", label: "Mattermost", example: "mattermost://HOSTNAME/TOKEN" },
   { value: "matrix", label: "Matrix", example: "matrix://USERNAME:PASSWORD@HOSTNAME:PORT/ROOM" },
-  { value: "ntfy", label: "ntfy", example: "ntfy://TOPIC@HOSTNAME" },
+  { value: "ntfy", label: "ntfy", example: "ntfy://[USER:PASS@]HOSTNAME/topic" },
   { value: "opsgenie", label: "OpsGenie", example: "opsgenie://APIKEY" },
   { value: "pushbullet", label: "Pushbullet", example: "pushbullet://APIKEY" },
   { value: "pushover", label: "Pushover", example: "pushover://:API_TOKEN@USER_KEY" },
