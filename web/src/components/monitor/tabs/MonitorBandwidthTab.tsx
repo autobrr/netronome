@@ -139,7 +139,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
             timeFormat: "day" as const,
           };
         return {
-          data: traffic.day.slice(0, 7).map((day) => ({
+          data: traffic.day.slice(-7).map((day) => ({
             time: new Date(
               day.date.year,
               day.date.month - 1,
@@ -160,7 +160,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
             timeFormat: "day" as const,
           };
         return {
-          data: traffic.day.slice(0, 30).map((day) => ({
+          data: traffic.day.slice(-30).map((day) => ({
             time: new Date(
               day.date.year,
               day.date.month - 1,
@@ -478,10 +478,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
               {nativeData.interfaces[0].traffic.day &&
                 nativeData.interfaces[0].traffic.day.length > 0 &&
                 (() => {
-                  const last7Days = nativeData.interfaces[0].traffic.day.slice(
-                    0,
-                    7
-                  );
+                  const last7Days = nativeData.interfaces[0].traffic.day.slice(-7);
                   const avgRx =
                     last7Days.reduce((sum, day) => sum + day.rx, 0) /
                     last7Days.length;
