@@ -35,6 +35,7 @@ type ServerResponse struct {
 	Lon          float64 `json:"lon,string"`
 	IsIperf      bool    `json:"isIperf"`
 	IsLibrespeed bool    `json:"isLibrespeed"`
+	IsPublic     bool    `json:"isPublic"`
 }
 
 type ProgressUpdate struct {

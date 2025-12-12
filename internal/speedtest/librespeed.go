@@ -7,15 +7,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/types"
+)
+
+const (
+	librespeedPublicServersURL = "https://librespeed.org/backend-servers/servers.json"
+	publicServerCacheDuration  = 30 * time.Minute
 )
 
 type LibrespeedResult struct {
@@ -59,9 +68,27 @@ type LibrespeedServer struct {
 	GetIpURL string `json:"getIpURL"`
 }
 
+// LibrespeedPublicServer represents a server from librespeed.org public list
+type LibrespeedPublicServer struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Server      string `json:"server"`
+	DlURL       string `json:"dlURL"`
+	UlURL       string `json:"ulURL"`
+	PingURL     string `json:"pingURL"`
+	GetIpURL    string `json:"getIpURL"`
+	SponsorName string `json:"sponsorName"`
+	SponsorURL  string `json:"sponsorURL"`
+}
+
 type LibrespeedRunner struct {
 	config           config.LibrespeedConfig
 	progressCallback func(types.SpeedUpdate)
+
+	// Public server cache
+	publicServerCache []LibrespeedPublicServer
+	cacheExpiry       time.Time
+	cacheMu           sync.RWMutex
 }
 
 func NewLibrespeedRunner(cfg config.LibrespeedConfig) *LibrespeedRunner {
@@ -79,18 +106,27 @@ func (r *LibrespeedRunner) SetProgressCallback(callback func(types.SpeedUpdate))
 }
 
 func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
-	log.Debug().Msg("starting librespeed test")
+	log.Debug().Bool("isPublicServer", opts.IsPublicServer).Msg("starting librespeed test")
 
-	args := []string{"--json", "--local-json", r.config.ServersPath}
+	// Check if librespeed-cli is installed first
+	if _, err := exec.LookPath("librespeed-cli"); err != nil {
+		return nil, fmt.Errorf("librespeed-cli not found: please install librespeed-cli to use this feature")
+	}
 
+	args := []string{"--json"}
+
+	// Custom servers require --local-json to specify the servers file
+	// Public servers use the built-in librespeed-cli server list
+	if !opts.IsPublicServer {
+		args = append(args, "--local-json", r.config.ServersPath)
+	}
+
+	// Add server selection if specified
 	if len(opts.ServerIDs) > 0 {
 		args = append(args, "--server", opts.ServerIDs[0])
 	}
 
-	// Check if librespeed-cli is installed
-	if _, err := exec.LookPath("librespeed-cli"); err != nil {
-		return nil, fmt.Errorf("librespeed-cli not found: please install librespeed-cli to use this feature")
-	}
+	log.Debug().Strs("args", args).Msg("librespeed-cli arguments")
 
 	cmd := exec.CommandContext(ctx, "librespeed-cli", args...)
 
@@ -142,15 +178,64 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 }
 
 func (r *LibrespeedRunner) GetServers() ([]ServerResponse, error) {
+	var allServers []ServerResponse
+	var customErr, publicErr error
+
+	// 1. Load custom servers from local JSON
+	customServers, customErr := r.getCustomServers()
+	if customErr != nil {
+		log.Warn().Err(customErr).Msg("failed to load custom librespeed servers")
+	} else {
+		allServers = append(allServers, customServers...)
+	}
+
+	// 2. Fetch public servers from librespeed.org
+	publicServers, publicErr := r.fetchPublicServers()
+	if publicErr != nil {
+		log.Warn().Err(publicErr).Msg("failed to fetch public librespeed servers")
+	} else {
+		for _, server := range publicServers {
+			// Validate server data from external source
+			if server.ID <= 0 || server.Name == "" {
+				log.Debug().Int("id", server.ID).Str("name", server.Name).Msg("skipping invalid public server")
+				continue
+			}
+
+			country := parseCountryFromName(server.Name)
+			sponsor := server.SponsorName
+			if sponsor == "" {
+				sponsor = server.Name
+			}
+
+			allServers = append(allServers, ServerResponse{
+				ID:           strconv.Itoa(server.ID),
+				Name:         server.Name,
+				Host:         server.Server,
+				Country:      country,
+				Sponsor:      sponsor,
+				IsLibrespeed: true,
+				IsPublic:     true,
+			})
+		}
+	}
+
+	// Return error if both sources failed and we have no servers
+	if len(allServers) == 0 && (customErr != nil || publicErr != nil) {
+		return nil, fmt.Errorf("failed to load librespeed servers: custom=%v, public=%v", customErr, publicErr)
+	}
+
+	return allServers, nil
+}
+
+// getCustomServers loads servers from the local librespeed-servers.json file
+func (r *LibrespeedRunner) getCustomServers() ([]ServerResponse, error) {
 	jsonFile, err := os.Open(r.config.ServersPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Warn().Str("path", r.config.ServersPath).Msg("librespeed-servers.json not found")
-			// Return empty array instead of error when file doesn't exist
+			log.Debug().Str("path", r.config.ServersPath).Msg("librespeed-servers.json not found, skipping custom servers")
 			return []ServerResponse{}, nil
-		} else {
-			return nil, fmt.Errorf("failed to open librespeed-servers.json at %s: %w", r.config.ServersPath, err)
 		}
+		return nil, fmt.Errorf("failed to open librespeed-servers.json at %s: %w", r.config.ServersPath, err)
 	}
 	defer jsonFile.Close()
 
@@ -168,8 +253,67 @@ func (r *LibrespeedRunner) GetServers() ([]ServerResponse, error) {
 			Country:      "Custom",
 			Sponsor:      server.Name,
 			IsLibrespeed: true,
+			IsPublic:     false,
 		}
 	}
 
 	return response, nil
+}
+
+// fetchPublicServers fetches servers from librespeed.org with caching
+func (r *LibrespeedRunner) fetchPublicServers() ([]LibrespeedPublicServer, error) {
+	// Check cache first (with read lock)
+	r.cacheMu.RLock()
+	if len(r.publicServerCache) > 0 && time.Now().Before(r.cacheExpiry) {
+		servers := r.publicServerCache
+		r.cacheMu.RUnlock()
+		log.Debug().Int("count", len(servers)).Msg("returning cached public librespeed servers")
+		return servers, nil
+	}
+	r.cacheMu.RUnlock()
+
+	// Fetch from librespeed.org
+	log.Debug().Str("url", librespeedPublicServersURL).Msg("fetching public librespeed servers")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Get(librespeedPublicServersURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch public servers: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch public servers: status %d", resp.StatusCode)
+	}
+
+	// Limit response size to 10MB to prevent memory exhaustion from malicious responses
+	limitedReader := io.LimitReader(resp.Body, 10*1024*1024)
+
+	var servers []LibrespeedPublicServer
+	if err := json.NewDecoder(limitedReader).Decode(&servers); err != nil {
+		return nil, fmt.Errorf("failed to decode public servers: %w", err)
+	}
+
+	// Update cache (with write lock)
+	r.cacheMu.Lock()
+	r.publicServerCache = servers
+	r.cacheExpiry = time.Now().Add(publicServerCacheDuration)
+	r.cacheMu.Unlock()
+
+	log.Info().Int("count", len(servers)).Msg("fetched public librespeed servers")
+	return servers, nil
+}
+
+// parseCountryFromName extracts country from server names like "Amsterdam, Netherlands (Clouvider)"
+func parseCountryFromName(name string) string {
+	parts := strings.Split(name, ",")
+	if len(parts) >= 2 {
+		// Get the second part and strip any parenthetical info
+		countryPart := strings.TrimSpace(parts[1])
+		if idx := strings.Index(countryPart, "("); idx > 0 {
+			countryPart = strings.TrimSpace(countryPart[:idx])
+		}
+		return countryPart
+	}
+	return "Unknown"
 }

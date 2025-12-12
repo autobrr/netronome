@@ -46,6 +46,8 @@ interface ServerListProps {
   isLoading: boolean;
   testType: "speedtest" | "iperf" | "librespeed";
   onTestTypeChange: (testType: "speedtest" | "iperf" | "librespeed") => void;
+  isServersLoading?: boolean;
+  isServersError?: boolean;
 }
 
 export const ServerList: React.FC<ServerListProps> = ({
@@ -58,6 +60,8 @@ export const ServerList: React.FC<ServerListProps> = ({
   isLoading,
   testType,
   onTestTypeChange,
+  isServersLoading,
+  isServersError,
 }) => {
   const getInitialDisplayCount = () => {
     if (typeof window !== "undefined") {
@@ -522,33 +526,34 @@ export const ServerList: React.FC<ServerListProps> = ({
                       testType === "librespeed" ? (
                         <div className="flex flex-col items-center justify-center py-12 px-4">
                           <div className="text-center max-w-md">
-                            <div className="text-gray-600 dark:text-gray-400 text-lg mb-2">📡</div>
-                            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">
-                              No Librespeed servers found
-                            </h3>
-                            <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-                              The librespeed-servers.json file was not found.
-                              Please create this file in the same directory as
-                              your config.toml to run librespeed tests.
-                            </p>
-                            <div className="text-xs text-gray-600 dark:text-gray-500 bg-gray-100/30 dark:bg-gray-800/30 rounded-lg p-3 border border-gray-300 dark:border-gray-900">
-                              <p className="mb-2">
-                                Example librespeed-servers.json:
-                              </p>
-                              <pre className="text-left">
-                                {`[
-  {
-    "id": 1,
-    "name": "Example Server",
-    "server": "https://example.com/backend",
-    "dlURL": "garbage.php",
-    "ulURL": "empty.php",
-    "pingURL": "empty.php",
-    "getIpURL": "getIP.php"
-  }
-]`}
-                              </pre>
-                            </div>
+                            {isServersLoading ? (
+                              <>
+                                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">
+                                  Loading LibreSpeed servers...
+                                </h3>
+                                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                                  Fetching public servers from LibreSpeed.org.
+                                </p>
+                              </>
+                            ) : isServersError ? (
+                              <>
+                                <h3 className="text-lg font-medium text-red-600 dark:text-red-400 mb-2">
+                                  Failed to load servers
+                                </h3>
+                                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                                  Could not fetch LibreSpeed servers. Check your network connection or add custom servers via librespeed-servers.json.
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">
+                                  No LibreSpeed servers found
+                                </h3>
+                                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                                  No servers matched your search. Try adjusting your filters or add custom servers via librespeed-servers.json.
+                                </p>
+                              </>
+                            )}
                           </div>
                         </div>
                       ) : (
@@ -575,9 +580,22 @@ export const ServerList: React.FC<ServerListProps> = ({
                                     } border`}
                                   >
                                     <div className="flex flex-col gap-1">
-                                      <span className="text-blue-600 dark:text-blue-300 font-medium truncate">
-                                        {server.sponsor}
-                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-blue-600 dark:text-blue-300 font-medium truncate">
+                                          {server.sponsor}
+                                        </span>
+                                        {server.isLibrespeed && (
+                                          <span
+                                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                              server.isPublic
+                                                ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                                                : "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+                                            }`}
+                                          >
+                                            {server.isPublic ? "Public" : "Custom"}
+                                          </span>
+                                        )}
+                                      </div>
                                       <span className="text-gray-600 dark:text-gray-400 text-sm">
                                         {server.name}
                                         <span

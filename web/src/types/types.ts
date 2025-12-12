@@ -15,6 +15,7 @@ export interface Server {
   longitude: number;
   isIperf: boolean;
   isLibrespeed?: boolean;
+  isPublic?: boolean;
 }
 
 export interface SpeedTestResult {
@@ -58,6 +59,7 @@ export interface Schedule {
     useLibrespeed?: boolean;
     serverHost: string | undefined;
     serverName?: string | undefined;
+    isPublicServer?: boolean;
   };
 }
 
@@ -71,6 +73,7 @@ export interface TestOptions {
   serverIds?: string[];
   serverHost?: string;
   serverName?: string;
+  isPublicServer?: boolean;
 }
 
 export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";

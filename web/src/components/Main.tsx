@@ -122,11 +122,11 @@ export default function Main({ isPublic = false }: MainProps) {
     enabled: !isPublic,
   }) as { data: Server[] };
 
-  const { data: librespeedServers = [] } = useQuery({
+  const { data: librespeedServers = [], isLoading: isLibrespeedLoading, isError: isLibrespeedError } = useQuery({
     queryKey: ["servers", "librespeed"],
     queryFn: () => getServers("librespeed"),
     enabled: !isPublic,
-  }) as { data: Server[] };
+  }) as { data: Server[]; isLoading: boolean; isError: boolean };
 
   const allServers = useMemo(
     () => [...speedtestServers, ...librespeedServers],
@@ -309,6 +309,7 @@ export default function Main({ isPublic = false }: MainProps) {
             : [],
         serverHost: testType === "iperf" ? selectedServers[0].host : undefined,
         serverName: testType === "iperf" ? selectedServers[0].name : undefined,
+        isPublicServer: testType === "librespeed" ? (selectedServers[0]?.isPublic ?? false) : false,
       });
     } catch (error) {
       console.error("Error running test:", error);
@@ -560,6 +561,8 @@ export default function Main({ isPublic = false }: MainProps) {
                 onRunTest={runTest}
                 progress={progress}
                 allServers={allServers}
+                isServersLoading={testType === "librespeed" ? isLibrespeedLoading : false}
+                isServersError={testType === "librespeed" ? isLibrespeedError : false}
               />
             </motion.div>
           )}
