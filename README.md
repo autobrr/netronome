@@ -67,6 +67,7 @@ Open `http://localhost:7575` in your browser and create your account through the
   - [System Monitoring](#system-monitoring)
   - [Packet Loss Monitoring](#packet-loss-monitoring)
   - [Tailscale Integration](#tailscale-integration)
+  - [Docker Agent Integration](#docker-agent-integration)
   - [GeoIP Configuration](#geoip-configuration)
   - [Notifications](#notifications)
   - [Scheduling](#scheduling)
@@ -486,6 +487,122 @@ hostname = ""    # Optional custom hostname
 auto_discover = true
 discovery_interval = "5m"
 discovery_port = 8200
+```
+
+### Docker Agent Integration
+
+You may wish to run an agent inside of a Docker container, for example, to monitor VPN traffic on a container like Gluetun.
+By default, this will not work, because the container cannot access the host's network interface for statistics.
+
+To monitor bandwidth on VPN networked containers, you will need to run both the agent, and a **vnstat** container in the same network as your VPN container.
+
+<details>
+<summary>Docker Agent Integration Compose Example</summary>
+  
+```yml
+services:
+  # Gluetun - VPN client container
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - /path/to/gluetun:/gluetun
+    environment:
+      - VPN_SERVICE_PROVIDER=your_provider
+      - VPN_TYPE=wireguard
+      # ... your VPN configuration
+    networks:
+      monitoring:
+        aliases:
+          - netronome-vpn-agent  # Allows dashboard to reach agent by name
+
+  # vnstat - collects bandwidth data on the VPN tunnel
+  vnstat:
+    image: vergoh/vnstat:latest
+    container_name: vnstat
+    restart: unless-stopped
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    environment:
+      - TZ=America/New_York
+    volumes:
+      - /path/to/vnstat:/var/lib/vnstat # Add a mount for the vnstat db
+
+  # Netronome VPN agent - monitors VPN tunnel traffic
+  netronome-vpn-agent:
+    image: ghcr.io/autobrr/netronome:latest # You could also put the agent bin in a smaller image
+    container_name: netronome-vpn-agent
+    restart: unless-stopped
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+      - vnstat
+    environment:
+      - TZ=
+      - NETRONOME__AGENT_HOST=0.0.0.0
+      - NETRONOME__AGENT_PORT=8200
+      - NETRONOME__AGENT_API_KEY=  # Optional: set for authentication
+    command:
+      - agent
+      - --interface
+      - tun0  # VPN tunnel interface
+    volumes:
+      - /path/to/vnstat:/var/lib/vnstat:ro
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+
+  # Netronome dashboard - main web interface
+  netronome:
+    image: ghcr.io/autobrr/netronome:latest
+    container_name: netronome
+    restart: unless-stopped
+    environment:
+      - TZ=America/New_York
+      - NETRONOME__HOST=0.0.0.0
+      - NETRONOME__PORT=7575
+    ports:
+      - "7575:7575"
+    volumes:
+      - /path/to/netronome:/data
+    networks:
+      - monitoring
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+
+networks:
+  monitoring:
+    driver: bridge
+```
+</details>
+
+Determine the correct VPN intercface to monitor by running:
+
+```
+docker exec gluetun ip -br link
+```
+
+Common interface names:
+* `tun0` - OpenVPN or Gluetun custom provider
+* `wg0` - WireGuard
+
+#### Limiting Monitored Interfaces
+
+By default, `vnstat` will monitor all detected interfaces (e.g., eth0 and tun0). To monitor only the VPN tunnel:
+
+```sh
+# Remove unwanted interfaces from vnstat
+docker exec vnstat vnstat --remove -i eth0 --force
+
+# Verify only tun0 is being tracked
+docker exec vnstat vnstat
 ```
 
 ### GeoIP Configuration
