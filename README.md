@@ -530,7 +530,7 @@ services:
     depends_on:
       - gluetun
     environment:
-      - TZ=America/New_York
+      - TZ=
     volumes:
       - /path/to/vnstat:/var/lib/vnstat # Add a mount for the vnstat db
 
@@ -564,7 +564,7 @@ services:
     container_name: netronome
     restart: unless-stopped
     environment:
-      - TZ=America/New_York
+      - TZ=
       - NETRONOME__HOST=0.0.0.0
       - NETRONOME__PORT=7575
     ports:
