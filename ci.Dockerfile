@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine3.22 AS app-builder
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine3.22 AS app-builder
 
 ARG VERSION=dev
 ARG REVISION=dev
@@ -78,7 +78,7 @@ RUN --network=none --mount=target=. \
     -X 'main.buildTime=${BUILDTIME}'" \
     -o /app/netronome ./cmd/netronome
 
-FROM alpine:3.22
+FROM alpine:latest
 
 LABEL org.opencontainers.image.source="https://github.com/autobrr/netronome"
 LABEL org.opencontainers.image.licenses="GPL-2.0-or-later"
