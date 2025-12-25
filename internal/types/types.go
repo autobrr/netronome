@@ -19,6 +19,7 @@ type TestOptions struct {
 	UseLibrespeed    bool     `json:"useLibrespeed"`
 	ServerHost       string   `json:"serverHost"`
 	ServerName       string   `json:"serverName"`
+	IsPublicServer   bool     `json:"isPublicServer"`
 }
 
 type SpeedUpdate struct {
