@@ -56,6 +56,8 @@ func (s *service) GetMonitorAgent(ctx context.Context, agentID int64) (*types.Mo
 		Where(sq.Eq{"id": agentID})
 
 	var agent types.MonitorAgent
+	var discoveredAtStr sql.NullString
+	var createdAtStr, updatedAtStr string
 	err := query.RunWith(s.db).QueryRowContext(ctx).Scan(
 		&agent.ID,
 		&agent.Name,
@@ -65,15 +67,28 @@ func (s *service) GetMonitorAgent(ctx context.Context, agentID int64) (*types.Mo
 		&agent.Interface,
 		&agent.IsTailscale,
 		&agent.TailscaleHostname,
-		&agent.DiscoveredAt,
-		&agent.CreatedAt,
-		&agent.UpdatedAt,
+		&discoveredAtStr,
+		&createdAtStr,
+		&updatedAtStr,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to get monitor agent: %w", err)
+	}
+
+	// Parse time strings
+	if discoveredAtStr.Valid {
+		if t, err := time.Parse(time.RFC3339, discoveredAtStr.String); err == nil {
+			agent.DiscoveredAt = &t
+		}
+	}
+	if t, err := time.Parse(time.RFC3339, createdAtStr); err == nil {
+		agent.CreatedAt = t
+	}
+	if t, err := time.Parse(time.RFC3339, updatedAtStr); err == nil {
+		agent.UpdatedAt = t
 	}
 
 	return &agent, nil
@@ -99,6 +114,8 @@ func (s *service) GetMonitorAgents(ctx context.Context, enabledOnly bool) ([]*ty
 	agents := make([]*types.MonitorAgent, 0)
 	for rows.Next() {
 		var agent types.MonitorAgent
+		var discoveredAtStr sql.NullString
+		var createdAtStr, updatedAtStr string
 		err := rows.Scan(
 			&agent.ID,
 			&agent.Name,
@@ -108,13 +125,27 @@ func (s *service) GetMonitorAgents(ctx context.Context, enabledOnly bool) ([]*ty
 			&agent.Interface,
 			&agent.IsTailscale,
 			&agent.TailscaleHostname,
-			&agent.DiscoveredAt,
-			&agent.CreatedAt,
-			&agent.UpdatedAt,
+			&discoveredAtStr,
+			&createdAtStr,
+			&updatedAtStr,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan monitor agent: %w", err)
 		}
+
+		// Parse time strings
+		if discoveredAtStr.Valid {
+			if t, err := time.Parse(time.RFC3339, discoveredAtStr.String); err == nil {
+				agent.DiscoveredAt = &t
+			}
+		}
+		if t, err := time.Parse(time.RFC3339, createdAtStr); err == nil {
+			agent.CreatedAt = t
+		}
+		if t, err := time.Parse(time.RFC3339, updatedAtStr); err == nil {
+			agent.UpdatedAt = t
+		}
+
 		agents = append(agents, &agent)
 	}
 
