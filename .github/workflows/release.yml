@@ -26,8 +26,8 @@ on:
 env:
   REGISTRY: ghcr.io
   REGISTRY_IMAGE: ghcr.io/${{ github.repository }}
-  GO_VERSION: "1.23.4"
-  NODE_VERSION: "22.10.0"
+  GO_VERSION: "1.25"
+  NODE_VERSION: "22.18.0"
 
 permissions:
   contents: write
