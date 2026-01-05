@@ -212,7 +212,7 @@ export const SHOUTRRR_SERVICES = [
   { value: "rocketchat", label: "Rocket.Chat", example: "rocketchat://HOSTNAME/TOKEN@CHANNEL" },
   { value: "slack", label: "Slack", example: "slack://TOKEN@CHANNEL" },
   { value: "teams", label: "Microsoft Teams", example: "teams://WEBHOOK_URL" },
-  { value: "telegram", label: "Telegram", example: "telegram://TOKEN@CHAT_ID" },
+  { value: "telegram", label: "Telegram", example: "telegram://TOKEN@telegram?chats=CHAT_ID" },
   { value: "zulip", label: "Zulip", example: "zulip://BOTMAIL:BOTKEY@DOMAIN" },
 ];
 
