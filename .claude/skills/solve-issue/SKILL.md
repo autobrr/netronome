@@ -13,14 +13,17 @@ You are tasked with solving one GitHub issue from the current repository. Follow
 ## Phase 1: Fetch and Filter Issues
 
 1. Fetch all open issues:
+
    ```
    gh issue list --state open --json number,title,body,labels,assignees --limit 50
    ```
 
 2. Check which issues already have associated PRs by examining open PR titles/bodies for issue references:
+
    ```
    gh pr list --state open --json number,title,body --limit 100
    ```
+
    Also check closed/merged PRs that reference issues. Remove any issue that has an open PR associated with it.
 
 3. Report the filtered list of issues that still need solving.
@@ -30,6 +33,7 @@ You are tasked with solving one GitHub issue from the current repository. Follow
 Assess each remaining issue and assign a difficulty score (1-5):
 
 **Score 1-2 (Easy):**
+
 - Single file change
 - Typo, config fix, small bug fix
 - Clear requirements, obvious solution
@@ -37,12 +41,14 @@ Assess each remaining issue and assign a difficulty score (1-5):
 - No architectural changes
 
 **Score 3-4 (Medium):**
+
 - 2-3 files affected
 - Feature enhancement or moderate refactor
 - May need test updates
 - Configuration or API changes
 
 **Score 5 (Hard):**
+
 - 4+ files affected
 - New major feature
 - Database migrations required
@@ -53,22 +59,29 @@ Present the ranked list (easiest first) and confirm which issue you will solve.
 
 ## Phase 3: Solve the Easiest Issue
 
-1. Read the issue thoroughly. Understand what is being asked.
+1. IMPORTANT: Ensure you are on the `develop` branch with a clean working tree before starting:
 
-2. Read CLAUDE.md for project conventions and architecture.
+   ```
+   git checkout develop
+   git pull origin develop
+   ```
 
-3. Explore the relevant codebase areas to understand current implementation.
+2. Read the issue thoroughly. Understand what is being asked.
 
-4. Create a feature branch from the main branch:
+3. Read CLAUDE.md for project conventions and architecture.
+
+4. Explore the relevant codebase areas to understand current implementation.
+
+5. Create a feature branch from `develop`:
    - Format: `fix/issue-<number>-<short-slug>` or `feat/issue-<number>-<short-slug>`
    - Example: `fix/issue-102-agent-env-vars`
 
-5. Implement the fix following project conventions:
+6. Implement the fix following project conventions:
    - Follow patterns in CLAUDE.md
    - Keep changes minimal and focused
    - Do not over-engineer
 
-6. Verify the fix:
+7. Verify the fix:
    - Run `go build ./...` to check compilation
    - Run `go test ./...` for backend changes
    - Run `cd web && pnpm lint && pnpm tsc --noEmit` for frontend changes
@@ -76,7 +89,7 @@ Present the ranked list (easiest first) and confirm which issue you will solve.
 
 ## Phase 4: Simplify and Review
 
-Before committing, run the `code-simplifier` agent (via the Task tool with `subagent_type: "code-simplifier"`) on all files that were modified or created during this session. This reviews the changes for clarity, consistency, and maintainability. Apply any improvements it suggests, then re-run builds/tests to confirm nothing broke.
+IMPORTANT: Before committing, run the `code-simplifier` agent (via the Task tool with `subagent_type: "code-simplifier"`) on all files that were modified or created during this session. This reviews the changes for clarity, consistency, and maintainability. Apply any improvements it suggests, then re-run builds/tests to confirm nothing broke.
 
 ## Phase 4.5: Documentation Check
 
@@ -100,6 +113,7 @@ Evaluate whether the README needs updating based on the changes made:
    - Do NOT use emoji
 
 2. Push the branch:
+
    ```
    git push -u origin <branch-name>
    ```
@@ -113,6 +127,7 @@ Evaluate whether the README needs updating based on the changes made:
 ## Phase 6: Stop
 
 After successfully creating the PR:
+
 - Report the issue number, PR URL, and what was fixed
 - Explain why this was ranked as the easiest issue
 - Stop. Do not attempt another issue.
