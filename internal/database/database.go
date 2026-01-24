@@ -221,7 +221,7 @@ func New(cfg config.DatabaseConfig) Service {
 			log.Fatal().Err(err).Msg("Failed to set database directory permissions")
 		}
 
-		db, err = sql.Open("sqlite", fmt.Sprintf("file:%s?cache=shared&mode=rwc&_foreign_keys=on", cfg.Path))
+		db, err = sql.Open("sqlite", fmt.Sprintf("file:%s?cache=shared&mode=rwc&_foreign_keys=on&_time_format=sqlite", cfg.Path))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to open SQLite database")
 		}
