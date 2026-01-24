@@ -11,6 +11,7 @@ import {
   getServerTypeLabel,
   getServerTypeColorClass,
 } from "../utils/serverUtils";
+import { formatDistance, useDistanceSettings } from "@/utils/distanceSettings";
 
 interface ServerCardProps {
   server: Server;
@@ -25,6 +26,8 @@ export const ServerCard: React.FC<ServerCardProps> = ({
   onSelect,
   disabled = false,
 }) => {
+  const { settings: distanceSettings } = useDistanceSettings();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -53,7 +56,7 @@ export const ServerCard: React.FC<ServerCardProps> = ({
           <span className="text-gray-600 dark:text-gray-400 text-sm mt-1">
             {server.isIperf
               ? "Custom Server"
-              : `${server.country} - ${Math.floor(server.distance)} km`}
+              : `${server.country} - ${formatDistance(server.distance, distanceSettings)}`}
             <span className={`ml-2 ${getServerTypeColorClass(server)}`}>
               {getServerTypeLabel(server)}
             </span>
