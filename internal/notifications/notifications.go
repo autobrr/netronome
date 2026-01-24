@@ -15,8 +15,9 @@ import (
 )
 
 type Notifier struct {
-	db     database.NotificationService
-	router *router.ServiceRouter
+	db       database.NotificationService
+	router   *router.ServiceRouter
+	ntfyURLs []string
 }
 
 // NewNotifier creates a new notifier with database support
@@ -32,14 +33,27 @@ func NewNotifierFromURLs(urls []string) (*Notifier, error) {
 		return &Notifier{}, nil
 	}
 
-	r, err := shoutrrr.CreateSender(urls...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create shoutrrr router: %w", err)
+	notifier := &Notifier{}
+
+	// Separate ntfy URLs from other URLs since we handle ntfy directly
+	var shoutrrrURLs []string
+	for _, u := range urls {
+		if isNtfyURL(u) {
+			notifier.ntfyURLs = append(notifier.ntfyURLs, u)
+		} else {
+			shoutrrrURLs = append(shoutrrrURLs, u)
+		}
 	}
 
-	return &Notifier{
-		router: r,
-	}, nil
+	if len(shoutrrrURLs) > 0 {
+		r, err := shoutrrr.CreateSender(shoutrrrURLs...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create shoutrrr router: %w", err)
+		}
+		notifier.router = r
+	}
+
+	return notifier, nil
 }
 
 // getThresholdForEvent retrieves the threshold value for a specific event from the database
@@ -68,15 +82,7 @@ func (n *Notifier) getThresholdForEvent(category, eventType string) *float64 {
 // SendNotification sends a notification for a specific event
 func (n *Notifier) SendNotification(category, eventType string, message string, value *float64) error {
 	if n.db == nil {
-		// For temporary notifiers (like testing), use the router directly
-		if n.router != nil {
-			errs := n.router.Send(message, nil)
-			if len(errs) > 0 {
-				return errs[0]
-			}
-			return nil
-		}
-		return fmt.Errorf("no database or router configured")
+		return n.sendDirect(message)
 	}
 
 	// Get enabled rules for this event
@@ -110,46 +116,51 @@ func (n *Notifier) SendNotification(category, eventType string, message string, 
 		}
 
 		if rule.Channel.URL != "" {
-			tempNotifier, err := shoutrrr.CreateSender(rule.Channel.URL)
-			if err != nil {
-				lastError = err
-				errMsg := err.Error()
-				if logErr := n.db.LogNotification(rule.ChannelID, rule.EventID, false, &errMsg, &message); logErr != nil {
-					log.Error().Err(logErr).Msg("Failed to log notification error")
-				}
-				log.Error().
-					Err(err).
-					Int64("channelID", rule.ChannelID).
-					Msg("Failed to create notifier for channel")
-				continue
-			}
+			var sendErr error
 
-			if tempNotifier == nil {
-				lastError = fmt.Errorf("notifier is nil")
-				errMsg := "notifier is nil"
-				if logErr := n.db.LogNotification(rule.ChannelID, rule.EventID, false, &errMsg, &message); logErr != nil {
-					log.Error().Err(logErr).Msg("Failed to log notification error")
-				}
-				continue
-			}
-
-			errs := tempNotifier.Send(message, nil)
-			// Filter out nil errors from the slice
-			var realErrors []error
-			for _, err := range errs {
+			if isNtfyURL(rule.Channel.URL) {
+				sendErr = sendNtfy(rule.Channel.URL, message)
+			} else {
+				tempNotifier, err := shoutrrr.CreateSender(rule.Channel.URL)
 				if err != nil {
-					realErrors = append(realErrors, err)
+					lastError = err
+					errMsg := err.Error()
+					if logErr := n.db.LogNotification(rule.ChannelID, rule.EventID, false, &errMsg, &message); logErr != nil {
+						log.Error().Err(logErr).Msg("Failed to log notification error")
+					}
+					log.Error().
+						Err(err).
+						Int64("channelID", rule.ChannelID).
+						Msg("Failed to create notifier for channel")
+					continue
+				}
+
+				if tempNotifier == nil {
+					lastError = fmt.Errorf("notifier is nil")
+					errMsg := "notifier is nil"
+					if logErr := n.db.LogNotification(rule.ChannelID, rule.EventID, false, &errMsg, &message); logErr != nil {
+						log.Error().Err(logErr).Msg("Failed to log notification error")
+					}
+					continue
+				}
+
+				errs := tempNotifier.Send(message, nil)
+				for _, err := range errs {
+					if err != nil {
+						sendErr = err
+						break
+					}
 				}
 			}
 
-			if len(realErrors) > 0 {
-				lastError = realErrors[0]
-				errMsg := realErrors[0].Error()
+			if sendErr != nil {
+				lastError = sendErr
+				errMsg := sendErr.Error()
 				if logErr := n.db.LogNotification(rule.ChannelID, rule.EventID, false, &errMsg, &message); logErr != nil {
 					log.Error().Err(logErr).Msg("Failed to log notification error")
 				}
 				log.Error().
-					Err(realErrors[0]).
+					Err(sendErr).
 					Int64("channelID", rule.ChannelID).
 					Msg("Failed to send notification")
 			} else {
@@ -336,17 +347,37 @@ func (n *Notifier) SendAgentNotification(agentName string, eventType string, val
 
 // SendTestNotification sends a test notification
 func (n *Notifier) SendTestNotification() error {
-	message := "[TEST] Netronome Test - Your notifications are working correctly!"
+	return n.sendDirect("[TEST] Netronome Test - Your notifications are working correctly!")
+}
 
-	if n.router != nil {
-		errs := n.router.Send(message, nil)
-		if len(errs) > 0 {
-			return errs[0]
-		}
-		return nil
+// sendDirect sends a message to all configured endpoints (ntfy and shoutrrr router)
+// without involving the database. Used by temporary notifiers and test notifications.
+func (n *Notifier) sendDirect(message string) error {
+	if n.router == nil && len(n.ntfyURLs) == 0 {
+		return fmt.Errorf("no database or router configured")
 	}
 
-	return fmt.Errorf("no router configured")
+	var errs []error
+
+	for _, ntfyURL := range n.ntfyURLs {
+		if err := sendNtfy(ntfyURL, message); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if n.router != nil {
+		for _, err := range n.router.Send(message, nil) {
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		return errs[0]
+	}
+
+	return nil
 }
 
 // formatSpeedTestMessage formats a speed test result into a notification message
