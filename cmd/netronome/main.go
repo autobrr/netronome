@@ -208,9 +208,10 @@ func runServer(cmd *cobra.Command, args []string) error {
 		if configPath != "" {
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}
-		logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
-		log.Warn().Err(err).Msg("Failed to load config, using defaults")
 		cfg = config.New()
+		cfg.ApplyEnv()
+		logger.Init(cfg.Logging, cfg.Server, false)
+		log.Warn().Err(err).Msg("Failed to load config, using defaults with environment overrides")
 	}
 
 	// reinitialize logger with loaded config (not silent)
