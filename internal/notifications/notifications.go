@@ -82,22 +82,7 @@ func (n *Notifier) getThresholdForEvent(category, eventType string) *float64 {
 // SendNotification sends a notification for a specific event
 func (n *Notifier) SendNotification(category, eventType string, message string, value *float64) error {
 	if n.db == nil {
-		// For temporary notifiers (like testing), send directly
-		for _, ntfyURL := range n.ntfyURLs {
-			if err := sendNtfy(ntfyURL, message); err != nil {
-				return err
-			}
-		}
-		if n.router != nil {
-			errs := n.router.Send(message, nil)
-			if len(errs) > 0 {
-				return errs[0]
-			}
-		}
-		if n.router == nil && len(n.ntfyURLs) == 0 {
-			return fmt.Errorf("no database or router configured")
-		}
-		return nil
+		return n.sendDirect(message)
 	}
 
 	// Get enabled rules for this event
@@ -362,23 +347,34 @@ func (n *Notifier) SendAgentNotification(agentName string, eventType string, val
 
 // SendTestNotification sends a test notification
 func (n *Notifier) SendTestNotification() error {
-	message := "[TEST] Netronome Test - Your notifications are working correctly!"
+	return n.sendDirect("[TEST] Netronome Test - Your notifications are working correctly!")
+}
+
+// sendDirect sends a message to all configured endpoints (ntfy and shoutrrr router)
+// without involving the database. Used by temporary notifiers and test notifications.
+func (n *Notifier) sendDirect(message string) error {
+	if n.router == nil && len(n.ntfyURLs) == 0 {
+		return fmt.Errorf("no database or router configured")
+	}
+
+	var errs []error
 
 	for _, ntfyURL := range n.ntfyURLs {
 		if err := sendNtfy(ntfyURL, message); err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
 
 	if n.router != nil {
-		errs := n.router.Send(message, nil)
-		if len(errs) > 0 {
-			return errs[0]
+		for _, err := range n.router.Send(message, nil) {
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 
-	if n.router == nil && len(n.ntfyURLs) == 0 {
-		return fmt.Errorf("no database or router configured")
+	if len(errs) > 0 {
+		return errs[0]
 	}
 
 	return nil

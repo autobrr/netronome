@@ -9,7 +9,13 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
+
+// ntfyHTTPClient is a dedicated HTTP client for ntfy requests with a reasonable timeout.
+var ntfyHTTPClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
 
 // ntfyConfig holds the parsed ntfy URL components.
 type ntfyConfig struct {
@@ -38,7 +44,7 @@ func sendNtfy(ntfyURL string, message string) error {
 		req.SetBasicAuth(cfg.username, cfg.password)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := ntfyHTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send ntfy notification: %w", err)
 	}
