@@ -202,16 +202,15 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// initialize logger with default settings first (silent)
 	logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, true)
 
-	// ensure config exists
-	configPath, err := config.EnsureConfig(configPath)
-	if err != nil {
-		return fmt.Errorf("failed to ensure config exists: %w", err)
-	}
-
-	// load configuration
+	// Load config from file and environment variables
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
+		if configPath != "" {
+			return fmt.Errorf("failed to load configuration: %w", err)
+		}
+		logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
+		log.Warn().Err(err).Msg("Failed to load config, using defaults")
+		cfg = config.New()
 	}
 
 	// reinitialize logger with loaded config (not silent)
