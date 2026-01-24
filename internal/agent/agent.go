@@ -82,6 +82,10 @@ func (a *Agent) Start(ctx context.Context) error {
 		}
 	}()
 
+	if a.config.DisableSystemMetrics {
+		log.Info().Msg("System metrics collection disabled, running in bandwidth-only mode")
+	}
+
 	if a.config.APIKey != "" {
 		log.Info().Str("addr", addr).Msg("Starting monitor SSE agent with API key authentication")
 	} else {
