@@ -14,7 +14,25 @@ import (
 	"github.com/autobrr/netronome/internal/types"
 )
 
+func hasServerIDs(schedule types.Schedule) bool {
+	return len(schedule.ServerIDs) > 0 || len(schedule.Options.ServerIDs) > 0
+}
+
+func validateScheduleServerIDs(schedule types.Schedule) error {
+	if schedule.Options.UseIperf && schedule.Options.ServerHost == "" && !hasServerIDs(schedule) {
+		return fmt.Errorf("%w: iperf3 schedules require a server host or server ID", ErrInvalidInput)
+	}
+	if schedule.Options.UseLibrespeed && !hasServerIDs(schedule) {
+		return fmt.Errorf("%w: librespeed schedules require at least one server ID", ErrInvalidInput)
+	}
+	return nil
+}
+
 func (s *service) CreateSchedule(ctx context.Context, schedule types.Schedule) (*types.Schedule, error) {
+	if err := validateScheduleServerIDs(schedule); err != nil {
+		return nil, err
+	}
+
 	if schedule.ServerIDs == nil {
 		schedule.ServerIDs = []string{}
 	}
@@ -117,6 +135,10 @@ func (s *service) GetSchedules(ctx context.Context) ([]types.Schedule, error) {
 func (s *service) UpdateSchedule(ctx context.Context, schedule types.Schedule) error {
 	if schedule.ID <= 0 {
 		return fmt.Errorf("%w: invalid schedule ID", ErrInvalidInput)
+	}
+
+	if err := validateScheduleServerIDs(schedule); err != nil {
+		return err
 	}
 
 	if schedule.ServerIDs == nil {
