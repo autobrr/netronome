@@ -40,14 +40,14 @@ func (a *Agent) setupRoutes() *gin.Engine {
 	// Historical data export endpoint (protected)
 	protected.GET("/export/historical", a.handleHistoricalExport)
 
-	// System info endpoint (protected)
-	protected.GET("/system/info", a.handleSystemInfo)
+	// System info and hardware endpoints (protected, unless disabled)
+	if !a.config.DisableSystemMetrics {
+		protected.GET("/system/info", a.handleSystemInfo)
+		protected.GET("/system/hardware", a.handleHardwareStats)
+	}
 
 	// Peak stats endpoint (protected)
 	protected.GET("/stats/peaks", a.handlePeakStats)
-
-	// Hardware stats endpoint (protected)
-	protected.GET("/system/hardware", a.handleHardwareStats)
 
 	// Tailscale status endpoint (protected)
 	protected.GET("/tailscale/status", a.handleTailscaleStatus)
@@ -57,18 +57,22 @@ func (a *Agent) setupRoutes() *gin.Engine {
 
 // handleRoot handles the root endpoint
 func (a *Agent) handleRoot(c *gin.Context) {
+	endpoints := gin.H{
+		"live":       "/events?stream=live-data",
+		"historical": "/export/historical",
+		"peaks":      "/stats/peaks",
+		"tailscale":  "/tailscale/status",
+	}
+	if !a.config.DisableSystemMetrics {
+		endpoints["system"] = "/system/info"
+		endpoints["hardware"] = "/system/hardware"
+	}
+
 	response := gin.H{
-		"service": "monitor SSE agent",
-		"host":    a.config.Host,
-		"port":    a.config.Port,
-		"endpoints": gin.H{
-			"live":       "/events?stream=live-data",
-			"historical": "/export/historical",
-			"system":     "/system/info",
-			"hardware":   "/system/hardware",
-			"peaks":      "/stats/peaks",
-			"tailscale":  "/tailscale/status",
-		},
+		"service":   "monitor SSE agent",
+		"host":      a.config.Host,
+		"port":      a.config.Port,
+		"endpoints": endpoints,
 	}
 
 	// Indicate if authentication is required
@@ -86,10 +90,7 @@ func (a *Agent) handleRoot(c *gin.Context) {
 func (a *Agent) handleInfo(c *gin.Context) {
 	hostname, _ := os.Hostname()
 
-	usingTailscale := false
-	if a.tailscaleConfig != nil && a.tailscaleConfig.Enabled {
-		usingTailscale = true
-	}
+	usingTailscale := a.tailscaleConfig != nil && a.tailscaleConfig.Enabled
 
 	c.JSON(http.StatusOK, gin.H{
 		"type":            "netronome-agent",

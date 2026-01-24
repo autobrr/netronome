@@ -120,6 +120,7 @@ func init() {
 	agentCmd.Flags().StringP("log-level", "l", "", "log level (trace, debug, info, warn, error)")
 	agentCmd.Flags().StringSlice("disk-include", []string{}, "additional disk mount points to monitor (e.g., /mnt/storage)")
 	agentCmd.Flags().StringSlice("disk-exclude", []string{}, "disk mount points to exclude from monitoring (e.g., /boot)")
+	agentCmd.Flags().Bool("disable-system-metrics", false, "disable system metrics collection (CPU, memory, disk, temperature)")
 	agentCmd.Flags().Bool("tailscale", false, "enable Tailscale for secure connectivity")
 	agentCmd.Flags().String("tailscale-hostname", "", "custom Tailscale hostname (default: netronome-agent-<hostname>)")
 	agentCmd.Flags().String("tailscale-auth-key", "", "Tailscale auth key for automatic registration")
@@ -485,6 +486,9 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	}
 	if cmd.Flags().Changed("disk-exclude") {
 		cfg.Agent.DiskExcludes = diskExcludes
+	}
+	if cmd.Flags().Changed("disable-system-metrics") {
+		cfg.Agent.DisableSystemMetrics, _ = cmd.Flags().GetBool("disable-system-metrics")
 	}
 
 	// Handle Tailscale flags
