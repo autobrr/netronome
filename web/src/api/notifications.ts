@@ -198,6 +198,7 @@ export const notificationsApi = {
 // Helper functions
 export const SHOUTRRR_SERVICES = [
   { value: "discord", label: "Discord", example: "discord://TOKEN@ID" },
+  { value: "generic", label: "Generic Webhook", example: "generic://HOSTNAME/PATH?template=json" },
   { value: "gotify", label: "Gotify", example: "gotify://HOSTNAME/TOKEN" },
   { value: "email", label: "Email", example: "smtp://USERNAME:PASSWORD@HOST:PORT/?from=FROM&to=TO" },
   { value: "googlechat", label: "Google Chat", example: "googlechat://SPACE/KEY/TOKEN" },
