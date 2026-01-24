@@ -282,15 +282,10 @@ export default function ScheduleManager({
   };
 
   const handleCreateSchedule = async () => {
-    if (selectedServers.length === 0) {
-      showToast("Please select at least one server", "warning");
-      return;
-    }
-
     setError(null);
 
-    const isIperfServer = selectedServers[0].isIperf;
-    const isLibrespeedServer = selectedServers[0].isLibrespeed;
+    const isIperfServer = selectedServers.length > 0 && selectedServers[0].isIperf;
+    const isLibrespeedServer = selectedServers.length > 0 && selectedServers[0].isLibrespeed;
 
     // Get user's timezone for conversion
     const timeSettings = getTimeFormatSettings();
@@ -470,7 +465,11 @@ export default function ScheduleManager({
     } else if (serversList.length > 1) {
       return `${serversList.length} servers`;
     }
-    return "No servers";
+    return (
+      <span className="text-emerald-600 dark:text-emerald-400">
+        Closest server (auto)
+      </span>
+    );
   };
 
   if (isSchedulesLoading) {
@@ -665,8 +664,7 @@ export default function ScheduleManager({
                           )}
 
                           {/* Next Run Preview */}
-                          {selectedServers.length > 0 &&
-                            (scheduleType === "interval" ||
+                          {(scheduleType === "interval" ||
                               exactTimes.length > 0) && (
                               <div className="mt-4 p-3 bg-gray-200/50 dark:bg-gray-800/30 rounded-lg border border-gray-300 dark:border-gray-900">
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -730,7 +728,6 @@ export default function ScheduleManager({
                           <div className="mt-6">
                             <Button
                               className={`w-full px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
-                                selectedServers.length === 0 ||
                                 (scheduleType === "exact" &&
                                   exactTimes.length === 0)
                                   ? "bg-gray-300/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-500 cursor-not-allowed border border-gray-400 dark:border-gray-900"
@@ -738,14 +735,11 @@ export default function ScheduleManager({
                               }`}
                               onClick={handleCreateSchedule}
                               disabled={
-                                selectedServers.length === 0 ||
-                                (scheduleType === "exact" &&
-                                  exactTimes.length === 0)
+                                scheduleType === "exact" &&
+                                  exactTimes.length === 0
                               }
                             >
-                              {selectedServers.length === 0 ? (
-                                <>Select a server to create schedule</>
-                              ) : scheduleType === "exact" &&
+                              {scheduleType === "exact" &&
                                 exactTimes.length === 0 ? (
                                 <>Select at least one time</>
                               ) : (

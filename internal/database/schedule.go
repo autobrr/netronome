@@ -15,8 +15,8 @@ import (
 )
 
 func (s *service) CreateSchedule(ctx context.Context, schedule types.Schedule) (*types.Schedule, error) {
-	if len(schedule.ServerIDs) == 0 {
-		return nil, fmt.Errorf("%w: server IDs required", ErrInvalidInput)
+	if schedule.ServerIDs == nil {
+		schedule.ServerIDs = []string{}
 	}
 
 	serverIDs, err := json.Marshal(schedule.ServerIDs)
@@ -119,8 +119,8 @@ func (s *service) UpdateSchedule(ctx context.Context, schedule types.Schedule) e
 		return fmt.Errorf("%w: invalid schedule ID", ErrInvalidInput)
 	}
 
-	if len(schedule.ServerIDs) == 0 {
-		return fmt.Errorf("%w: server IDs required", ErrInvalidInput)
+	if schedule.ServerIDs == nil {
+		schedule.ServerIDs = []string{}
 	}
 
 	serverIDs, err := json.Marshal(schedule.ServerIDs)
