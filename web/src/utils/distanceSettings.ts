@@ -45,9 +45,9 @@ export const saveDistanceSettings = (settings: DistanceSettings): void => {
 export const formatDistance = (distanceKm: number, settings?: DistanceSettings): string => {
   const currentSettings = settings || getDistanceSettings();
   if (currentSettings.unit === "mi") {
-    return `${Math.floor(distanceKm * KM_TO_MI)} mi`;
+    return `${Math.round(distanceKm * KM_TO_MI)} mi`;
   }
-  return `${Math.floor(distanceKm)} km`;
+  return `${Math.round(distanceKm)} km`;
 };
 
 export const useDistanceSettings = (): { settings: DistanceSettings; updateSettings: (newSettings: DistanceSettings) => void } => {
