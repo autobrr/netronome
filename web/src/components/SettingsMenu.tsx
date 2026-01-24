@@ -4,9 +4,10 @@
  */
 
 import React, { useState } from "react";
-import { Cog6ToothIcon, BellIcon, ClockIcon } from "@heroicons/react/24/outline";
+import { Cog6ToothIcon, BellIcon, ClockIcon, MapPinIcon } from "@heroicons/react/24/outline";
 import { NotificationSettings } from "./settings/NotificationSettings";
 import { TimeFormatSettings } from "./settings/TimeFormatSettings";
+import { DistanceSettings } from "./settings/DistanceSettings";
 import { Button } from "@/components/ui/Button";
 import {
   Dialog,
@@ -40,6 +41,12 @@ const settingsSections: SettingsSection[] = [
     label: "Time & Timezone",
     icon: <ClockIcon className="w-4 h-4" />,
     component: TimeFormatSettings,
+  },
+  {
+    id: "distance",
+    label: "Distance Units",
+    icon: <MapPinIcon className="w-4 h-4" />,
+    component: DistanceSettings,
   },
 ];
 

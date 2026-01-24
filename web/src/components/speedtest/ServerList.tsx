@@ -18,6 +18,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { formatDistance, useDistanceSettings } from "@/utils/distanceSettings";
 import {
   Select,
   SelectContent,
@@ -92,6 +93,7 @@ export const ServerList: React.FC<ServerListProps> = ({
     const saved = localStorage.getItem("server-list-open");
     return saved === null ? true : saved === "true";
   });
+  const { settings: distanceSettings } = useDistanceSettings();
 
   // Persist server list open state to localStorage
   useEffect(() => {
@@ -560,9 +562,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {filteredServersWithSelect
                             .slice(0, displayCount)
-                            .map((server) => {
-                              const distance = server.distance;
-                              return (
+                            .map((server) => (
                                 <motion.div
                                   key={server.id}
                                   initial={{ opacity: 0, y: 20 }}
@@ -607,13 +607,12 @@ export const ServerList: React.FC<ServerListProps> = ({
                                       </span>
                                       <span className="text-gray-600 dark:text-gray-400 text-sm mt-1">
                                         {server.country} -{" "}
-                                        {Math.floor(distance)} km
+                                        {formatDistance(server.distance, distanceSettings)}
                                       </span>
                                     </div>
                                   </button>
                                 </motion.div>
-                              );
-                            })}
+                              ))}
                         </div>
                       )}
                     </>
