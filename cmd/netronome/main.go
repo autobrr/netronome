@@ -450,18 +450,12 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	diskIncludes, _ := cmd.Flags().GetStringSlice("disk-include")
 	diskExcludes, _ := cmd.Flags().GetStringSlice("disk-exclude")
 
-	// Load config if provided
-	var cfg *config.Config
-	if configPath != "" {
-		var err error
-		cfg, err = config.Load(configPath)
-		if err != nil {
-			// Initialize logger with default settings if config load fails
-			logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
-			log.Warn().Err(err).Msg("Failed to load config, using defaults")
-			cfg = config.New()
-		}
-	} else {
+	// Load config from file and environment variables
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		// Initialize logger with default settings if config load fails
+		logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
+		log.Warn().Err(err).Msg("Failed to load config, using defaults")
 		cfg = config.New()
 	}
 
