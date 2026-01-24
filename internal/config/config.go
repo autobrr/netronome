@@ -388,6 +388,13 @@ func Load(configPath string) (*Config, error) {
 	return cfg, nil
 }
 
+// ApplyEnv loads configuration from environment variables.
+// This is useful when no config file is available and you want to apply
+// environment variable overrides to a default config.
+func (c *Config) ApplyEnv() {
+	c.loadFromEnv()
+}
+
 // loadFromEnv loads configuration from environment variables
 func (c *Config) loadFromEnv() error {
 	c.loadDatabaseFromEnv()
