@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import { useState, useEffect } from "react";
-import { Schedule, Server, SavedIperfServer } from "@/types/types";
+import { type ReactNode, useState, useEffect } from "react";
+import { type Schedule, type Server, type SavedIperfServer, type TestType } from "@/types/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSchedules } from "@/api/speedtest";
 import { showToast } from "@/components/common/Toast";
@@ -48,7 +48,7 @@ import { Button } from "@/components/ui/Button";
 interface ScheduleManagerProps {
   servers: Server[];
   selectedServers: Server[];
-  onServerSelect: (server: Server) => void;
+  testType: TestType;
 }
 
 interface IntervalOption {
@@ -182,10 +182,7 @@ const formatExactTimeFromUTC = (time: string): string => {
   return formatTimeWithSettings(candidate);
 };
 
-export default function ScheduleManager({
-  servers,
-  selectedServers,
-}: ScheduleManagerProps) {
+export default function ScheduleManager({ servers, selectedServers, testType }: ScheduleManagerProps) {
   const queryClient = useQueryClient();
   const [iperfServers, setIperfServers] = useState<SavedIperfServer[]>([]);
   const [interval, setInterval] = useState<string>("1h");
@@ -281,16 +278,55 @@ export default function ScheduleManager({
     }
   };
 
+  const requiresServerSelection = testType === "iperf" || testType === "librespeed";
+  const isMissingServer = requiresServerSelection && selectedServers.length === 0;
+  const isMissingTime = scheduleType === "exact" && exactTimes.length === 0;
+  const isCreateDisabled = isMissingServer || isMissingTime;
+
+  function getScheduleDescription(): string {
+    if (scheduleType === "interval") {
+      return intervalOptions.find((opt) => opt.value === interval)?.label || interval;
+    }
+    if (exactTimes.length === 1) {
+      return `Daily at ${timeOptions.find((opt) => opt.value === exactTimes[0])?.label}`;
+    }
+    return `Daily at ${exactTimes.length} times`;
+  }
+
+  function renderButtonContent(): ReactNode {
+    if (isMissingServer) {
+      const label = testType === "iperf" ? "iperf3" : "LibreSpeed";
+      return <>Select a {label} server</>;
+    }
+    if (isMissingTime) {
+      return <>Select at least one time</>;
+    }
+
+    const icon = scheduleType === "interval"
+      ? <ArrowPathIcon className="w-5 h-5" />
+      : <ClockIcon className="w-5 h-5" />;
+
+    return (
+      <>
+        {icon}
+        <span>Create {getScheduleDescription()}</span>
+      </>
+    );
+  }
+
   const handleCreateSchedule = async () => {
-    if (selectedServers.length === 0) {
-      showToast("Please select at least one server", "warning");
+    setError(null);
+
+    if (isMissingServer) {
+      const label = testType === "iperf" ? "iperf3" : "LibreSpeed";
+      const msg = `Please select a ${label} server before creating a schedule`;
+      setError(msg);
+      showToast(msg, "error");
       return;
     }
 
-    setError(null);
-
-    const isIperfServer = selectedServers[0].isIperf;
-    const isLibrespeedServer = selectedServers[0].isLibrespeed;
+    const isIperfServer = selectedServers[0]?.isIperf ?? false;
+    const isLibrespeedServer = selectedServers[0]?.isLibrespeed ?? false;
 
     // Get user's timezone for conversion
     const timeSettings = getTimeFormatSettings();
@@ -298,13 +334,9 @@ export default function ScheduleManager({
       ? Intl.DateTimeFormat().resolvedOptions().timeZone
       : timeSettings.timezone;
 
-    // Convert exact times from user timezone to UTC for backend storage
-    let scheduleTimes = exactTimes;
-    if (scheduleType === "exact") {
-      scheduleTimes = exactTimes.map(time =>
-        convertUserTimeToUTC(time, userTimezone)
-      );
-    }
+    const scheduleTimes = scheduleType === "exact"
+      ? exactTimes.map(time => convertUserTimeToUTC(time, userTimezone))
+      : exactTimes;
 
     const newSchedule: Schedule = {
       serverIds: selectedServers.map((s) => s.id),
@@ -319,7 +351,7 @@ export default function ScheduleManager({
         useLibrespeed: isLibrespeedServer,
         serverHost: isIperfServer ? selectedServers[0].host : undefined,
         serverName: isIperfServer ? selectedServers[0].name : undefined,
-        isPublicServer: isLibrespeedServer ? (selectedServers[0]?.isPublic ?? false) : false,
+        isPublicServer: isLibrespeedServer && (selectedServers[0]?.isPublic ?? false),
       },
     };
 
@@ -340,16 +372,9 @@ export default function ScheduleManager({
       }
 
       await response.json();
-      // Invalidate and refetch schedules
       queryClient.invalidateQueries({ queryKey: ["schedules"] });
-      
-      // Show success toast
-      const scheduleDescription = scheduleType === "exact" 
-        ? `Daily at ${exactTimes.length === 1 ? timeOptions.find(opt => opt.value === exactTimes[0])?.label : `${exactTimes.length} times`}`
-        : intervalOptions.find(opt => opt.value === interval)?.label || interval;
-      
       showToast("Schedule created successfully", "success", {
-        description: scheduleDescription
+        description: getScheduleDescription()
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to create schedule";
@@ -470,7 +495,11 @@ export default function ScheduleManager({
     } else if (serversList.length > 1) {
       return `${serversList.length} servers`;
     }
-    return "No servers";
+    return (
+      <span className="text-emerald-600 dark:text-emerald-400">
+        Closest server (auto)
+      </span>
+    );
   };
 
   if (isSchedulesLoading) {
@@ -665,8 +694,7 @@ export default function ScheduleManager({
                           )}
 
                           {/* Next Run Preview */}
-                          {selectedServers.length > 0 &&
-                            (scheduleType === "interval" ||
+                          {(scheduleType === "interval" ||
                               exactTimes.length > 0) && (
                               <div className="mt-4 p-3 bg-gray-200/50 dark:bg-gray-800/30 rounded-lg border border-gray-300 dark:border-gray-900">
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -730,47 +758,14 @@ export default function ScheduleManager({
                           <div className="mt-6">
                             <Button
                               className={`w-full px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
-                                selectedServers.length === 0 ||
-                                (scheduleType === "exact" &&
-                                  exactTimes.length === 0)
+                                isCreateDisabled
                                   ? "bg-gray-300/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-500 cursor-not-allowed border border-gray-400 dark:border-gray-900"
                                   : "bg-blue-500 hover:bg-blue-600 text-white shadow-lg border border-blue-600 hover:border-blue-700 hover:shadow-xl"
                               }`}
                               onClick={handleCreateSchedule}
-                              disabled={
-                                selectedServers.length === 0 ||
-                                (scheduleType === "exact" &&
-                                  exactTimes.length === 0)
-                              }
+                              disabled={isCreateDisabled}
                             >
-                              {selectedServers.length === 0 ? (
-                                <>Select a server to create schedule</>
-                              ) : scheduleType === "exact" &&
-                                exactTimes.length === 0 ? (
-                                <>Select at least one time</>
-                              ) : (
-                                <>
-                                  {scheduleType === "interval" ? (
-                                    <ArrowPathIcon className="w-5 h-5" />
-                                  ) : (
-                                    <ClockIcon className="w-5 h-5" />
-                                  )}
-                                  <span>
-                                    Create{" "}
-                                    {scheduleType === "interval"
-                                      ? intervalOptions.find(
-                                          (opt) => opt.value === interval
-                                        )?.label
-                                      : exactTimes.length === 1
-                                      ? `Daily at ${
-                                          timeOptions.find(
-                                            (opt) => opt.value === exactTimes[0]
-                                          )?.label
-                                        }`
-                                      : `Daily at ${exactTimes.length} times`}
-                                  </span>
-                                </>
-                              )}
+                              {renderButtonContent()}
                             </Button>
                           </div>
                         </div>

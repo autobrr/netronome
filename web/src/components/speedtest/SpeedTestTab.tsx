@@ -73,7 +73,7 @@ export const SpeedTestTab: React.FC<SpeedTestTabProps> = ({
         <ScheduleManager
           servers={allServers}
           selectedServers={selectedServers}
-          onServerSelect={onServerSelect}
+          testType={testType}
         />
       </motion.div>
     </div>

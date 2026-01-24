@@ -26,6 +26,7 @@ func TestSchedule_CRUD(t *testing.T) {
 			Enabled:   true,
 			Options: types.TestOptions{
 				UseIperf:       true,
+				ServerHost:     "iperf.example.com",
 				EnableDownload: true,
 				EnableUpload:   true,
 			},
@@ -97,6 +98,7 @@ func TestSchedule_MultipleSchedules(t *testing.T) {
 				Enabled:   true,
 				Options: types.TestOptions{
 					UseIperf:       true,
+					ServerHost:     "iperf.example.com",
 					EnableDownload: true,
 					EnableUpload:   true,
 				},
@@ -161,7 +163,7 @@ func TestSchedule_UpdateNonExistent(t *testing.T) {
 			Interval:  "1h",
 			NextRun:   time.Now(),
 			Enabled:   true,
-			Options:   types.TestOptions{UseIperf: true},
+			Options:   types.TestOptions{UseIperf: true, ServerHost: "iperf.example.com"},
 		}
 
 		err := td.Service.UpdateSchedule(ctx, nonExistent)
@@ -193,6 +195,7 @@ func TestSchedule_DifferentTestTypes(t *testing.T) {
 				"iperf3",
 				types.TestOptions{
 					UseIperf:       true,
+					ServerHost:     "iperf.example.com",
 					EnableDownload: true,
 					EnableUpload:   true,
 				},
@@ -298,6 +301,7 @@ func TestSchedule_TimestampBehavior(t *testing.T) {
 			Enabled:   true,
 			Options: types.TestOptions{
 				UseIperf:       true,
+				ServerHost:     "iperf.example.com",
 				EnableDownload: true,
 				EnableUpload:   true,
 			},
@@ -329,5 +333,167 @@ func TestSchedule_TimestampBehavior(t *testing.T) {
 		// NextRun should be updated
 		assert.NotEqual(t, originalNextRun.Unix(), schedules[0].NextRun.Unix(),
 			"NextRun should be different after update")
+	})
+}
+
+func TestSchedule_ServerIDValidation(t *testing.T) {
+	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
+		ctx := context.Background()
+
+		t.Run("iperf3 without server host or IDs rejected", func(t *testing.T) {
+			schedule := types.Schedule{
+				ServerIDs: nil,
+				Interval:  "1h",
+				NextRun:   time.Now().Add(1 * time.Hour),
+				Enabled:   true,
+				Options: types.TestOptions{
+					UseIperf:       true,
+					EnableDownload: true,
+				},
+			}
+
+			_, err := td.Service.CreateSchedule(ctx, schedule)
+			assert.Error(t, err)
+			assert.ErrorIs(t, err, ErrInvalidInput)
+		})
+
+		t.Run("iperf3 with server host accepted", func(t *testing.T) {
+			schedule := types.Schedule{
+				ServerIDs: nil,
+				Interval:  "1h",
+				NextRun:   time.Now().Add(1 * time.Hour),
+				Enabled:   true,
+				Options: types.TestOptions{
+					UseIperf:       true,
+					ServerHost:     "iperf.example.com",
+					EnableDownload: true,
+				},
+			}
+
+			created, err := td.Service.CreateSchedule(ctx, schedule)
+			require.NoError(t, err)
+			assert.NotNil(t, created)
+			_ = td.Service.DeleteSchedule(ctx, created.ID)
+		})
+
+		t.Run("iperf3 with server IDs accepted", func(t *testing.T) {
+			schedule := types.Schedule{
+				ServerIDs: []string{"srv-1"},
+				Interval:  "1h",
+				NextRun:   time.Now().Add(1 * time.Hour),
+				Enabled:   true,
+				Options: types.TestOptions{
+					UseIperf:       true,
+					EnableDownload: true,
+				},
+			}
+
+			created, err := td.Service.CreateSchedule(ctx, schedule)
+			require.NoError(t, err)
+			assert.NotNil(t, created)
+			_ = td.Service.DeleteSchedule(ctx, created.ID)
+		})
+
+		t.Run("librespeed without server IDs rejected", func(t *testing.T) {
+			schedule := types.Schedule{
+				ServerIDs: nil,
+				Interval:  "1h",
+				NextRun:   time.Now().Add(1 * time.Hour),
+				Enabled:   true,
+				Options: types.TestOptions{
+					UseLibrespeed:  true,
+					EnableDownload: true,
+				},
+			}
+
+			_, err := td.Service.CreateSchedule(ctx, schedule)
+			assert.Error(t, err)
+			assert.ErrorIs(t, err, ErrInvalidInput)
+		})
+
+		t.Run("librespeed with server IDs accepted", func(t *testing.T) {
+			schedule := types.Schedule{
+				ServerIDs: []string{"ls-srv-1"},
+				Interval:  "1h",
+				NextRun:   time.Now().Add(1 * time.Hour),
+				Enabled:   true,
+				Options: types.TestOptions{
+					UseLibrespeed:  true,
+					EnableDownload: true,
+				},
+			}
+
+			created, err := td.Service.CreateSchedule(ctx, schedule)
+			require.NoError(t, err)
+			assert.NotNil(t, created)
+			_ = td.Service.DeleteSchedule(ctx, created.ID)
+		})
+
+		t.Run("speedtest.net without server IDs accepted", func(t *testing.T) {
+			schedule := types.Schedule{
+				ServerIDs: nil,
+				Interval:  "1h",
+				NextRun:   time.Now().Add(1 * time.Hour),
+				Enabled:   true,
+				Options: types.TestOptions{
+					EnableDownload: true,
+					EnableUpload:   true,
+				},
+			}
+
+			created, err := td.Service.CreateSchedule(ctx, schedule)
+			require.NoError(t, err)
+			assert.NotNil(t, created)
+			_ = td.Service.DeleteSchedule(ctx, created.ID)
+		})
+
+		t.Run("update iperf3 to empty server rejected", func(t *testing.T) {
+			schedule := types.Schedule{
+				ServerIDs: []string{"srv-1"},
+				Interval:  "1h",
+				NextRun:   time.Now().Add(1 * time.Hour),
+				Enabled:   true,
+				Options: types.TestOptions{
+					UseIperf:       true,
+					EnableDownload: true,
+				},
+			}
+
+			created, err := td.Service.CreateSchedule(ctx, schedule)
+			require.NoError(t, err)
+
+			created.ServerIDs = nil
+			created.Options.ServerHost = ""
+			created.Options.ServerIDs = nil
+			err = td.Service.UpdateSchedule(ctx, *created)
+			assert.Error(t, err)
+			assert.ErrorIs(t, err, ErrInvalidInput)
+
+			_ = td.Service.DeleteSchedule(ctx, created.ID)
+		})
+
+		t.Run("update librespeed to empty server rejected", func(t *testing.T) {
+			schedule := types.Schedule{
+				ServerIDs: []string{"ls-srv-1"},
+				Interval:  "1h",
+				NextRun:   time.Now().Add(1 * time.Hour),
+				Enabled:   true,
+				Options: types.TestOptions{
+					UseLibrespeed:  true,
+					EnableDownload: true,
+				},
+			}
+
+			created, err := td.Service.CreateSchedule(ctx, schedule)
+			require.NoError(t, err)
+
+			created.ServerIDs = nil
+			created.Options.ServerIDs = nil
+			err = td.Service.UpdateSchedule(ctx, *created)
+			assert.Error(t, err)
+			assert.ErrorIs(t, err, ErrInvalidInput)
+
+			_ = td.Service.DeleteSchedule(ctx, created.ID)
+		})
 	})
 }
