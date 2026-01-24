@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2025, s0up and the autobrr contributors.
+// Copyright (c) 2024-2026, s0up and the autobrr contributors.
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 package speedtest
@@ -51,10 +51,11 @@ type PacketLossService struct {
 	}
 	maxConcurrent  int
 	privilegedMode bool
+	enableDNS      bool
 }
 
 // NewPacketLossService creates a new packet loss monitoring service
-func NewPacketLossService(db database.Service, notifier *notifications.Notifier, broadcast func(types.PacketLossUpdate), maxConcurrent int, privilegedMode bool) *PacketLossService {
+func NewPacketLossService(db database.Service, notifier *notifications.Notifier, broadcast func(types.PacketLossUpdate), maxConcurrent int, privilegedMode bool, enableDNS bool) *PacketLossService {
 	if maxConcurrent <= 0 {
 		maxConcurrent = 10
 	}
@@ -69,6 +70,7 @@ func NewPacketLossService(db database.Service, notifier *notifications.Notifier,
 		broadcast:      broadcast,
 		maxConcurrent:  maxConcurrent,
 		privilegedMode: privilegedMode,
+		enableDNS:      enableDNS,
 	}
 }
 
@@ -1007,7 +1009,7 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 	defer cancel()
 
 	// Build platform-specific MTR command arguments
-	args, platformFlag, err := buildMTRArgs(monitor.Host, monitor.PacketCount, s.privilegedMode)
+	args, platformFlag, err := buildMTRArgs(monitor.Host, monitor.PacketCount, s.privilegedMode, s.enableDNS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build MTR arguments: %w", err)
 	}
@@ -1174,7 +1176,7 @@ func (s *PacketLossService) runMTRTest(monitor *PacketLossMonitor) (*probing.Sta
 				Msg("MTR privileged mode failed, trying UDP mode")
 
 			// Rebuild args with UDP mode for retry
-			retryArgs, retryPlatformFlag, buildErr := buildMTRArgs(monitor.Host, monitor.PacketCount, false)
+			retryArgs, retryPlatformFlag, buildErr := buildMTRArgs(monitor.Host, monitor.PacketCount, false, s.enableDNS)
 			if buildErr != nil {
 				return nil, fmt.Errorf("failed to build retry MTR arguments: %w", buildErr)
 			}

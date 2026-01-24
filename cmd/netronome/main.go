@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2025, s0up and the autobrr contributors.
+// Copyright (c) 2024-2026, s0up and the autobrr contributors.
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 package main
@@ -238,7 +238,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// create packet loss service if enabled
 	if cfg.PacketLoss.Enabled {
 		// We'll set the actual broadcaster after creating the server
-		packetLossService = speedtest.NewPacketLossService(db, notifier, nil, cfg.PacketLoss.MaxConcurrentMonitors, cfg.PacketLoss.PrivilegedMode)
+		packetLossService = speedtest.NewPacketLossService(db, notifier, nil, cfg.PacketLoss.MaxConcurrentMonitors, cfg.PacketLoss.PrivilegedMode, cfg.PacketLoss.MTREnableDNS)
 	}
 
 	// Create monitor service variable

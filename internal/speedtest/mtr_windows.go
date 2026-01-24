@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2025, s0up and the autobrr contributors.
+// Copyright (c) 2024-2026, s0up and the autobrr contributors.
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //go:build windows
@@ -67,16 +67,22 @@ func killMTRProcessGroup(pid int) error {
 // buildMTRArgs builds Windows-specific MTR arguments
 // Windows MTR doesn't support -j for JSON output, so we use -r for report mode
 // and -w for wide format, then capture stdout and parse it
-func buildMTRArgs(host string, packetCount int, privilegedMode bool) ([]string, string, error) {
+func buildMTRArgs(host string, packetCount int, privilegedMode bool, enableDNS bool) ([]string, string, error) {
 	args := []string{
 		"-4",                                 // Force IPv4
 		"-r",                                 // Report mode
 		"-w",                                 // Wide report, don't truncate hostnames
-		"-n",                                 // No DNS lookups (numeric output only)
+	}
+
+	if !enableDNS {
+		args = append(args, "-n") // No DNS lookups (numeric output only)
+	}
+
+	args = append(args,
 		"-c", fmt.Sprintf("%d", packetCount), // Number of cycles
 		"-i", "1", // 1 second interval
 		"-t", "2", // 2 second timeout per hop to prevent hanging on unresponsive hops
-	}
+	)
 
 	// Add UDP mode if not privileged (Windows MTR defaults to ICMP in privileged mode)
 	if !privilegedMode {

@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2025, s0up and the autobrr contributors.
+// Copyright (c) 2024-2026, s0up and the autobrr contributors.
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 package config
@@ -131,6 +131,7 @@ type PacketLossConfig struct {
 	DefaultPacketCount       int  `toml:"default_packet_count" env:"PACKETLOSS_DEFAULT_PACKET_COUNT"`
 	MaxConcurrentMonitors    int  `toml:"max_concurrent_monitors" env:"PACKETLOSS_MAX_CONCURRENT_MONITORS"`
 	PrivilegedMode           bool `toml:"privileged_mode" env:"PACKETLOSS_PRIVILEGED_MODE"`
+	MTREnableDNS             bool `toml:"mtr_enable_dns" env:"PACKETLOSS_MTR_ENABLE_DNS"`
 	RestoreMonitorsOnStartup bool `toml:"restore_monitors_on_startup" env:"PACKETLOSS_RESTORE_MONITORS_ON_STARTUP"`
 }
 
@@ -276,6 +277,7 @@ func New() *Config {
 			DefaultPacketCount:       10,
 			MaxConcurrentMonitors:    10,
 			PrivilegedMode:           true,
+			MTREnableDNS:             false,
 			RestoreMonitorsOnStartup: false,
 		},
 		Agent: AgentConfig{
@@ -586,6 +588,11 @@ func (c *Config) loadPacketLossFromEnv() {
 			c.PacketLoss.PrivilegedMode = privileged
 		}
 	}
+	if v := getEnv("PACKETLOSS_MTR_ENABLE_DNS"); v != "" {
+		if enableDNS, err := strconv.ParseBool(v); err == nil {
+			c.PacketLoss.MTREnableDNS = enableDNS
+		}
+	}
 	if v := getEnv("PACKETLOSS_RESTORE_MONITORS_ON_STARTUP"); v != "" {
 		if restore, err := strconv.ParseBool(v); err == nil {
 			c.PacketLoss.RestoreMonitorsOnStartup = restore
@@ -861,6 +868,9 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "privileged_mode = %v # Use privileged ICMP mode for better MTR support (requires root/sudo)\n", cfg.PacketLoss.PrivilegedMode); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "mtr_enable_dns = %v # Enable DNS resolution in MTR tests to show hostnames instead of IPs\n", cfg.PacketLoss.MTREnableDNS); err != nil {
 		return err
 	}
 

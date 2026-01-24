@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, s0up and the autobrr contributors.
+ * Copyright (c) 2024-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
@@ -208,7 +208,7 @@ export const SHOUTRRR_SERVICES = [
   { value: "ntfy", label: "ntfy", example: "ntfy://[USER:PASS@]HOSTNAME/topic" },
   { value: "opsgenie", label: "OpsGenie", example: "opsgenie://APIKEY" },
   { value: "pushbullet", label: "Pushbullet", example: "pushbullet://APIKEY" },
-  { value: "pushover", label: "Pushover", example: "pushover://:API_TOKEN@USER_KEY" },
+  { value: "pushover", label: "Pushover", example: "pushover://API_TOKEN@USER_KEY" },
   { value: "rocketchat", label: "Rocket.Chat", example: "rocketchat://HOSTNAME/TOKEN@CHANNEL" },
   { value: "slack", label: "Slack", example: "slack://TOKEN@CHANNEL" },
   { value: "teams", label: "Microsoft Teams", example: "teams://WEBHOOK_URL" },
