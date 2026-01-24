@@ -52,6 +52,13 @@ func (a *Agent) handleHistoricalExport(c *gin.Context) {
 		return
 	}
 
+	// Normalize vnstat 1.x JSON format to 2.x format
+	// vnstat 1.x uses "hours"/"days"/"months" (plural) and lacks "time" fields
+	// vnstat 2.x uses "hour"/"day"/"month" (singular) with "time" fields
+	if jsonVer, ok := bandwidthData["jsonversion"].(string); ok && jsonVer == "1" {
+		normalizeVnstatV1(bandwidthData)
+	}
+
 	// Add server time information for timezone handling
 	now := time.Now()
 	bandwidthData["server_time"] = now.Format(time.RFC3339)
@@ -158,6 +165,65 @@ func (a *Agent) handlePeakStats(c *gin.Context) {
 	a.peakMu.RUnlock()
 
 	c.JSON(http.StatusOK, stats)
+}
+
+// normalizeVnstatV1 converts vnstat JSON version 1 format to version 2 format.
+// v1 uses plural keys ("hours", "days", "months") and hour entries lack "time" fields.
+// v2 uses singular keys ("hour", "day", "month") and hour entries include "time" with hour/minute.
+func normalizeVnstatV1(data map[string]any) {
+	data["jsonversion"] = "2"
+
+	interfaces, ok := data["interfaces"].([]any)
+	if !ok {
+		return
+	}
+
+	for _, iface := range interfaces {
+		ifaceMap, ok := iface.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		traffic, ok := ifaceMap["traffic"].(map[string]any)
+		if !ok {
+			continue
+		}
+
+		// Rename plural keys to singular and synthesize "time" for hour entries
+		if hours, ok := traffic["hours"].([]any); ok {
+			for _, entry := range hours {
+				hourMap, ok := entry.(map[string]any)
+				if !ok {
+					continue
+				}
+				// v1 stores hour-of-day in "id" field (0-23)
+				if id, ok := hourMap["id"].(float64); ok {
+					hourMap["time"] = map[string]any{
+						"hour":   int(id),
+						"minute": 0,
+					}
+				}
+				// v1 hour entries may lack "day" in date
+				if dateMap, ok := hourMap["date"].(map[string]any); ok {
+					if _, hasDay := dateMap["day"]; !hasDay {
+						dateMap["day"] = float64(time.Now().Day())
+					}
+				}
+			}
+			traffic["hour"] = hours
+			delete(traffic, "hours")
+		}
+
+		if days, ok := traffic["days"].([]any); ok {
+			traffic["day"] = days
+			delete(traffic, "days")
+		}
+
+		if months, ok := traffic["months"].([]any); ok {
+			traffic["month"] = months
+			delete(traffic, "months")
+		}
+	}
 }
 
 // formatBytesPerSecond formats bytes per second to human readable string

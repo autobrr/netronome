@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import type { MonitorNativeData, MonitorUsageSummary } from "@/api/monitor";
+import type { MonitorNativeData, MonitorPeriod, MonitorUsageSummary } from "@/api/monitor";
 
 /**
  * Parse vnstat native JSON data into usage periods
@@ -18,49 +18,31 @@ export function parseMonitorUsagePeriods(
 
   const traffic = data.interfaces[0].traffic;
 
+  if (!traffic.hour && !traffic.day && !traffic.month) {
+    return getEmptyUsage();
+  }
+
   // Use server time if available for accurate timezone handling
   let agentNow: Date;
   if (data.server_time) {
     agentNow = new Date(data.server_time);
-    console.log("Using server_time:", data.server_time, "Parsed as:", agentNow);
   } else if (data.server_time_unix) {
     agentNow = new Date(data.server_time_unix * 1000);
-    console.log(
-      "Using server_time_unix:",
-      data.server_time_unix,
-      "Parsed as:",
-      agentNow,
-    );
   } else {
-    // Fallback to local time
     agentNow = new Date();
-    console.log("No server time available, using local time:", agentNow);
   }
 
   // If timezone offset is 0 (UTC), use UTC methods
   const isUTC = data.timezone_offset === 0;
-  const currentHour = isUTC ? agentNow.getUTCHours() : agentNow.getHours();
-  const currentDay = isUTC ? agentNow.getUTCDate() : agentNow.getDate();
-  const currentMonth = isUTC
-    ? agentNow.getUTCMonth() + 1
-    : agentNow.getMonth() + 1;
 
-  console.log("Agent timezone offset:", data.timezone_offset, "isUTC:", isUTC);
-  console.log(
-    "Looking for hour:",
-    currentHour,
-    "day:",
-    currentDay,
-    "month:",
-    currentMonth,
-  );
+  const empty = { download: 0, upload: 0, total: 0 };
 
   return {
-    "This Hour": getCurrentHour(traffic.hour, agentNow, isUTC),
-    "Last Hour": getLastHour(traffic.hour, agentNow, isUTC),
-    Today: getToday(traffic.day, agentNow, isUTC),
-    "This week": getThisWeek(traffic.day, agentNow, isUTC),
-    "This Month": getCurrentMonth(traffic.month, agentNow, isUTC),
+    "This Hour": traffic.hour ? getCurrentHour(traffic.hour, agentNow, isUTC) : empty,
+    "Last Hour": traffic.hour ? getLastHour(traffic.hour, agentNow, isUTC) : empty,
+    Today: traffic.day ? getToday(traffic.day, agentNow, isUTC) : empty,
+    "This week": traffic.day ? getThisWeek(traffic.day, agentNow, isUTC) : empty,
+    "This Month": traffic.month ? getCurrentMonth(traffic.month, agentNow, isUTC) : empty,
     "All Time": {
       download: traffic.total.rx,
       upload: traffic.total.tx,
@@ -82,12 +64,7 @@ function getEmptyUsage(): Record<string, MonitorUsageSummary> {
 }
 
 function getCurrentHour(
-  hours: Array<{
-    date: { year: number; month: number; day?: number };
-    time?: { hour: number; minute: number };
-    rx: number;
-    tx: number;
-  }>,
+  hours: MonitorPeriod[],
   now: Date,
   isUTC: boolean = false,
 ): MonitorUsageSummary {
@@ -117,12 +94,7 @@ function getCurrentHour(
 }
 
 function getLastHour(
-  hours: Array<{
-    date: { year: number; month: number; day?: number };
-    time?: { hour: number; minute: number };
-    rx: number;
-    tx: number;
-  }>,
+  hours: MonitorPeriod[],
   now: Date,
   isUTC: boolean = false,
 ): MonitorUsageSummary {
@@ -171,11 +143,7 @@ function getLastHour(
 }
 
 function getToday(
-  days: Array<{
-    date: { year: number; month: number; day?: number };
-    rx: number;
-    tx: number;
-  }>,
+  days: MonitorPeriod[],
   now: Date,
   isUTC: boolean = false,
 ): MonitorUsageSummary {
@@ -202,11 +170,7 @@ function getToday(
 }
 
 function getThisWeek(
-  days: Array<{
-    date: { year: number; month: number; day?: number };
-    rx: number;
-    tx: number;
-  }>,
+  days: MonitorPeriod[],
   now: Date,
   isUTC: boolean = false,
 ): MonitorUsageSummary {
@@ -239,11 +203,7 @@ function getThisWeek(
 }
 
 function getCurrentMonth(
-  months: Array<{
-    date: { year: number; month: number };
-    rx: number;
-    tx: number;
-  }>,
+  months: MonitorPeriod[],
   now: Date,
   isUTC: boolean = false,
 ): MonitorUsageSummary {
