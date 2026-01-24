@@ -238,7 +238,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// create packet loss service if enabled
 	if cfg.PacketLoss.Enabled {
 		// We'll set the actual broadcaster after creating the server
-		packetLossService = speedtest.NewPacketLossService(db, notifier, nil, cfg.PacketLoss.MaxConcurrentMonitors, cfg.PacketLoss.PrivilegedMode)
+		packetLossService = speedtest.NewPacketLossService(db, notifier, nil, cfg.PacketLoss.MaxConcurrentMonitors, cfg.PacketLoss.PrivilegedMode, cfg.PacketLoss.MTREnableDNS)
 	}
 
 	// Create monitor service variable

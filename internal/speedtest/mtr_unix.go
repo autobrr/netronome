@@ -44,21 +44,25 @@ func killMTRProcessGroup(pid int) error {
 
 // buildMTRArgs builds Unix-specific MTR arguments
 // On Unix, we can use the -j flag for JSON output directly
-func buildMTRArgs(host string, packetCount int, privilegedMode bool) ([]string, string, error) {
+func buildMTRArgs(host string, packetCount int, privilegedMode bool, enableDNS bool) ([]string, string, error) {
 	args := []string{
-		"-4",                                         // Force IPv4
-		"-j",                                         // JSON output
-		"-c", fmt.Sprintf("%d", packetCount),         // Number of cycles
-		"-i", "1",                                    // 1 second interval
-		"--no-dns",                                   // Skip DNS resolution for speed
-		host,
+		"-4",                                 // Force IPv4
+		"-j",                                 // JSON output
+		"-c", fmt.Sprintf("%d", packetCount), // Number of cycles
+		"-i", "1",                            // 1 second interval
 	}
-	
+
+	if !enableDNS {
+		args = append(args, "--no-dns")
+	}
+
+	args = append(args, host)
+
 	// Add UDP mode if not privileged
 	if !privilegedMode {
 		args = append([]string{"-u"}, args...)
 	}
-	
+
 	// Return empty string to indicate Unix doesn't need parsing
 	return args, "", nil
 }
