@@ -3,11 +3,38 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import type { MonitorNativeData, MonitorUsageSummary } from "@/api/monitor";
+import type { MonitorNativeData, MonitorPeriod, MonitorUsageSummary } from "@/api/monitor";
+
+const EMPTY_SUMMARY: MonitorUsageSummary = { download: 0, upload: 0, total: 0 };
+
+function toSummary(rx: number, tx: number): MonitorUsageSummary {
+  return { download: rx, upload: tx, total: rx + tx };
+}
+
+function getEmptyUsage(): Record<string, MonitorUsageSummary> {
+  return {
+    "This Hour": EMPTY_SUMMARY,
+    "Last Hour": EMPTY_SUMMARY,
+    Today: EMPTY_SUMMARY,
+    "This week": EMPTY_SUMMARY,
+    "This Month": EMPTY_SUMMARY,
+    "All Time": EMPTY_SUMMARY,
+  };
+}
+
+function resolveAgentTime(data: MonitorNativeData): Date {
+  if (data.server_time) {
+    return new Date(data.server_time);
+  }
+  if (data.server_time_unix) {
+    return new Date(data.server_time_unix * 1000);
+  }
+  return new Date();
+}
 
 /**
- * Parse vnstat native JSON data into usage periods
- * This directly uses vnstat's own period calculations rather than our database aggregations
+ * Parse vnstat native JSON data into usage periods.
+ * Directly uses vnstat's own period calculations rather than database aggregations.
  */
 export function parseMonitorUsagePeriods(
   data: MonitorNativeData,
@@ -18,249 +45,172 @@ export function parseMonitorUsagePeriods(
 
   const traffic = data.interfaces[0].traffic;
 
-  // Use server time if available for accurate timezone handling
-  let agentNow: Date;
-  if (data.server_time) {
-    agentNow = new Date(data.server_time);
-    console.log("Using server_time:", data.server_time, "Parsed as:", agentNow);
-  } else if (data.server_time_unix) {
-    agentNow = new Date(data.server_time_unix * 1000);
-    console.log(
-      "Using server_time_unix:",
-      data.server_time_unix,
-      "Parsed as:",
-      agentNow,
-    );
-  } else {
-    // Fallback to local time
-    agentNow = new Date();
-    console.log("No server time available, using local time:", agentNow);
+  if (!traffic.hour && !traffic.day && !traffic.month) {
+    return {
+      ...getEmptyUsage(),
+      "All Time": traffic.total ? toSummary(traffic.total.rx, traffic.total.tx) : EMPTY_SUMMARY,
+    };
   }
 
-  // If timezone offset is 0 (UTC), use UTC methods
+  const agentNow = resolveAgentTime(data);
   const isUTC = data.timezone_offset === 0;
-  const currentHour = isUTC ? agentNow.getUTCHours() : agentNow.getHours();
-  const currentDay = isUTC ? agentNow.getUTCDate() : agentNow.getDate();
-  const currentMonth = isUTC
-    ? agentNow.getUTCMonth() + 1
-    : agentNow.getMonth() + 1;
-
-  console.log("Agent timezone offset:", data.timezone_offset, "isUTC:", isUTC);
-  console.log(
-    "Looking for hour:",
-    currentHour,
-    "day:",
-    currentDay,
-    "month:",
-    currentMonth,
-  );
 
   return {
-    "This Hour": getCurrentHour(traffic.hour, agentNow, isUTC),
-    "Last Hour": getLastHour(traffic.hour, agentNow, isUTC),
-    Today: getToday(traffic.day, agentNow, isUTC),
-    "This week": getThisWeek(traffic.day, agentNow, isUTC),
-    "This Month": getCurrentMonth(traffic.month, agentNow, isUTC),
-    "All Time": {
-      download: traffic.total.rx,
-      upload: traffic.total.tx,
-      total: traffic.total.rx + traffic.total.tx,
-    },
+    "This Hour": traffic.hour ? getCurrentHour(traffic.hour, agentNow, isUTC) : EMPTY_SUMMARY,
+    "Last Hour": traffic.hour ? getLastHour(traffic.hour, agentNow, isUTC) : EMPTY_SUMMARY,
+    Today: traffic.day ? getToday(traffic.day, agentNow, isUTC) : EMPTY_SUMMARY,
+    "This week": traffic.day ? getThisWeek(traffic.day, agentNow, isUTC) : EMPTY_SUMMARY,
+    "This Month": traffic.month ? getCurrentMonth(traffic.month, agentNow, isUTC) : EMPTY_SUMMARY,
+    "All Time": traffic.total ? toSummary(traffic.total.rx, traffic.total.tx) : EMPTY_SUMMARY,
   };
 }
 
-function getEmptyUsage(): Record<string, MonitorUsageSummary> {
-  const empty = { download: 0, upload: 0, total: 0 };
+interface DateComponents {
+  year: number;
+  month: number; // 1-based (matches vnstat format)
+  day: number;
+  hour: number;
+}
+
+function getDateComponents(now: Date, isUTC: boolean): DateComponents {
+  if (isUTC) {
+    return {
+      year: now.getUTCFullYear(),
+      month: now.getUTCMonth() + 1,
+      day: now.getUTCDate(),
+      hour: now.getUTCHours(),
+    };
+  }
   return {
-    "This Hour": empty,
-    "Last Hour": empty,
-    Today: empty,
-    "This week": empty,
-    "This Month": empty,
-    "All Time": empty,
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+    day: now.getDate(),
+    hour: now.getHours(),
   };
 }
 
 function getCurrentHour(
-  hours: Array<{
-    date: { year: number; month: number; day?: number };
-    time?: { hour: number; minute: number };
-    rx: number;
-    tx: number;
-  }>,
+  hours: MonitorPeriod[],
   now: Date,
   isUTC: boolean = false,
 ): MonitorUsageSummary {
-  const currentHour = isUTC ? now.getUTCHours() : now.getHours();
-  const currentDay = isUTC ? now.getUTCDate() : now.getDate();
-  const currentMonth = (isUTC ? now.getUTCMonth() : now.getMonth()) + 1; // vnstat months are 1-based
-  const currentYear = isUTC ? now.getUTCFullYear() : now.getFullYear();
+  const { year, month, day, hour } = getDateComponents(now, isUTC);
 
-  // Find the most recent hour entry that matches current time
-  const hourEntry = hours.find(
+  const entry = hours.find(
     (h) =>
-      h.date.year === currentYear &&
-      h.date.month === currentMonth &&
-      h.date.day === currentDay &&
-      h.time?.hour === currentHour,
+      h.date.year === year &&
+      h.date.month === month &&
+      h.date.day === day &&
+      h.time?.hour === hour,
   );
 
-  if (!hourEntry) {
-    return { download: 0, upload: 0, total: 0 };
-  }
-
-  return {
-    download: hourEntry.rx,
-    upload: hourEntry.tx,
-    total: hourEntry.rx + hourEntry.tx,
-  };
+  return entry ? toSummary(entry.rx, entry.tx) : EMPTY_SUMMARY;
 }
 
 function getLastHour(
-  hours: Array<{
-    date: { year: number; month: number; day?: number };
-    time?: { hour: number; minute: number };
-    rx: number;
-    tx: number;
-  }>,
+  hours: MonitorPeriod[],
   now: Date,
   isUTC: boolean = false,
 ): MonitorUsageSummary {
-  let lastHour = (isUTC ? now.getUTCHours() : now.getHours()) - 1;
-  let targetDay = isUTC ? now.getUTCDate() : now.getDate();
-  let targetMonth = (isUTC ? now.getUTCMonth() : now.getMonth()) + 1;
-  let targetYear = isUTC ? now.getUTCFullYear() : now.getFullYear();
+  let { year, month, day, hour } = getDateComponents(now, isUTC);
+  hour -= 1;
 
-  // Handle hour wraparound
-  if (lastHour < 0) {
-    lastHour = 23;
-    targetDay -= 1;
+  if (hour < 0) {
+    hour = 23;
+    day -= 1;
 
-    // Handle day wraparound
-    if (targetDay <= 0) {
-      targetMonth -= 1;
-
-      // Handle month wraparound
-      if (targetMonth <= 0) {
-        targetMonth = 12;
-        targetYear -= 1;
+    if (day <= 0) {
+      month -= 1;
+      if (month <= 0) {
+        month = 12;
+        year -= 1;
       }
-
-      // Get last day of previous month (simplified)
-      targetDay = new Date(targetYear, targetMonth, 0).getDate();
+      day = new Date(year, month, 0).getDate();
     }
   }
 
-  const hourEntry = hours.find(
+  const entry = hours.find(
     (h) =>
-      h.date.year === targetYear &&
-      h.date.month === targetMonth &&
-      h.date.day === targetDay &&
-      h.time?.hour === lastHour,
+      h.date.year === year &&
+      h.date.month === month &&
+      h.date.day === day &&
+      h.time?.hour === hour,
   );
 
-  if (!hourEntry) {
-    return { download: 0, upload: 0, total: 0 };
-  }
-
-  return {
-    download: hourEntry.rx,
-    upload: hourEntry.tx,
-    total: hourEntry.rx + hourEntry.tx,
-  };
+  return entry ? toSummary(entry.rx, entry.tx) : EMPTY_SUMMARY;
 }
 
 function getToday(
-  days: Array<{
-    date: { year: number; month: number; day?: number };
-    rx: number;
-    tx: number;
-  }>,
+  days: MonitorPeriod[],
   now: Date,
   isUTC: boolean = false,
 ): MonitorUsageSummary {
-  const currentDay = isUTC ? now.getUTCDate() : now.getDate();
-  const currentMonth = (isUTC ? now.getUTCMonth() : now.getMonth()) + 1;
-  const currentYear = isUTC ? now.getUTCFullYear() : now.getFullYear();
+  const { year, month, day } = getDateComponents(now, isUTC);
 
-  const dayEntry = days.find(
+  const entry = days.find(
     (d) =>
-      d.date.year === currentYear &&
-      d.date.month === currentMonth &&
-      d.date.day === currentDay,
+      d.date.year === year &&
+      d.date.month === month &&
+      d.date.day === day,
   );
 
-  if (!dayEntry) {
-    return { download: 0, upload: 0, total: 0 };
-  }
+  return entry ? toSummary(entry.rx, entry.tx) : EMPTY_SUMMARY;
+}
 
-  return {
-    download: dayEntry.rx,
-    upload: dayEntry.tx,
-    total: dayEntry.rx + dayEntry.tx,
-  };
+function getStartOfWeekMs(now: Date, daysFromMonday: number, isUTC: boolean): number {
+  const startOfWeek = new Date(now);
+  if (isUTC) {
+    startOfWeek.setUTCDate(startOfWeek.getUTCDate() - daysFromMonday);
+    startOfWeek.setUTCHours(0, 0, 0, 0);
+  } else {
+    startOfWeek.setDate(startOfWeek.getDate() - daysFromMonday);
+    startOfWeek.setHours(0, 0, 0, 0);
+  }
+  return startOfWeek.getTime();
+}
+
+function periodToMs(period: MonitorPeriod, isUTC: boolean): number {
+  const { year, month, day } = period.date;
+  if (isUTC) {
+    return Date.UTC(year, month - 1, day || 1);
+  }
+  return new Date(year, month - 1, day || 1).getTime();
 }
 
 function getThisWeek(
-  days: Array<{
-    date: { year: number; month: number; day?: number };
-    rx: number;
-    tx: number;
-  }>,
+  days: MonitorPeriod[],
   now: Date,
   isUTC: boolean = false,
 ): MonitorUsageSummary {
-  // Get the current day of week (0 = Sunday, 6 = Saturday)
-  const currentDayOfWeek = isUTC ? now.getUTCDay() : now.getDay();
-  
-  // Calculate start of week (Monday)
-  const startOfWeek = new Date(now);
-  const daysFromMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
-  startOfWeek.setDate(startOfWeek.getDate() - daysFromMonday);
-  startOfWeek.setHours(0, 0, 0, 0);
+  const dayOfWeek = isUTC ? now.getUTCDay() : now.getDay();
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const startOfWeekMs = getStartOfWeekMs(now, daysFromMonday, isUTC);
+  const nowMs = now.getTime();
 
   let totalRx = 0;
   let totalTx = 0;
 
-  // Sum up all days from start of week to now
-  days.forEach((day) => {
-    const dayDate = new Date(day.date.year, day.date.month - 1, day.date.day || 1);
-    if (dayDate >= startOfWeek && dayDate <= now) {
+  for (const day of days) {
+    const dayMs = periodToMs(day, isUTC);
+    if (dayMs >= startOfWeekMs && dayMs <= nowMs) {
       totalRx += day.rx;
       totalTx += day.tx;
     }
-  });
+  }
 
-  return {
-    download: totalRx,
-    upload: totalTx,
-    total: totalRx + totalTx,
-  };
+  return toSummary(totalRx, totalTx);
 }
 
 function getCurrentMonth(
-  months: Array<{
-    date: { year: number; month: number };
-    rx: number;
-    tx: number;
-  }>,
+  months: MonitorPeriod[],
   now: Date,
   isUTC: boolean = false,
 ): MonitorUsageSummary {
-  const currentMonth = (isUTC ? now.getUTCMonth() : now.getMonth()) + 1;
-  const currentYear = isUTC ? now.getUTCFullYear() : now.getFullYear();
+  const { year, month } = getDateComponents(now, isUTC);
 
-  const monthEntry = months.find(
-    (m) => m.date.year === currentYear && m.date.month === currentMonth,
+  const entry = months.find(
+    (m) => m.date.year === year && m.date.month === month,
   );
 
-  if (!monthEntry) {
-    return { download: 0, upload: 0, total: 0 };
-  }
-
-  return {
-    download: monthEntry.rx,
-    upload: monthEntry.tx,
-    total: monthEntry.rx + monthEntry.tx,
-  };
+  return entry ? toSummary(entry.rx, entry.tx) : EMPTY_SUMMARY;
 }
