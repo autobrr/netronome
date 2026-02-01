@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useTranslation } from "react-i18next";
 
 interface MonitorUsageModalProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
   onClose,
   agent,
 }) => {
+  const { t } = useTranslation();
   const { status, nativeData, hardwareStats } = useMonitorAgent({
     agent,
     includeNativeData: true,
@@ -119,7 +121,7 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                       </div>
                     </>
                   ) : (
-                    <p className="text-gray-500 dark:text-gray-400">No data</p>
+                    <p className="text-gray-500 dark:text-gray-400">{t('monitoring.noData')}</p>
                   )}
                 </div>
 
@@ -152,7 +154,7 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                       </div>
                     </>
                   ) : (
-                    <p className="text-gray-500 dark:text-gray-400">No data</p>
+                    <p className="text-gray-500 dark:text-gray-400">{t('monitoring.noData')}</p>
                   )}
                 </div>
 
@@ -225,10 +227,10 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                             return (
                               <div className="flex justify-between items-center">
                                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                                  Temperature
+                                  {t('monitoring.temperature')}
                                 </span>
                                 <span className="text-sm font-medium text-red-600 dark:text-red-400">
-                                  {hotSensors.length} Hot
+                                  {hotSensors.length} {t('monitoring.temperatureHot')}
                                 </span>
                               </div>
                             );
@@ -236,10 +238,10 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                             return (
                               <div className="flex justify-between items-center">
                                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                                  Temperature
+                                  {t('monitoring.temperature')}
                                 </span>
                                 <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                                  {warmSensors.length} Warm
+                                  {warmSensors.length} {t('monitoring.temperatureWarm')}
                                 </span>
                               </div>
                             );
@@ -247,10 +249,10 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                             return (
                               <div className="flex justify-between items-center">
                                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                                  Temperature
+                                  {t('monitoring.temperature')}
                                 </span>
                                 <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                                  Normal
+                                  {t('monitoring.temperatureNormal')}
                                 </span>
                               </div>
                             );
@@ -258,7 +260,7 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                         })()}
                     </div>
                   ) : (
-                    <p className="text-gray-500 dark:text-gray-400">No data</p>
+                    <p className="text-gray-500 dark:text-gray-400">{t('monitoring.noData')}</p>
                   )}
                 </div>
               </div>
@@ -267,7 +269,7 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
               {usage && (
                 <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-6 md:p-8 shadow-lg border border-gray-200 dark:border-gray-800">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-6">
-                    Usage Summary
+                    {t('monitoring.usageSummary')}
                   </h3>
                   <div className="space-y-4">
                     {Object.entries(usage).map(([period, data]) => (
@@ -311,10 +313,10 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                 <AgentIcon className="h-8 w-8 text-red-600 dark:text-red-400" />
               </div>
               <p className="text-lg text-gray-900 dark:text-white font-medium mb-2">
-                Agent Disconnected
+                {t('monitoring.agentDisconnected')}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Unable to connect to {agent.url}
+                {t('monitoring.unableToConnect', { url: agent.url })}
               </p>
             </div>
           )}

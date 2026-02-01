@@ -21,6 +21,7 @@ import { MonitorUsageModal } from "./MonitorUsageModal";
 import { MONITOR_REFRESH_INTERVALS } from "@/constants/monitorRefreshIntervals";
 import { TailscaleLogo } from "@/components/icons/TailscaleLogo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTranslation } from "react-i18next";
 
 interface FeaturedMonitorWidgetProps {
   onNavigateToMonitor: (agentId?: number) => void;
@@ -29,6 +30,7 @@ interface FeaturedMonitorWidgetProps {
 export const FeaturedMonitorWidget: React.FC<FeaturedMonitorWidgetProps> = ({
   onNavigateToMonitor,
 }) => {
+  const { t } = useTranslation();
   const [selectedAgent, setSelectedAgent] = useState<MonitorAgent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Get featured agent IDs from localStorage
@@ -68,7 +70,7 @@ export const FeaturedMonitorWidget: React.FC<FeaturedMonitorWidgetProps> = ({
       className="mb-6"
     >
       <h2 className="text-gray-900 dark:text-white text-xl ml-1 font-semibold mb-4">
-        Netronome Agents
+        {t('monitoring.netronomeAgents')}
       </h2>
 
       {/* Mobile: Stacked layout, Desktop: Grid layout */}
@@ -189,7 +191,7 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
               </button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>View detailed stats</p>
+              <p>{t('monitoring.viewDetailedStats')}</p>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -207,7 +209,7 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
               </div>
               <div className="flex-1">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Download
+                  {t('speedtest.download')}
                 </p>
                 <p className="text-lg font-bold text-gray-900 dark:text-white">
                   {status.liveData.rx.ratestring}
@@ -222,7 +224,7 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
               </div>
               <div className="flex-1">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Upload
+                  {t('speedtest.upload')}
                 </p>
                 <p className="text-lg font-bold text-gray-900 dark:text-white">
                   {status.liveData.tx.ratestring}
@@ -236,7 +238,7 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
             <div className="border-t border-gray-200 dark:border-gray-800 pt-3">
               <div className="flex items-center justify-between mb-1">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Today's Usage
+                  {t('monitoring.todaysUsage')}
                 </p>
                 <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
                   {formatBytes(usage["Today"]?.total || 0)}
@@ -263,7 +265,7 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
         <div className="text-center py-8">
           <ServerIcon className="h-8 w-8 text-gray-400 mx-auto" />
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {status?.connected === false ? "Disconnected" : "No data"}
+            {status?.connected === false ? t('monitoring.disconnected') : t('monitoring.noData')}
           </p>
         </div>
       )}

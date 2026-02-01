@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { MonitorAgent, CreateAgentRequest } from "@/api/monitor";
 import { formatDateWithSettings } from "@/utils/timeSettings";
+import { useTranslation } from "react-i18next";
 
 interface MonitorAgentFormProps {
   agent?: MonitorAgent | null;
@@ -34,6 +35,7 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
   isSubmitting,
   isOpen,
 }) => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<CreateAgentRequest>({
     name: "",
     url: "http://",
@@ -103,7 +105,7 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {agent ? (agent.isTailscale ? "Edit Monitoring Settings" : "Edit Agent") : "Add Agent"}
+            {agent ? (agent.isTailscale ? t('monitoring.editMonitoringSettings') : t('monitoring.editAgent')) : t('monitoring.addAgent')}
           </DialogTitle>
         </DialogHeader>
 
@@ -115,26 +117,27 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
                 <ShieldCheckIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    Tailscale Connected Agent
+                    {t('monitoring.tailscaleConnectedAgent')}
                   </p>
                   {agent.tailscaleHostname && (
                     <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
-                      Hostname: {agent.tailscaleHostname}
+                      {t('monitoring.hostname')}: {agent.tailscaleHostname}
                     </p>
                   )}
                   {agent.discoveredAt && (
                     <p className="text-xs text-blue-700 dark:text-blue-300">
-                      Auto-discovered on{" "}
-                      {formatDateWithSettings(agent.discoveredAt, { 
-                        year: "numeric", 
-                        month: "long", 
-                        day: "numeric" 
+                      {t('monitoring.autoDiscoveredOn', { 
+                        date: formatDateWithSettings(agent.discoveredAt, { 
+                          year: "numeric", 
+                          month: "long", 
+                          day: "numeric" 
+                        })
                       })}
                     </p>
                   )}
                   {isAutoDiscoveredTailscale && (
                     <p className="text-xs text-blue-600 dark:text-blue-200 mt-1">
-                      Connection details are managed by Tailscale. Only monitoring can be toggled.
+                      {t('monitoring.tailscaleManagedDesc')}
                     </p>
                   )}
                 </div>
@@ -144,7 +147,7 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
 
           <div>
             <Label htmlFor="name">
-              Agent Name
+              {t('monitoring.agentName')}
             </Label>
             <Input
               type="text"
@@ -154,7 +157,7 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
               }
-              placeholder="Remote Server"
+              placeholder={t('monitoring.remoteServerPlaceholder')}
               required
               disabled={isAutoDiscoveredTailscale}
             />
@@ -162,7 +165,7 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
 
           <div>
             <Label htmlFor="url">
-              Agent URL
+              {t('monitoring.agentUrl')}
             </Label>
             <Input
               type="url"
@@ -174,14 +177,14 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
               disabled={isAutoDiscoveredTailscale}
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Enter the base URL of the monitor agent
+              {t('monitoring.agentUrlDesc')}
             </p>
           </div>
 
           {!isAutoDiscoveredTailscale && (
             <div>
               <Label htmlFor="apiKey">
-                API Key (Optional)
+                {t('monitoring.apiKeyOptional')}
               </Label>
               <div className="relative">
                 <Input
@@ -195,8 +198,8 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
                   className="pr-10"
                   placeholder={
                     agent?.apiKey === "configured"
-                      ? "API key is configured"
-                      : "Leave empty for no authentication"
+                      ? t('monitoring.apiKeyConfigured')
+                      : t('monitoring.apiKeyPlaceholder')
                   }
                 />
                 <Button
@@ -215,8 +218,7 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
               </div>
               <div className="mt-1 flex items-center justify-between">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  If set, the agent will require this API key for
-                  authentication
+                  {t('monitoring.apiKeyDesc')}
                 </p>
                 <Button
                   type="button"
@@ -225,7 +227,7 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
                   size="sm"
                   className="text-xs h-auto py-0 px-1 bg-transparent hover:bg-transparent text-blue-600 hover:text-blue-500 dark:text-blue-400 border-0 shadow-none"
                 >
-                  Generate Random Key
+                  {t('monitoring.generateRandomKey')}
                 </Button>
               </div>
             </div>
@@ -244,7 +246,7 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
                 }
               />
               <Label htmlFor="enabled" className="cursor-pointer">
-                Enable monitoring
+                {t('monitoring.enableMonitoring')}
               </Label>
             </div>
           </div>
@@ -257,7 +259,7 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
               onClick={onCancel}
               disabled={isSubmitting}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               type="submit"
@@ -265,7 +267,7 @@ export const MonitorAgentForm: React.FC<MonitorAgentFormProps> = ({
               disabled={isSubmitting}
               isLoading={isSubmitting}
             >
-              {agent ? "Update" : "Create"}
+              {agent ? t('common.update') : t('common.create')}
             </Button>
           </DialogFooter>
         </form>

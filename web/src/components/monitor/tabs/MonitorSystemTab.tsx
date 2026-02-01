@@ -12,12 +12,14 @@ import { MonitorHardwareStats } from "../MonitorHardwareStats";
 import { MonitorOfflineBanner } from "../MonitorOfflineBanner";
 import { ServerIcon } from "@heroicons/react/24/outline";
 import { formatters } from "@/utils/timeSettings";
+import { useTranslation } from "react-i18next";
 
 interface MonitorSystemTabProps {
   agent: MonitorAgent;
 }
 
 export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => {
+  const { t } = useTranslation();
   const { status, systemInfo, hardwareStats } = useMonitorAgent({
     agent,
     includeSystemInfo: true,
@@ -35,7 +37,7 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
         transition={{ duration: 0.3 }}
         className="text-center py-8 sm:py-12"
       >
-        <p className="text-lg text-gray-500 dark:text-gray-400">Loading system information...</p>
+        <p className="text-lg text-gray-500 dark:text-gray-400">{t('monitoring.loadingSystemInfo')}</p>
       </motion.div>
     );
   }
@@ -50,9 +52,9 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
         className="text-center py-8 sm:py-12"
       >
         <ServerIcon className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
-        <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400">No System Information Available</p>
+        <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400">{t('monitoring.noSystemInfo')}</p>
         <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-1.5 sm:mt-2">
-          The agent may have just been added or hasn't collected any data yet.
+          {t('monitoring.noSystemInfoDesc')}
         </p>
       </motion.div>
     );
@@ -61,7 +63,7 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Offline Banner */}
-      {isOffline && <MonitorOfflineBanner message="Showing cached system information. Real-time data unavailable." />}
+      {isOffline && <MonitorOfflineBanner message={t('monitoring.cachedSystemInfo')} />}
 
       <div className="space-y-4 sm:space-y-6 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-6">
         {/* Left Column - System Information */}

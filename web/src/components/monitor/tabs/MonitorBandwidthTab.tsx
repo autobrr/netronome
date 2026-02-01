@@ -17,6 +17,7 @@ import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { MonitorBandwidthChart } from "../MonitorBandwidthChart";
 import { MonitorOfflineBanner } from "../MonitorOfflineBanner";
 import { formatBytes } from "@/utils/formatBytes";
+import { useTranslation } from "react-i18next";
 
 interface MonitorBandwidthTabProps {
   agent: MonitorAgent;
@@ -25,6 +26,7 @@ interface MonitorBandwidthTabProps {
 export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
   agent,
 }) => {
+  const { t } = useTranslation();
   const [selectedTimeRange, setSelectedTimeRange] = useState<
     "6h" | "12h" | "24h" | "48h" | "7d" | "30d"
   >("24h");
@@ -37,7 +39,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
   // Process bandwidth data based on selected time range
   const chartData = useMemo(() => {
     if (!nativeData?.interfaces?.[0]?.traffic) {
-      return { data: [], title: "No Data", timeFormat: "hour" as const };
+      return { data: [], title: t('monitoring.noData'), timeFormat: "hour" as const };
     }
 
     const traffic = nativeData.interfaces[0].traffic;
@@ -127,7 +129,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
             rx: hour.rx,
             tx: hour.tx,
           })),
-          title: "Hourly Bandwidth (48 hours)",
+          title: t('monitoring.hourlyBandwidth48h'),
           timeFormat: "hour" as const,
         };
       }
@@ -148,7 +150,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
             rx: day.rx,
             tx: day.tx,
           })),
-          title: "Daily Bandwidth (7 days)",
+          title: t('monitoring.dailyBandwidth7d'),
           timeFormat: "day" as const,
         };
       }
@@ -169,12 +171,12 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
             rx: day.rx,
             tx: day.tx,
           })),
-          title: "Daily Bandwidth (30 days)",
+          title: t('monitoring.dailyBandwidth30d'),
           timeFormat: "day" as const,
         };
       }
     }
-  }, [nativeData, selectedTimeRange]);
+  }, [nativeData, selectedTimeRange, t]);
 
   if (!nativeData) {
     return (
@@ -185,7 +187,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
         className="text-center py-12"
       >
         <p className="text-lg text-gray-500 dark:text-gray-400">
-          Loading bandwidth data...
+          {t('monitoring.loadingBandwidthData')}
         </p>
       </motion.div>
     );
@@ -198,7 +200,7 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
     <div className="space-y-4 sm:space-y-6">
       {/* Offline Banner */}
       {isOffline && isFromCache && (
-        <MonitorOfflineBanner message="Showing cached bandwidth data. Real-time monitoring unavailable." />
+        <MonitorOfflineBanner message={t('monitoring.cachedBandwidthData')} />
       )}
 
       {chartData.data.length > 0 ? (
@@ -220,11 +222,10 @@ export const MonitorBandwidthTab: React.FC<MonitorBandwidthTabProps> = ({
             <ExclamationTriangleIcon className="h-8 w-8 sm:h-10 sm:w-10 text-amber-500 dark:text-amber-400" />
           </div>
           <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400">
-            No bandwidth data available
+            {t('monitoring.noBandwidthData')}
           </p>
           <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-1.5 sm:mt-2">
-            The agent may have just been added or monitor hasn't collected
-            enough data yet.
+            {t('monitoring.noBandwidthDataDesc')}
           </p>
         </motion.div>
       )}
