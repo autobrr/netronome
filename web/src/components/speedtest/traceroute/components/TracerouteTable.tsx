@@ -37,12 +37,12 @@ export const TracerouteTable: React.FC<TracerouteTableProps> = ({
             <th className="text-center py-3 px-2 text-gray-400 font-medium">{t('traceroute.hop')}</th>
             <th className="text-center py-3 px-2 text-gray-400 font-medium">{t('traceroute.hostname')}</th>
             <th className="text-center py-3 px-2 text-gray-400 font-medium">
-              Provider
+              {t('traceroute.provider')}
             </th>
             <th className="text-center py-3 px-2 text-gray-400 font-medium">{t('traceroute.rtt')} 1</th>
             <th className="text-center py-3 px-2 text-gray-400 font-medium">{t('traceroute.rtt')} 2</th>
             <th className="text-center py-3 px-2 text-gray-400 font-medium">{t('traceroute.rtt')} 3</th>
-            <th className="text-center py-3 px-2 text-gray-400 font-medium">Avg</th>
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">{t('traceroute.average')}</th>
           </tr>
         </thead>
         <tbody>

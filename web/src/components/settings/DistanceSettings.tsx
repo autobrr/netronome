@@ -30,9 +30,7 @@ export const DistanceSettings: React.FC = () => {
   const saveSettings = () => {
     saveDistanceSettings(settings);
     setHasChanges(false);
-    showToast(t('settings.saved'), "success", {
-      description: t('distanceSettings.configure'),
-    });
+    showToast(t('settings.saved'), "success");
   };
 
   const resetToDefaults = () => {
