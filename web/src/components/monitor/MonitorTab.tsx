@@ -6,6 +6,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { MonitorAgentList } from "./MonitorAgentList";
 import { MonitorAgentForm } from "./MonitorAgentForm";
 import { MonitorAgentDetailsTabs } from "./MonitorAgentDetailsTabs";
@@ -31,6 +32,7 @@ import {
 import { MONITOR_REFRESH_INTERVALS } from "@/constants/monitorRefreshIntervals";
 
 export const MonitorTab: React.FC = () => {
+  const { t } = useTranslation();
   const [selectedAgent, setSelectedAgent] = useState<MonitorAgent | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<MonitorAgent | null>(null);
@@ -90,13 +92,13 @@ export const MonitorTab: React.FC = () => {
     onSuccess: (newAgent) => {
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       setIsFormOpen(false);
-      showToast("Agent created", "success", {
-        description: `${newAgent.name} has been added successfully`,
+      showToast(t('common.success'), "success", {
+        description: newAgent.name,
       });
     },
     onError: (error: Error) => {
-      showToast("Failed to create agent", "error", {
-        description: error.message || "Unable to create the monitoring agent",
+      showToast(t('common.error'), "error", {
+        description: error.message || t('errors.unknown'),
       });
     },
   });
@@ -123,13 +125,13 @@ export const MonitorTab: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       setIsFormOpen(false);
       setEditingAgent(null);
-      showToast("Agent updated", "success", {
-        description: "Agent has been updated successfully",
+      showToast(t('common.success'), "success", {
+        description: t('common.update'),
       });
     },
     onError: (error: Error) => {
-      showToast("Failed to update agent", "error", {
-        description: error.message || "Unable to update the monitoring agent",
+      showToast(t('common.error'), "error", {
+        description: error.message || t('errors.unknown'),
       });
     },
   });
@@ -153,14 +155,14 @@ export const MonitorTab: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ["monitor-agents"] });
       setSelectedAgent(null);
       
-      const deletedAgentName = agentToDelete?.name || "Agent";
-      showToast("Agent deleted", "success", {
-        description: `${deletedAgentName} has been removed`
+      const deletedAgentName = agentToDelete?.name || t('monitoring.monitor');
+      showToast(t('common.success'), "success", {
+        description: deletedAgentName
       });
     },
     onError: (error: Error) => {
-      showToast("Failed to delete agent", "error", {
-        description: error.message || "Unable to delete the monitoring agent",
+      showToast(t('common.error'), "error", {
+        description: error.message || t('errors.unknown'),
       });
     },
   });
@@ -225,11 +227,10 @@ export const MonitorTab: React.FC = () => {
             <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
-                  Monitoring
+                  {t('monitoring.title')}
                 </h2>
                 <p className="hidden sm:block mt-1 text-sm text-gray-600 dark:text-gray-400">
-                  Monitor bandwidth and other stats from Netronome agents •
-                  Click an agent to view detailed stats
+                  {t('monitoring.subtitle')}
                 </p>
               </div>
               <Button
@@ -238,7 +239,7 @@ export const MonitorTab: React.FC = () => {
                 size="default"
                 className="w-full sm:w-auto"
               >
-                Add Agent
+                {t('monitoring.addAgent')}
               </Button>
             </div>
 
@@ -274,13 +275,13 @@ export const MonitorTab: React.FC = () => {
                   className="gap-1.5"
                 >
                   <ArrowLeftIcon className="h-4 w-4" />
-                  <span>Back</span>
+                  <span>{t('common.back')}</span>
                 </Button>
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {selectedAgent.name}
                 </h2>
                 {selectedAgent && !selectedAgent.enabled && (
-                  <Badge variant="secondary">Disabled</Badge>
+                  <Badge variant="secondary">{t('notifications.disabled')}</Badge>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -289,20 +290,20 @@ export const MonitorTab: React.FC = () => {
                   variant="secondary"
                   size="sm"
                   className="gap-1.5"
-                  title="Edit agent"
+                  title={t('common.edit')}
                 >
                   <PencilIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">Edit</span>
+                  <span className="hidden sm:inline">{t('common.edit')}</span>
                 </Button>
                 <Button
                   onClick={() => handleDeleteAgent(selectedAgent)}
                   variant="secondary"
                   size="sm"
                   className="gap-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400"
-                  title="Delete agent"
+                  title={t('common.delete')}
                 >
                   <TrashIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">Delete</span>
+                  <span className="hidden sm:inline">{t('common.delete')}</span>
                 </Button>
               </div>
             </div>

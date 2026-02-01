@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Cog6ToothIcon, BellIcon, ClockIcon, MapPinIcon } from "@heroicons/react/24/outline";
 import { NotificationSettings } from "./settings/NotificationSettings";
 import { TimeFormatSettings } from "./settings/TimeFormatSettings";
@@ -24,34 +25,36 @@ import {
 
 interface SettingsSection {
   id: string;
-  label: string;
+  labelKey: string;
   icon: React.ReactNode;
   component: React.ComponentType;
 }
 
-const settingsSections: SettingsSection[] = [
-  {
-    id: "notifications",
-    label: "Notifications",
-    icon: <BellIcon className="w-4 h-4" />,
-    component: NotificationSettings,
-  },
-  {
-    id: "time-format",
-    label: "Time & Timezone",
-    icon: <ClockIcon className="w-4 h-4" />,
-    component: TimeFormatSettings,
-  },
-  {
-    id: "distance",
-    label: "Distance Units",
-    icon: <MapPinIcon className="w-4 h-4" />,
-    component: DistanceSettings,
-  },
-];
-
 export const SettingsMenu: React.FC = () => {
+  const { t } = useTranslation();
   const [showModal, setShowModal] = useState(false);
+
+  const settingsSections: SettingsSection[] = [
+    {
+      id: "notifications",
+      labelKey: "settings.notifications",
+      icon: <BellIcon className="w-4 h-4" />,
+      component: NotificationSettings,
+    },
+    {
+      id: "time-format",
+      labelKey: "settings.timeAndTimezone",
+      icon: <ClockIcon className="w-4 h-4" />,
+      component: TimeFormatSettings,
+    },
+    {
+      id: "distance",
+      labelKey: "settings.distanceUnits",
+      icon: <MapPinIcon className="w-4 h-4" />,
+      component: DistanceSettings,
+    },
+  ];
+
   const [activeSection, setActiveSection] = useState<string>(settingsSections[0].id);
 
   const handleSectionClick = (sectionId: string) => {
@@ -89,7 +92,7 @@ export const SettingsMenu: React.FC = () => {
               <div className="flex items-center gap-3 w-full">
                 {section.icon}
                 <span className="flex-1 text-left font-medium">
-                  {section.label}
+                  {t(section.labelKey)}
                 </span>
               </div>
             </DropdownMenuItem>
@@ -104,7 +107,7 @@ export const SettingsMenu: React.FC = () => {
         >
           <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-800">
             <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">
-              Settings
+              {t('settings.title')}
             </DialogTitle>
           </DialogHeader>
           <div className="p-0 sm:p-6 lg:p-8 max-h-[70vh] overflow-y-auto modal-scrollbar">

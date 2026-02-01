@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { InformationCircleIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -34,6 +35,7 @@ export const EventRuleItem: React.FC<EventRuleItemProps> = ({
   hasPendingChanges,
   onUpdateRule,
 }) => {
+  const { t } = useTranslation();
   const isEnabled = ruleState.enabled ?? false;
 
   return (
@@ -51,7 +53,7 @@ export const EventRuleItem: React.FC<EventRuleItemProps> = ({
           onCheckedChange={(checked) => onUpdateRule({ enabled: checked })}
           className="data-[state=checked]:bg-blue-600"
         >
-          <span className="sr-only">Enable notification for {event.name}</span>
+          <span className="sr-only">{t('eventRule.enableNotification', { event: event.name })}</span>
         </Switch>
 
         <div className="flex-1">
@@ -71,7 +73,7 @@ export const EventRuleItem: React.FC<EventRuleItemProps> = ({
               <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 rounded-full">
                 <div className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
                 <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                  Modified
+                  {t('eventRule.modified')}
                 </span>
               </div>
             )}
@@ -83,7 +85,7 @@ export const EventRuleItem: React.FC<EventRuleItemProps> = ({
               <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-200/50 dark:bg-gray-800/50 rounded-lg">
                 <InformationCircleIcon className="w-4 h-4 text-gray-500" />
                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Trigger when value is
+                  {t('eventRule.triggerWhen')}
                 </span>
               </div>
 
@@ -99,11 +101,11 @@ export const EventRuleItem: React.FC<EventRuleItemProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gt">Greater than</SelectItem>
-                  <SelectItem value="lt">Less than</SelectItem>
-                  <SelectItem value="eq">Equal to</SelectItem>
-                  <SelectItem value="gte">Greater or equal</SelectItem>
-                  <SelectItem value="lte">Less or equal</SelectItem>
+                  <SelectItem value="gt">{t('eventRule.greaterThan')}</SelectItem>
+                  <SelectItem value="lt">{t('eventRule.lessThan')}</SelectItem>
+                  <SelectItem value="eq">{t('eventRule.equalTo')}</SelectItem>
+                  <SelectItem value="gte">{t('eventRule.greaterOrEqual')}</SelectItem>
+                  <SelectItem value="lte">{t('eventRule.lessOrEqual')}</SelectItem>
                 </SelectContent>
               </Select>
 

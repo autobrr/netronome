@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "motion/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -51,6 +52,7 @@ interface RuleChange {
 }
 
 export const NotificationSettings: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [activeChannelId, setActiveChannelId] = useState<number | null>(null);
   const [showAddChannel, setShowAddChannel] = useState(false);
@@ -85,14 +87,14 @@ export const NotificationSettings: React.FC = () => {
     mutationFn: notificationsApi.createChannel,
     onSuccess: (newChannel) => {
       queryClient.invalidateQueries({ queryKey: ["notification-channels"] });
-      showToast("Notification channel created", "success", {
-        description: `"${newChannel.name}" has been added`,
+      showToast(t('notifications.serviceAdded'), "success", {
+        description: `"${newChannel.name}" ${t('notificationSettings.channelAdded')}`,
       });
       setShowAddChannel(false);
       setActiveChannelId(newChannel.id);
     },
     onError: () => {
-      showToast("Failed to create channel", "error");
+      showToast(t('notifications.addServiceFailed'), "error");
     },
   });
 
@@ -104,12 +106,12 @@ export const NotificationSettings: React.FC = () => {
       notificationsApi.updateChannel(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notification-channels"] });
-      showToast("Channel updated", "success", {
-        description: "Your changes have been saved",
+      showToast(t('notifications.serviceUpdated'), "success", {
+        description: t('notificationSettings.channelUpdated'),
       });
     },
     onError: () => {
-      showToast("Failed to update channel", "error");
+      showToast(t('notifications.updateServiceFailed'), "error");
     },
   });
 
@@ -122,25 +124,25 @@ export const NotificationSettings: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ["notification-channels"] });
       queryClient.invalidateQueries({ queryKey: ["notification-rules"] });
       
-      showToast("Channel deleted", "success", {
-        description: deletedChannel ? `"${deletedChannel.name}" has been removed` : undefined
+      showToast(t('notifications.serviceDeleted'), "success", {
+        description: deletedChannel ? `"${deletedChannel.name}" ${t('notificationSettings.channelDeleted')}` : undefined
       });
       setActiveChannelId(null);
     },
     onError: () => {
-      showToast("Failed to delete channel", "error");
+      showToast(t('notifications.deleteServiceFailed'), "error");
     },
   });
 
   const testChannelMutation = useMutation({
     mutationFn: notificationsApi.testChannel,
     onSuccess: () => {
-      showToast("Test notification sent!", "success", {
-        description: "Check your notification service",
+      showToast(t('notificationSettings.testNotificationSent'), "success", {
+        description: t('notificationSettings.testNotificationDesc'),
       });
     },
     onError: () => {
-      showToast("Failed to send test notification", "error");
+      showToast(t('notifications.testFailed'), "error");
     },
   });
 
@@ -164,7 +166,7 @@ export const NotificationSettings: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ["notification-rules"] });
     },
     onError: () => {
-      showToast("Failed to create rule", "error");
+      showToast(t('notificationSettings.failedToCreate'), "error");
     },
   });
 
@@ -300,13 +302,13 @@ export const NotificationSettings: React.FC = () => {
 
     try {
       await Promise.all(promises);
-      showToast("Notification settings saved", "success", {
-        description: "All changes have been applied",
+      showToast(t('notificationSettings.settingsSaved'), "success", {
+        description: t('notificationSettings.allChangesSaved'),
       });
       setPendingChanges(new Map());
       setHasUnsavedChanges(false);
     } catch {
-      showToast("Failed to save some changes", "error");
+      showToast(t('notificationSettings.failedToSave'), "error");
     }
   };
 
@@ -324,10 +326,10 @@ export const NotificationSettings: React.FC = () => {
           <div>
             <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <BellIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-              Notification Settings
+              {t('notificationSettings.title')}
             </h3>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              Configure notification channels and rules for system alerts
+              {t('notificationSettings.configure')}
             </p>
           </div>
 
@@ -342,7 +344,7 @@ export const NotificationSettings: React.FC = () => {
               >
                 <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                 <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                  Unsaved changes
+                  {t('notificationSettings.unsavedChanges')}
                 </span>
               </motion.div>
             )}
@@ -388,14 +390,14 @@ export const NotificationSettings: React.FC = () => {
               <CardContent className="p-6">
                 <div className="mb-6">
                   <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    Channels
+                    {t('notificationSettings.channels')}
                   </h4>
                 <Button
                   onClick={() => setShowAddChannel(true)}
                   className="w-full"
                 >
                   <PlusIcon className="w-4 h-4" />
-                  Add Channel
+                  {t('notificationSettings.addChannel')}
                 </Button>
               </div>
 
@@ -422,9 +424,7 @@ export const NotificationSettings: React.FC = () => {
                         // If there are unsaved changes, confirm before switching
                         if (hasUnsavedChanges) {
                           if (
-                            confirm(
-                              "You have unsaved changes. Do you want to discard them?"
-                            )
+                            confirm(t('notificationSettings.unsavedWarning'))
                           ) {
                             setActiveChannelId(channel.id);
                           }
@@ -440,10 +440,10 @@ export const NotificationSettings: React.FC = () => {
                   <div className="text-center py-12">
                     <BellIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      No channels configured
+                      {t('notificationSettings.noChannels')}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      Add a channel to get started
+                      {t('notificationSettings.addChannelPrompt')}
                     </p>
                   </div>
                 )}
@@ -463,7 +463,7 @@ export const NotificationSettings: React.FC = () => {
                   <Card>
                     <CardContent className="p-6">
                       <h5 className="font-medium text-gray-900 dark:text-white mb-4">
-                        Add New Channel
+                        {t('notificationSettings.addNewChannel')}
                       </h5>
                   <AddChannelForm
                     onSubmit={(input) => {
@@ -489,9 +489,7 @@ export const NotificationSettings: React.FC = () => {
                   onUpdate={updateChannelMutation}
                   onDelete={() => {
                     if (
-                      confirm(
-                        "Are you sure you want to delete this channel? This action cannot be undone."
-                      )
+                      confirm(t('notificationSettings.deleteConfirmation'))
                     ) {
                       deleteChannelMutation.mutate(activeChannel.id);
                     }
@@ -512,9 +510,9 @@ export const NotificationSettings: React.FC = () => {
                   <CardHeader className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <CardTitle>Notification Rules</CardTitle>
+                        <CardTitle>{t('notificationSettings.notificationRules')}</CardTitle>
                         <CardDescription>
-                          Choose which events trigger notifications
+                          {t('notificationSettings.chooseEvents')}
                         </CardDescription>
                       </div>
 
@@ -533,7 +531,7 @@ export const NotificationSettings: React.FC = () => {
                             size="sm"
                           >
                             <XMarkIcon className="w-4 h-4" />
-                            Cancel
+                            {t('common.cancel')}
                           </Button>
                           <Button
                             onClick={saveChanges}
@@ -544,7 +542,7 @@ export const NotificationSettings: React.FC = () => {
                             size="sm"
                           >
                             <CheckIcon className="w-4 h-4" />
-                            Save Changes
+                            {t('common.saveChanges')}
                           </Button>
                         </motion.div>
                       )}
@@ -583,13 +581,10 @@ export const NotificationSettings: React.FC = () => {
                     </div>
                     <div className="flex-1">
                       <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                        Welcome to Notification Settings
+                        {t('notificationSettings.welcomeTitle')}
                       </h3>
                       <p className="text-gray-600 dark:text-gray-400 mb-4">
-                        Set up notification channels to receive alerts about
-                        system events, speed tests, and monitoring updates.
-                        Netronome supports 15+ notification services through
-                        Shoutrrr.
+                        {t('notificationSettings.welcomeMessage')}
                       </p>
                       <div className="flex flex-wrap gap-2">
                         <Badge variant="secondary">Discord</Badge>
@@ -612,13 +607,11 @@ export const NotificationSettings: React.FC = () => {
                           <span className="text-lg font-semibold text-emerald-700 dark:text-emerald-400">1</span>
                         </div>
                         <h4 className="font-semibold text-gray-900 dark:text-white">
-                          Create a Channel
+                          {t('notificationSettings.createChannelStep')}
                         </h4>
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Click "Add Channel" in the sidebar to configure your first
-                        notification service. You'll need the service URL from
-                        your provider.
+                        {t('notificationSettings.createChannelDesc')}
                       </p>
                     </CardContent>
                   </Card>
@@ -630,13 +623,11 @@ export const NotificationSettings: React.FC = () => {
                           <span className="text-lg font-semibold text-blue-700 dark:text-blue-400">2</span>
                         </div>
                         <h4 className="font-semibold text-gray-900 dark:text-white">
-                          Configure Rules
+                          {t('notificationSettings.configureRulesStep')}
                         </h4>
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Select which events trigger notifications and set
-                        thresholds for alerts like high CPU usage or failed speed
-                        tests.
+                        {t('notificationSettings.configureRulesDesc')}
                       </p>
                     </CardContent>
                   </Card>
@@ -648,13 +639,11 @@ export const NotificationSettings: React.FC = () => {
                           <span className="text-lg font-semibold text-purple-700 dark:text-purple-400">3</span>
                         </div>
                         <h4 className="font-semibold text-gray-900 dark:text-white">
-                          Stay Informed
+                          {t('notificationSettings.stayInformed')}
                         </h4>
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Receive real-time alerts about system performance, agent
-                        status, and network quality directly to your preferred
-                        platform.
+                        {t('notificationSettings.stayInformedDesc')}
                       </p>
                     </CardContent>
                   </Card>
@@ -663,7 +652,7 @@ export const NotificationSettings: React.FC = () => {
                 {/* Available Notifications */}
                 <Card>
                   <CardHeader className="p-6 pb-4">
-                    <CardTitle>Available Notifications</CardTitle>
+                    <CardTitle>{t('notificationSettings.availableNotifications')}</CardTitle>
                   </CardHeader>
                   <CardContent className="p-6 pt-0">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -675,10 +664,10 @@ export const NotificationSettings: React.FC = () => {
                       </div>
                       <div>
                         <h5 className="font-medium text-gray-900 dark:text-white">
-                          Speed Test Events
+                          {t('notificationSettings.speedTestEvents')}
                         </h5>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Completed tests, failures, and performance thresholds
+                          {t('notificationSettings.speedTestEventsDesc')}
                         </p>
                       </div>
                     </div>
@@ -690,10 +679,10 @@ export const NotificationSettings: React.FC = () => {
                       </div>
                       <div>
                         <h5 className="font-medium text-gray-900 dark:text-white">
-                          Packet Loss Monitoring
+                          {t('notificationSettings.packetLossMonitoring')}
                         </h5>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Network quality degradation and recovery alerts
+                          {t('notificationSettings.packetLossMonitoringDesc')}
                         </p>
                       </div>
                     </div>
@@ -705,10 +694,10 @@ export const NotificationSettings: React.FC = () => {
                       </div>
                       <div>
                         <h5 className="font-medium text-gray-900 dark:text-white">
-                          System Monitoring
+                          {t('notificationSettings.systemMonitoring')}
                         </h5>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Agent status, CPU, memory, disk, bandwidth, and temperature alerts
+                          {t('notificationSettings.systemMonitoringDesc')}
                         </p>
                       </div>
                     </div>
@@ -720,15 +709,14 @@ export const NotificationSettings: React.FC = () => {
                 <Card className="bg-blue-500/10 border-blue-500/30">
                   <CardContent className="p-6 text-center">
                     <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
-                      Ready to get started? Create your first notification channel
-                      to begin receiving alerts.
+                      {t('notificationSettings.readyToStart')}
                     </p>
                     <Button
                       onClick={() => setShowAddChannel(true)}
                       className="inline-flex items-center justify-center gap-2"
                     >
                       <PlusIcon className="w-4 h-4" />
-                      Create Your First Channel
+                      {t('notificationSettings.createFirstChannel')}
                     </Button>
                   </CardContent>
                 </Card>

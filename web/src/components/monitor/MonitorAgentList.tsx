@@ -5,6 +5,7 @@
 
 import React from "react";
 import { ColumnDef } from "@tanstack/react-table";
+import { useTranslation } from "react-i18next";
 import {
   PencilIcon,
   TrashIcon,
@@ -61,6 +62,7 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
   onDeleteAgent,
   isLoading,
 }) => {
+  const { t } = useTranslation();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [agentToDelete, setAgentToDelete] = React.useState<MonitorAgent | null>(
     null

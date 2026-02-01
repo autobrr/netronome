@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/auth";
 import { router } from "@/routes";
 import logo from "@/assets/logo_small.png";
@@ -17,15 +18,8 @@ import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-// Error message mapping for cleaner code
-const ERROR_MESSAGES: Record<string, string> = {
-  "Invalid credentials": "Incorrect username or password",
-  "Invalid request data": "Please check your input and try again",
-  "Failed to get user": "Unable to verify user credentials",
-  "Failed to generate session token": "Authentication failed, please try again",
-};
-
 export default function Login() {
+  const { t } = useTranslation();
   const { login, checkRegistrationStatus } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -75,9 +69,18 @@ export default function Login() {
           return;
         }
         
-        setError(ERROR_MESSAGES[errorMessage] || "An error occurred while signing in");
+        // Map error messages to translations
+        if (errorMessage === "Invalid credentials") {
+          setError(t('auth.invalidCredentials'));
+        } else if (errorMessage === "Invalid request data") {
+          setError(t('auth.invalidRequest'));
+        } else if (errorMessage === "Failed to get user" || errorMessage === "Failed to generate session token") {
+          setError(t('auth.authFailed'));
+        } else {
+          setError(t('errors.generic'));
+        }
       } else {
-        setError("Unable to sign in at this time");
+        setError(t('errors.generic'));
       }
     }
   };
@@ -103,7 +106,7 @@ export default function Login() {
             Netronome
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 pointer-events-none select-none">
-            network performance testing
+            {t('app.subtitle')}
           </p>
         </CardHeader>
 
@@ -115,8 +118,8 @@ export default function Login() {
               className="w-full border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
               size="lg"
             >
-              <span className="flex items-center" aria-label="Sign in with OpenID">
-                Sign in with
+              <span className="flex items-center" aria-label={t('auth.loginWithOIDC')}>
+                {t('auth.loginWithOIDC')}
                 <FontAwesomeIcon icon={faOpenid} className="text-lg ml-2" aria-hidden="true" />
               </span>
             </Button>
@@ -131,7 +134,7 @@ export default function Login() {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="username" className="sr-only">
-                    Username
+                    {t('auth.username')}
                   </Label>
                   <Input
                     id="username"
@@ -139,7 +142,7 @@ export default function Login() {
                     type="text"
                     autoComplete="username"
                     required
-                    placeholder="Username"
+                    placeholder={t('auth.username')}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className={cn(
@@ -150,7 +153,7 @@ export default function Login() {
                 </div>
                 <div>
                   <Label htmlFor="password" className="sr-only">
-                    Password
+                    {t('auth.password')}
                   </Label>
                   <Input
                     id="password"
@@ -158,7 +161,7 @@ export default function Login() {
                     type="password"
                     autoComplete="current-password"
                     required
-                    placeholder="Password"
+                    placeholder={t('auth.password')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className={cn(
@@ -170,7 +173,7 @@ export default function Login() {
               </div>
 
               <Button type="submit" className="w-full" size="lg">
-                Sign in
+                {t('auth.login')}
               </Button>
             </form>
           )}

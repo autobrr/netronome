@@ -5,6 +5,7 @@
 
 import React from "react";
 import { motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import { TracerouteHop } from "@/types/types";
 import { CountryFlag } from "@/components/speedtest/packetloss/components/CountryFlag";
 import { formatRTT, getAverageRTT } from "../utils/tracerouteUtils";
@@ -21,6 +22,8 @@ export const TracerouteTable: React.FC<TracerouteTableProps> = ({
   showAnimation = true,
   filterTrailingTimeouts = false,
 }) => {
+  const { t } = useTranslation();
+  
   // Filter trailing timeouts if requested (for final results)
   const displayHops = filterTrailingTimeouts
     ? filterTrailingTimeoutsFromHops(hops)
@@ -31,15 +34,15 @@ export const TracerouteTable: React.FC<TracerouteTableProps> = ({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-800">
-            <th className="text-center py-3 px-2 text-gray-400 font-medium">{TABLE_COLUMNS.hop}</th>
-            <th className="text-center py-3 px-2 text-gray-400 font-medium">{TABLE_COLUMNS.host}</th>
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">{t('traceroute.hop')}</th>
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">{t('traceroute.hostname')}</th>
             <th className="text-center py-3 px-2 text-gray-400 font-medium">
-              {TABLE_COLUMNS.provider}
+              Provider
             </th>
-            <th className="text-center py-3 px-2 text-gray-400 font-medium">{TABLE_COLUMNS.rtt1}</th>
-            <th className="text-center py-3 px-2 text-gray-400 font-medium">{TABLE_COLUMNS.rtt2}</th>
-            <th className="text-center py-3 px-2 text-gray-400 font-medium">{TABLE_COLUMNS.rtt3}</th>
-            <th className="text-center py-3 px-2 text-gray-400 font-medium">{TABLE_COLUMNS.average}</th>
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">{t('traceroute.rtt')} 1</th>
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">{t('traceroute.rtt')} 2</th>
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">{t('traceroute.rtt')} 3</th>
+            <th className="text-center py-3 px-2 text-gray-400 font-medium">Avg</th>
           </tr>
         </thead>
         <tbody>

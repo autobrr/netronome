@@ -221,6 +221,7 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
   isLoading,
   togglingMonitorIds = new Set(),
 }) => {
+  const { t } = useTranslation();
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [monitorToDelete, setMonitorToDelete] =
     useState<PacketLossMonitor | null>(null);
@@ -229,7 +230,7 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
       <div className="text-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400 mx-auto"></div>
         <p className="text-gray-600 dark:text-gray-400 mt-4">
-          Loading monitors...
+          {t('common.loading')}
         </p>
       </div>
     );
@@ -240,10 +241,10 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
       <div className="text-center py-8">
         <SignalIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
         <p className="text-gray-600 dark:text-gray-400">
-          No monitors configured yet
+          {t('monitoring.noMonitorsYet')}
         </p>
         <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">
-          Add a monitor to start tracking packet loss
+          {t('monitoring.addMonitorPrompt')}
         </p>
       </div>
     );
@@ -289,7 +290,7 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
                       ) : (
                         <div className="w-1.5 h-1.5 rounded-full mr-1.5 bg-gray-400" />
                       )}
-                      {monitor.enabled ? "Active" : "Stopped"}
+                      {monitor.enabled ? t('monitoring.monitoringEnabled') : t('monitoring.monitoringDisabled')}
                     </span>
                   </div>
                 </div>
@@ -327,7 +328,7 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
                     onToggle(monitor.id, !monitor.enabled);
                   }}
                   disabled={togglingMonitorIds.has(monitor.id)}
-                  title={monitor.enabled ? "Stop Monitor" : "Start Monitor"}
+                  title={monitor.enabled ? t('monitoring.stopMonitor') : t('monitoring.startMonitor')}
                 >
                   {togglingMonitorIds.has(monitor.id) ? (
                     <div className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600 dark:border-gray-600 dark:border-t-gray-300" />
@@ -343,7 +344,7 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
                     e.stopPropagation();
                     onEdit(monitor);
                   }}
-                  title="Edit Monitor"
+                  title={t('common.edit')}
                 >
                   <PencilIcon className="w-3.5 h-3.5" />
                 </button>
@@ -354,7 +355,7 @@ export const PacketLossMonitorList: React.FC<PacketLossMonitorListProps> = ({
                     setMonitorToDelete(monitor);
                     setDeleteModalOpen(true);
                   }}
-                  title="Delete Monitor"
+                  title={t('common.delete')}
                 >
                   <TrashIcon className="w-3.5 h-3.5" />
                 </button>

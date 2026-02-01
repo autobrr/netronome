@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Container } from "@mui/material";
 import { FaGithub } from "react-icons/fa";
 import { XMarkIcon } from "@heroicons/react/20/solid";
@@ -51,6 +52,7 @@ interface MainProps {
 }
 
 export default function Main({ isPublic = false }: MainProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [options, setOptions] = useState<TestOptions>({
@@ -90,22 +92,22 @@ export default function Main({ isPublic = false }: MainProps) {
   const tabs = [
     {
       id: "dashboard",
-      label: "Dashboard",
+      label: t('nav.dashboard'),
       icon: <ChartBarIcon className="w-5 h-5" />,
     },
     {
       id: "speedtest",
-      label: "Speed Test",
+      label: t('nav.speedtest'),
       icon: <PlayIcon className="w-5 h-5" />,
     },
     {
       id: "traceroute",
-      label: "Traceroute",
+      label: t('nav.traceroute'),
       icon: <GlobeAltIcon className="w-5 h-5" />,
     },
     {
       id: "monitor",
-      label: "Agents",
+      label: t('nav.monitoring'),
       icon: <ServerIcon className="w-5 h-5" />,
     },
   ];

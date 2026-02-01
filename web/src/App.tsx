@@ -5,6 +5,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Outlet } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { ArrowRightStartOnRectangleIcon as LogoutIcon } from "@heroicons/react/24/outline";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import {
@@ -23,6 +24,7 @@ import {
 import { useAuth } from "@/context/auth";
 import { DonateModal } from "@/components/DonateModal";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { Button } from "@/components/ui/Button";
@@ -44,6 +46,7 @@ import logo from "@/assets/logo_small.png";
 import { PWAUpdatePrompt } from "@/components/PWAUpdatePrompt";
 
 function App() {
+  const { t } = useTranslation();
   const { isAuthenticated, logout } = useAuth();
   const [isDonateOpen, setIsDonateOpen] = useState(false);
   const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] =
@@ -123,7 +126,7 @@ function App() {
                 Netronome
               </h1>
               <h2 className="hidden sm:block text-sm font-medium text-gray-600 dark:text-gray-300 select-none">
-                Network Performance Testing
+                {t('app.subtitle')}
               </h2>
             </div>
           </div>
@@ -140,10 +143,11 @@ function App() {
               variant="ghost"
               size="icon"
               className="text-red-500 hover:text-red-600 dark:text-red-500/50 dark:hover:text-red-500"
-              aria-label="Donate"
+              aria-label={t('donate.title')}
             >
               <HeartIcon className="h-6 w-6" />
             </Button>
+            <LanguageSelector />
             <DarkModeToggle />
             <SettingsMenu />
             <Button
@@ -151,7 +155,7 @@ function App() {
               variant="ghost"
               size="icon"
               className="text-gray-600 dark:text-gray-600 hover:text-gray-900 dark:hover:text-blue-400"
-              aria-label="Logout"
+              aria-label={t('auth.logout')}
             >
               <LogoutIcon className="h-6 w-6" />
             </Button>
@@ -177,7 +181,7 @@ function App() {
                 <div className="flex flex-col h-full">
                   <SheetHeader className="pb-6 border-b border-gray-200 dark:border-gray-800">
                     <SheetTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Settings
+                      {t('app.settings')}
                     </SheetTitle>
                   </SheetHeader>
 
@@ -194,14 +198,14 @@ function App() {
                       >
                         <HeartIcon className="h-5 w-5 text-red-500 flex-shrink-0" />
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Support Development
+                          {t('donate.title')}
                         </span>
                       </Button>
 
                       {/* Theme Selection */}
                       <div className="px-4 py-3">
                         <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-                          Theme
+                          {t('settings.theme')}
                         </h3>
                         <div className="space-y-2">
                           {(["light", "dark", "auto"] as const).map((theme) => (
@@ -225,7 +229,7 @@ function App() {
                                 {getThemeIcon(theme)}
                               </div>
                               <span className="text-sm font-medium capitalize">
-                                {theme === "auto" ? "System" : theme}
+                                {theme === "auto" ? t('settings.autoMode') : theme === "light" ? t('settings.lightMode') : t('settings.darkMode')}
                               </span>
                               {currentTheme === theme && (
                                 <svg
@@ -258,7 +262,7 @@ function App() {
                       >
                         <BellIcon className="h-5 w-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Notifications
+                          {t('settings.notifications')}
                         </span>
                         <svg
                           className="w-4 h-4 ml-auto text-gray-400"
@@ -285,7 +289,7 @@ function App() {
                       className="w-full justify-start gap-3 h-auto px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-500 hover:text-red-600 dark:hover:text-red-500"
                     >
                       <LogoutIcon className="h-5 w-5 flex-shrink-0" />
-                      <span className="text-sm font-medium">Sign Out</span>
+                      <span className="text-sm font-medium">{t('auth.logout')}</span>
                     </Button>
                   </div>
                 </div>
@@ -308,7 +312,7 @@ function App() {
         <DialogContent className="w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] sm:w-full sm:max-w-3xl md:max-w-5xl lg:max-w-6xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-800 shadow-2xl !p-0 gap-0">
           <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-800">
             <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">
-              Notification Settings
+              {t('settings.notifications')}
             </DialogTitle>
           </DialogHeader>
           <div className="p-0 sm:p-6 lg:p-8 max-h-[70vh] overflow-y-auto modal-scrollbar">

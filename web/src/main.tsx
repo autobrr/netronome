@@ -13,6 +13,7 @@ import { router } from "@/routes";
 import { AuthProvider } from "@/context/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import "@/locales/index";
 
 const queryClient = new QueryClient({
   defaultOptions: {

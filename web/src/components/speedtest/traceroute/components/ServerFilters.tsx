@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   Select,
   SelectContent,
@@ -35,13 +36,15 @@ export const ServerFilters: React.FC<ServerFiltersProps> = ({
   onFilterTypeChange,
   disabled = false,
 }) => {
+  const { t } = useTranslation();
+  
   return (
     <div className="flex flex-col md:flex-row gap-4 mb-4">
       {/* Search Input */}
       <div className="flex-1">
         <Input
           type="text"
-          placeholder="Search servers..."
+          placeholder={t('traceroute.searchServers')}
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
           disabled={disabled}
@@ -57,7 +60,7 @@ export const ServerFilters: React.FC<ServerFiltersProps> = ({
         <SelectTrigger className="min-w-[160px]">
           <SelectValue>
             {serverTypeOptions.find((type) => type.value === filterType)
-              ?.label || "All Types"}
+              ?.label || t('traceroute.allTypes')}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>

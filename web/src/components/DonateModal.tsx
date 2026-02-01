@@ -5,6 +5,7 @@
 
 import { Dialog, Transition } from "@headlessui/react";
 import React, { Fragment, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   RocketLaunchIcon,
   GlobeAltIcon,
@@ -70,6 +71,7 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 export function DonateModal({ isOpen, onClose }: DonateModalProps) {
+  const { t } = useTranslation();
   const [shuffledLinks, setShuffledLinks] = useState(donationLinks);
 
   useEffect(() => {
@@ -120,18 +122,18 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
                 variant="ghost"
                 size="icon"
                 className="absolute top-4 right-4 h-8 w-8 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-                aria-label="Close dialog"
+                aria-label={t('common.close')}
               >
                 <XMarkIcon className="h-6 w-6" />
               </Button>
               
               <Dialog.Title className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Support Netronome
+                {t('donate.title')}
               </Dialog.Title>
               
               <div className="mb-6 space-y-4">
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-                  Your donations directly contribute to:
+                  {t('donate.message')}
                 </p>
                 <ul className="list-none space-y-3 text-sm text-gray-600 dark:text-gray-300">
                   <li className="flex items-center gap-3">

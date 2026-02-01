@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { ChartBarIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
 import {
   TracerouteResult,
@@ -58,6 +59,7 @@ import {
 } from "./traceroute/constants/tracerouteConstants";
 
 export const TracerouteTab: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   // Tab mode state with localStorage persistence
@@ -133,8 +135,8 @@ export const TracerouteTab: React.FC = () => {
         queryKey: ["packetloss", "monitors"],
       });
 
-      showToast("Monitor created successfully", "success", {
-        description: `Monitoring ${variables.host}`,
+      showToast(t('common.success'), "success", {
+        description: `${t('monitoring.packetLoss')}: ${variables.host}`,
       });
 
       // Auto-start monitor if requested and we have a valid monitor ID
@@ -146,9 +148,9 @@ export const TracerouteTab: React.FC = () => {
       handleCancelForm();
     },
     onError: (error) => {
-      showToast("Failed to create monitor", "error", {
+      showToast(t('common.error'), "error", {
         description:
-          error instanceof Error ? error.message : "Unknown error occurred",
+          error instanceof Error ? error.message : t('errors.unknown'),
       });
     },
   });
@@ -160,16 +162,15 @@ export const TracerouteTab: React.FC = () => {
       await queryClient.refetchQueries({
         queryKey: ["packetloss", "monitors"],
       });
-      showToast(
-        `Monitor ${editingMonitor?.name} updated successfully`,
-        "success"
-      );
+      showToast(t('common.success'), "success", {
+        description: `${editingMonitor?.name || t('monitoring.monitor')} ${t('common.update')}`,
+      });
       handleCancelForm();
     },
     onError: (error) => {
-      showToast(`Failed to update monitor ${editingMonitor?.name}`, "error", {
+      showToast(t('common.error'), "error", {
         description:
-          error instanceof Error ? error.message : "Unknown error occurred",
+          error instanceof Error ? error.message : t('errors.unknown'),
       });
     },
   });
@@ -185,13 +186,13 @@ export const TracerouteTab: React.FC = () => {
       if (selectedMonitor?.id === monitorId) {
         setSelectedMonitor(null);
       }
-      showToast("Monitor deleted successfully", "success", {
-        description: deletedMonitor ? `${deletedMonitor.name} has been removed` : "Monitor has been removed"
+      showToast(t('common.success'), "success", {
+        description: deletedMonitor ? deletedMonitor.name : t('monitoring.monitor')
       });
     },
     onError: (error) => {
-      showToast("Failed to delete monitor", "error", {
-        description: error instanceof Error ? error.message : "Unknown error occurred"
+      showToast(t('common.error'), "error", {
+        description: error instanceof Error ? error.message : t('errors.unknown')
       });
     },
   });
@@ -239,10 +240,10 @@ export const TracerouteTab: React.FC = () => {
         queryKey: ["packetloss", "history", monitorId],
       });
       const monitor = monitorList.find((m) => m.id === monitorId);
-      showToast("Monitor stopped", "success", {
+      showToast(t('common.success'), "success", {
         description: monitor
-          ? `Stopped monitoring ${monitor.name}`
-          : "Monitor is now inactive",
+          ? `${t('monitoring.stopMonitor')}: ${monitor.name}`
+          : t('monitoring.monitoringDisabled'),
       });
     },
     onSettled: (_, __, monitorId) => {
@@ -253,9 +254,9 @@ export const TracerouteTab: React.FC = () => {
       });
     },
     onError: (error) => {
-      showToast("Failed to stop monitor", "error", {
+      showToast(t('common.error'), "error", {
         description:
-          error instanceof Error ? error.message : "Unknown error occurred",
+          error instanceof Error ? error.message : t('errors.unknown'),
       });
     },
   });
@@ -377,7 +378,7 @@ export const TracerouteTab: React.FC = () => {
           )}
           <span className="relative flex items-center gap-2">
             <GlobeAltIcon className="w-4 h-4" />
-            <span className="font-medium">Single Trace</span>
+            <span className="font-medium">{t('traceroute.title')}</span>
           </span>
         </Button>
         <Button
@@ -401,7 +402,7 @@ export const TracerouteTab: React.FC = () => {
           )}
           <span className="relative flex items-center gap-2">
             <ChartBarIcon className="w-4 h-4" />
-            <span className="font-medium">Monitors</span>
+            <span className="font-medium">{t('monitoring.networkMonitors')}</span>
           </span>
         </Button>
       </div>
@@ -429,7 +430,7 @@ export const TracerouteTab: React.FC = () => {
             {error && (
               <div className="mb-6 p-4 backdrop-blur-sm bg-red-500/10 border border-red-500/30 rounded-lg">
                 <div className="text-red-600 dark:text-red-400 text-sm">
-                  <span className="font-medium">Error: </span>
+                  <span className="font-medium">{t('common.error')}: </span>
                   {error}
                 </div>
               </div>
@@ -480,15 +481,15 @@ export const TracerouteTab: React.FC = () => {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    Network Monitors
+                    {t('monitoring.networkMonitors')}
                   </h2>
                   <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
-                    Continuous monitoring with MTR or ICMP ping
+                    {t('monitoring.networkMonitorsDesc')}
                   </p>
                 </div>
 
                 <Button onClick={() => setShowForm(true)} variant="default">
-                  Add
+                  {t('common.add')}
                 </Button>
               </div>
 
