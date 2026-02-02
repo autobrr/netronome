@@ -344,7 +344,7 @@
     "preview": "Preview"
   },
   "eventRule": {
-    "enableNotification": "Enable notification for {event}",
+    "enableNotification": "Enable notification for {{event}}",
     "modified": "Modified",
     "triggerWhen": "Trigger when value is",
     "greaterThan": "Greater than",
