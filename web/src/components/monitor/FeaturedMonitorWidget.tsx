@@ -116,6 +116,7 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
   onOpenModal,
   onNavigateToAgent,
 }) => {
+  const { t } = useTranslation();
   // Use the shared hook for agent data
   const { status, nativeData, hardwareStats } = useMonitorAgent({
     agent,
@@ -156,7 +157,7 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Connected through Tailscale</p>
+                  <p>{t('monitoring.connectedThroughTailscale')}</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -165,7 +166,7 @@ const FeaturedAgentCard: React.FC<FeaturedAgentCardProps> = ({
               <div className="flex items-center gap-1">
                 <CpuChipIcon className="h-3 w-3 text-gray-400" />
                 <span className="text-xs text-gray-600 dark:text-gray-400">
-                  CPU: {hardwareStats.cpu.usage_percent.toFixed(0)}% RAM:{" "}
+                  {t('monitoring.cpu')}: {hardwareStats.cpu.usage_percent.toFixed(0)}% {t('monitoring.ram')}:{" "}
                   {hardwareStats.memory.used_percent.toFixed(0)}%
                 </span>
               </div>

@@ -149,9 +149,9 @@ export const MonitorSystemTab: React.FC<MonitorSystemTabProps> = ({ agent }) => 
           transition={{ duration: 0.3, delay: 0.35 }}
           className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4 sm:mt-6"
         >
-          {hardwareStats?.from_cache || systemInfo?.from_cache ? "Data collected" : "Last updated"}:{" "}
+          {hardwareStats?.from_cache || systemInfo?.from_cache ? t('monitoring.dataCollected') : t('monitoring.lastUpdated')}:{" "}
           {formatters.time(new Date((hardwareStats?.updated_at || systemInfo?.updated_at) || Date.now()))}
-          {(hardwareStats?.from_cache || systemInfo?.from_cache) && " (cached)"}
+          {(hardwareStats?.from_cache || systemInfo?.from_cache) && ` (${t('monitoring.cached')})`}
         </motion.div>
       )}
     </div>

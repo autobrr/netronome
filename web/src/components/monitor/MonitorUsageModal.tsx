@@ -71,12 +71,12 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                   {agent.isTailscale && (
                     <TailscaleLogo
                       className="h-4 w-4 flex-shrink-0"
-                      title="Connected through Tailscale"
+                      title={t('monitoring.connectedThroughTailscale')}
                     />
                   )}
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Monitor Dashboard
+                  {t('monitoring.monitorDashboard')}
                 </p>
               </div>
             </div>
@@ -85,7 +85,7 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
               className="rounded-md p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-gray-800/50 transition-colors"
               onClick={onClose}
             >
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{t('common.close')}</span>
               <XMarkIcon className="h-6 w-6" aria-hidden="true" />
             </button>
           </div>
@@ -101,7 +101,7 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                 <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-5 shadow-lg border border-gray-200 dark:border-gray-800">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      Current Speed
+                      {t('monitoring.currentSpeed')}
                     </h3>
                     <ChartBarIcon className="h-5 w-5 text-gray-400" />
                   </div>
@@ -129,7 +129,7 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                 <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-5 shadow-lg border border-gray-200 dark:border-gray-800">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      Today's Usage
+                      {t('monitoring.todaysUsage')}
                     </h3>
                     <ChartBarIcon className="h-5 w-5 text-gray-400" />
                   </div>
@@ -162,7 +162,7 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                 <div className="bg-gray-50/95 dark:bg-gray-850/95 rounded-xl p-5 shadow-lg border border-gray-200 dark:border-gray-800">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      System Health
+                      {t('monitoring.systemHealth')}
                     </h3>
                     <CpuChipIcon className="h-5 w-5 text-gray-400" />
                   </div>
@@ -170,7 +170,7 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                          CPU
+                          {t('monitoring.cpu')}
                         </span>
                         <span className="text-sm font-medium text-gray-900 dark:text-white">
                           {hardwareStats.cpu.usage_percent.toFixed(1)}%
@@ -192,7 +192,7 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                          Memory
+                          {t('monitoring.memory')}
                         </span>
                         <span className="text-sm font-medium text-gray-900 dark:text-white">
                           {hardwareStats.memory.used_percent.toFixed(1)}%
