@@ -9,9 +9,11 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -239,12 +241,7 @@ func (c *OIDCConfig) AuthURL() string {
 }
 
 func containsScope(scopes []string, target string) bool {
-	for _, scope := range scopes {
-		if scope == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(scopes, target)
 }
 
 // AuthURLWithPKCE generates an authorization URL with PKCE parameters
@@ -262,7 +259,7 @@ func (c *OIDCConfig) ExchangeCodeWithPKCE(ctx context.Context, code string, code
 
 func (c *OIDCConfig) RefreshToken(ctx context.Context, refreshToken string) (*oauth2.Token, error) {
 	if refreshToken == "" {
-		return nil, fmt.Errorf("refresh token required")
+		return nil, errors.New("refresh token required")
 	}
 	source := c.OAuth2Config.TokenSource(ctx, &oauth2.Token{
 		RefreshToken: refreshToken,
@@ -301,7 +298,7 @@ func (c *OIDCConfig) VerifyTokenWithClaims(ctx context.Context, token string) (*
 	}
 
 	if claims.Subject == "" {
-		return nil, fmt.Errorf("token missing subject claim")
+		return nil, errors.New("token missing subject claim")
 	}
 
 	now := time.Now()
@@ -311,7 +308,7 @@ func (c *OIDCConfig) VerifyTokenWithClaims(ctx context.Context, token string) (*
 	}
 
 	if now.After(time.Unix(claims.Expiry, 0)) {
-		return nil, fmt.Errorf("token has expired")
+		return nil, errors.New("token has expired")
 	}
 
 	return &claims, nil

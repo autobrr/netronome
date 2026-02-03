@@ -20,7 +20,7 @@ const (
 	sessionTypeOIDC      = "oidc"
 )
 
-const refreshTokenAAD = "netronome:oidc:refresh"
+const refreshTokenAAD = "netronome:oidc:refresh" // #nosec G101 -- label for AES-GCM AAD, not a credential
 
 type SessionClaims struct {
 	Version      int    `json:"v"`
@@ -83,7 +83,9 @@ func encryptRefreshToken(secret, token string) (string, error) {
 		return "", err
 	}
 	ciphertext := gcm.Seal(nil, nonce, []byte(token), []byte(refreshTokenAAD))
-	payload := append(nonce, ciphertext...)
+	payload := make([]byte, 0, len(nonce)+len(ciphertext))
+	payload = append(payload, nonce...)
+	payload = append(payload, ciphertext...)
 	return base64.RawURLEncoding.EncodeToString(payload), nil
 }
 
