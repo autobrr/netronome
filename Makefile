@@ -3,7 +3,7 @@ BINARY_NAME=netronome
 BUILD_DIR=bin
 DOCKER_IMAGE=netronome
 
-.PHONY: all build clean run docker-build docker-run watch dev dev-expose
+.PHONY: all build clean run docker-build docker-run watch dev dev-expose lint
 
 all: build
 
@@ -69,3 +69,7 @@ watch:
 			exit 1; \
 		fi; \
 	fi
+
+lint:
+	@echo "Linting changed Go code..."
+	golangci-lint run --new-from-merge-base=develop --timeout=5m
