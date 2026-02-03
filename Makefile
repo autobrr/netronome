@@ -7,7 +7,7 @@ DOCKER_IMAGE=netronome
 
 all: build
 
-build: 
+build:
 	@echo "Building frontend and backend..."
 	@mkdir -p $(BUILD_DIR)
 	@mkdir -p web/dist
@@ -25,11 +25,11 @@ clean:
 
 run: build
 	@echo "Running application..."
-	@./$(BUILD_DIR)/$(BINARY_NAME) serve --config config.toml
+	@./$(BUILD_DIR)/$(BINARY_NAME) serve --config config/config.toml
 
 docker-build:
 	@echo "Building Docker image..."
-	docker build -t $(DOCKER_IMAGE) .
+	docker build -f distrib/docker/Dockerfile -t $(DOCKER_IMAGE) .
 
 docker-run: docker-build
 	@echo "Running Docker container..."
@@ -56,17 +56,16 @@ dev-expose:
 
 watch:
 	@if command -v air > /dev/null; then \
-		GIN_MODE=debug air -- serve --config config.toml; \
+		GIN_MODE=debug air -c .config/air.toml -- serve --config config/config.toml; \
 		echo "Watching...";\
 	else \
 		read -p "Go's 'air' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
 		if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
 			go install github.com/cosmtrek/air@latest; \
-			GIN_MODE=debug air -- serve --config config.toml; \
+			GIN_MODE=debug air -c .config/air.toml -- serve --config config/config.toml; \
 			echo "Watching...";\
 		else \
 			echo "You chose not to install air. Exiting..."; \
 			exit 1; \
 		fi; \
 	fi
-
