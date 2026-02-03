@@ -229,7 +229,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   // Get the latest test from filtered results
   const filteredLatestTestComputed = useMemo(() => {
-    return filteredDisplayTests.length > 0 ? filteredDisplayTests[filteredDisplayTests.length - 1] : null;
+    return filteredDisplayTests.length > 0 ? filteredDisplayTests[0] : null;
   }, [filteredDisplayTests]);
 
   const calculateAverage = (field: keyof SpeedTestResult): string => {
