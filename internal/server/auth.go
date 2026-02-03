@@ -4,6 +4,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -22,8 +23,8 @@ import (
 type AuthHandler struct {
 	db            database.Service
 	oidc          *auth.OIDCConfig
-	sessionTokens map[string]bool   // Track valid memory sessions
-	pkceVerifiers map[string]string // Track PKCE code verifiers by state
+	sessionTokens map[string]SessionClaims // Track valid memory sessions
+	pkceVerifiers map[string]string        // Track PKCE code verifiers by state
 	sessionMutex  sync.RWMutex
 	pkceMutex     sync.RWMutex
 	sessionSecret string
@@ -34,7 +35,7 @@ func NewAuthHandler(db database.Service, oidc *auth.OIDCConfig, sessionSecret st
 	return &AuthHandler{
 		db:            db,
 		oidc:          oidc,
-		sessionTokens: make(map[string]bool),
+		sessionTokens: make(map[string]SessionClaims),
 		pkceVerifiers: make(map[string]string),
 		sessionSecret: sessionSecret,
 		whitelist:     whitelist,
@@ -63,13 +64,23 @@ func isJWT(token string) bool {
 }
 
 // refreshSession updates the session cookie with a new expiry time
-func (h *AuthHandler) refreshSession(c *gin.Context, token string) {
+func (h *AuthHandler) refreshSession(c *gin.Context, token string, claims *SessionClaims) {
 	isSecure := c.GetHeader("X-Forwarded-Proto") == "https" || strings.HasPrefix(c.Request.Proto, "HTTPS")
+
+	rawToken := token
+	if claims != nil {
+		encoded, err := encodeSessionClaims(*claims)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to encode session claims")
+			return
+		}
+		rawToken = encoded
+	}
 
 	var signedToken string
 	// For OIDC tokens (JWTs), always treat as raw tokens to be signed
 	// Only check for our signed tokens if they have our memory prefix or match our signing pattern
-	if strings.HasPrefix(token, auth.MemoryOnlyPrefix) || (strings.Contains(token, ".") && h.sessionSecret != "" && !isJWT(token)) {
+	if claims == nil && (strings.HasPrefix(token, auth.MemoryOnlyPrefix) || (strings.Contains(token, ".") && h.sessionSecret != "" && !isJWT(token))) {
 		// Token is already signed, verify and resign it
 		rawToken, err := auth.VerifyToken(token, h.sessionSecret)
 		if err != nil {
@@ -79,22 +90,35 @@ func (h *AuthHandler) refreshSession(c *gin.Context, token string) {
 		signedToken = auth.SignToken(rawToken, h.sessionSecret)
 	} else {
 		// Token is not signed yet (including OIDC JWTs), sign it
-		signedToken = auth.SignToken(token, h.sessionSecret)
+		signedToken = auth.SignToken(rawToken, h.sessionSecret)
 	}
 
 	// Track memory-only sessions
 	if h.sessionSecret == "" {
 		h.sessionMutex.Lock()
-		h.sessionTokens[signedToken] = true
+		if claims != nil {
+			if token != "" && token != signedToken {
+				delete(h.sessionTokens, token)
+			}
+			h.sessionTokens[signedToken] = *claims
+		} else if _, exists := h.sessionTokens[signedToken]; !exists {
+			h.sessionTokens[signedToken] = SessionClaims{
+				Version: sessionClaimsVersion,
+				Type:    sessionTypeLocal,
+			}
+		}
 		h.sessionMutex.Unlock()
 	}
 
-	log.Trace().
-		Str("token", token).
-		Str("signed_token", signedToken).
+	logger := log.Trace().
 		Bool("secure", isSecure).
-		Bool("memory_only", h.sessionSecret == "").
-		Msg("Setting session cookie")
+		Bool("memory_only", h.sessionSecret == "")
+	if claims == nil {
+		logger = logger.Str("token", token).Str("signed_token", signedToken)
+	} else {
+		logger = logger.Str("token", "session_claims")
+	}
+	logger.Msg("Setting session cookie")
 
 	// Set domain to empty string to work with both localhost and IP addresses
 	c.SetCookie(
@@ -114,9 +138,149 @@ func (h *AuthHandler) isValidMemorySession(token string) bool {
 	}
 
 	h.sessionMutex.RLock()
-	valid := h.sessionTokens[token]
+	_, valid := h.sessionTokens[token]
 	h.sessionMutex.RUnlock()
 	return valid
+}
+
+func (h *AuthHandler) getMemorySessionClaims(token string) (SessionClaims, bool) {
+	if !strings.HasPrefix(token, auth.MemoryOnlyPrefix) {
+		return SessionClaims{}, false
+	}
+
+	h.sessionMutex.RLock()
+	claims, ok := h.sessionTokens[token]
+	h.sessionMutex.RUnlock()
+	return claims, ok
+}
+
+func (h *AuthHandler) getSessionClaims(signedToken, rawToken string) (*SessionClaims, bool) {
+	if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
+		claims, ok := h.getMemorySessionClaims(signedToken)
+		if !ok || claims.Type == "" {
+			return nil, false
+		}
+		return &claims, true
+	}
+
+	if rawToken == "" {
+		if h.sessionSecret == "" {
+			return nil, false
+		}
+		var err error
+		rawToken, err = auth.VerifyToken(signedToken, h.sessionSecret)
+		if err != nil {
+			return nil, false
+		}
+	}
+
+	claims, ok := decodeSessionClaims(rawToken)
+	if !ok {
+		return nil, false
+	}
+	return claims, true
+}
+
+func (h *AuthHandler) maybeRefreshOIDCSession(c *gin.Context, signedToken string, claims *SessionClaims) {
+	if h.oidc == nil {
+		h.refreshSession(c, signedToken, claims)
+		return
+	}
+
+	refreshToken, err := h.getRefreshToken(claims)
+	if err != nil {
+		log.Debug().Err(err).Msg("Failed to decode refresh token")
+		h.refreshSession(c, signedToken, claims)
+		return
+	}
+	if refreshToken == "" {
+		h.refreshSession(c, signedToken, claims)
+		return
+	}
+
+	now := time.Now().Unix()
+	if claims.IDTokenExp != 0 && now < claims.IDTokenExp-60 {
+		h.refreshSession(c, signedToken, claims)
+		return
+	}
+	if claims.LastRefresh != 0 && now-claims.LastRefresh < 60 {
+		h.refreshSession(c, signedToken, claims)
+		return
+	}
+
+	token, err := h.oidc.RefreshToken(c.Request.Context(), refreshToken)
+	claims.LastRefresh = now
+	if err != nil {
+		log.Debug().Err(err).Msg("Failed to refresh OIDC token")
+		h.refreshSession(c, signedToken, claims)
+		return
+	}
+
+	if rawIDToken, ok := token.Extra("id_token").(string); ok && rawIDToken != "" {
+		idClaims, err := h.oidc.VerifyTokenWithClaims(c.Request.Context(), rawIDToken)
+		if err != nil {
+			log.Debug().Err(err).Msg("Failed to verify refreshed OIDC token")
+			h.refreshSession(c, signedToken, claims)
+			return
+		}
+		claims.Subject = idClaims.Subject
+		claims.Username = pickOIDCUsername(idClaims)
+		claims.IDTokenExp = idClaims.Expiry
+	}
+
+	if token.RefreshToken != "" && token.RefreshToken != refreshToken {
+		if err := h.setRefreshToken(claims, token.RefreshToken); err != nil {
+			log.Debug().Err(err).Msg("Failed to store refreshed token")
+		}
+	}
+
+	h.refreshSession(c, signedToken, claims)
+}
+
+func (h *AuthHandler) getRefreshToken(claims *SessionClaims) (string, error) {
+	if claims.RefreshToken == "" {
+		return "", nil
+	}
+	if h.sessionSecret == "" {
+		return "", errors.New("session secret required")
+	}
+	return decryptRefreshToken(h.sessionSecret, claims.RefreshToken)
+}
+
+func (h *AuthHandler) setRefreshToken(claims *SessionClaims, refreshToken string) error {
+	if refreshToken == "" {
+		claims.RefreshToken = ""
+		return nil
+	}
+	if h.sessionSecret == "" {
+		return errors.New("session secret required")
+	}
+	encrypted, err := encryptRefreshToken(h.sessionSecret, refreshToken)
+	if err != nil {
+		return err
+	}
+	claims.RefreshToken = encrypted
+	return nil
+}
+
+func pickOIDCUsername(claims *auth.IDTokenClaims) string {
+	if claims.Username != "" {
+		return claims.Username
+	}
+	if claims.Name != "" {
+		return claims.Name
+	}
+	return claims.Subject
+}
+
+func sessionUsername(claims *SessionClaims) string {
+	if claims == nil {
+		return ""
+	}
+	if claims.Username != "" {
+		return claims.Username
+	}
+	return claims.Subject
 }
 
 // storePKCEVerifier stores a PKCE code verifier for the given state
@@ -184,7 +348,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	h.refreshSession(c, sessionToken)
+	h.refreshSession(c, sessionToken, nil)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "User registered successfully",
@@ -238,7 +402,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	h.refreshSession(c, sessionToken)
+	h.refreshSession(c, sessionToken, nil)
 
 	log.Debug().
 		Str("username", user.Username).
@@ -272,11 +436,20 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 		return
 	}
 
+	if claims, ok := h.getSessionClaims(signedToken, ""); ok && claims.Type == sessionTypeOIDC {
+		h.maybeRefreshOIDCSession(c, signedToken, claims)
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Token is valid",
+			"type":    "oidc",
+		})
+		return
+	}
+
 	// If OIDC is configured, check if this is a valid OIDC token first
 	if h.oidc != nil {
 		// Extract the actual token regardless of how it's stored
 		actualToken := signedToken
-		
+
 		// Handle memory-only sessions (no session_secret)
 		if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
 			actualToken = strings.TrimPrefix(signedToken, auth.MemoryOnlyPrefix)
@@ -287,11 +460,11 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 				actualToken = rawToken
 			}
 		}
-		
+
 		// Check if it's a JWT and verify with OIDC
 		if isJWT(actualToken) {
 			if err := h.oidc.VerifyToken(c.Request.Context(), actualToken); err == nil {
-				h.refreshSession(c, signedToken)
+				h.refreshSession(c, signedToken, nil)
 				c.JSON(http.StatusOK, gin.H{
 					"message": "Token is valid",
 					"type":    "oidc",
@@ -317,7 +490,6 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 		}
 	}
 
-
 	var username string
 	err = h.db.QueryRow(c.Request.Context(), "SELECT username FROM users LIMIT 1").Scan(&username)
 	if err != nil {
@@ -326,7 +498,7 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 		return
 	}
 
-	h.refreshSession(c, signedToken)
+	h.refreshSession(c, signedToken, nil)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Token is valid",
@@ -379,11 +551,22 @@ func (h *AuthHandler) GetUserInfo(c *gin.Context) {
 		return
 	}
 
+	if claims, ok := h.getSessionClaims(signedToken, ""); ok && claims.Type == sessionTypeOIDC {
+		username := sessionUsername(claims)
+		c.JSON(http.StatusOK, gin.H{
+			"user": gin.H{
+				"id":       0,
+				"username": username,
+			},
+		})
+		return
+	}
+
 	// If OIDC is configured, check if this is a valid OIDC token first
 	if h.oidc != nil {
 		// Extract the actual token regardless of how it's stored
 		actualToken := signedToken
-		
+
 		// Handle memory-only sessions (no session_secret)
 		if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
 			actualToken = strings.TrimPrefix(signedToken, auth.MemoryOnlyPrefix)
@@ -394,7 +577,7 @@ func (h *AuthHandler) GetUserInfo(c *gin.Context) {
 				actualToken = rawToken
 			}
 		}
-		
+
 		// Check if it's a JWT and verify with OIDC
 		if isJWT(actualToken) {
 			claims, err := h.oidc.GetClaims(c.Request.Context(), actualToken)
@@ -425,7 +608,6 @@ func (h *AuthHandler) GetUserInfo(c *gin.Context) {
 			return
 		}
 	}
-
 
 	// fall back to regular user lookup
 	username := c.GetString("username")
@@ -489,6 +671,7 @@ func RequireAuth(db database.Service, oidc *auth.OIDCConfig, sessionSecret strin
 			return
 		}
 
+		var rawToken string
 		// check if it's a memory session
 		if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
 			if !handler.isValidMemorySession(signedToken) {
@@ -497,7 +680,7 @@ func RequireAuth(db database.Service, oidc *auth.OIDCConfig, sessionSecret strin
 				return
 			}
 		} else {
-			_, err := auth.VerifyToken(signedToken, sessionSecret)
+			rawToken, err = auth.VerifyToken(signedToken, sessionSecret)
 			if err != nil {
 				log.Debug().Err(err).Msg("Invalid session token")
 				c.AbortWithStatus(http.StatusUnauthorized)
@@ -505,22 +688,28 @@ func RequireAuth(db database.Service, oidc *auth.OIDCConfig, sessionSecret strin
 			}
 		}
 
+		if claims, ok := handler.getSessionClaims(signedToken, rawToken); ok && claims.Type == sessionTypeOIDC {
+			handler.maybeRefreshOIDCSession(c, signedToken, claims)
+			username := sessionUsername(claims)
+			c.Set("username", username)
+			c.Next()
+			return
+		}
+
 		// if oidc is configured, try to verify the token
 		if oidc != nil {
 			// Extract the actual token regardless of how it's stored
 			actualToken := signedToken
-			
+
 			// Handle memory-only sessions (no session_secret)
 			if strings.HasPrefix(signedToken, auth.MemoryOnlyPrefix) {
 				actualToken = strings.TrimPrefix(signedToken, auth.MemoryOnlyPrefix)
 			} else if sessionSecret != "" {
 				// Handle signed tokens (with session_secret)
 				// Try to verify and extract the raw token
-				if rawToken, err := auth.VerifyToken(signedToken, sessionSecret); err == nil {
-					actualToken = rawToken
-				}
+				actualToken = rawToken
 			}
-			
+
 			// Check if it's a JWT and verify with OIDC
 			if isJWT(actualToken) {
 				if err := oidc.VerifyToken(c.Request.Context(), actualToken); err == nil {

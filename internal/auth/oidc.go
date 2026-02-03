@@ -35,6 +35,13 @@ type Claims struct {
 	Username string `json:"preferred_username"`
 }
 
+type IDTokenClaims struct {
+	Subject  string `json:"sub"`
+	Name     string `json:"name"`
+	Username string `json:"preferred_username"`
+	Expiry   int64  `json:"exp"`
+}
+
 // PKCEParams holds PKCE parameters for OAuth2 flow
 type PKCEParams struct {
 	CodeVerifier  string
@@ -147,12 +154,19 @@ func NewOIDC(ctx context.Context, cfg config.OIDCConfig) (*OIDCConfig, error) {
 		return nil, fmt.Errorf("failed to initialize OIDC provider: %w", err)
 	}
 
+	scopes := cfg.Scopes
+	if len(scopes) == 0 {
+		scopes = []string{oidc.ScopeOpenID, "profile"}
+	} else if !containsScope(scopes, oidc.ScopeOpenID) {
+		scopes = append(scopes, oidc.ScopeOpenID)
+	}
+
 	config := oauth2.Config{
 		ClientID:     cfg.ClientID,
 		ClientSecret: cfg.ClientSecret,
 		RedirectURL:  cfg.RedirectURL,
 		Endpoint:     endpoints,
-		Scopes:       []string{oidc.ScopeOpenID, "profile"},
+		Scopes:       scopes,
 	}
 
 	log.Trace().
@@ -224,6 +238,15 @@ func (c *OIDCConfig) AuthURL() string {
 	return c.OAuth2Config.AuthCodeURL("state")
 }
 
+func containsScope(scopes []string, target string) bool {
+	for _, scope := range scopes {
+		if scope == target {
+			return true
+		}
+	}
+	return false
+}
+
 // AuthURLWithPKCE generates an authorization URL with PKCE parameters
 func (c *OIDCConfig) AuthURLWithPKCE(state string, pkce *PKCEParams) string {
 	return c.OAuth2Config.AuthCodeURL(state,
@@ -237,15 +260,31 @@ func (c *OIDCConfig) ExchangeCodeWithPKCE(ctx context.Context, code string, code
 		oauth2.SetAuthURLParam("code_verifier", codeVerifier))
 }
 
+func (c *OIDCConfig) RefreshToken(ctx context.Context, refreshToken string) (*oauth2.Token, error) {
+	if refreshToken == "" {
+		return nil, fmt.Errorf("refresh token required")
+	}
+	source := c.OAuth2Config.TokenSource(ctx, &oauth2.Token{
+		RefreshToken: refreshToken,
+		Expiry:       time.Now().Add(-time.Hour),
+	})
+	return source.Token()
+}
+
 func (c *OIDCConfig) VerifyToken(ctx context.Context, token string) error {
+	_, err := c.VerifyTokenWithClaims(ctx, token)
+	return err
+}
+
+func (c *OIDCConfig) VerifyTokenWithClaims(ctx context.Context, token string) (*IDTokenClaims, error) {
 	// Check if token is JWE and decrypt if necessary
-	var verifyToken string = token
+	verifyToken := token
 	if isJWE(token) {
 		log.Debug().Msg("Detected JWE token, attempting decryption")
 		decrypted, err := c.decryptJWE(token)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to decrypt JWE token")
-			return fmt.Errorf("failed to decrypt JWE token: %w", err)
+			return nil, fmt.Errorf("failed to decrypt JWE token: %w", err)
 		}
 		verifyToken = decrypted
 		log.Debug().Msg("JWE token decrypted successfully")
@@ -253,19 +292,16 @@ func (c *OIDCConfig) VerifyToken(ctx context.Context, token string) error {
 
 	idToken, err := c.verifier.Verify(ctx, verifyToken)
 	if err != nil {
-		return fmt.Errorf("invalid token: %w", err)
+		return nil, fmt.Errorf("invalid token: %w", err)
 	}
 
-	var claims struct {
-		Subject string `json:"sub"`
-		Expiry  int64  `json:"exp"`
-	}
+	var claims IDTokenClaims
 	if err := idToken.Claims(&claims); err != nil {
-		return fmt.Errorf("failed to parse claims: %w", err)
+		return nil, fmt.Errorf("failed to parse claims: %w", err)
 	}
 
 	if claims.Subject == "" {
-		return fmt.Errorf("token missing subject claim")
+		return nil, fmt.Errorf("token missing subject claim")
 	}
 
 	now := time.Now()
@@ -275,10 +311,10 @@ func (c *OIDCConfig) VerifyToken(ctx context.Context, token string) error {
 	}
 
 	if now.After(time.Unix(claims.Expiry, 0)) {
-		return fmt.Errorf("token has expired")
+		return nil, fmt.Errorf("token has expired")
 	}
 
-	return nil
+	return &claims, nil
 }
 
 func (c *OIDCConfig) GetClaims(ctx context.Context, token string) (*Claims, error) {
