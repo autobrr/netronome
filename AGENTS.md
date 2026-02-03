@@ -5,12 +5,12 @@
 - Feature packages: `internal/` (collector, scheduler, notifications, etc.).
 - Reusable helpers: `pkg/`.
 - Web UI: `web/src` (Vite + React), build output in `web/dist`.
-- Tests and harnesses: `test/` plus `docker-compose*.yml` for e2e stacks.
+- Tests and harnesses: `test/` plus `distrib/docker/docker-compose*.yml` for e2e stacks.
 - Long-form docs: `docs/` and `ai_docs/`.
 
 ## Build, Test, and Development Commands
 - `make build`: installs web deps, builds the UI, embeds assets, compiles `bin/netronome`.
-- `make run`: builds and runs the server with `config.toml`.
+- `make run`: builds and runs the server with `config/config.toml`.
 - `make dev`: starts Vite + Go watcher (`air`) in tmux.
 - `make watch`: runs Go watcher only (prompts to install `air` if missing).
 - `make docker-build` / `make docker-run`: build and run a Docker image.
@@ -37,6 +37,6 @@
 - Use `pnpm` only; do not add `package-lock.json`.
 
 ## Security & Configuration Tips
-- Keep secrets out of Git; use `.env` and redact `config.toml`.
+- Keep secrets out of Git; use `.env` and redact `config/config.toml`.
 - Avoid committing real GeoLite databases or generated logs.
 - Document any config changes in `docs/` when behavior changes.

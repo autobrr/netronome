@@ -5,5 +5,5 @@ services:
     ports:
       - "7575:7575"
     volumes:
-      - ./netronome:/data
+      - ../../netronome:/data
     restart: unless-stopped

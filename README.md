@@ -237,15 +237,15 @@ Edit config.toml to suit `C:\Users\{USERNAME}\.config\netronome`
 Quick Docker deployment with automatic dependency installation:
 
 ```bash
-# Clone the repository (for docker-compose files)
+# Clone the repository (for docker-compose files in distrib/docker)
 git clone https://github.com/autobrr/netronome.git
 cd netronome
 
 # Basic setup with SQLite
-docker-compose up -d
+docker-compose -f distrib/docker/docker-compose.yml up -d
 
 # Or with PostgreSQL for better performance
-docker-compose -f docker-compose.postgres.yml up -d
+docker-compose -f distrib/docker/docker-compose.postgres.yml up -d
 ```
 
 The Docker image includes all dependencies (iperf3, librespeed-cli, traceroute, mtr, vnstat) pre-installed, so you don't need to install them separately. For Tailscale integration with Docker, see the [Docker Tailscale Sidecar Guide](docs/docker-tailscale-sidecar.md).
@@ -498,7 +498,7 @@ To monitor bandwidth on VPN networked containers, you will need to run both the 
 
 <details>
 <summary>Docker Agent Integration Compose Example</summary>
-  
+
 ```yml
 services:
   # Gluetun - VPN client container
@@ -942,7 +942,7 @@ make docker-run
 
 ## Contributing
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening issues or PRs.
+Please read [CONTRIBUTING.md](.github/CONTRIBUTING.md) before opening issues or PRs.
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)

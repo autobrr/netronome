@@ -5,7 +5,7 @@ services:
     ports:
       - "7575:7575"
     volumes:
-      - ./netronome:/data
+      - ../../netronome:/data
     cap_add:
       - NET_RAW # Required for MTR and privileged ping operations
     environment:

@@ -88,14 +88,14 @@ release:
     - ✅ NVMe temperatures (M.2 drives)
     - ✅ Battery temperatures
     - ✅ System sensors
-    
+
     For SATA/HDD temperatures and disk model names, build from source:
     ```bash
     git clone https://github.com/autobrr/netronome
     cd netronome
     make build  # Includes full SMART support
     ```
-    
+
     SMART features (SATA/HDD temps) require:
     - Linux or macOS (not supported on Windows/FreeBSD)
     - Running with root/sudo privileges
