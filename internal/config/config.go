@@ -78,10 +78,11 @@ type AuthConfig struct {
 }
 
 type OIDCConfig struct {
-	Issuer       string `toml:"issuer" env:"OIDC_ISSUER"`
-	ClientID     string `toml:"client_id" env:"OIDC_CLIENT_ID"`
-	ClientSecret string `toml:"client_secret" env:"OIDC_CLIENT_SECRET"`
-	RedirectURL  string `toml:"redirect_url" env:"OIDC_REDIRECT_URL"`
+	Issuer       string   `toml:"issuer" env:"OIDC_ISSUER"`
+	ClientID     string   `toml:"client_id" env:"OIDC_CLIENT_ID"`
+	ClientSecret string   `toml:"client_secret" env:"OIDC_CLIENT_SECRET"`
+	RedirectURL  string   `toml:"redirect_url" env:"OIDC_REDIRECT_URL"`
+	Scopes       []string `toml:"scopes" env:"OIDC_SCOPES"`
 }
 
 type SpeedTestConfig struct {
@@ -484,6 +485,18 @@ func (c *Config) loadOIDCFromEnv() {
 	if v := getEnv("OIDC_REDIRECT_URL"); v != "" {
 		c.OIDC.RedirectURL = v
 	}
+	if v := getEnv("OIDC_SCOPES"); v != "" {
+		scopes := strings.FieldsFunc(v, func(r rune) bool {
+			return r == ',' || r == ' '
+		})
+		c.OIDC.Scopes = nil
+		for _, scope := range scopes {
+			scope = strings.TrimSpace(scope)
+			if scope != "" {
+				c.OIDC.Scopes = append(c.OIDC.Scopes, scope)
+			}
+		}
+	}
 }
 
 func (c *Config) loadSpeedTestFromEnv() {
@@ -772,6 +785,9 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "#redirect_url = \"%s\"\n", cfg.OIDC.RedirectURL); err != nil {
 		return err
 	}
+	if _, err := fmt.Fprintln(w, "#scopes = [\"openid\", \"profile\", \"offline_access\"]"); err != nil {
+		return err
+	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
 		return err
 	}
@@ -831,7 +847,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintln(w, ""); err != nil {
 		return err
 	}
-
 
 	// Session section
 	if _, err := fmt.Fprintln(w, "[session]"); err != nil {

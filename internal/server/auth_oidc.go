@@ -103,13 +103,28 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 	}
 
 	// Verify the token
-	if err := h.oidc.VerifyToken(c.Request.Context(), rawIDToken); err != nil {
+	idClaims, err := h.oidc.VerifyTokenWithClaims(c.Request.Context(), rawIDToken)
+	if err != nil {
 		log.Error().Err(err).Msg("invalid ID token")
 		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=invalid_token")
 		return
 	}
 
-	h.refreshSession(c, rawIDToken)
+	sessionClaims := SessionClaims{
+		Version:    sessionClaimsVersion,
+		Type:       sessionTypeOIDC,
+		Subject:    idClaims.Subject,
+		Username:   pickOIDCUsername(idClaims),
+		IDTokenExp: idClaims.Expiry,
+	}
+
+	if token.RefreshToken != "" && h.sessionSecret != "" {
+		if err := h.setRefreshToken(&sessionClaims, token.RefreshToken); err != nil {
+			log.Debug().Err(err).Msg("Failed to store refresh token")
+		}
+	}
+
+	h.refreshSession(c, "", &sessionClaims)
 
 	c.Redirect(http.StatusTemporaryRedirect, baseURL)
 }
