@@ -7,8 +7,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Build and Development
 
 ```bash
-# Build entire application (frontend + backend)
+# Build full server with web interface (requires frontend build)
 make build
+
+# Build lightweight agent-only binary (no frontend required)
+make build-agent
+
+# Build both binaries
+make build-all
 
 # Development mode with live reload (requires tmux)
 make dev
@@ -42,8 +48,11 @@ make docker-run
 # Change password (interactive)
 ./bin/netronome change-password username
 
-# Run agent mode
+# Run agent mode (using full binary)
 ./bin/netronome agent --config config.toml
+
+# Run agent mode (using dedicated agent binary)
+./bin/netronome-agent --config config.toml
 ```
 
 ### Frontend Development
@@ -103,12 +112,17 @@ cd web && pnpm tsc --noEmit
 
 The backend follows a clean architecture pattern with dependency injection:
 
-1. **Entry Point** (`cmd/netronome/main.go`): CLI commands using Cobra
+1. **Entry Points**:
 
-   - `serve`: Runs the web server
-   - `agent`: Runs the monitoring agent
-   - `generate-config`: Creates default configuration
-   - User management commands
+   - **`cmd/netronome/main.go`**: Full server binary with all CLI commands using Cobra
+     - `serve`: Runs the web server
+     - `agent`: Runs the monitoring agent
+     - `generate-config`: Creates default configuration
+     - User management commands
+   - **`cmd/netronome-agent/main.go`**: Lightweight agent-only binary (32MB vs 66MB)
+     - Single-purpose agent functionality
+     - Same CLI flags as `netronome agent` command
+     - Optimized for distributed monitoring deployments
 
 2. **Core Services** (`internal/`):
 
@@ -184,6 +198,10 @@ The frontend uses modern React patterns with TypeScript:
 5. **Tailscale Integration**: Optional but deeply integrated, supporting both tsnet and host modes for flexible deployment
 
 6. **Notification System**: Uses Shoutrrr library for multi-service notifications with rate limiting and state-based alerts
+
+7. **Dual Binary Architecture**: Two binaries for different deployment scenarios:
+   - `netronome`: Full server (66MB) with web UI, database, all commands
+   - `netronome-agent`: Agent-only (32MB) optimized for monitoring deployments
 
 ## Database Migrations
 
@@ -356,6 +374,10 @@ go test -bench=. ./internal/...
   1. Create migration files in both `sqlite/` and `postgres/` directories
   2. Use sequential numbering (e.g., 025_feature_name.sql) and append \_postgres to the filename for PostgreSQL migrations
   3. Test both database types before committing
+
+## Future Improvements
+
+- Add serve and funnel support to the netronome serve command if its setup with tailscale tsnet mode
 
 ## Additional Notes
 
