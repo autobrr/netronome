@@ -17,7 +17,7 @@ import s0upIcon from "@/assets/sponsors/s0up4200.png";
 import zze0sIcon from "@/assets/sponsors/zze0s.png";
 import { Button } from "@/components/ui/Button";
 
-interface DonationLink {
+interface SupportLink {
   name: string;
   url: string;
   description: string;
@@ -34,23 +34,23 @@ const PolarIcon: React.FC<{ className?: string }> = ({ className = "w-full h-ful
   </svg>
 );
 
-const donationLinks: DonationLink[] = [
+const supportLinks: SupportLink[] = [
   {
     name: "Polar",
     url: "https://buy.polar.sh/polar_cl_wWoEUigSOTJIoTrKaGIj3NU6oOCc4xJsKnsDN3NaATF",
-    description: "Support netronome development via Polar.sh",
+    description: "Sponsor Netronome via Polar.sh",
     icon: "polar-svg", // Special identifier for SVG
   },
   {
     name: "s0up",
     url: "https://github.com/sponsors/s0up4200/",
-    description: "Support netronome development via GitHub Sponsors",
+    description: "Sponsor Netronome via GitHub Sponsors",
     icon: s0upIcon,
   },
   {
     name: "zze0s",
     url: "https://github.com/sponsors/zze0s",
-    description: "Support netronome development via GitHub Sponsors",
+    description: "Sponsor Netronome via GitHub Sponsors",
     icon: zze0sIcon,
   },
 ];
@@ -70,17 +70,17 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 export function DonateModal({ isOpen, onClose }: DonateModalProps) {
-  const [shuffledLinks, setShuffledLinks] = useState(donationLinks);
+  const [shuffledLinks, setShuffledLinks] = useState(supportLinks);
 
   useEffect(() => {
     if (isOpen) {
-      setShuffledLinks(shuffleArray(donationLinks));
+      setShuffledLinks(shuffleArray(supportLinks));
     }
   }, [isOpen]);
 
   // Preload images
   useEffect(() => {
-    donationLinks.forEach((link) => {
+    supportLinks.forEach((link) => {
       const img = new Image();
       img.src = link.icon;
     });
@@ -124,14 +124,17 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
               >
                 <XMarkIcon className="h-6 w-6" />
               </Button>
-              
+
               <Dialog.Title className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                 Support Netronome
               </Dialog.Title>
-              
+
               <div className="mb-6 space-y-4">
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-                  Your donations directly contribute to:
+                  Your sponsorship directly supports:
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
+                  Optional sponsor recognition and roadmap prioritization included.
                 </p>
                 <ul className="list-none space-y-3 text-sm text-gray-600 dark:text-gray-300">
                   <li className="flex items-center gap-3">
@@ -167,7 +170,7 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
                   Thank you <HeartIcon className="h-4 w-4 text-red-500" />
                 </p>
               </div>
-              
+
               <div className="space-y-3">
                 {shuffledLinks.map((link) => (
                   <a
