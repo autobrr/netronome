@@ -140,7 +140,7 @@ function App() {
               variant="ghost"
               size="icon"
               className="text-red-500 hover:text-red-600 dark:text-red-500/50 dark:hover:text-red-500"
-              aria-label="Donate"
+              aria-label="Support Netronome"
             >
               <HeartIcon className="h-6 w-6" />
             </Button>
@@ -183,7 +183,7 @@ function App() {
 
                   <div className="flex-1 py-6">
                     <div className="space-y-2">
-                      {/* Donate */}
+                      {/* Support */}
                       <Button
                         onClick={() => {
                           setIsDonateOpen(true);
