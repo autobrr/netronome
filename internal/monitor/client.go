@@ -40,6 +40,9 @@ type Client struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 
+	capsOnce sync.Once
+	caps     agentCapabilities
+
 	// Peak tracking
 	peakRx          int64
 	peakTx          int64
@@ -346,6 +349,82 @@ func (c *Client) IsConnected() (bool, *types.MonitorLiveData) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.connected, c.lastData
+}
+
+func (c *Client) baseURL() string {
+	return strings.TrimSuffix(c.agent.URL, "/events?stream=live-data")
+}
+
+func (c *Client) ensureCapabilities() {
+	c.capsOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		caps, err := detectAgentCapabilities(ctx, c.baseURL())
+		if err != nil {
+			// Unknown capabilities -> keep legacy behavior (poll endpoints).
+			log.Debug().Err(err).Int64("agent_id", c.agent.ID).Msg("Failed to detect agent capabilities")
+			return
+		}
+
+		c.mu.Lock()
+		c.caps = caps
+		c.mu.Unlock()
+	})
+}
+
+func (c *Client) shouldPollSystemInfo() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.caps.systemInfo.known {
+		return c.caps.systemInfo.supported
+	}
+	return true
+}
+
+func (c *Client) shouldPollHardwareStats() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.caps.hardwareStats.known {
+		return c.caps.hardwareStats.supported
+	}
+	return true
+}
+
+func (c *Client) handleEndpointNotFound(err error, ep agentEndpoint) bool {
+	var statusErr *httpStatusError
+	if !errors.As(err, &statusErr) {
+		return false
+	}
+	if statusErr.StatusCode != http.StatusNotFound {
+		return false
+	}
+
+	var msg string
+	c.mu.Lock()
+	switch ep {
+	case endpointSystemInfo:
+		if c.caps.systemInfo.known && !c.caps.systemInfo.supported {
+			c.mu.Unlock()
+			return true
+		}
+		c.caps.systemInfo = endpointSupport{known: true, supported: false}
+		msg = "System info endpoint not available (404); disabling polling for this agent"
+	case endpointHardwareStats:
+		if c.caps.hardwareStats.known && !c.caps.hardwareStats.supported {
+			c.mu.Unlock()
+			return true
+		}
+		c.caps.hardwareStats = endpointSupport{known: true, supported: false}
+		msg = "Hardware stats endpoint not available (404); disabling polling for this agent"
+	default:
+		c.mu.Unlock()
+		return false
+	}
+	c.mu.Unlock()
+
+	log.Info().Int64("agent_id", c.agent.ID).Msg(msg)
+	return true
 }
 
 // monitor connects to the SSE endpoint and processes data
@@ -677,21 +756,28 @@ func (s *Service) collectResourceStats() {
 
 // fetchAndStoreResourceStats fetches system info and hardware stats from an agent
 func (s *Service) fetchAndStoreResourceStats(client *Client) {
-	// Fetch system info
-	if err := s.fetchSystemInfo(client); err != nil {
-		log.Error().Err(err).Int64("agent_id", client.agent.ID).Msg("Failed to fetch system info")
+	client.ensureCapabilities()
+
+	if client.shouldPollSystemInfo() {
+		if err := s.fetchSystemInfo(client); err != nil {
+			if !client.handleEndpointNotFound(err, endpointSystemInfo) {
+				log.Error().Err(err).Int64("agent_id", client.agent.ID).Msg("Failed to fetch system info")
+			}
+		}
 	}
 
-	// Fetch hardware stats
-	if err := s.fetchHardwareStats(client); err != nil {
-		log.Error().Err(err).Int64("agent_id", client.agent.ID).Msg("Failed to fetch hardware stats")
+	if client.shouldPollHardwareStats() {
+		if err := s.fetchHardwareStats(client); err != nil {
+			if !client.handleEndpointNotFound(err, endpointHardwareStats) {
+				log.Error().Err(err).Int64("agent_id", client.agent.ID).Msg("Failed to fetch hardware stats")
+			}
+		}
 	}
 }
 
 // fetchSystemInfo fetches and stores system information from an agent
 func (s *Service) fetchSystemInfo(client *Client) error {
-	baseURL := strings.TrimSuffix(client.agent.URL, "/events?stream=live-data")
-	systemURL := baseURL + "/system/info"
+	systemURL := strings.TrimRight(client.baseURL(), "/") + "/system/info"
 
 	req, err := http.NewRequestWithContext(client.ctx, "GET", systemURL, nil)
 	if err != nil {
@@ -710,7 +796,7 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return &httpStatusError{StatusCode: resp.StatusCode, URL: systemURL}
 	}
 
 	// Read the response body first for debugging
@@ -740,7 +826,7 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 
 	// Fetch agent version from /netronome/info endpoint
 	agentVersion := ""
-	infoURL := baseURL + "/netronome/info"
+	infoURL := strings.TrimRight(client.baseURL(), "/") + "/netronome/info"
 	infoReq, err := http.NewRequestWithContext(client.ctx, "GET", infoURL, nil)
 	if err == nil {
 		// Don't add API key for this endpoint as it's public
@@ -811,8 +897,7 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 
 // fetchHardwareStats fetches and stores hardware statistics from an agent
 func (s *Service) fetchHardwareStats(client *Client) error {
-	baseURL := strings.TrimSuffix(client.agent.URL, "/events?stream=live-data")
-	hardwareURL := baseURL + "/system/hardware"
+	hardwareURL := strings.TrimRight(client.baseURL(), "/") + "/system/hardware"
 
 	req, err := http.NewRequestWithContext(client.ctx, "GET", hardwareURL, nil)
 	if err != nil {
@@ -831,7 +916,7 @@ func (s *Service) fetchHardwareStats(client *Client) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return &httpStatusError{StatusCode: resp.StatusCode, URL: hardwareURL}
 	}
 
 	var hardwareStats struct {
