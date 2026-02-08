@@ -91,8 +91,9 @@ export const NotificationSettings: React.FC = () => {
       setShowAddChannel(false);
       setActiveChannelId(newChannel.id);
     },
-    onError: () => {
-      showToast("Failed to create channel", "error");
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : undefined;
+      showToast("Failed to create channel", "error", { description: message });
     },
   });
 
@@ -108,8 +109,9 @@ export const NotificationSettings: React.FC = () => {
         description: "Your changes have been saved",
       });
     },
-    onError: () => {
-      showToast("Failed to update channel", "error");
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : undefined;
+      showToast("Failed to update channel", "error", { description: message });
     },
   });
 
@@ -118,17 +120,18 @@ export const NotificationSettings: React.FC = () => {
     onSuccess: (_, channelId) => {
       // Store the deleted channel data for potential undo
       const deletedChannel = channels.find((ch) => ch.id === channelId);
-      
+
       queryClient.invalidateQueries({ queryKey: ["notification-channels"] });
       queryClient.invalidateQueries({ queryKey: ["notification-rules"] });
-      
+
       showToast("Channel deleted", "success", {
         description: deletedChannel ? `"${deletedChannel.name}" has been removed` : undefined
       });
       setActiveChannelId(null);
     },
-    onError: () => {
-      showToast("Failed to delete channel", "error");
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : undefined;
+      showToast("Failed to delete channel", "error", { description: message });
     },
   });
 
@@ -139,8 +142,9 @@ export const NotificationSettings: React.FC = () => {
         description: "Check your notification service",
       });
     },
-    onError: () => {
-      showToast("Failed to send test notification", "error");
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : undefined;
+      showToast("Failed to send test notification", "error", { description: message });
     },
   });
 
