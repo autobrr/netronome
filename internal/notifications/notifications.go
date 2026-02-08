@@ -56,6 +56,25 @@ func NewNotifierFromURLs(urls []string) (*Notifier, error) {
 	return notifier, nil
 }
 
+// ValidateNotificationURL validates a single notification URL without attempting to send.
+// Used by API handlers to reject obvious configuration errors early.
+func ValidateNotificationURL(rawURL string) error {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return fmt.Errorf("notification URL is empty")
+	}
+
+	// We handle ntfy separately; validate that the URL contains a topic and host.
+	if isNtfyURL(rawURL) {
+		_, err := parseNtfyURL(rawURL)
+		return err
+	}
+
+	// Shoutrrr validation is primarily URL parsing/initialization, no network calls.
+	_, err := shoutrrr.CreateSender(rawURL)
+	return err
+}
+
 // getThresholdForEvent retrieves the threshold value for a specific event from the database
 func (n *Notifier) getThresholdForEvent(category, eventType string) *float64 {
 	if n.db == nil {
@@ -435,7 +454,7 @@ func (n *Notifier) formatSpeedTestMessage(result *SpeedTestResult) string {
 func (n *Notifier) formatLowDownloadMessage(result *SpeedTestResult, threshold *float64) string {
 	var sb strings.Builder
 	sb.WriteString("[!] Low Download Speed Detected")
-	
+
 	if result.ServerName != "" {
 		sb.WriteString(fmt.Sprintf(" - **%s**", result.ServerName))
 	}
@@ -443,14 +462,14 @@ func (n *Notifier) formatLowDownloadMessage(result *SpeedTestResult, threshold *
 		sb.WriteString(fmt.Sprintf(" (%s)", result.Provider))
 	}
 	sb.WriteString("\n")
-	
+
 	// Show the low download speed prominently with threshold if available
 	if threshold != nil {
 		sb.WriteString(fmt.Sprintf("Download: **%.2f Mbps** (threshold: %.0f Mbps)", result.Download, *threshold))
 	} else {
 		sb.WriteString(fmt.Sprintf("Download: **%.2f Mbps**", result.Download))
 	}
-	
+
 	// Add other metrics for context
 	var otherMetrics []string
 	if result.Upload > 0 {
@@ -459,12 +478,12 @@ func (n *Notifier) formatLowDownloadMessage(result *SpeedTestResult, threshold *
 	if result.Ping > 0 {
 		otherMetrics = append(otherMetrics, fmt.Sprintf("Ping: %.2f ms", result.Ping))
 	}
-	
+
 	if len(otherMetrics) > 0 {
 		sb.WriteString(" | ")
 		sb.WriteString(strings.Join(otherMetrics, " | "))
 	}
-	
+
 	return sb.String()
 }
 
@@ -472,7 +491,7 @@ func (n *Notifier) formatLowDownloadMessage(result *SpeedTestResult, threshold *
 func (n *Notifier) formatLowUploadMessage(result *SpeedTestResult, threshold *float64) string {
 	var sb strings.Builder
 	sb.WriteString("[!] Low Upload Speed Detected")
-	
+
 	if result.ServerName != "" {
 		sb.WriteString(fmt.Sprintf(" - **%s**", result.ServerName))
 	}
@@ -480,14 +499,14 @@ func (n *Notifier) formatLowUploadMessage(result *SpeedTestResult, threshold *fl
 		sb.WriteString(fmt.Sprintf(" (%s)", result.Provider))
 	}
 	sb.WriteString("\n")
-	
+
 	// Show the low upload speed prominently with threshold if available
 	if threshold != nil {
 		sb.WriteString(fmt.Sprintf("Upload: **%.2f Mbps** (threshold: %.0f Mbps)", result.Upload, *threshold))
 	} else {
 		sb.WriteString(fmt.Sprintf("Upload: **%.2f Mbps**", result.Upload))
 	}
-	
+
 	// Add other metrics for context
 	var otherMetrics []string
 	if result.Download > 0 {
@@ -496,12 +515,12 @@ func (n *Notifier) formatLowUploadMessage(result *SpeedTestResult, threshold *fl
 	if result.Ping > 0 {
 		otherMetrics = append(otherMetrics, fmt.Sprintf("Ping: %.2f ms", result.Ping))
 	}
-	
+
 	if len(otherMetrics) > 0 {
 		sb.WriteString(" | ")
 		sb.WriteString(strings.Join(otherMetrics, " | "))
 	}
-	
+
 	return sb.String()
 }
 
@@ -509,7 +528,7 @@ func (n *Notifier) formatLowUploadMessage(result *SpeedTestResult, threshold *fl
 func (n *Notifier) formatHighPingMessage(result *SpeedTestResult, threshold *float64) string {
 	var sb strings.Builder
 	sb.WriteString("[!] High Ping Detected")
-	
+
 	if result.ServerName != "" {
 		sb.WriteString(fmt.Sprintf(" - **%s**", result.ServerName))
 	}
@@ -517,14 +536,14 @@ func (n *Notifier) formatHighPingMessage(result *SpeedTestResult, threshold *flo
 		sb.WriteString(fmt.Sprintf(" (%s)", result.Provider))
 	}
 	sb.WriteString("\n")
-	
+
 	// Show the high ping prominently with threshold if available
 	if threshold != nil {
 		sb.WriteString(fmt.Sprintf("Ping: **%.2f ms** (threshold: %.0f ms)", result.Ping, *threshold))
 	} else {
 		sb.WriteString(fmt.Sprintf("Ping: **%.2f ms**", result.Ping))
 	}
-	
+
 	// Add other metrics for context
 	var otherMetrics []string
 	if result.Download > 0 {
@@ -536,12 +555,12 @@ func (n *Notifier) formatHighPingMessage(result *SpeedTestResult, threshold *flo
 	if result.Jitter > 0 {
 		otherMetrics = append(otherMetrics, fmt.Sprintf("Jitter: %.2f ms", result.Jitter))
 	}
-	
+
 	if len(otherMetrics) > 0 {
 		sb.WriteString(" | ")
 		sb.WriteString(strings.Join(otherMetrics, " | "))
 	}
-	
+
 	return sb.String()
 }
 

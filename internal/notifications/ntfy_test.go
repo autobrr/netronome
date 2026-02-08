@@ -59,6 +59,11 @@ func TestParseNtfyURL(t *testing.T) {
 			input:   "ntfy://ntfy.example.com/",
 			wantErr: true,
 		},
+		{
+			name:    "missing host with topic",
+			input:   "ntfy:///alerts",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

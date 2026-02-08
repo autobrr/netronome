@@ -6,6 +6,7 @@ package server
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -39,6 +40,14 @@ func (s *Server) handleCreateNotificationChannel(c *gin.Context) {
 		return
 	}
 
+	input.URL = strings.TrimSpace(input.URL)
+	if input.URL != "" {
+		if err := notifications.ValidateNotificationURL(input.URL); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid notification URL", "details": err.Error()})
+			return
+		}
+	}
+
 	channel, err := s.db.CreateChannel(input)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create notification channel")
@@ -61,6 +70,14 @@ func (s *Server) handleUpdateNotificationChannel(c *gin.Context) {
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
+	}
+
+	input.URL = strings.TrimSpace(input.URL)
+	if input.URL != "" {
+		if err := notifications.ValidateNotificationURL(input.URL); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid notification URL", "details": err.Error()})
+			return
+		}
 	}
 
 	channel, err := s.db.UpdateChannel(channelID, input)
@@ -93,16 +110,16 @@ func (s *Server) handleDeleteNotificationChannel(c *gin.Context) {
 // handleGetNotificationEvents retrieves all notification events
 func (s *Server) handleGetNotificationEvents(c *gin.Context) {
 	category := c.Query("category")
-	
+
 	var events []database.NotificationEvent
 	var err error
-	
+
 	if category != "" {
 		events, err = s.db.GetEventsByCategory(category)
 	} else {
 		events, err = s.db.GetEvents()
 	}
-	
+
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get notification events")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get notification events"})
@@ -120,10 +137,10 @@ func (s *Server) handleGetNotificationEvents(c *gin.Context) {
 // handleGetNotificationRules retrieves notification rules
 func (s *Server) handleGetNotificationRules(c *gin.Context) {
 	channelIDStr := c.Query("channel_id")
-	
+
 	var rules []database.NotificationRule
 	var err error
-	
+
 	if channelIDStr != "" {
 		channelID, err := strconv.ParseInt(channelIDStr, 10, 64)
 		if err != nil {
@@ -134,7 +151,7 @@ func (s *Server) handleGetNotificationRules(c *gin.Context) {
 	} else {
 		rules, err = s.db.GetRules()
 	}
-	
+
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get notification rules")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get notification rules"})
@@ -214,7 +231,7 @@ func (s *Server) handleTestNotification(c *gin.Context) {
 		ChannelID int64  `json:"channel_id"`
 		URL       string `json:"url"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
@@ -223,7 +240,7 @@ func (s *Server) handleTestNotification(c *gin.Context) {
 	// Get the URL to test
 	var testURL string
 	if req.URL != "" {
-		testURL = req.URL
+		testURL = strings.TrimSpace(req.URL)
 	} else if req.ChannelID > 0 {
 		channel, err := s.db.GetChannel(req.ChannelID)
 		if err != nil {
@@ -239,13 +256,13 @@ func (s *Server) handleTestNotification(c *gin.Context) {
 	// Create a temporary notifier to test the URL
 	notifier, err := notifications.NewNotifierFromURLs([]string{testURL})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid notification URL"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid notification URL", "details": err.Error()})
 		return
 	}
 
 	// Send test notification
 	if err := notifier.SendTestNotification(); err != nil {
-		log.Error().Err(err).Str("url", testURL).Msg("Failed to send test notification")
+		log.Error().Err(err).Msg("Failed to send test notification")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send test notification", "details": err.Error()})
 		return
 	}

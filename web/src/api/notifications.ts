@@ -5,6 +5,33 @@
 
 import { getApiUrl } from "@/utils/baseUrl";
 
+type ApiErrorPayload = {
+  error?: string;
+  details?: string;
+  message?: string;
+};
+
+const parseErrorMessage = async (response: Response): Promise<string> => {
+  const text = await response.text().catch(() => "");
+  if (text) {
+    try {
+      const json = JSON.parse(text) as ApiErrorPayload;
+      const msg = json.details ? `${json.error ?? "Request failed"}: ${json.details}` : (json.error ?? json.message);
+      if (msg) return msg;
+    } catch {
+      // fall through: non-JSON error body
+    }
+    return text;
+  }
+  return response.statusText || `Request failed (${response.status})`;
+};
+
+const assertOk = async (response: Response, fallback: string) => {
+  if (response.ok) return;
+  const msg = await parseErrorMessage(response);
+  throw new Error(msg || fallback);
+};
+
 // Types
 export interface NotificationChannel {
   id: number;
@@ -71,7 +98,7 @@ export const notificationsApi = {
     const response = await fetch(getApiUrl("/notifications/channels"), {
       credentials: "include",
     });
-    if (!response.ok) throw new Error("Failed to fetch channels");
+    await assertOk(response, "Failed to fetch channels");
     return response.json();
   },
 
@@ -82,7 +109,7 @@ export const notificationsApi = {
       credentials: "include",
       body: JSON.stringify(input),
     });
-    if (!response.ok) throw new Error("Failed to create channel");
+    await assertOk(response, "Failed to create channel");
     return response.json();
   },
 
@@ -93,7 +120,7 @@ export const notificationsApi = {
       credentials: "include",
       body: JSON.stringify(input),
     });
-    if (!response.ok) throw new Error("Failed to update channel");
+    await assertOk(response, "Failed to update channel");
     return response.json();
   },
 
@@ -102,7 +129,7 @@ export const notificationsApi = {
       method: "DELETE",
       credentials: "include",
     });
-    if (!response.ok) throw new Error("Failed to delete channel");
+    await assertOk(response, "Failed to delete channel");
   },
 
   // Events
@@ -113,7 +140,7 @@ export const notificationsApi = {
     const response = await fetch(url, {
       credentials: "include",
     });
-    if (!response.ok) throw new Error("Failed to fetch events");
+    await assertOk(response, "Failed to fetch events");
     return response.json();
   },
 
@@ -125,7 +152,7 @@ export const notificationsApi = {
     const response = await fetch(url, {
       credentials: "include",
     });
-    if (!response.ok) throw new Error("Failed to fetch rules");
+    await assertOk(response, "Failed to fetch rules");
     return response.json();
   },
 
@@ -136,7 +163,7 @@ export const notificationsApi = {
       credentials: "include",
       body: JSON.stringify(input),
     });
-    if (!response.ok) throw new Error("Failed to create rule");
+    await assertOk(response, "Failed to create rule");
     return response.json();
   },
 
@@ -147,7 +174,7 @@ export const notificationsApi = {
       credentials: "include",
       body: JSON.stringify(input),
     });
-    if (!response.ok) throw new Error("Failed to update rule");
+    await assertOk(response, "Failed to update rule");
     return response.json();
   },
 
@@ -156,7 +183,7 @@ export const notificationsApi = {
       method: "DELETE",
       credentials: "include",
     });
-    if (!response.ok) throw new Error("Failed to delete rule");
+    await assertOk(response, "Failed to delete rule");
   },
 
   // Test
@@ -167,7 +194,7 @@ export const notificationsApi = {
       credentials: "include",
       body: JSON.stringify({ channel_id: channelId }),
     });
-    if (!response.ok) throw new Error("Failed to send test notification");
+    await assertOk(response, "Failed to send test notification");
     return response.json();
   },
 
@@ -178,7 +205,7 @@ export const notificationsApi = {
       credentials: "include",
       body: JSON.stringify({ url }),
     });
-    if (!response.ok) throw new Error("Failed to send test notification");
+    await assertOk(response, "Failed to send test notification");
     return response.json();
   },
 
@@ -190,7 +217,7 @@ export const notificationsApi = {
     const response = await fetch(url, {
       credentials: "include",
     });
-    if (!response.ok) throw new Error("Failed to fetch history");
+    await assertOk(response, "Failed to fetch history");
     return response.json();
   },
 };
@@ -209,7 +236,8 @@ export const SHOUTRRR_SERVICES = [
   { value: "ntfy", label: "ntfy", example: "ntfy://[USER:PASS@]HOSTNAME/topic" },
   { value: "opsgenie", label: "OpsGenie", example: "opsgenie://APIKEY" },
   { value: "pushbullet", label: "Pushbullet", example: "pushbullet://APIKEY" },
-  { value: "pushover", label: "Pushover", example: "pushover://API_TOKEN@USER_KEY" },
+  // Pushover token is the URL "password" per Shoutrrr's format.
+  { value: "pushover", label: "Pushover", example: "pushover://shoutrrr:API_TOKEN@USER_KEY" },
   { value: "rocketchat", label: "Rocket.Chat", example: "rocketchat://HOSTNAME/TOKEN@CHANNEL" },
   { value: "slack", label: "Slack", example: "slack://TOKEN@CHANNEL" },
   { value: "teams", label: "Microsoft Teams", example: "teams://WEBHOOK_URL" },

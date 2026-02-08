@@ -68,7 +68,11 @@ func parseNtfyURL(ntfyURL string) (*ntfyConfig, error) {
 
 	topic := strings.TrimPrefix(parsed.Path, "/")
 	if topic == "" {
-		return nil, fmt.Errorf("ntfy URL must include a topic: %s", ntfyURL)
+		// Avoid echoing credentials from the URL back into logs/errors.
+		return nil, fmt.Errorf("ntfy URL must include a topic")
+	}
+	if parsed.Host == "" {
+		return nil, fmt.Errorf("ntfy URL must include a host")
 	}
 
 	scheme := "https"
