@@ -31,6 +31,16 @@ func TestValidateNotificationURL(t *testing.T) {
 			rawURL:  "ntfy://example.com",
 			wantErr: "must include a topic",
 		},
+		{
+			name:    "ntfy missing host",
+			rawURL:  "ntfy:///alerts",
+			wantErr: "must include a host",
+		},
+		{
+			name:    "trims whitespace before validating",
+			rawURL:  "  pushover://API_TOKEN@USER_KEY  ",
+			wantErr: "token missing",
+		},
 	}
 
 	for _, tt := range tests {

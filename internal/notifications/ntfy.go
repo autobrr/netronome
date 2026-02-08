@@ -71,6 +71,9 @@ func parseNtfyURL(ntfyURL string) (*ntfyConfig, error) {
 		// Avoid echoing credentials from the URL back into logs/errors.
 		return nil, fmt.Errorf("ntfy URL must include a topic")
 	}
+	if parsed.Host == "" {
+		return nil, fmt.Errorf("ntfy URL must include a host")
+	}
 
 	scheme := "https"
 	if q := parsed.Query(); q.Get("scheme") == "http" {

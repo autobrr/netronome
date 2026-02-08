@@ -40,7 +40,8 @@ func (s *Server) handleCreateNotificationChannel(c *gin.Context) {
 		return
 	}
 
-	if strings.TrimSpace(input.URL) != "" {
+	input.URL = strings.TrimSpace(input.URL)
+	if input.URL != "" {
 		if err := notifications.ValidateNotificationURL(input.URL); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid notification URL", "details": err.Error()})
 			return
@@ -71,7 +72,8 @@ func (s *Server) handleUpdateNotificationChannel(c *gin.Context) {
 		return
 	}
 
-	if strings.TrimSpace(input.URL) != "" {
+	input.URL = strings.TrimSpace(input.URL)
+	if input.URL != "" {
 		if err := notifications.ValidateNotificationURL(input.URL); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid notification URL", "details": err.Error()})
 			return
@@ -238,7 +240,7 @@ func (s *Server) handleTestNotification(c *gin.Context) {
 	// Get the URL to test
 	var testURL string
 	if req.URL != "" {
-		testURL = req.URL
+		testURL = strings.TrimSpace(req.URL)
 	} else if req.ChannelID > 0 {
 		channel, err := s.db.GetChannel(req.ChannelID)
 		if err != nil {

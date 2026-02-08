@@ -59,6 +59,7 @@ func NewNotifierFromURLs(urls []string) (*Notifier, error) {
 // ValidateNotificationURL validates a single notification URL without attempting to send.
 // Used by API handlers to reject obvious configuration errors early.
 func ValidateNotificationURL(rawURL string) error {
+	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
 		return fmt.Errorf("notification URL is empty")
 	}
