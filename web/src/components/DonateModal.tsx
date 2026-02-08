@@ -79,6 +79,7 @@ const maintainers: Maintainer[] = [
     platforms: [
       { name: "GitHub Sponsors", url: "https://github.com/sponsors/zze0s", icon: <FaGithub className="h-4 w-4" /> },
       { name: "Buy Me a Coffee", url: "https://buymeacoffee.com/ze0s", icon: <SiBuymeacoffee className="h-4 w-4" /> },
+      { name: "Ko-fi", url: "https://ko-fi.com/theze0s", icon: <SiKofi className="h-4 w-4" /> },
     ],
     crypto: [
       { name: "Bitcoin", symbol: "BTC", address: "bc1q2nvdd83hrzelqn4vyjm8tvjwmsuuxsdlg4ws7x", icon: <FaBitcoin className="h-4 w-4 text-orange-500" /> },
