@@ -4,6 +4,8 @@
 package speedtest
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -61,4 +63,22 @@ func TestParseIperfFinalMetrics_ZeroJitterReturnsNilPointer(t *testing.T) {
 func TestParseIperfFinalMetrics_InvalidOutput(t *testing.T) {
 	_, _, err := parseIperfFinalMetrics("not-json", true)
 	require.Error(t, err)
+}
+
+func TestParseIperfFinalMetrics_LargeMonolithicJSON(t *testing.T) {
+	largePadding := strings.Repeat("a", 70*1024)
+	output := fmt.Sprintf(`{"end":{"sum_sent":{"bits_per_second":250000000,"jitter_ms":0.75},"sum_received":{"bits_per_second":500000000,"jitter_ms":1.50}},"padding":"%s"}`, largePadding)
+
+	speed, jitter, err := parseIperfFinalMetrics(output, true)
+	require.NoError(t, err)
+	assert.InDelta(t, 500.0, speed, 0.0001)
+	require.NotNil(t, jitter)
+	assert.InDelta(t, 1.50, *jitter, 0.0001)
+}
+
+func TestFormatIperfFailureOutput(t *testing.T) {
+	assert.Equal(t, "stdout={\"ok\":true} stderr=unknown option --json-stream", formatIperfFailureOutput("{\"ok\":true}", "unknown option --json-stream"))
+	assert.Equal(t, "stdout={\"ok\":true}", formatIperfFailureOutput("{\"ok\":true}", ""))
+	assert.Equal(t, "stderr=unknown option --json-stream", formatIperfFailureOutput("", "unknown option --json-stream"))
+	assert.Equal(t, "no output", formatIperfFailureOutput("", ""))
 }
