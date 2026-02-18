@@ -180,6 +180,7 @@ var testTablesToClear = []string{
 	"notification_history",
 	"notification_rules",
 	"notification_channels",
+	"app_settings",
 	"packet_loss_results",
 	"packet_loss_monitors",
 	"monitor_historical_snapshots",
@@ -217,8 +218,8 @@ func resetSequences(t *testing.T, db *sql.DB) {
 
 	// Get all sequences in the database
 	rows, err := db.Query(`
-		SELECT schemaname, sequencename 
-		FROM pg_sequences 
+		SELECT schemaname, sequencename
+		FROM pg_sequences
 		WHERE schemaname = 'public'
 	`)
 	if err != nil {

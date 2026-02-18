@@ -44,6 +44,7 @@ import {
   getSpeedTestStatus,
   getPublicHistory,
 } from "@/api/speedtest";
+import { settingsApi } from "@/api/settings";
 import { motion, AnimatePresence } from "motion/react";
 
 interface MainProps {
@@ -139,11 +140,22 @@ export default function Main({ isPublic = false }: MainProps) {
     return speedtestServers;
   }, [testType, speedtestServers, librespeedServers]);
 
+  const { data: dashboardSettings } = useQuery({
+    queryKey: ["dashboard-settings"],
+    queryFn: settingsApi.getDashboardSettings,
+    enabled: !isPublic,
+    staleTime: 60_000,
+  });
+
+  const recentSpeedtestsRowsLimit = isPublic
+    ? 20
+    : dashboardSettings?.recentSpeedtestsRows ?? 20;
+
   const { data: historyData } = useInfiniteQuery({
-    queryKey: ["history", timeRange, isPublic],
+    queryKey: ["history", timeRange, isPublic, recentSpeedtestsRowsLimit],
     queryFn: async ({ pageParam = 1 }) => {
       const historyFn = isPublic ? getPublicHistory : getHistory;
-      const response = await historyFn(timeRange, pageParam, 20);
+      const response = await historyFn(timeRange, pageParam, recentSpeedtestsRowsLimit);
       return response as PaginatedResponse<SpeedTestResult>;
     },
     getNextPageParam: (
@@ -522,6 +534,7 @@ export default function Main({ isPublic = false }: MainProps) {
               <DashboardTab
                 latestTest={latestTest}
                 tests={history}
+                recentSpeedtestsRows={recentSpeedtestsRowsLimit}
                 timeRange={timeRange}
                 onTimeRangeChange={setTimeRange}
                 isPublic={isPublic}

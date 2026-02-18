@@ -134,6 +134,12 @@ export function DataTable<TData, TValue>({
     },
   });
 
+  React.useEffect(() => {
+    if (table.getState().pagination.pageSize !== pageSize) {
+      table.setPageSize(pageSize);
+    }
+  }, [pageSize, table]);
+
   // Handle row selection changes
   React.useEffect(() => {
     if (onRowSelectionChange && showRowSelection) {
