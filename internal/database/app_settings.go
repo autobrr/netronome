@@ -31,22 +31,14 @@ func (s *service) GetAppSetting(ctx context.Context, key string) (string, error)
 }
 
 func (s *service) SetAppSetting(ctx context.Context, key, value string) error {
-	result, err := s.update(ctx, "app_settings", map[string]interface{}{"value": value}, sq.Eq{"key": key})
-	if err != nil {
-		return fmt.Errorf("failed to update app setting %q: %w", key, err)
-	}
+	query := s.sqlBuilder.
+		Insert("app_settings").
+		Columns("key", "value").
+		Values(key, value).
+		Suffix("ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value")
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to inspect updated app setting %q: %w", key, err)
-	}
-
-	if rowsAffected > 0 {
-		return nil
-	}
-
-	if _, err := s.insert(ctx, "app_settings", map[string]interface{}{"key": key, "value": value}); err != nil {
-		return fmt.Errorf("failed to insert app setting %q: %w", key, err)
+	if _, err := query.RunWith(s.db).ExecContext(ctx); err != nil {
+		return fmt.Errorf("failed to upsert app setting %q: %w", key, err)
 	}
 
 	return nil
