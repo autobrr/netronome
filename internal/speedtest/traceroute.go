@@ -195,10 +195,7 @@ func (s *service) RunTraceroute(ctx context.Context, host string) (*TracerouteRe
 			Str("extracted_host", host).
 			Msg("Extracted hostname from URL for traceroute")
 	} else {
-		// Strip port from host if present (for non-URL hosts)
-		if strings.Contains(host, ":") {
-			host = strings.Split(host, ":")[0]
-		}
+		host = normalizeTracerouteHost(host)
 	}
 
 	// Resolve the destination hostname to IP address
@@ -287,7 +284,7 @@ func (s *service) RunTraceroute(ctx context.Context, host string) (*TracerouteRe
 				Msg("Traceroute test timed out")
 			return nil, fmt.Errorf("traceroute test timed out after 60 seconds")
 		}
-		
+
 		// If we have no hops at all, this is likely a command error (like unknown host)
 		if result.TotalHops == 0 {
 			log.Error().Err(err).
@@ -295,7 +292,7 @@ func (s *service) RunTraceroute(ctx context.Context, host string) (*TracerouteRe
 				Msg("Traceroute command failed with no results")
 			return nil, fmt.Errorf("traceroute failed for host '%s': %w", host, err)
 		}
-		
+
 		// If we have some hops, log the error but continue with partial results
 		log.Warn().Err(err).
 			Str("host", host).
@@ -309,6 +306,33 @@ func (s *service) RunTraceroute(ctx context.Context, host string) (*TracerouteRe
 		Msg("Traceroute test completed successfully")
 
 	return result, nil
+}
+
+func normalizeTracerouteHost(host string) string {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return host
+	}
+
+	// Keep plain IPv4/IPv6 literals unchanged.
+	if ip := net.ParseIP(host); ip != nil {
+		return host
+	}
+
+	// Handles host:port and bracketed IPv6 with port.
+	if parsedHost, _, err := net.SplitHostPort(host); err == nil && parsedHost != "" {
+		return parsedHost
+	}
+
+	// Support bracketed IPv6 without a port.
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		unwrapped := strings.TrimPrefix(strings.TrimSuffix(host, "]"), "[")
+		if ip := net.ParseIP(unwrapped); ip != nil {
+			return unwrapped
+		}
+	}
+
+	return host
 }
 
 // buildTracerouteArgs builds traceroute command arguments based on the operating system
@@ -399,10 +423,10 @@ func (s *service) parseUnixTracerouteOutput(lines []string, result *TracerouteRe
 	// Updated to handle both hostname and IP, or just IP
 	// Updated regex patterns for single query per hop
 	hopRegex := regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+\(([^)]+)\)\s+([\d.]+)\s+ms`)
-	hopRegexIPOnly := regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+([\d.]+)\s+ms`)
+	hopRegexIPOnly := regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+([0-9A-Fa-f:.]+)\s+ms`)
 	// Also support the old 3-query format for backward compatibility
 	hopRegex3 := regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+\(([^)]+)\)\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
-	hopRegexIPOnly3 := regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
+	hopRegexIPOnly3 := regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+([0-9A-Fa-f:.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
 	timeoutRegex := regexp.MustCompile(`^\s*(\d+)\s+\*\s+\*\s+\*`)
 
 	for _, line := range lines {
@@ -602,7 +626,7 @@ func (s *service) parseTracerouteOutputStreaming(stdout io.ReadCloser, originalH
 	}
 
 	scanner := bufio.NewScanner(stdout)
-	maxHops := 30 // Default max hops
+	maxHops := 30               // Default max hops
 	maxConsecutiveTimeouts := 3 // Stop after 3 consecutive timeouts (reduced from 5)
 	consecutiveTimeouts := 0
 	reachedDestination := false
@@ -646,7 +670,7 @@ func (s *service) parseTracerouteOutputStreaming(stdout io.ReadCloser, originalH
 		hop := s.parseHopLine(line)
 		if hop != nil {
 			result.Hops = append(result.Hops, *hop)
-			
+
 			// Check if we've reached the destination IP
 			if !hop.Timeout && destinationIP != "" && hop.IP == destinationIP {
 				reachedDestination = true
@@ -655,7 +679,7 @@ func (s *service) parseTracerouteOutputStreaming(stdout io.ReadCloser, originalH
 					Int("hop", hop.Number).
 					Msg("Reached destination IP, traceroute will complete")
 			}
-			
+
 			// Track consecutive timeouts
 			if hop.Timeout {
 				consecutiveTimeouts++
@@ -666,7 +690,7 @@ func (s *service) parseTracerouteOutputStreaming(stdout io.ReadCloser, originalH
 			} else {
 				consecutiveTimeouts = 0 // Reset counter on successful hop
 			}
-			
+
 			// Calculate progress and broadcast update
 			progress := float64(hop.Number) / float64(maxHops) * 100.0
 			if progress > 100.0 {
@@ -698,19 +722,19 @@ func (s *service) parseTracerouteOutputStreaming(stdout io.ReadCloser, originalH
 			// Check if we should terminate early
 			shouldTerminate := false
 			terminationReason := ""
-			
+
 			// Terminate due to consecutive timeouts
 			if consecutiveTimeouts >= maxConsecutiveTimeouts {
 				shouldTerminate = true
 				terminationReason = "consecutive timeouts"
 			}
-			
+
 			// If we reached destination and have timeouts after, terminate sooner
 			if reachedDestination && consecutiveTimeouts >= 2 {
 				shouldTerminate = true
 				terminationReason = "reached destination with subsequent timeouts"
 			}
-			
+
 			if shouldTerminate {
 				log.Info().
 					Int("consecutive_timeouts", consecutiveTimeouts).
@@ -719,7 +743,7 @@ func (s *service) parseTracerouteOutputStreaming(stdout io.ReadCloser, originalH
 					Str("reason", terminationReason).
 					Bool("reached_destination", reachedDestination).
 					Msg("Terminating traceroute early")
-				
+
 				// Kill the traceroute process to stop further output
 				if cmd.Process != nil {
 					_ = cmd.Process.Kill()
@@ -735,7 +759,7 @@ func (s *service) parseTracerouteOutputStreaming(stdout io.ReadCloser, originalH
 
 	result.TotalHops = len(result.Hops)
 	result.Complete = result.TotalHops > 0
-	
+
 	// Determine if we terminated early (either due to consecutive timeouts or reaching destination)
 	terminatedEarly := consecutiveTimeouts >= maxConsecutiveTimeouts || (reachedDestination && consecutiveTimeouts >= 2)
 
@@ -747,7 +771,7 @@ func (s *service) parseTracerouteOutputStreaming(stdout io.ReadCloser, originalH
 			lastHop := result.Hops[result.TotalHops-1].Number
 			finalProgress = float64(lastHop) / float64(maxHops) * 100.0
 		}
-		
+
 		s.broadcastTracerouteUpdate(types.TracerouteUpdate{
 			Type:            "traceroute",
 			Host:            host,
@@ -761,7 +785,7 @@ func (s *service) parseTracerouteOutputStreaming(stdout io.ReadCloser, originalH
 			TerminatedEarly: terminatedEarly,
 		})
 	}
-	
+
 	if terminatedEarly {
 		log.Info().
 			Int("total_hops_found", result.TotalHops).
@@ -783,7 +807,7 @@ func (s *service) parseHopLine(line string) *TracerouteHop {
 	case "darwin", "linux":
 		// Unix traceroute patterns (3 query format)
 		hopRegex = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+\(([^)]+)\)\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
-		hopRegexIPOnly = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
+		hopRegexIPOnly = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+([0-9A-Fa-f:.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
 		timeoutRegex = regexp.MustCompile(`^\s*(\d+)\s+\*\s+\*\s+\*`)
 	case "windows":
 		// Windows tracert patterns
@@ -792,7 +816,7 @@ func (s *service) parseHopLine(line string) *TracerouteHop {
 	default:
 		// Default to Unix style (3 query format)
 		hopRegex = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+\(([^)]+)\)\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
-		hopRegexIPOnly = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
+		hopRegexIPOnly = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+([0-9A-Fa-f:.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
 		timeoutRegex = regexp.MustCompile(`^\s*(\d+)\s+\*\s+\*\s+\*`)
 	}
 
