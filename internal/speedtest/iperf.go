@@ -41,6 +41,17 @@ type IperfResult struct {
 	Error string `json:"error,omitempty"`
 }
 
+type iperfEndData struct {
+	SumSent struct {
+		BitsPerSecond float64 `json:"bits_per_second"`
+		JitterMs      float64 `json:"jitter_ms"`
+	} `json:"sum_sent"`
+	SumReceived struct {
+		BitsPerSecond float64 `json:"bits_per_second"`
+		JitterMs      float64 `json:"jitter_ms"`
+	} `json:"sum_received"`
+}
+
 type IperfRunner struct {
 	config           config.IperfConfig
 	progressCallback func(types.SpeedUpdate)
@@ -305,54 +316,9 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 		return nil, fmt.Errorf("iperf3 failed: %s - %w", outputStr, err)
 	}
 
-	// Parse final results from streaming JSON output
-	// Find the last "end" event in the output
-	var finalResult struct {
-		Event string `json:"event"`
-		Data  struct {
-			SumSent struct {
-				BitsPerSecond float64 `json:"bits_per_second"`
-				JitterMs      float64 `json:"jitter_ms"`
-			} `json:"sum_sent"`
-			SumReceived struct {
-				BitsPerSecond float64 `json:"bits_per_second"`
-				JitterMs      float64 `json:"jitter_ms"`
-			} `json:"sum_received"`
-		} `json:"data"`
-	}
-
-	// Parse the output line by line to find the "end" event
-	lines := strings.Split(output.String(), "\n")
-	var foundFinalResult bool
-	for _, line := range lines {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		var lineData struct {
-			Event string          `json:"event"`
-			Data  json.RawMessage `json:"data"`
-		}
-		if err := json.Unmarshal([]byte(line), &lineData); err == nil {
-			if lineData.Event == "end" {
-				if err := json.Unmarshal(lineData.Data, &finalResult.Data); err == nil {
-					foundFinalResult = true
-					break
-				}
-			}
-		}
-	}
-
-	if !foundFinalResult {
-		return nil, fmt.Errorf("failed to find final results in iperf3 streaming output")
-	}
-
-	var speedMbps float64
-	var jitterMs *float64
-
-	if opts.EnableDownload {
-		speedMbps = finalResult.Data.SumReceived.BitsPerSecond / 1_000_000
-	} else {
-		speedMbps = finalResult.Data.SumSent.BitsPerSecond / 1_000_000
+	speedMbps, jitterMs, err := parseIperfFinalMetrics(output.String(), opts.EnableDownload)
+	if err != nil {
+		return nil, err
 	}
 
 	// Send final update
@@ -385,4 +351,72 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 		Jitter:      jitterMs,
 		IsScheduled: opts.IsScheduled,
 	}, nil
+}
+
+func parseIperfFinalMetrics(rawOutput string, isDownload bool) (float64, *float64, error) {
+	trimmed := strings.TrimSpace(rawOutput)
+	if trimmed == "" {
+		return 0, nil, fmt.Errorf("empty iperf3 output")
+	}
+
+	// First try streaming format: line-delimited events with an "end" entry.
+	scanner := bufio.NewScanner(strings.NewReader(rawOutput))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		var event struct {
+			Event string          `json:"event"`
+			Data  json.RawMessage `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			continue
+		}
+		if event.Event != "end" {
+			continue
+		}
+
+		var parsed iperfEndData
+		if err := json.Unmarshal(event.Data, &parsed); err != nil {
+			return 0, nil, fmt.Errorf("failed to decode iperf3 end event: %w", err)
+		}
+		return selectIperfDirectionMetrics(parsed, isDownload), selectIperfDirectionJitter(parsed, isDownload), nil
+	}
+	if err := scanner.Err(); err != nil {
+		return 0, nil, fmt.Errorf("failed to scan iperf3 output: %w", err)
+	}
+
+	// Fallback: classic monolithic -J output.
+	var parsed struct {
+		End iperfEndData `json:"end"`
+	}
+	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+		return 0, nil, fmt.Errorf("failed to parse iperf3 output: %w", err)
+	}
+
+	return selectIperfDirectionMetrics(parsed.End, isDownload), selectIperfDirectionJitter(parsed.End, isDownload), nil
+}
+
+func selectIperfDirectionMetrics(end iperfEndData, isDownload bool) float64 {
+	if isDownload {
+		return end.SumReceived.BitsPerSecond / 1_000_000
+	}
+	return end.SumSent.BitsPerSecond / 1_000_000
+}
+
+func selectIperfDirectionJitter(end iperfEndData, isDownload bool) *float64 {
+	var jitter float64
+	if isDownload {
+		jitter = end.SumReceived.JitterMs
+	} else {
+		jitter = end.SumSent.JitterMs
+	}
+
+	if jitter <= 0 {
+		return nil
+	}
+
+	return &jitter
 }

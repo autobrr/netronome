@@ -114,7 +114,7 @@ export const getSpeedTestColumns = (
       const jitter = row.getValue("jitter") as number | null;
       return (
         <div className="text-right text-purple-600 dark:text-purple-400 font-mono font-medium">
-          {jitter ? `${jitter.toFixed(1)}ms` : "—"}
+          {jitter !== null && jitter !== undefined ? `${jitter.toFixed(1)}ms` : "—"}
         </div>
       );
     },
@@ -183,7 +183,7 @@ export const getSpeedTestMobileColumns = (
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Jitter:</span>
               <span className="text-purple-600 dark:text-purple-400 font-mono font-semibold">
-                {test.jitter ? `${test.jitter.toFixed(1)}ms` : "—"}
+                {test.jitter !== null && test.jitter !== undefined ? `${test.jitter.toFixed(1)}ms` : "—"}
               </span>
             </div>
             <div className="flex justify-between items-center">

@@ -375,7 +375,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               value={(filteredLatestTestComputed || latestTest)!.jitter?.toFixed(2) ?? "N/A"}
               unit="ms"
               average={
-                (filteredLatestTestComputed || latestTest)!.jitter ? calculateAverage("jitter") : undefined
+                (filteredLatestTestComputed || latestTest)!.jitter !== null &&
+                (filteredLatestTestComputed || latestTest)!.jitter !== undefined
+                  ? calculateAverage("jitter")
+                  : undefined
               }
             />
 
