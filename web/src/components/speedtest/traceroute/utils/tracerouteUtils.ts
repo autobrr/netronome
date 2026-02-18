@@ -22,9 +22,21 @@ export const extractHostname = (hostValue: string): string => {
     }
   }
 
-  // Strip port from hostname if present (iperf3 and other servers)
-  if (hostname.includes(":")) {
-    hostname = hostname.split(":")[0];
+  // Handle bracketed IPv6 with optional port, e.g. [2001:db8::1]:8080
+  const bracketedIPv6 = hostname.match(/^\[([^\]]+)\](?::\d+)?$/);
+  if (bracketedIPv6) {
+    return bracketedIPv6[1];
+  }
+
+  // Preserve plain IPv6 literals (without ports).
+  if (hostname.includes(":") && /^[0-9a-fA-F:]+$/.test(hostname)) {
+    return hostname;
+  }
+
+  // Strip :port from hostnames/IPv4 addresses.
+  const hostWithPort = hostname.match(/^([^:]+):\d+$/);
+  if (hostWithPort) {
+    return hostWithPort[1];
   }
 
   return hostname;
