@@ -57,6 +57,7 @@ import { formatDateTimeWithSettings, useTimeSettings } from "@/utils/timeSetting
 interface DashboardTabProps {
   latestTest: SpeedTestResult | null;
   tests: SpeedTestResult[];
+  recentSpeedtestsRows?: number;
   timeRange: TimeRange;
   onTimeRangeChange: (range: TimeRange) => void;
   isPublic?: boolean;
@@ -159,6 +160,7 @@ const DraggableSpeedHistoryChart: React.FC<DraggableSpeedHistoryChartProps> = ({
 export const DashboardTab: React.FC<DashboardTabProps> = ({
   latestTest,
   tests,
+  recentSpeedtestsRows = 20,
   timeRange,
   onTimeRangeChange,
   isPublic = false,
@@ -168,7 +170,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   onNavigateToVnstat,
 }) => {
   const { settings } = useTimeSettings();
-  const [displayCount, setDisplayCount] = useState(5);
+  const [displayCount, setDisplayCount] = useState(recentSpeedtestsRows);
   const [isRecentTestsOpen, setIsRecentTestsOpen] = useState(() => {
     const saved = localStorage.getItem("recent-tests-open");
     return saved === null ? true : saved === "true";
@@ -214,6 +216,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       JSON.stringify(sectionOrder)
     );
   }, [sectionOrder]);
+
+  useEffect(() => {
+    setDisplayCount(recentSpeedtestsRows);
+  }, [recentSpeedtestsRows]);
 
   const displayedTests = tests.slice(0, displayCount);
 
@@ -550,6 +556,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
                 columns={columns}
                 data={displayedTests}
                 showPagination={false}
+                pageSize={Math.max(displayedTests.length, 1)}
                 showColumnVisibility={true}
                 showRowSelection={false}
                 filterColumn="serverName"
@@ -564,6 +571,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
                 columns={mobileColumns}
                 data={displayedTests}
                 showPagination={false}
+                pageSize={Math.max(displayedTests.length, 1)}
                 showColumnVisibility={false}
                 showRowSelection={false}
                 showHeaders={false}

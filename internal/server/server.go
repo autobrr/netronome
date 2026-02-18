@@ -281,16 +281,19 @@ func (s *Server) RegisterRoutes() {
 			protected.POST("/notifications/channels", s.handleCreateNotificationChannel)
 			protected.PUT("/notifications/channels/:id", s.handleUpdateNotificationChannel)
 			protected.DELETE("/notifications/channels/:id", s.handleDeleteNotificationChannel)
-			
+
 			protected.GET("/notifications/events", s.handleGetNotificationEvents)
-			
+
 			protected.GET("/notifications/rules", s.handleGetNotificationRules)
 			protected.POST("/notifications/rules", s.handleCreateNotificationRule)
 			protected.PUT("/notifications/rules/:id", s.handleUpdateNotificationRule)
 			protected.DELETE("/notifications/rules/:id", s.handleDeleteNotificationRule)
-			
+
 			protected.POST("/notifications/test", s.handleTestNotification)
 			protected.GET("/notifications/history", s.handleGetNotificationHistory)
+
+			protected.GET("/settings/dashboard", s.handleGetDashboardSettings)
+			protected.PUT("/settings/dashboard", s.handleUpdateDashboardSettings)
 		}
 	}
 
