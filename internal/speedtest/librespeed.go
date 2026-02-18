@@ -113,18 +113,7 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 		return nil, fmt.Errorf("librespeed-cli not found: please install librespeed-cli to use this feature")
 	}
 
-	args := []string{"--json"}
-
-	// Custom servers require --local-json to specify the servers file
-	// Public servers use the built-in librespeed-cli server list
-	if !opts.IsPublicServer {
-		args = append(args, "--local-json", r.config.ServersPath)
-	}
-
-	// Add server selection if specified
-	if len(opts.ServerIDs) > 0 {
-		args = append(args, "--server", opts.ServerIDs[0])
-	}
+	args := r.buildArgs(opts)
 
 	log.Debug().Strs("args", args).Msg("librespeed-cli arguments")
 
@@ -145,6 +134,9 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 	}
 
 	if len(librespeedResults) == 0 {
+		if len(opts.ServerIDs) > 0 {
+			return nil, fmt.Errorf("librespeed-cli returned no results for server %s", opts.ServerIDs[0])
+		}
 		return nil, fmt.Errorf("librespeed-cli returned no results")
 	}
 
@@ -175,6 +167,23 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 	}
 
 	return result, nil
+}
+
+func (r *LibrespeedRunner) buildArgs(opts *types.TestOptions) []string {
+	args := []string{"--json"}
+
+	if opts.IsPublicServer {
+		// Keep CLI server IDs in sync with our fetched public list.
+		args = append(args, "--server-json", librespeedPublicServersURL)
+	} else {
+		args = append(args, "--local-json", r.config.ServersPath)
+	}
+
+	if len(opts.ServerIDs) > 0 {
+		args = append(args, "--server", opts.ServerIDs[0])
+	}
+
+	return args
 }
 
 func (r *LibrespeedRunner) GetServers() ([]ServerResponse, error) {
