@@ -450,6 +450,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                         tests={tests}
                         displayedTests={displayedTests}
                         displayCount={displayCount}
+                        defaultDisplayCount={recentSpeedtestsRows}
                         setDisplayCount={setDisplayCount}
                         isRecentTestsOpen={isRecentTestsOpen}
                         setIsRecentTestsOpen={setIsRecentTestsOpen}
@@ -474,6 +475,7 @@ interface DraggableRecentSpeedtestsProps {
   tests: SpeedTestResult[];
   displayedTests: SpeedTestResult[];
   displayCount: number;
+  defaultDisplayCount: number;
   setDisplayCount: (count: number | ((prev: number) => number)) => void;
   isRecentTestsOpen: boolean;
   setIsRecentTestsOpen: (open: boolean) => void;
@@ -488,6 +490,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
   tests,
   displayedTests,
   displayCount,
+  defaultDisplayCount,
   setDisplayCount,
   isRecentTestsOpen,
   setIsRecentTestsOpen,
@@ -580,7 +583,7 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
               />
             </div>
             {/* Test Count and Load More */}
-            {tests.length > 5 && (
+            {tests.length > defaultDisplayCount && (
               <div className="mt-4 space-y-3">
                 {/* Test Count */}
                 <div className="text-center">
@@ -601,9 +604,9 @@ const DraggableRecentSpeedtests: React.FC<DraggableRecentSpeedtestsProps> = ({
                     </button>
                   )}
 
-                  {displayCount > 5 && (
+                  {displayCount > defaultDisplayCount && (
                     <button
-                      onClick={() => setDisplayCount(5)}
+                      onClick={() => setDisplayCount(defaultDisplayCount)}
                       className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-3 sm:py-2 min-h-[44px] sm:min-h-0 bg-gray-600/10 hover:bg-gray-600/20 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg transition-colors duration-200 text-sm font-medium touch-manipulation"
                     >
                       Show less
