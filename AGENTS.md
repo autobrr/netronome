@@ -34,6 +34,7 @@
 - Conventional Commits: `feat|fix|refactor|build|ci|chore|docs|style|perf|test`.
 - Keep changes scoped; avoid unrelated refactors and mass formatting.
 - PRs must include: summary, test commands run, and screenshots for UI changes.
+- For issue-driven fixes, review attached screenshots/log images before coding.
 - Use `pnpm` only; do not add `package-lock.json`.
 
 ## Security & Configuration Tips
