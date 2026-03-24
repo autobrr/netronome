@@ -583,7 +583,7 @@ networks:
 ```
 </details>
 
-Determine the correct VPN intercface to monitor by running:
+Determine the correct VPN interface to monitor by running:
 
 ```
 docker exec gluetun ip -br link
