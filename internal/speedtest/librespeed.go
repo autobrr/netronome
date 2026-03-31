@@ -336,6 +336,7 @@ func parseCountryFromName(name string) string {
 // sanitizeResultURL validates a share URL from librespeed-cli output.
 // Returns the normalized URL if valid (http/https with a host), empty string otherwise.
 func sanitizeResultURL(raw string) string {
+	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return ""
 	}
