@@ -151,6 +151,7 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 		UploadSpeed:   librespeedResult.Upload,
 		Latency:       fmt.Sprintf("%.2f", librespeedResult.Ping),
 		Jitter:        librespeedResult.Jitter,
+		ResultURL:     librespeedResult.Share,
 	}
 
 	// Final completion update
@@ -171,6 +172,10 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 
 func (r *LibrespeedRunner) buildArgs(opts *types.TestOptions) []string {
 	args := []string{"--json"}
+
+	if r.config.ShareResults {
+		args = append(args, "--share")
+	}
 
 	if opts.IsPublicServer {
 		// Keep CLI server IDs in sync with our fetched public list.

@@ -29,6 +29,34 @@ func TestBuildArgsUsesServerJSONForPublicServers(t *testing.T) {
 	}, args)
 }
 
+func TestBuildArgsIncludesShareWhenEnabled(t *testing.T) {
+	runner := NewLibrespeedRunner(config.LibrespeedConfig{
+		ServersPath:  "/tmp/local-servers.json",
+		ShareResults: true,
+	})
+
+	args := runner.buildArgs(&types.TestOptions{
+		IsPublicServer: true,
+		ServerIDs:      []string{"123"},
+	})
+
+	assert.Contains(t, args, "--share")
+}
+
+func TestBuildArgsExcludesShareWhenDisabled(t *testing.T) {
+	runner := NewLibrespeedRunner(config.LibrespeedConfig{
+		ServersPath:  "/tmp/local-servers.json",
+		ShareResults: false,
+	})
+
+	args := runner.buildArgs(&types.TestOptions{
+		IsPublicServer: true,
+		ServerIDs:      []string{"123"},
+	})
+
+	assert.NotContains(t, args, "--share")
+}
+
 func TestBuildArgsUsesLocalJSONForCustomServers(t *testing.T) {
 	runner := NewLibrespeedRunner(config.LibrespeedConfig{
 		ServersPath: "/tmp/local-servers.json",

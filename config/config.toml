@@ -36,6 +36,8 @@ timeout = 10
 
 [speedtest.librespeed]
 timeout = 60
+# Submit results to librespeed.org for a shareable link (sends telemetry)
+share_results = false
 
 [geoip]
 country_database_path = "./GeoLite2-Country.mmdb"

@@ -23,6 +23,7 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 		"latency":        result.Latency,
 		"jitter":         result.Jitter,
 		"is_scheduled":   result.IsScheduled,
+		"result_url":     result.ResultURL,
 	}
 
 	// Use provided created_at if available, otherwise default to current UTC time
@@ -120,6 +121,7 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 		"latency",
 		"jitter",
 		"is_scheduled",
+		"result_url",
 		"created_at",
 	).
 		OrderBy("created_at DESC").
@@ -146,6 +148,7 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 			&result.Latency,
 			&result.Jitter,
 			&result.IsScheduled,
+			&result.ResultURL,
 			&result.CreatedAt,
 		)
 		if err != nil {
