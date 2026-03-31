@@ -99,8 +99,9 @@ type IperfConfig struct {
 }
 
 type LibrespeedConfig struct {
-	ServersPath string `toml:"-"`
-	Timeout     int    `toml:"timeout" env:"LIBRESPEED_TIMEOUT"`
+	ServersPath  string `toml:"-"`
+	Timeout      int    `toml:"timeout" env:"LIBRESPEED_TIMEOUT"`
+	ShareResults bool   `toml:"share_results" env:"LIBRESPEED_SHARE_RESULTS"`
 }
 
 type PingConfig struct {
@@ -540,6 +541,11 @@ func (c *Config) loadSpeedTestFromEnv() {
 			c.SpeedTest.Librespeed.Timeout = val
 		}
 	}
+	if v := getEnv("LIBRESPEED_SHARE_RESULTS"); v != "" {
+		if val, err := strconv.ParseBool(v); err == nil {
+			c.SpeedTest.Librespeed.ShareResults = val
+		}
+	}
 }
 
 func (c *Config) loadPaginationFromEnv() {
@@ -825,6 +831,12 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "timeout = %d\n", cfg.SpeedTest.Librespeed.Timeout); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "# Submit results to librespeed.org for a shareable link (sends telemetry)\n"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "share_results = %v\n", cfg.SpeedTest.Librespeed.ShareResults); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {

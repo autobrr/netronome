@@ -28,6 +28,7 @@ export interface SpeedTestResult {
   uploadSpeed: number;
   latency: string;
   jitter?: number;
+  resultUrl?: string;
   createdAt: string;
 }
 

@@ -4,11 +4,13 @@
 package speedtest
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strconv"
@@ -127,8 +129,15 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 
 	log.Debug().Str("output", string(output)).Msg("librespeed-cli output")
 
+	// librespeed-cli may print non-JSON text (e.g. telemetry errors) before
+	// the JSON array when --share is used. Find the JSON array start.
+	jsonOutput := output
+	if idx := bytes.IndexByte(output, '['); idx > 0 {
+		jsonOutput = output[idx:]
+	}
+
 	var librespeedResults []LibrespeedResult
-	if err := json.Unmarshal(output, &librespeedResults); err != nil {
+	if err := json.Unmarshal(jsonOutput, &librespeedResults); err != nil {
 		log.Error().Err(err).Str("output", string(output)).Msg("failed to parse librespeed-cli output")
 		return nil, fmt.Errorf("failed to parse librespeed-cli output: %w", err)
 	}
@@ -151,6 +160,7 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 		UploadSpeed:   librespeedResult.Upload,
 		Latency:       fmt.Sprintf("%.2f", librespeedResult.Ping),
 		Jitter:        librespeedResult.Jitter,
+		ResultURL:     sanitizeResultURL(librespeedResult.Share),
 	}
 
 	// Final completion update
@@ -171,6 +181,10 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 
 func (r *LibrespeedRunner) buildArgs(opts *types.TestOptions) []string {
 	args := []string{"--json"}
+
+	if r.config.ShareResults {
+		args = append(args, "--share")
+	}
 
 	if opts.IsPublicServer {
 		// Keep CLI server IDs in sync with our fetched public list.
@@ -325,4 +339,21 @@ func parseCountryFromName(name string) string {
 		return countryPart
 	}
 	return "Unknown"
+}
+
+// sanitizeResultURL validates a share URL from librespeed-cli output.
+// Returns the normalized URL if valid (http/https with a host), empty string otherwise.
+func sanitizeResultURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ""
+	}
+	return u.String()
 }

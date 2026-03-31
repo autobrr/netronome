@@ -11,6 +11,7 @@ import {
   createSortableHeader,
   createRightAlignedSortableHeader,
 } from "@/components/ui/data-table";
+import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TimeFormatSettings, formatDateTimeWithSettings } from "@/utils/timeSettings";
 
@@ -67,10 +68,22 @@ export const getSpeedTestColumns = (
     header: "Server",
     cell: ({ row }) => (
       <span
-        className="text-gray-700 dark:text-gray-300 truncate block max-w-[180px] font-medium"
+        className="text-gray-700 dark:text-gray-300 truncate max-w-[180px] font-medium inline-flex items-center gap-1"
         title={row.getValue("serverName")}
       >
         {row.getValue("serverName")}
+        {row.original.resultUrl && (
+          <a
+            href={row.original.resultUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title="View result on LibreSpeed"
+            aria-label="View result on LibreSpeed"
+          >
+            <ExternalLink className="h-3.5 w-3.5 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors flex-shrink-0" />
+          </a>
+        )}
       </span>
     ),
     enableHiding: false, // Always show server
@@ -158,8 +171,20 @@ export const getSpeedTestMobileColumns = (
       return (
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
-            <div className="text-gray-700 dark:text-gray-300 text-base font-medium truncate flex-1 mr-2">
+            <div className="text-gray-700 dark:text-gray-300 text-base font-medium truncate flex-1 mr-2 inline-flex items-center gap-1">
               {test.serverName}
+              {test.resultUrl && (
+                <a
+                  href={test.resultUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  title="View result on LibreSpeed"
+                  aria-label="View result on LibreSpeed"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors flex-shrink-0" />
+                </a>
+              )}
             </div>
             <span
               className={cn(
