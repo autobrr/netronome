@@ -70,9 +70,28 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 				break
 			}
 		}
+
+		// Server not in FetchServers() list — try direct lookup by ID
+		if selectedServer == nil {
+			for _, requestedID := range opts.ServerIDs {
+				server, err := r.client.FetchServerByIDContext(ctx, requestedID)
+				if err == nil && server != nil {
+					log.Info().
+						Str("server_id", requestedID).
+						Str("server_name", server.Name).
+						Msg("Server not in public list, fetched directly by ID")
+					selectedServer = server
+					break
+				}
+				log.Debug().Err(err).Str("server_id", requestedID).Msg("Failed to fetch server by ID")
+			}
+		}
 	}
 
 	if selectedServer == nil {
+		if len(opts.ServerIDs) > 0 {
+			return nil, fmt.Errorf("requested server(s) %v not found in public list or by direct lookup", opts.ServerIDs)
+		}
 		sort.Slice(serverList, func(i, j int) bool {
 			return serverList[i].Distance < serverList[j].Distance
 		})
