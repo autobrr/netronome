@@ -79,6 +79,7 @@ export const getSpeedTestColumns = (
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
             title="View result on LibreSpeed"
+            aria-label="View result on LibreSpeed"
           >
             <ExternalLink className="h-3.5 w-3.5 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors flex-shrink-0" />
           </a>
@@ -179,6 +180,7 @@ export const getSpeedTestMobileColumns = (
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   title="View result on LibreSpeed"
+                  aria-label="View result on LibreSpeed"
                 >
                   <ExternalLink className="h-3.5 w-3.5 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors flex-shrink-0" />
                 </a>

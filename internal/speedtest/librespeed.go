@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strconv"
@@ -151,7 +152,7 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 		UploadSpeed:   librespeedResult.Upload,
 		Latency:       fmt.Sprintf("%.2f", librespeedResult.Ping),
 		Jitter:        librespeedResult.Jitter,
-		ResultURL:     librespeedResult.Share,
+		ResultURL:     sanitizeResultURL(librespeedResult.Share),
 	}
 
 	// Final completion update
@@ -330,4 +331,20 @@ func parseCountryFromName(name string) string {
 		return countryPart
 	}
 	return "Unknown"
+}
+
+// sanitizeResultURL validates a share URL from librespeed-cli output.
+// Returns the normalized URL if valid (http/https with a host), empty string otherwise.
+func sanitizeResultURL(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ""
+	}
+	return u.String()
 }

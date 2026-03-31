@@ -29,32 +29,57 @@ func TestBuildArgsUsesServerJSONForPublicServers(t *testing.T) {
 	}, args)
 }
 
-func TestBuildArgsIncludesShareWhenEnabled(t *testing.T) {
-	runner := NewLibrespeedRunner(config.LibrespeedConfig{
-		ServersPath:  "/tmp/local-servers.json",
-		ShareResults: true,
-	})
+func TestBuildArgsShareFlag(t *testing.T) {
+	tests := []struct {
+		name         string
+		shareResults bool
+		wantShare    bool
+	}{
+		{"included when enabled", true, true},
+		{"excluded when disabled", false, false},
+	}
 
-	args := runner.buildArgs(&types.TestOptions{
-		IsPublicServer: true,
-		ServerIDs:      []string{"123"},
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := NewLibrespeedRunner(config.LibrespeedConfig{
+				ServersPath:  "/tmp/local-servers.json",
+				ShareResults: tt.shareResults,
+			})
 
-	assert.Contains(t, args, "--share")
+			args := runner.buildArgs(&types.TestOptions{
+				IsPublicServer: true,
+				ServerIDs:      []string{"123"},
+			})
+
+			if tt.wantShare {
+				assert.Contains(t, args, "--share")
+			} else {
+				assert.NotContains(t, args, "--share")
+			}
+		})
+	}
 }
 
-func TestBuildArgsExcludesShareWhenDisabled(t *testing.T) {
-	runner := NewLibrespeedRunner(config.LibrespeedConfig{
-		ServersPath:  "/tmp/local-servers.json",
-		ShareResults: false,
-	})
+func TestSanitizeResultURL(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{"valid https URL", "https://librespeed.org/results/?id=abc123", "https://librespeed.org/results/?id=abc123"},
+		{"valid http URL", "http://librespeed.org/results/?id=abc123", "http://librespeed.org/results/?id=abc123"},
+		{"empty string", "", ""},
+		{"no scheme", "librespeed.org/results", ""},
+		{"javascript scheme", "javascript:alert(1)", ""},
+		{"ftp scheme", "ftp://example.com/file", ""},
+		{"no host", "https:///path", ""},
+	}
 
-	args := runner.buildArgs(&types.TestOptions{
-		IsPublicServer: true,
-		ServerIDs:      []string{"123"},
-	})
-
-	assert.NotContains(t, args, "--share")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, sanitizeResultURL(tt.raw))
+		})
+	}
 }
 
 func TestBuildArgsUsesLocalJSONForCustomServers(t *testing.T) {
