@@ -4,6 +4,7 @@
 package speedtest
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -128,8 +129,15 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 
 	log.Debug().Str("output", string(output)).Msg("librespeed-cli output")
 
+	// librespeed-cli may print non-JSON text (e.g. telemetry errors) before
+	// the JSON array when --share is used. Find the JSON array start.
+	jsonOutput := output
+	if idx := bytes.IndexByte(output, '['); idx > 0 {
+		jsonOutput = output[idx:]
+	}
+
 	var librespeedResults []LibrespeedResult
-	if err := json.Unmarshal(output, &librespeedResults); err != nil {
+	if err := json.Unmarshal(jsonOutput, &librespeedResults); err != nil {
 		log.Error().Err(err).Str("output", string(output)).Msg("failed to parse librespeed-cli output")
 		return nil, fmt.Errorf("failed to parse librespeed-cli output: %w", err)
 	}
