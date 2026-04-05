@@ -29,7 +29,7 @@ func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
 	state, err := utils.GenerateSecureToken(32)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to generate state parameter")
-		c.Redirect(http.StatusTemporaryRedirect, "/?error=state_generation_failed")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=state_generation_failed")
 		return
 	}
 
@@ -37,7 +37,7 @@ func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
 	pkceParams, err := auth.GeneratePKCEParams()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to generate PKCE parameters")
-		c.Redirect(http.StatusTemporaryRedirect, "/?error=pkce_generation_failed")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=pkce_generation_failed")
 		return
 	}
 
