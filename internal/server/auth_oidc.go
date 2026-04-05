@@ -13,16 +13,18 @@ import (
 	"github.com/autobrr/netronome/internal/utils"
 )
 
-func (h *AuthHandler) InitOIDCRoutes(r *gin.RouterGroup) {
+func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
+	baseURL := c.GetString("base_url")
+	if baseURL == "" {
+		baseURL = "/"
+	}
+
 	if h.oidc == nil {
+		log.Warn().Msg("OIDC login attempted but provider is not ready")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=oidc_unavailable")
 		return
 	}
 
-	r.GET("/oidc/login", h.handleOIDCLogin)
-	r.GET("/oidc/callback", h.handleOIDCCallback)
-}
-
-func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
 	// Generate state parameter
 	state, err := utils.GenerateSecureToken(32)
 	if err != nil {
@@ -57,6 +59,12 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 	baseURL := c.GetString("base_url")
 	if baseURL == "" {
 		baseURL = "/"
+	}
+
+	if h.oidc == nil {
+		log.Warn().Msg("OIDC callback received but provider is not ready")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=oidc_unavailable")
+		return
 	}
 
 	code := c.Query("code")
