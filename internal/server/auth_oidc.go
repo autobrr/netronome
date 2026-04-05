@@ -13,21 +13,23 @@ import (
 	"github.com/autobrr/netronome/internal/utils"
 )
 
-func (h *AuthHandler) InitOIDCRoutes(r *gin.RouterGroup) {
+func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
+	baseURL := c.GetString("base_url")
+	if baseURL == "" {
+		baseURL = "/"
+	}
+
 	if h.oidc == nil {
+		log.Warn().Msg("OIDC login attempted but provider is not ready")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=oidc_unavailable")
 		return
 	}
 
-	r.GET("/oidc/login", h.handleOIDCLogin)
-	r.GET("/oidc/callback", h.handleOIDCCallback)
-}
-
-func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
 	// Generate state parameter
 	state, err := utils.GenerateSecureToken(32)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to generate state parameter")
-		c.Redirect(http.StatusTemporaryRedirect, "/?error=state_generation_failed")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=state_generation_failed")
 		return
 	}
 
@@ -35,7 +37,7 @@ func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
 	pkceParams, err := auth.GeneratePKCEParams()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to generate PKCE parameters")
-		c.Redirect(http.StatusTemporaryRedirect, "/?error=pkce_generation_failed")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=pkce_generation_failed")
 		return
 	}
 
@@ -57,6 +59,12 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 	baseURL := c.GetString("base_url")
 	if baseURL == "" {
 		baseURL = "/"
+	}
+
+	if h.oidc == nil {
+		log.Warn().Msg("OIDC callback received but provider is not ready")
+		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=oidc_unavailable")
+		return
 	}
 
 	code := c.Query("code")
