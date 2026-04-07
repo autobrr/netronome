@@ -23,7 +23,7 @@ import (
 type AuthHandler struct {
 	db             database.Service
 	oidc           *auth.OIDCConfig
-	oidcConfigured bool // true when OIDC issuer is set in config, independent of provider state
+	oidcConfigured bool                     // true when OIDC issuer is set in config, independent of provider state
 	sessionTokens  map[string]SessionClaims // Track valid memory sessions
 	pkceVerifiers  map[string]string        // Track PKCE code verifiers by state
 	sessionMutex   sync.RWMutex
@@ -55,7 +55,7 @@ func (h *AuthHandler) CheckRegistrationStatus(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"hasUsers":    count > 0,
-		"oidcEnabled": h.oidcConfigured,
+		"oidcEnabled": h.oidc != nil,
 	})
 }
 
