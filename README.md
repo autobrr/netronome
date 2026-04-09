@@ -434,12 +434,14 @@ host = "0.0.0.0"
 port = 8200
 interface = ""  # Empty for all interfaces
 api_key = "your-secret-key"
-disk_includes = ["/mnt/storage"]  # Additional mounts to monitor
+disk_includes = ["/mnt/storage"]  # Hard override: include these mounts even if small, tmpfs, or bind mounts
 disk_excludes = ["/boot", "/tmp"] # Mounts to exclude
 
 [monitor]
 enabled = true
 ```
+
+`disk_includes` is a hard override. Explicitly included mounts are reported even if they would normally be skipped for being special filesystems or smaller than 1 GiB. Disk reporting also dedupes bind mounts by default; explicitly included bind mounts are kept.
 
 ### Packet Loss Monitoring
 
@@ -796,7 +798,7 @@ NETRONOME__AGENT_HOST=0.0.0.0                # Agent listen address
 NETRONOME__AGENT_PORT=8200                   # Agent port
 NETRONOME__AGENT_INTERFACE=                  # Network interface to monitor (empty for all)
 NETRONOME__AGENT_API_KEY=                    # Agent API key for authentication
-NETRONOME__AGENT_DISK_INCLUDES=              # Comma-separated paths to include
+NETRONOME__AGENT_DISK_INCLUDES=              # Comma-separated hard override include paths
 NETRONOME__AGENT_DISK_EXCLUDES=              # Comma-separated paths to exclude
 ```
 
