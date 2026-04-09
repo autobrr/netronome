@@ -89,12 +89,6 @@ func (a *Agent) diskFilterDecision(mountpoint, device, fstype string) (include b
 	return true, false
 }
 
-// shouldIncludeDisk determines if a disk should be included in monitoring based on filter rules
-func (a *Agent) shouldIncludeDisk(mountpoint, device, fstype string) bool {
-	include, _ := a.diskFilterDecision(mountpoint, device, fstype)
-	return include
-}
-
 func (a *Agent) buildDiskReportEntries(partitions []disk.PartitionStat, usageFn func(string) (*disk.UsageStat, error)) []diskReportEntry {
 	entries := make([]diskReportEntry, 0, len(partitions))
 
@@ -181,7 +175,7 @@ func dedupeDiskReportEntries(entries []diskReportEntry) []diskReportEntry {
 }
 
 func diskReportSignature(entry diskReportEntry) string {
-	return fmt.Sprintf("%s|%s|%d|%d|%d", entry.Partition.Device, entry.Partition.Fstype, entry.Usage.Total, entry.Usage.Used, entry.Usage.Free)
+	return fmt.Sprintf("%s|%s|%d", entry.Partition.Device, entry.Partition.Fstype, entry.Usage.Total)
 }
 
 func prefersDiskEntry(left, right diskReportEntry) bool {
