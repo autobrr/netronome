@@ -254,6 +254,7 @@ func (s *Server) RegisterRoutes() {
 				protected.DELETE("/packetloss/monitors/:id", packetLossHandler.DeleteMonitor)
 				protected.GET("/packetloss/monitors/:id/status", packetLossHandler.GetMonitorStatus)
 				protected.GET("/packetloss/monitors/:id/history", packetLossHandler.GetMonitorHistory)
+				protected.GET("/packetloss/monitors/:id/history/:resultId", packetLossHandler.GetMonitorHistoryDetail)
 				protected.POST("/packetloss/monitors/:id/start", packetLossHandler.StartMonitor)
 				protected.POST("/packetloss/monitors/:id/stop", packetLossHandler.StopMonitor)
 			}

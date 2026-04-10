@@ -168,9 +168,12 @@ export interface PacketLossResult {
   packetsRecv: number;
   usedMtr?: boolean;
   hopCount?: number;
-  mtrData?: string; // JSON string containing MTRData
   privilegedMode?: boolean;
   createdAt: string;
+}
+
+export interface PacketLossResultDetail extends PacketLossResult {
+  mtrData?: string;
 }
 
 export interface MTRHop {

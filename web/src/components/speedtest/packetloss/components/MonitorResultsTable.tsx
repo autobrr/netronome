@@ -3,10 +3,15 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { Fragment, useState } from "react";
+import React, { Fragment, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { ChevronUpDownIcon } from "@heroicons/react/24/solid";
-import { PacketLossResult, PacketLossMonitor } from "@/types/types";
+import {
+  PacketLossResult,
+  PacketLossMonitor,
+  PacketLossResultDetail,
+} from "@/types/types";
+import { getPacketLossHistoryDetail } from "@/api/packetloss";
 import { MTRResultsDisplay } from "./MTRResultsDisplay";
 import { formatRTT, parseMTRData } from "../utils/packetLossUtils";
 import { formatDateTimeWithSettings } from "@/utils/timeSettings";
@@ -14,25 +19,104 @@ import { formatDateTimeWithSettings } from "@/utils/timeSettings";
 interface MonitorResultsTableProps {
   historyList: PacketLossResult[];
   selectedMonitor: PacketLossMonitor;
+  totalCount: number;
+  hasMore: boolean;
+  isFetchingMore: boolean;
+  onLoadMore: () => void;
 }
 
 export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
   historyList,
   selectedMonitor,
+  totalCount,
+  hasMore,
+  isFetchingMore,
+  onLoadMore,
 }) => {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-  const [displayCount, setDisplayCount] = useState(10);
+  const [detailCache, setDetailCache] = useState<Map<number, PacketLossResultDetail>>(
+    new Map(),
+  );
+  const [loadingDetails, setLoadingDetails] = useState<Set<number>>(new Set());
+  const [detailErrors, setDetailErrors] = useState<Set<number>>(new Set());
+  const expandedRowsRef = useRef(expandedRows);
 
-  const toggleExpanded = (resultId: number) => {
+  useEffect(() => {
+    expandedRowsRef.current = expandedRows;
+  }, [expandedRows]);
+
+  const toggleExpanded = async (result: PacketLossResult) => {
+    const isExpanded = expandedRows.has(result.id);
+
     setExpandedRows((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(resultId)) {
-        newSet.delete(resultId);
+      if (isExpanded) {
+        newSet.delete(result.id);
       } else {
-        newSet.add(resultId);
+        newSet.add(result.id);
       }
       return newSet;
     });
+
+    if (isExpanded) {
+      setDetailCache((prev) => {
+        const next = new Map(prev);
+        next.delete(result.id);
+        return next;
+      });
+      setDetailErrors((prev) => {
+        const next = new Set(prev);
+        next.delete(result.id);
+        return next;
+      });
+      return;
+    }
+
+    if (
+      !result.usedMtr ||
+      detailCache.has(result.id) ||
+      loadingDetails.has(result.id)
+    ) {
+      return;
+    }
+
+    setLoadingDetails((prev) => new Set(prev).add(result.id));
+    setDetailErrors((prev) => {
+      const next = new Set(prev);
+      next.delete(result.id);
+      return next;
+    });
+
+    try {
+      const detail = await getPacketLossHistoryDetail(
+        selectedMonitor.id,
+        result.id,
+      );
+
+      if (!expandedRowsRef.current.has(result.id)) {
+        return;
+      }
+
+      setDetailCache((prev) => {
+        const next = new Map(prev);
+        next.set(result.id, detail);
+        return next;
+      });
+    } catch (error) {
+      console.error("Failed to fetch MTR detail:", error);
+
+      if (!expandedRowsRef.current.has(result.id)) {
+        return;
+      }
+
+      setDetailErrors((prev) => new Set(prev).add(result.id));
+    } finally {
+      setLoadingDetails((prev) => {
+        const next = new Set(prev);
+        next.delete(result.id);
+        return next;
+      });
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -43,8 +127,7 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
     <div>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-gray-700 dark:text-gray-300 font-medium">
-          Recent Results{" "}
-          {historyList.length > 0 && `(${historyList.length} total)`}
+          Recent Results {totalCount > 0 && `(${totalCount} total)`}
         </h3>
         {historyList.some((result) => result.usedMtr) && (
           <p className="text-xs text-gray-500 dark:text-gray-500 hidden md:block">
@@ -82,9 +165,12 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
             </tr>
           </thead>
           <tbody>
-            {historyList.slice(0, displayCount).map((result) => {
-              const mtrData = parseMTRData(result.mtrData);
+            {historyList.map((result) => {
+              const detail = detailCache.get(result.id);
+              const mtrData = parseMTRData(detail?.mtrData);
               const isExpanded = expandedRows.has(result.id);
+              const isLoadingDetail = loadingDetails.has(result.id);
+              const hasDetailError = detailErrors.has(result.id);
 
               return (
                 <Fragment key={result.id}>
@@ -98,8 +184,8 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
                         : "hover:bg-gray-200/30 dark:hover:bg-gray-800/30"
                     }`}
                     onClick={() => {
-                      if (result.usedMtr && mtrData) {
-                        toggleExpanded(result.id);
+                      if (result.usedMtr) {
+                        void toggleExpanded(result);
                       }
                     }}
                   >
@@ -163,6 +249,20 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
                   </motion.tr>
 
                   {/* Expandable MTR Details Row */}
+                  {result.usedMtr && isExpanded && isLoadingDetail && (
+                    <tr className="bg-gray-100/50 dark:bg-gray-900/50">
+                      <td colSpan={8} className="p-4 text-sm text-gray-600 dark:text-gray-400">
+                        Loading MTR details...
+                      </td>
+                    </tr>
+                  )}
+                  {result.usedMtr && isExpanded && hasDetailError && (
+                    <tr className="bg-gray-100/50 dark:bg-gray-900/50">
+                      <td colSpan={8} className="p-4 text-sm text-red-600 dark:text-red-400">
+                        Failed to load MTR details.
+                      </td>
+                    </tr>
+                  )}
                   {result.usedMtr && mtrData && (
                     <MTRResultsDisplay
                       mtrData={mtrData}
@@ -177,13 +277,17 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
         </table>
 
         {/* Load More Button */}
-        {historyList.length > displayCount && (
+        {hasMore && (
           <div className="flex justify-center mt-4">
             <button
-              onClick={() => setDisplayCount((prev) => prev + 10)}
+              onClick={(event) => {
+                event.stopPropagation();
+                onLoadMore();
+              }}
+              disabled={isFetchingMore}
               className="px-4 py-2 bg-gray-200/30 dark:bg-gray-800/30 border border-gray-300/50 dark:border-gray-900/50 text-gray-600/50 dark:text-gray-300/50 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-300/50 dark:hover:bg-gray-800/50 transition-colors"
             >
-              Load More
+              {isFetchingMore ? "Loading..." : "Load More"}
             </button>
           </div>
         )}
@@ -191,9 +295,12 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
 
       {/* Mobile Card View */}
       <div className="md:hidden space-y-3">
-        {historyList.slice(0, displayCount).map((result) => {
-          const mtrData = parseMTRData(result.mtrData);
+        {historyList.map((result) => {
+          const detail = detailCache.get(result.id);
+          const mtrData = parseMTRData(detail?.mtrData);
           const isExpanded = expandedRows.has(result.id);
+          const isLoadingDetail = loadingDetails.has(result.id);
+          const hasDetailError = detailErrors.has(result.id);
 
           return (
             <motion.div
@@ -207,8 +314,8 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
                   : ""
               }`}
               onClick={() => {
-                if (result.usedMtr && mtrData) {
-                  toggleExpanded(result.id);
+                if (result.usedMtr) {
+                  void toggleExpanded(result);
                 }
               }}
             >
@@ -285,6 +392,18 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
               </div>
 
               {/* Expandable MTR Details */}
+              {result.usedMtr && isExpanded && isLoadingDetail && (
+                <div className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                  Loading MTR details...
+                </div>
+              )}
+
+              {result.usedMtr && isExpanded && hasDetailError && (
+                <div className="mt-3 text-sm text-red-600 dark:text-red-400">
+                  Failed to load MTR details.
+                </div>
+              )}
+
               {result.usedMtr && mtrData && (
                 <MTRResultsDisplay
                   mtrData={mtrData}
@@ -297,13 +416,17 @@ export const MonitorResultsTable: React.FC<MonitorResultsTableProps> = ({
         })}
 
         {/* Load More Button for Mobile */}
-        {historyList.length > displayCount && (
+        {hasMore && (
           <div className="flex justify-center mt-4">
             <button
-              onClick={() => setDisplayCount((prev) => prev + 10)}
+              onClick={(event) => {
+                event.stopPropagation();
+                onLoadMore();
+              }}
+              disabled={isFetchingMore}
               className="px-4 py-2 bg-gray-200/30 dark:bg-gray-800/30 border border-gray-300/50 dark:border-gray-900/50 text-gray-600/50 dark:text-gray-300/50 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-300/50 dark:hover:bg-gray-800/50 transition-colors"
             >
-              Load More
+              {isFetchingMore ? "Loading..." : "Load More"}
             </button>
           </div>
         )}

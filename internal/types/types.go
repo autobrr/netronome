@@ -167,6 +167,29 @@ type PacketLossResult struct {
 	CreatedAt      time.Time `db:"created_at" json:"createdAt"`
 }
 
+type PacketLossResultSummary struct {
+	ID             int64     `db:"id" json:"id"`
+	MonitorID      int64     `db:"monitor_id" json:"monitorId"`
+	PacketLoss     float64   `db:"packet_loss" json:"packetLoss"`
+	MinRTT         float64   `db:"min_rtt" json:"minRtt"`
+	MaxRTT         float64   `db:"max_rtt" json:"maxRtt"`
+	AvgRTT         float64   `db:"avg_rtt" json:"avgRtt"`
+	StdDevRTT      float64   `db:"std_dev_rtt" json:"stdDevRtt"`
+	PacketsSent    int       `db:"packets_sent" json:"packetsSent"`
+	PacketsRecv    int       `db:"packets_recv" json:"packetsRecv"`
+	UsedMTR        bool      `db:"used_mtr" json:"usedMtr"`
+	HopCount       int       `db:"hop_count" json:"hopCount"`
+	PrivilegedMode bool      `db:"privileged_mode" json:"privilegedMode"`
+	CreatedAt      time.Time `db:"created_at" json:"createdAt"`
+}
+
+type PaginatedPacketLossResults struct {
+	Data  []PacketLossResultSummary `json:"data"`
+	Total int                       `json:"total"`
+	Page  int                       `json:"page"`
+	Limit int                       `json:"limit"`
+}
+
 // MonitorAgent represents a monitoring agent configuration
 type MonitorAgent struct {
 	ID                int64      `db:"id" json:"id"`
