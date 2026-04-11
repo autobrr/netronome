@@ -21,7 +21,8 @@ interface AuthContextType {
   checkRegistrationStatus: () => Promise<{
     registrationEnabled: boolean;
     hasUsers: boolean;
-    oidcEnabled: boolean;
+    oidcConfigured: boolean;
+    oidcReady: boolean;
   }>;
 }
 
@@ -34,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Skip auth check if we're on the public route
     const isPublicRoute = window.location.pathname.includes('/public');
-    
+
     if (isPublicRoute) {
       setIsLoading(false);
       return;

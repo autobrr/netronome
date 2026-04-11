@@ -102,32 +102,36 @@ func newAuthStatusTestDB(t *testing.T) database.Service {
 	}
 }
 
-func TestCheckRegistrationStatusReportsOIDCProviderReadiness(t *testing.T) {
+func TestCheckRegistrationStatusReportsOIDCState(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		name           string
-		oidc           *auth.OIDCConfig
-		oidcConfigured bool
-		expectedOID    bool
+		name                   string
+		oidc                   *auth.OIDCConfig
+		oidcConfigured         bool
+		expectedOIDCConfigured bool
+		expectedOIDCReady      bool
 	}{
 		{
-			name:           "configured but provider unavailable",
-			oidc:           nil,
-			oidcConfigured: true,
-			expectedOID:    true,
+			name:                   "configured but provider unavailable",
+			oidc:                   nil,
+			oidcConfigured:         true,
+			expectedOIDCConfigured: true,
+			expectedOIDCReady:      false,
 		},
 		{
-			name:           "configured and provider ready",
-			oidc:           &auth.OIDCConfig{},
-			oidcConfigured: true,
-			expectedOID:    true,
+			name:                   "configured and provider ready",
+			oidc:                   &auth.OIDCConfig{},
+			oidcConfigured:         true,
+			expectedOIDCConfigured: true,
+			expectedOIDCReady:      true,
 		},
 		{
-			name:           "not configured and provider unavailable",
-			oidc:           nil,
-			oidcConfigured: false,
-			expectedOID:    false,
+			name:                   "not configured and provider unavailable",
+			oidc:                   nil,
+			oidcConfigured:         false,
+			expectedOIDCConfigured: false,
+			expectedOIDCReady:      false,
 		},
 	}
 
@@ -144,12 +148,14 @@ func TestCheckRegistrationStatusReportsOIDCProviderReadiness(t *testing.T) {
 			require.Equal(t, http.StatusOK, recorder.Code)
 
 			var response struct {
-				HasUsers    bool `json:"hasUsers"`
-				OIDCEnabled bool `json:"oidcEnabled"`
+				HasUsers       bool `json:"hasUsers"`
+				OIDCConfigured bool `json:"oidcConfigured"`
+				OIDCReady      bool `json:"oidcReady"`
 			}
 			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 			assert.False(t, response.HasUsers)
-			assert.Equal(t, tt.expectedOID, response.OIDCEnabled)
+			assert.Equal(t, tt.expectedOIDCConfigured, response.OIDCConfigured)
+			assert.Equal(t, tt.expectedOIDCReady, response.OIDCReady)
 		})
 	}
 }

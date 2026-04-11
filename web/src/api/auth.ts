@@ -24,7 +24,8 @@ interface UserResponse {
 interface RegistrationStatus {
   registrationEnabled: boolean;
   hasUsers: boolean;
-  oidcEnabled: boolean;
+  oidcConfigured: boolean;
+  oidcReady: boolean;
 }
 
 export async function login(
@@ -147,7 +148,8 @@ export async function checkRegistrationStatus(): Promise<RegistrationStatus> {
       return {
         registrationEnabled: data.registrationEnabled ?? false,
         hasUsers: data.hasUsers ?? true,
-        oidcEnabled: data.oidcEnabled ?? false,
+        oidcConfigured: data.oidcConfigured ?? false,
+        oidcReady: data.oidcReady ?? false,
       };
     }
 
@@ -155,7 +157,8 @@ export async function checkRegistrationStatus(): Promise<RegistrationStatus> {
     return {
       registrationEnabled: false,
       hasUsers: true,
-      oidcEnabled: false,
+      oidcConfigured: false,
+      oidcReady: false,
     };
   } catch (error) {
     console.error("Registration status check failed:", error);
@@ -163,7 +166,8 @@ export async function checkRegistrationStatus(): Promise<RegistrationStatus> {
     return {
       registrationEnabled: false,
       hasUsers: true,
-      oidcEnabled: false,
+      oidcConfigured: false,
+      oidcReady: false,
     };
   }
 }

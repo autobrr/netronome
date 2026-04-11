@@ -54,8 +54,9 @@ func (h *AuthHandler) CheckRegistrationStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"hasUsers":    count > 0,
-		"oidcEnabled": h.oidcConfigured,
+		"hasUsers":       count > 0,
+		"oidcConfigured": h.oidcConfigured,
+		"oidcReady":      h.oidc != nil,
 	})
 }
 
