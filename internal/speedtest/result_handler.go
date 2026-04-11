@@ -57,6 +57,11 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 		jitterPtr = &result.Jitter
 	}
 
+	var resultURL *string
+	if result.ResultURL != "" {
+		resultURL = &result.ResultURL
+	}
+
 	// Give the DB write up to 10s while still respecting upstream cancellations and values.
 	saveCtx, saveCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer saveCancel()
@@ -73,6 +78,7 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 		Latency:       result.Latency,
 		Jitter:        jitterPtr,
 		IsScheduled:   opts.IsScheduled,
+		ResultURL:     resultURL,
 		CreatedAt:     createdAt,
 	})
 	if err != nil {

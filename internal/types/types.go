@@ -56,6 +56,7 @@ type SpeedTestResult struct {
 	PacketLoss    float64   `json:"packetLoss,omitempty"`
 	Jitter        *float64  `json:"jitter,omitempty"`
 	IsScheduled   bool      `json:"isScheduled"`
+	ResultURL     *string   `json:"resultUrl,omitempty"`
 	CreatedAt     time.Time `json:"createdAt"`
 }
 
