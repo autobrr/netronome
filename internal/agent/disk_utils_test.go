@@ -141,6 +141,7 @@ func TestBuildDiskReportEntries(t *testing.T) {
 			entries := agent.buildDiskReportEntries(tt.partitions, tt.usageFn)
 
 			require.Len(t, entries, len(tt.expectedMountpoints))
+			require.Len(t, tt.expectedExplicitIncludes, len(entries))
 			for i, entry := range entries {
 				assert.Equal(t, tt.expectedMountpoints[i], entry.Partition.Mountpoint)
 				assert.Equal(t, tt.expectedExplicitIncludes[i], entry.ExplicitInclude)
