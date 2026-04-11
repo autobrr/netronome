@@ -5,6 +5,8 @@ package server
 
 import (
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -13,21 +15,28 @@ import (
 	"github.com/autobrr/netronome/internal/utils"
 )
 
-func (h *AuthHandler) InitOIDCRoutes(r *gin.RouterGroup) {
-	if h.oidc == nil {
-		return
-	}
-
-	r.GET("/oidc/login", h.handleOIDCLogin)
-	r.GET("/oidc/callback", h.handleOIDCCallback)
+func loginErrorRedirectURL(baseURL, errorCode string) string {
+	baseURL = strings.TrimRight(baseURL, "/")
+	return baseURL + "/login?error=" + url.QueryEscape(errorCode)
 }
 
 func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
+	baseURL := c.GetString("base_url")
+	if baseURL == "" {
+		baseURL = "/"
+	}
+
+	if h.oidc == nil {
+		log.Warn().Msg("OIDC login attempted but provider is not ready")
+		c.Redirect(http.StatusTemporaryRedirect, loginErrorRedirectURL(baseURL, "oidc_unavailable"))
+		return
+	}
+
 	// Generate state parameter
 	state, err := utils.GenerateSecureToken(32)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to generate state parameter")
-		c.Redirect(http.StatusTemporaryRedirect, "/?error=state_generation_failed")
+		c.Redirect(http.StatusTemporaryRedirect, loginErrorRedirectURL(baseURL, "state_generation_failed"))
 		return
 	}
 
@@ -35,7 +44,7 @@ func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
 	pkceParams, err := auth.GeneratePKCEParams()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to generate PKCE parameters")
-		c.Redirect(http.StatusTemporaryRedirect, "/?error=pkce_generation_failed")
+		c.Redirect(http.StatusTemporaryRedirect, loginErrorRedirectURL(baseURL, "pkce_generation_failed"))
 		return
 	}
 
@@ -59,17 +68,23 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 		baseURL = "/"
 	}
 
+	if h.oidc == nil {
+		log.Warn().Msg("OIDC callback received but provider is not ready")
+		c.Redirect(http.StatusTemporaryRedirect, loginErrorRedirectURL(baseURL, "oidc_unavailable"))
+		return
+	}
+
 	code := c.Query("code")
 	if code == "" {
 		log.Error().Msg("no code received in callback")
-		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=invalid_code")
+		c.Redirect(http.StatusTemporaryRedirect, loginErrorRedirectURL(baseURL, "invalid_code"))
 		return
 	}
 
 	state := c.Query("state")
 	if state == "" {
 		log.Error().Msg("no state received in callback")
-		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=invalid_state")
+		c.Redirect(http.StatusTemporaryRedirect, loginErrorRedirectURL(baseURL, "invalid_state"))
 		return
 	}
 
@@ -78,7 +93,7 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 	codeVerifier, exists := h.getPKCEVerifier(state)
 	if !exists {
 		log.Error().Str("state", state).Msg("no PKCE verifier found for state")
-		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=invalid_state")
+		c.Redirect(http.StatusTemporaryRedirect, loginErrorRedirectURL(baseURL, "invalid_state"))
 		return
 	}
 
@@ -86,7 +101,7 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 	token, err := h.oidc.ExchangeCodeWithPKCE(c.Request.Context(), code, codeVerifier)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to exchange code for token with PKCE")
-		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=token_exchange")
+		c.Redirect(http.StatusTemporaryRedirect, loginErrorRedirectURL(baseURL, "token_exchange"))
 		return
 	}
 
@@ -98,7 +113,7 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
 		log.Error().Msg("no id_token in oauth2 token")
-		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=missing_id_token")
+		c.Redirect(http.StatusTemporaryRedirect, loginErrorRedirectURL(baseURL, "missing_id_token"))
 		return
 	}
 
@@ -106,7 +121,7 @@ func (h *AuthHandler) handleOIDCCallback(c *gin.Context) {
 	idClaims, err := h.oidc.VerifyTokenWithClaims(c.Request.Context(), rawIDToken)
 	if err != nil {
 		log.Error().Err(err).Msg("invalid ID token")
-		c.Redirect(http.StatusTemporaryRedirect, baseURL+"login?error=invalid_token")
+		c.Redirect(http.StatusTemporaryRedirect, loginErrorRedirectURL(baseURL, "invalid_token"))
 		return
 	}
 

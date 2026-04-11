@@ -22,9 +22,9 @@ interface UserResponse {
 }
 
 interface RegistrationStatus {
-  registrationEnabled: boolean;
   hasUsers: boolean;
-  oidcEnabled: boolean;
+  oidcConfigured: boolean;
+  oidcReady: boolean;
 }
 
 export async function login(
@@ -145,25 +145,25 @@ export async function checkRegistrationStatus(): Promise<RegistrationStatus> {
     if (response.ok) {
       const data = await response.json();
       return {
-        registrationEnabled: data.registrationEnabled ?? false,
         hasUsers: data.hasUsers ?? true,
-        oidcEnabled: data.oidcEnabled ?? false,
+        oidcConfigured: data.oidcConfigured ?? false,
+        oidcReady: data.oidcReady ?? false,
       };
     }
 
     // If the endpoint fails, assume users exist to prevent unwanted registration
     return {
-      registrationEnabled: false,
       hasUsers: true,
-      oidcEnabled: false,
+      oidcConfigured: false,
+      oidcReady: false,
     };
   } catch (error) {
     console.error("Registration status check failed:", error);
     // Default to secure state
     return {
-      registrationEnabled: false,
       hasUsers: true,
-      oidcEnabled: false,
+      oidcConfigured: false,
+      oidcReady: false,
     };
   }
 }
