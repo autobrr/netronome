@@ -134,7 +134,8 @@ func dedupeDiskReportEntries(entries []diskReportEntry) []diskReportEntry {
 
 	grouped := make(map[string][]int, len(entries))
 	for i, entry := range entries {
-		grouped[diskReportSignature(entry)] = append(grouped[diskReportSignature(entry)], i)
+		sig := diskReportSignature(entry)
+		grouped[sig] = append(grouped[sig], i)
 	}
 
 	keep := make([]bool, len(entries))

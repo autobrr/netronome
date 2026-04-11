@@ -8,6 +8,7 @@ import (
 
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/autobrr/netronome/internal/config"
 )
@@ -139,7 +140,7 @@ func TestBuildDiskReportEntries(t *testing.T) {
 
 			entries := agent.buildDiskReportEntries(tt.partitions, tt.usageFn)
 
-			assert.Len(t, entries, len(tt.expectedMountpoints))
+			require.Len(t, entries, len(tt.expectedMountpoints))
 			for i, entry := range entries {
 				assert.Equal(t, tt.expectedMountpoints[i], entry.Partition.Mountpoint)
 				assert.Equal(t, tt.expectedExplicitIncludes[i], entry.ExplicitInclude)
