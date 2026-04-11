@@ -17,10 +17,6 @@ import (
 
 func loginErrorRedirectURL(baseURL, errorCode string) string {
 	baseURL = strings.TrimRight(baseURL, "/")
-	if baseURL == "" {
-		baseURL = ""
-	}
-
 	return baseURL + "/login?error=" + url.QueryEscape(errorCode)
 }
 

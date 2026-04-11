@@ -106,25 +106,34 @@ func TestCheckRegistrationStatusReportsOIDCProviderReadiness(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		name        string
-		oidc        *auth.OIDCConfig
-		expectedOID bool
+		name           string
+		oidc           *auth.OIDCConfig
+		oidcConfigured bool
+		expectedOID    bool
 	}{
 		{
-			name:        "configured but provider unavailable",
-			oidc:        nil,
-			expectedOID: false,
+			name:           "configured but provider unavailable",
+			oidc:           nil,
+			oidcConfigured: true,
+			expectedOID:    true,
 		},
 		{
-			name:        "configured and provider ready",
-			oidc:        &auth.OIDCConfig{},
-			expectedOID: true,
+			name:           "configured and provider ready",
+			oidc:           &auth.OIDCConfig{},
+			oidcConfigured: true,
+			expectedOID:    true,
+		},
+		{
+			name:           "not configured and provider unavailable",
+			oidc:           nil,
+			oidcConfigured: false,
+			expectedOID:    false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler := NewAuthHandler(newAuthStatusTestDB(t), tt.oidc, true, "", nil)
+			handler := NewAuthHandler(newAuthStatusTestDB(t), tt.oidc, tt.oidcConfigured, "", nil)
 
 			recorder := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(recorder)
