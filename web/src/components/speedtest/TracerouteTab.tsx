@@ -201,16 +201,10 @@ export const TracerouteTab: React.FC = () => {
     onMutate: (monitorId) => {
       setTogglingMonitorIds(prev => new Set(prev).add(monitorId));
     },
-    onSuccess: async (_, monitorId) => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["packetloss", "monitors"] });
-      queryClient.invalidateQueries({
-        queryKey: ["packetloss", "history", monitorId],
-      });
       await queryClient.refetchQueries({
         queryKey: ["packetloss", "monitors"],
-      });
-      await queryClient.refetchQueries({
-        queryKey: ["packetloss", "history", monitorId],
       });
     },
     onSettled: (_, __, monitorId) => {
@@ -229,14 +223,8 @@ export const TracerouteTab: React.FC = () => {
     },
     onSuccess: async (_, monitorId) => {
       queryClient.invalidateQueries({ queryKey: ["packetloss", "monitors"] });
-      queryClient.invalidateQueries({
-        queryKey: ["packetloss", "history", monitorId],
-      });
       await queryClient.refetchQueries({
         queryKey: ["packetloss", "monitors"],
-      });
-      await queryClient.refetchQueries({
-        queryKey: ["packetloss", "history", monitorId],
       });
       const monitor = monitorList.find((m) => m.id === monitorId);
       showToast("Monitor stopped", "success", {
@@ -509,6 +497,7 @@ export const TracerouteTab: React.FC = () => {
           {/* Right Column - Monitor Details */}
           {selectedMonitor && (
             <PacketLossMonitorDetails
+              key={selectedMonitor.id}
               selectedMonitor={selectedMonitor}
               monitorStatuses={monitorStatuses}
             />

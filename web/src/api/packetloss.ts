@@ -7,7 +7,9 @@ import { getApiUrl } from "@/utils/baseUrl";
 import {
   PacketLossMonitor,
   PacketLossResult,
+  PacketLossResultDetail,
   PacketLossUpdate,
+  PaginatedResponse,
 } from "@/types/types";
 
 export const getPacketLossMonitors = async (): Promise<PacketLossMonitor[]> => {
@@ -74,13 +76,27 @@ export const getPacketLossMonitorStatus = async (
 
 export const getPacketLossHistory = async (
   id: number,
-  limit: number = 100,
-): Promise<PacketLossResult[]> => {
+  page: number = 1,
+  limit: number = 25,
+): Promise<PaginatedResponse<PacketLossResult>> => {
   const response = await fetch(
-    getApiUrl(`/packetloss/monitors/${id}/history?limit=${limit}`),
+    getApiUrl(`/packetloss/monitors/${id}/history?page=${page}&limit=${limit}`),
   );
   if (!response.ok) {
     throw new Error("Failed to fetch monitor history");
+  }
+  return response.json();
+};
+
+export const getPacketLossHistoryDetail = async (
+  id: number,
+  resultId: number,
+): Promise<PacketLossResultDetail> => {
+  const response = await fetch(
+    getApiUrl(`/packetloss/monitors/${id}/history/${resultId}`),
+  );
+  if (!response.ok) {
+    throw new Error("Failed to fetch monitor history detail");
   }
   return response.json();
 };
