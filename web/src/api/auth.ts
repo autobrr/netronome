@@ -22,7 +22,6 @@ interface UserResponse {
 }
 
 interface RegistrationStatus {
-  registrationEnabled: boolean;
   hasUsers: boolean;
   oidcConfigured: boolean;
   oidcReady: boolean;
@@ -146,7 +145,6 @@ export async function checkRegistrationStatus(): Promise<RegistrationStatus> {
     if (response.ok) {
       const data = await response.json();
       return {
-        registrationEnabled: data.registrationEnabled ?? false,
         hasUsers: data.hasUsers ?? true,
         oidcConfigured: data.oidcConfigured ?? false,
         oidcReady: data.oidcReady ?? false,
@@ -155,7 +153,6 @@ export async function checkRegistrationStatus(): Promise<RegistrationStatus> {
 
     // If the endpoint fails, assume users exist to prevent unwanted registration
     return {
-      registrationEnabled: false,
       hasUsers: true,
       oidcConfigured: false,
       oidcReady: false,
@@ -164,7 +161,6 @@ export async function checkRegistrationStatus(): Promise<RegistrationStatus> {
     console.error("Registration status check failed:", error);
     // Default to secure state
     return {
-      registrationEnabled: false,
       hasUsers: true,
       oidcConfigured: false,
       oidcReady: false,

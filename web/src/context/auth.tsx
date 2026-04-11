@@ -19,7 +19,6 @@ interface AuthContextType {
   register: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   checkRegistrationStatus: () => Promise<{
-    registrationEnabled: boolean;
     hasUsers: boolean;
     oidcConfigured: boolean;
     oidcReady: boolean;
