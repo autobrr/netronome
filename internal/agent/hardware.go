@@ -197,32 +197,15 @@ func (a *Agent) getHardwareStats() (*HardwareStats, error) {
 			}
 		}
 
-		for _, partition := range partitions {
-			// Check if this disk should be included based on filters
-			if !a.shouldIncludeDisk(partition.Mountpoint, partition.Device, partition.Fstype) {
-				log.Debug().
-					Str("mount", partition.Mountpoint).
-					Str("device", partition.Device).
-					Str("fstype", partition.Fstype).
-					Msg("Skipping disk based on filter rules")
-				continue
-			}
-
-			usage, err := disk.Usage(partition.Mountpoint)
+		for _, entry := range a.buildDiskReportEntries(partitions, func(mountpoint string) (*disk.UsageStat, error) {
+			usage, err := disk.Usage(mountpoint)
 			if err != nil {
-				log.Debug().Err(err).Str("mount", partition.Mountpoint).Msg("Failed to get disk usage")
-				continue
+				return nil, err
 			}
-
-			// Skip if disk is too small (less than 1GB)
-			if usage.Total < 1024*1024*1024 {
-				log.Debug().
-					Str("mount", partition.Mountpoint).
-					Uint64("total", usage.Total).
-					Msg("Skipping small disk")
-				continue
-			}
-
+			return usage, nil
+		}) {
+			partition := entry.Partition
+			usage := entry.Usage
 			diskStat := DiskStats{
 				Path:        partition.Mountpoint,
 				Device:      partition.Device,

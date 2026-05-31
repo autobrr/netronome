@@ -323,27 +323,42 @@ func (s *service) GetPacketLossMonitors() ([]*types.PacketLossMonitor, error) {
 	return monitors, nil
 }
 
-// GetPacketLossResults retrieves packet loss results for a monitor
-func (s *service) GetPacketLossResults(monitorID int64, limit int) ([]*types.PacketLossResult, error) {
+// GetPacketLossResults retrieves paginated packet loss result summaries for a monitor.
+func (s *service) GetPacketLossResults(monitorID int64, page int, limit int) (*types.PaginatedPacketLossResults, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 25
+	}
+
+	countQuery := s.sqlBuilder.
+		Select("COUNT(*)").
+		From("packet_loss_results").
+		Where(sq.Eq{"monitor_id": monitorID})
+
+	var total int
+	if err := countQuery.RunWith(s.db).QueryRow().Scan(&total); err != nil {
+		return nil, fmt.Errorf("failed to count packet loss results: %w", err)
+	}
+
 	query := s.sqlBuilder.
-		Select("id", "monitor_id", "packet_loss", "min_rtt", "max_rtt", "avg_rtt", "std_dev_rtt", "packets_sent", "packets_recv", "used_mtr", "hop_count", "mtr_data", "privileged_mode", "created_at").
+		Select("id", "monitor_id", "packet_loss", "min_rtt", "max_rtt", "avg_rtt", "std_dev_rtt", "packets_sent", "packets_recv", "used_mtr", "hop_count", "privileged_mode", "created_at").
 		From("packet_loss_results").
 		Where(sq.Eq{"monitor_id": monitorID}).
-		OrderBy("created_at DESC")
-
-	if limit > 0 {
-		query = query.Limit(uint64(limit))
-	}
+		OrderBy("created_at DESC", "id DESC").
+		Limit(uint64(limit)).
+		Offset(uint64((page - 1) * limit))
 
 	rows, err := query.RunWith(s.db).Query()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get packet loss results: %w", err)
+		return nil, fmt.Errorf("failed to get packet loss result summaries: %w", err)
 	}
 	defer rows.Close()
 
-	var results []*types.PacketLossResult
+	results := make([]types.PacketLossResultSummary, 0, limit)
 	for rows.Next() {
-		result := &types.PacketLossResult{}
+		var result types.PacketLossResultSummary
 		err := rows.Scan(
 			&result.ID,
 			&result.MonitorID,
@@ -356,18 +371,58 @@ func (s *service) GetPacketLossResults(monitorID int64, limit int) ([]*types.Pac
 			&result.PacketsRecv,
 			&result.UsedMTR,
 			&result.HopCount,
-			&result.MTRData,
 			&result.PrivilegedMode,
 			&result.CreatedAt,
 		)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to scan packet loss result")
+			log.Error().Err(err).Msg("Failed to scan packet loss result summary")
 			continue
 		}
 		results = append(results, result)
 	}
 
-	return results, nil
+	return &types.PaginatedPacketLossResults{
+		Data:  results,
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}, nil
+}
+
+// GetPacketLossResultDetail retrieves a single packet loss result including full MTR data.
+func (s *service) GetPacketLossResultDetail(monitorID int64, resultID int64) (*types.PacketLossResult, error) {
+	query := s.sqlBuilder.
+		Select("id", "monitor_id", "packet_loss", "min_rtt", "max_rtt", "avg_rtt", "std_dev_rtt", "packets_sent", "packets_recv", "used_mtr", "hop_count", "mtr_data", "privileged_mode", "created_at").
+		From("packet_loss_results").
+		Where(sq.Eq{"monitor_id": monitorID, "id": resultID}).
+		Limit(1)
+
+	result := &types.PacketLossResult{}
+	err := query.RunWith(s.db).QueryRow().Scan(
+		&result.ID,
+		&result.MonitorID,
+		&result.PacketLoss,
+		&result.MinRTT,
+		&result.MaxRTT,
+		&result.AvgRTT,
+		&result.StdDevRTT,
+		&result.PacketsSent,
+		&result.PacketsRecv,
+		&result.UsedMTR,
+		&result.HopCount,
+		&result.MTRData,
+		&result.PrivilegedMode,
+		&result.CreatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get packet loss result detail: %w", err)
+	}
+
+	return result, nil
 }
 
 // UpdatePacketLossMonitorState updates the monitor state and timestamp

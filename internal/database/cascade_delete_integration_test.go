@@ -49,9 +49,9 @@ func TestPacketLossMonitor_CascadeDelete(t *testing.T) {
 		}
 
 		// Verify we can retrieve results for the monitor
-		results, err := td.Service.GetPacketLossResults(monitor.ID, 10)
+		results, err := td.Service.GetPacketLossResults(monitor.ID, 1, 10)
 		require.NoError(t, err)
-		assert.Len(t, results, 5)
+		assert.Len(t, results.Data, 5)
 
 		// Delete the monitor
 		err = td.Service.DeletePacketLossMonitor(monitor.ID)
@@ -66,9 +66,9 @@ func TestPacketLossMonitor_CascadeDelete(t *testing.T) {
 		}
 
 		// Double-check by trying to retrieve results
-		results, err = td.Service.GetPacketLossResults(monitor.ID, 10)
+		results, err = td.Service.GetPacketLossResults(monitor.ID, 1, 10)
 		require.NoError(t, err)
-		assert.Empty(t, results)
+		assert.Empty(t, results.Data)
 	})
 }
 

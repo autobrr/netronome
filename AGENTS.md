@@ -19,7 +19,7 @@
 - `./test/test-local.sh`: local dockerized scenario tests.
 
 ## Coding Style & Naming Conventions
-- Go: `gofmt` or `goimports`, Go 1.25 target.
+- Go: `gofmt` or `goimports`, Go 1.26 target.
 - TypeScript: 2-space indentation, PascalCase components, camelCase utilities.
 - Tailwind tokens should align with `web/tailwind.config.*`.
 - Lint: `pnpm -C web lint` (ESLint).

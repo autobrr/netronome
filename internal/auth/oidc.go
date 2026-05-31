@@ -135,6 +135,11 @@ func (c *OIDCConfig) decryptJWE(jweToken string) (string, error) {
 	return string(decrypted), nil
 }
 
+const (
+	oidcInitMaxAttempts = 10
+	oidcInitRetryDelay  = 5 * time.Second
+)
+
 func NewOIDC(ctx context.Context, cfg config.OIDCConfig) (*OIDCConfig, error) {
 	if cfg.Issuer == "" {
 		log.Debug().Msg("Using built-in authentication")
@@ -143,17 +148,39 @@ func NewOIDC(ctx context.Context, cfg config.OIDCConfig) (*OIDCConfig, error) {
 
 	log.Debug().Str("issuer", cfg.Issuer).Msg("Initializing OIDC provider")
 
-	// Perform manual discovery
-	endpoints, _, err := getProviderEndpoints(ctx, http.DefaultClient, cfg.Issuer)
-	if err != nil {
-		log.Error().Err(err).Str("issuer", cfg.Issuer).Msg("Failed to discover OIDC provider endpoints")
-		return nil, fmt.Errorf("failed to discover OIDC provider endpoints: %w", err)
+	var (
+		endpoints oauth2.Endpoint
+		provider  *oidc.Provider
+		lastErr   error
+	)
+
+	for attempt := 1; attempt <= oidcInitMaxAttempts; attempt++ {
+		endpoints, _, lastErr = getProviderEndpoints(ctx, http.DefaultClient, cfg.Issuer)
+		if lastErr != nil {
+			log.Warn().Err(lastErr).Int("attempt", attempt).Int("max", oidcInitMaxAttempts).
+				Str("issuer", cfg.Issuer).Msg("Failed to discover OIDC provider endpoints")
+			if attempt < oidcInitMaxAttempts {
+				time.Sleep(oidcInitRetryDelay)
+			}
+			continue
+		}
+
+		provider, lastErr = oidc.NewProvider(ctx, cfg.Issuer)
+		if lastErr != nil {
+			log.Warn().Err(lastErr).Int("attempt", attempt).Int("max", oidcInitMaxAttempts).
+				Str("issuer", cfg.Issuer).Msg("Failed to initialize OIDC provider")
+			if attempt < oidcInitMaxAttempts {
+				time.Sleep(oidcInitRetryDelay)
+			}
+			continue
+		}
+
+		break
 	}
 
-	provider, err := oidc.NewProvider(ctx, cfg.Issuer)
-	if err != nil {
-		log.Error().Err(err).Str("issuer", cfg.Issuer).Msg("Failed to initialize OIDC provider")
-		return nil, fmt.Errorf("failed to initialize OIDC provider: %w", err)
+	if lastErr != nil {
+		log.Error().Err(lastErr).Str("issuer", cfg.Issuer).Msg("Failed to initialize OIDC provider after all attempts")
+		return nil, fmt.Errorf("failed to initialize OIDC provider after %d attempts: %w", oidcInitMaxAttempts, lastErr)
 	}
 
 	scopes := cfg.Scopes

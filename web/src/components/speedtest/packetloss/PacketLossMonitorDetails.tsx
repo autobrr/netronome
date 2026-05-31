@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useEffect } from "react";
+import React from "react";
 import { motion } from "motion/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { GlobeAltIcon } from "@heroicons/react/24/outline";
 import { PacketLossMonitor } from "@/types/types";
 import { getPacketLossHistory } from "@/api/packetloss";
@@ -13,6 +13,7 @@ import { MonitorStatusCard } from "./components/MonitorStatusCard";
 import { MonitorPerformanceChart } from "./components/MonitorPerformanceChart";
 import { MonitorResultsTable } from "./components/MonitorResultsTable";
 import { MonitorStatus } from "./types/monitorStatus";
+import { PACKET_LOSS_HISTORY_PAGE_SIZE } from "./constants/packetLossConstants";
 
 interface PacketLossMonitorDetailsProps {
   selectedMonitor: PacketLossMonitor;
@@ -23,33 +24,38 @@ interface PacketLossMonitorDetailsProps {
 export const PacketLossMonitorDetails: React.FC<
   PacketLossMonitorDetailsProps
 > = ({ selectedMonitor, monitorStatuses, onTraceRoute }) => {
-  const queryClient = useQueryClient();
-
-  // Fetch history for selected monitor
-  const { data: monitorHistory } = useQuery({
+  const {
+    data: monitorHistory,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ["packetloss", "history", selectedMonitor.id],
-    queryFn: () => getPacketLossHistory(selectedMonitor.id, 100),
+    queryFn: ({ pageParam }) =>
+      getPacketLossHistory(
+        selectedMonitor.id,
+        pageParam,
+        PACKET_LOSS_HISTORY_PAGE_SIZE,
+      ),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      const loadedCount = allPages.reduce(
+        (total, page) => total + page.data.length,
+        0,
+      );
+
+      return loadedCount < (lastPage.total || 0)
+        ? lastPage.page + 1
+        : undefined;
+    },
     staleTime: 5000, // Consider data stale after 5 seconds
     refetchInterval: false, // Don't refetch automatically
   });
 
-  // Ensure monitorHistory is always an array
-  const historyList = monitorHistory || [];
-
-  // Fetch fresh history when monitor is selected
-  useEffect(() => {
-    // Fetch fresh data and update cache directly
-    getPacketLossHistory(selectedMonitor.id, 100)
-      .then((freshHistory) => {
-        queryClient.setQueryData(
-          ["packetloss", "history", selectedMonitor.id],
-          freshHistory,
-        );
-      })
-      .catch((error) => {
-        console.error("Failed to fetch monitor history:", error);
-      });
-  }, [selectedMonitor, queryClient]);
+  const historyList =
+    monitorHistory?.pages.flatMap((page) => page.data) || [];
+  const totalHistoryCount = monitorHistory?.pages[0]?.total || historyList.length;
+  const hasMoreHistory = hasNextPage || false;
 
   const status = monitorStatuses.get(selectedMonitor.id);
   const showStatus =
@@ -101,6 +107,10 @@ export const PacketLossMonitorDetails: React.FC<
         <MonitorResultsTable
           historyList={historyList}
           selectedMonitor={selectedMonitor}
+          totalCount={totalHistoryCount}
+          hasMore={hasMoreHistory}
+          isFetchingMore={isFetchingNextPage}
+          onLoadMore={() => void fetchNextPage()}
         />
       </div>
     </motion.div>

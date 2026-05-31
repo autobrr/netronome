@@ -227,17 +227,23 @@ func (h *PacketLossHandler) GetMonitorHistory(c *gin.Context) {
 		return
 	}
 
-	// Get limit from query parameter
-	limitStr := c.DefaultQuery("limit", "100")
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit <= 0 {
-		limit = 100
-	}
-	if limit > 1000 {
-		limit = 1000 // Cap at 1000 results
+	pageStr := c.DefaultQuery("page", "1")
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page <= 0 {
+		page = 1
 	}
 
-	results, err := h.db.GetPacketLossResults(id, limit)
+	// Get limit from query parameter
+	limitStr := c.DefaultQuery("limit", "25")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		limit = 25
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	results, err := h.db.GetPacketLossResults(id, page, limit)
 	if err != nil {
 		log.Error().Err(err).Int64("monitorID", id).Msg("Failed to get packet loss results")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get monitor history"})
@@ -245,6 +251,34 @@ func (h *PacketLossHandler) GetMonitorHistory(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, results)
+}
+
+// GetMonitorHistoryDetail returns a single historical result for a monitor, including MTR detail.
+func (h *PacketLossHandler) GetMonitorHistoryDetail(c *gin.Context) {
+	monitorID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid monitor ID"})
+		return
+	}
+
+	resultID, err := strconv.ParseInt(c.Param("resultId"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid result ID"})
+		return
+	}
+
+	result, err := h.db.GetPacketLossResultDetail(monitorID, resultID)
+	if err != nil {
+		if err == database.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Result not found"})
+			return
+		}
+		log.Error().Err(err).Int64("monitorID", monitorID).Int64("resultID", resultID).Msg("Failed to get packet loss result detail")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get monitor history detail"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }
 
 // StartMonitor manually starts monitoring for a specific monitor
@@ -280,13 +314,13 @@ func (h *PacketLossHandler) StartMonitor(c *gin.Context) {
 	// Update last_run and next_run times before running the test
 	now := time.Now()
 	monitor.LastRun = &now
-	
+
 	// Calculate next run time based on the interval
 	nextRun := h.scheduler.CalculateNextRun(monitor.Interval, now)
 	if !nextRun.IsZero() {
 		monitor.NextRun = &nextRun
 	}
-	
+
 	// Update the monitor with new schedule times
 	if err := h.db.UpdatePacketLossMonitor(monitor); err != nil {
 		log.Error().Err(err).Int64("monitorID", id).Msg("Failed to update monitor schedule")

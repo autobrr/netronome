@@ -90,7 +90,8 @@ type Service interface {
 	UpdatePacketLossMonitor(monitor *types.PacketLossMonitor) error
 	DeletePacketLossMonitor(monitorID int64) error
 	GetPacketLossMonitors() ([]*types.PacketLossMonitor, error)
-	GetPacketLossResults(monitorID int64, limit int) ([]*types.PacketLossResult, error)
+	GetPacketLossResults(monitorID int64, page int, limit int) (*types.PaginatedPacketLossResults, error)
+	GetPacketLossResultDetail(monitorID int64, resultID int64) (*types.PacketLossResult, error)
 	UpdatePacketLossMonitorState(monitorID int64, state string) error
 
 	// Monitor operations

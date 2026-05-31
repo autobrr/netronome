@@ -42,7 +42,7 @@ var (
 	rootCmd    = &cobra.Command{
 		Use:   "netronome",
 		Short: "Netronome is a network performance testing and monitoring tool",
-		Long: `Netronome is a network performance testing and monitoring tool that helps you 
+		Long: `Netronome is a network performance testing and monitoring tool that helps you
 track and analyze your network performance over time.`,
 		CompletionOptions: cobra.CompletionOptions{
 			DisableDefaultCmd: true,
@@ -118,7 +118,7 @@ func init() {
 	agentCmd.Flags().StringP("interface", "i", "", "network interface to monitor (empty for all)")
 	agentCmd.Flags().StringP("api-key", "k", "", "API key for authentication")
 	agentCmd.Flags().StringP("log-level", "l", "", "log level (trace, debug, info, warn, error)")
-	agentCmd.Flags().StringSlice("disk-include", []string{}, "additional disk mount points to monitor (e.g., /mnt/storage)")
+	agentCmd.Flags().StringSlice("disk-include", []string{}, "disk mount points to force into monitoring, even if small or normally filtered (e.g., /mnt/storage)")
 	agentCmd.Flags().StringSlice("disk-exclude", []string{}, "disk mount points to exclude from monitoring (e.g., /boot)")
 	agentCmd.Flags().Bool("disable-system-metrics", false, "disable system metrics collection (CPU, memory, disk, temperature)")
 	agentCmd.Flags().Bool("tailscale", false, "enable Tailscale for secure connectivity")

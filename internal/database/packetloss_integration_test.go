@@ -220,15 +220,57 @@ func TestGetPacketLossResults(t *testing.T) {
 		}
 
 		// Get results with limit
-		results, err := td.Service.GetPacketLossResults(monitor.ID, 5)
+		results, err := td.Service.GetPacketLossResults(monitor.ID, 1, 5)
 		require.NoError(t, err)
-		assert.Len(t, results, 5)
+		assert.Len(t, results.Data, 5)
+		assert.Equal(t, 10, results.Total)
+		assert.Equal(t, 1, results.Page)
+		assert.Equal(t, 5, results.Limit)
 
 		// Verify order (should be newest first)
-		for i := 1; i < len(results); i++ {
-			assert.True(t, results[i-1].CreatedAt.After(results[i].CreatedAt) ||
-				results[i-1].CreatedAt.Equal(results[i].CreatedAt))
+		for i := 1; i < len(results.Data); i++ {
+			assert.True(t, results.Data[i-1].CreatedAt.After(results.Data[i].CreatedAt) ||
+				results.Data[i-1].CreatedAt.Equal(results.Data[i].CreatedAt))
 		}
+	})
+}
+
+func TestGetPacketLossResultsStablePagination(t *testing.T) {
+	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
+		monitor := CreateTestPacketLossMonitor(t, td)
+		createdAt := time.Now().UTC().Truncate(time.Second)
+
+		for i := 0; i < 4; i++ {
+			result := &types.PacketLossResult{
+				MonitorID:   monitor.ID,
+				PacketLoss:  float64(i),
+				AvgRTT:      20.0 + float64(i),
+				PacketsSent: 10,
+				PacketsRecv: 10 - i,
+				CreatedAt:   createdAt,
+			}
+			err := td.Service.SavePacketLossResult(result)
+			require.NoError(t, err)
+		}
+
+		firstPage, err := td.Service.GetPacketLossResults(monitor.ID, 1, 2)
+		require.NoError(t, err)
+		require.Len(t, firstPage.Data, 2)
+
+		secondPage, err := td.Service.GetPacketLossResults(monitor.ID, 2, 2)
+		require.NoError(t, err)
+		require.Len(t, secondPage.Data, 2)
+
+		firstPageIDs := []int64{firstPage.Data[0].ID, firstPage.Data[1].ID}
+		secondPageIDs := []int64{secondPage.Data[0].ID, secondPage.Data[1].ID}
+
+		assert.NotEqual(t, firstPageIDs[0], firstPageIDs[1])
+		assert.NotEqual(t, secondPageIDs[0], secondPageIDs[1])
+		assert.NotContains(t, firstPageIDs, secondPageIDs[0])
+		assert.NotContains(t, firstPageIDs, secondPageIDs[1])
+		assert.Greater(t, firstPage.Data[0].ID, firstPage.Data[1].ID)
+		assert.Greater(t, secondPage.Data[0].ID, secondPage.Data[1].ID)
+		assert.Greater(t, firstPage.Data[1].ID, secondPage.Data[0].ID)
 	})
 }
 
@@ -307,5 +349,34 @@ func TestSavePacketLossResult_WithMTRData(t *testing.T) {
 		require.NotNil(t, latest.MTRData)
 		assert.Contains(t, *latest.MTRData, "192.168.1.1")
 		assert.Equal(t, 3, latest.HopCount)
+	})
+}
+
+func TestGetPacketLossResultDetail(t *testing.T) {
+	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
+		monitor := CreateTestPacketLossMonitor(t, td)
+
+		mtrData := `{"hops":[{"addr":"192.168.1.1","loss":0}]}`
+		result := &types.PacketLossResult{
+			MonitorID:      monitor.ID,
+			PacketLoss:     0.0,
+			AvgRTT:         10.0,
+			PacketsSent:    10,
+			PacketsRecv:    10,
+			UsedMTR:        true,
+			HopCount:       1,
+			MTRData:        &mtrData,
+			PrivilegedMode: false,
+			CreatedAt:      time.Now(),
+		}
+
+		err := td.Service.SavePacketLossResult(result)
+		require.NoError(t, err)
+
+		detail, err := td.Service.GetPacketLossResultDetail(monitor.ID, result.ID)
+		require.NoError(t, err)
+		require.NotNil(t, detail.MTRData)
+		assert.Equal(t, result.ID, detail.ID)
+		assert.Contains(t, *detail.MTRData, "192.168.1.1")
 	})
 }

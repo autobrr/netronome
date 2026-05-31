@@ -88,7 +88,7 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 		monitorService:    monitorService,
 		db:                db,
 		scheduler:         scheduler,
-		auth:              NewAuthHandler(db, oidcConfig, cfg.Session.Secret, cfg.Auth.Whitelist),
+		auth:              NewAuthHandler(db, oidcConfig, cfg.OIDC.Issuer != "", cfg.Session.Secret, cfg.Auth.Whitelist),
 		notifier:          notifier,
 		lastUpdate:        &types.SpeedUpdate{},
 		config:            cfg,
@@ -212,7 +212,7 @@ func (s *Server) RegisterRoutes() {
 			auth.GET("/status", s.auth.CheckRegistrationStatus)
 			auth.POST("/register", s.auth.Register)
 			auth.POST("/login", s.auth.Login)
-			if s.auth.oidc != nil {
+			if s.auth.oidcConfigured {
 				auth.GET("/oidc/login", s.auth.handleOIDCLogin)
 				auth.GET("/oidc/callback", s.auth.handleOIDCCallback)
 			}
@@ -254,6 +254,7 @@ func (s *Server) RegisterRoutes() {
 				protected.DELETE("/packetloss/monitors/:id", packetLossHandler.DeleteMonitor)
 				protected.GET("/packetloss/monitors/:id/status", packetLossHandler.GetMonitorStatus)
 				protected.GET("/packetloss/monitors/:id/history", packetLossHandler.GetMonitorHistory)
+				protected.GET("/packetloss/monitors/:id/history/:resultId", packetLossHandler.GetMonitorHistoryDetail)
 				protected.POST("/packetloss/monitors/:id/start", packetLossHandler.StartMonitor)
 				protected.POST("/packetloss/monitors/:id/stop", packetLossHandler.StopMonitor)
 			}

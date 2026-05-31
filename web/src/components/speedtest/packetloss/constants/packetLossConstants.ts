@@ -8,6 +8,8 @@ export interface IntervalOption {
   label: string;
 }
 
+export const PACKET_LOSS_HISTORY_PAGE_SIZE = 30;
+
 export const intervalOptions: IntervalOption[] = [
   { value: "10s", label: "Every 10 seconds" },
   { value: "30s", label: "Every 30 seconds" },
