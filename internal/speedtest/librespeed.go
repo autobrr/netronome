@@ -121,24 +121,26 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 
 	cmd := exec.CommandContext(ctx, "librespeed-cli", args...)
 
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Error().Err(err).Str("output", string(output)).Msg("librespeed-cli failed")
-		return nil, fmt.Errorf("librespeed-cli failed: %v: %s", err, string(output))
+	// Capture stdout and stderr separately: librespeed-cli writes the JSON
+	// report to stdout, while progress/UI lines and telemetry errors (emitted
+	// when --share is used) go to stderr. Keeping them apart avoids stderr
+	// noise corrupting the JSON we parse.
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		log.Error().Err(err).Str("stdout", stdout.String()).Str("stderr", stderr.String()).Msg("librespeed-cli failed")
+		return nil, fmt.Errorf("librespeed-cli failed: %v: %s", err, strings.TrimSpace(stderr.String()))
 	}
 
-	log.Debug().Str("output", string(output)).Msg("librespeed-cli output")
+	output := stdout.Bytes()
 
-	// librespeed-cli may print non-JSON text (e.g. telemetry errors) before
-	// the JSON array when --share is used. Find the JSON array start.
-	jsonOutput := output
-	if idx := bytes.IndexByte(output, '['); idx > 0 {
-		jsonOutput = output[idx:]
-	}
+	log.Debug().Str("stdout", stdout.String()).Str("stderr", stderr.String()).Msg("librespeed-cli output")
 
 	var librespeedResults []LibrespeedResult
-	if err := json.Unmarshal(jsonOutput, &librespeedResults); err != nil {
-		log.Error().Err(err).Str("output", string(output)).Msg("failed to parse librespeed-cli output")
+	if err := json.Unmarshal(extractJSONArray(output), &librespeedResults); err != nil {
+		log.Error().Err(err).Str("stdout", stdout.String()).Msg("failed to parse librespeed-cli output")
 		return nil, fmt.Errorf("failed to parse librespeed-cli output: %w", err)
 	}
 
@@ -339,6 +341,17 @@ func parseCountryFromName(name string) string {
 		return countryPart
 	}
 	return "Unknown"
+}
+
+// extractJSONArray trims any leading non-JSON output (e.g. progress/log lines
+// librespeed-cli may print before the JSON report) so the result can be
+// unmarshalled. It returns b starting at the first '['; if there is no '[' or
+// it is already at the start, b is returned unchanged.
+func extractJSONArray(b []byte) []byte {
+	if idx := bytes.IndexByte(b, '['); idx > 0 {
+		return b[idx:]
+	}
+	return b
 }
 
 // sanitizeResultURL validates a share URL from librespeed-cli output.

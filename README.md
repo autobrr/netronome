@@ -761,6 +761,7 @@ NETRONOME__IPERF_PING_TIMEOUT=10             # Ping timeout (seconds)
 
 # LibreSpeed settings
 NETRONOME__LIBRESPEED_TIMEOUT=60             # LibreSpeed timeout (seconds)
+NETRONOME__LIBRESPEED_SHARE_RESULTS=false    # Submit results to librespeed.org for a shareable link (sends telemetry)
 ```
 
 ### Pagination

@@ -249,6 +249,54 @@ func TestSpeedTest_ScheduledVsManual(t *testing.T) {
 	})
 }
 
+func TestSpeedTest_ResultURLRoundTrip(t *testing.T) {
+	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
+		ctx := context.Background()
+
+		resultURL := "https://librespeed.org/results/?id=abc123"
+
+		withURL := types.SpeedTestResult{
+			ServerName:    "Shared Server",
+			ServerID:      "librespeed-shared",
+			TestType:      "librespeed",
+			DownloadSpeed: 100.0,
+			UploadSpeed:   50.0,
+			ResultURL:     &resultURL,
+		}
+		savedWithURL, err := td.Service.SaveSpeedTest(ctx, withURL)
+		require.NoError(t, err)
+
+		withoutURL := types.SpeedTestResult{
+			ServerName:    "Unshared Server",
+			ServerID:      "librespeed-unshared",
+			TestType:      "librespeed",
+			DownloadSpeed: 100.0,
+			UploadSpeed:   50.0,
+			// ResultURL left nil
+		}
+		savedWithoutURL, err := td.Service.SaveSpeedTest(ctx, withoutURL)
+		require.NoError(t, err)
+
+		results, err := td.Service.GetSpeedTests(ctx, "all", 1, 10)
+		require.NoError(t, err)
+
+		var foundWithURL, foundWithoutURL bool
+		for _, test := range results.Data {
+			switch test.ID {
+			case savedWithURL.ID:
+				foundWithURL = true
+				require.NotNil(t, test.ResultURL, "result_url should round-trip as a non-nil pointer")
+				assert.Equal(t, resultURL, *test.ResultURL)
+			case savedWithoutURL.ID:
+				foundWithoutURL = true
+				assert.Nil(t, test.ResultURL, "absent result_url should read back as nil")
+			}
+		}
+		assert.True(t, foundWithURL, "should find the test saved with a result URL")
+		assert.True(t, foundWithoutURL, "should find the test saved without a result URL")
+	})
+}
+
 func TestSpeedTest_NullableFields(t *testing.T) {
 	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
 		ctx := context.Background()

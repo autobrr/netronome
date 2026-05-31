@@ -68,6 +68,8 @@ func TestSanitizeResultURL(t *testing.T) {
 	}{
 		{"valid https URL", "https://librespeed.org/results/?id=abc123", "https://librespeed.org/results/?id=abc123"},
 		{"valid http URL", "http://librespeed.org/results/?id=abc123", "http://librespeed.org/results/?id=abc123"},
+		{"uppercase scheme normalized", "HTTPS://librespeed.org/results/?id=abc123", "https://librespeed.org/results/?id=abc123"},
+		{"surrounding whitespace trimmed", "  https://librespeed.org/results/?id=abc123  ", "https://librespeed.org/results/?id=abc123"},
 		{"empty string", "", ""},
 		{"no scheme", "librespeed.org/results", ""},
 		{"javascript scheme", "javascript:alert(1)", ""},
@@ -78,6 +80,27 @@ func TestSanitizeResultURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, sanitizeResultURL(tt.raw))
+		})
+	}
+}
+
+func TestExtractJSONArray(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"clean array", `[{"download":1}]`, `[{"download":1}]`},
+		{"array at offset zero unchanged", `[1,2,3]`, `[1,2,3]`},
+		{"leading log line", "Selected server: foo\n[{\"download\":1}]", `[{"download":1}]`},
+		{"multiple leading lines", "retrieving servers\nrunning test\n[{\"download\":1}]", `[{"download":1}]`},
+		{"no array present", "no json here", "no json here"},
+		{"empty", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, string(extractJSONArray([]byte(tt.in))))
 		})
 	}
 }

@@ -68,10 +68,10 @@ export const getSpeedTestColumns = (
     header: "Server",
     cell: ({ row }) => (
       <span
-        className="text-gray-700 dark:text-gray-300 truncate max-w-[180px] font-medium inline-flex items-center gap-1"
+        className="text-gray-700 dark:text-gray-300 max-w-[180px] font-medium inline-flex items-center gap-1"
         title={row.getValue("serverName")}
       >
-        {row.getValue("serverName")}
+        <span className="truncate min-w-0">{row.getValue("serverName")}</span>
         {row.original.resultUrl && (
           <a
             href={row.original.resultUrl}
@@ -171,8 +171,8 @@ export const getSpeedTestMobileColumns = (
       return (
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
-            <div className="text-gray-700 dark:text-gray-300 text-base font-medium truncate flex-1 mr-2 inline-flex items-center gap-1">
-              {test.serverName}
+            <div className="text-gray-700 dark:text-gray-300 text-base font-medium flex-1 mr-2 min-w-0 inline-flex items-center gap-1">
+              <span className="truncate min-w-0">{test.serverName}</span>
               {test.resultUrl && (
                 <a
                   href={test.resultUrl}
