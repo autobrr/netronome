@@ -80,17 +80,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-
-      - name: Set up corepack
-        run: npm install -g corepack@latest && corepack enable
-
-      - name: Set up cache
-        uses: actions/setup-node@v6
-        with:
           cache: "pnpm"
           cache-dependency-path: web/pnpm-lock.yaml
 
