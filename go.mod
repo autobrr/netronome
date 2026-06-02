@@ -1,6 +1,6 @@
 module github.com/autobrr/netronome
 
-go 1.26.1
+go 1.26.3
 
 require (
 	github.com/BurntSushi/toml v1.6.0
@@ -18,14 +18,14 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-community/pro-bing v0.8.0
 	github.com/rs/zerolog v1.35.1
-	github.com/shirou/gopsutil/v4 v4.26.4
+	github.com/shirou/gopsutil/v4 v4.26.5
 	github.com/showwin/speedtest-go v1.7.10
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/oauth2 v0.36.0
-	golang.org/x/term v0.42.0
-	modernc.org/sqlite v1.50.0
-	tailscale.com v1.96.5
+	golang.org/x/term v0.43.0
+	modernc.org/sqlite v1.51.0
+	tailscale.com v1.98.5
 )
 
 require (
@@ -35,19 +35,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/akutz/memconn v0.1.0 // indirect
 	github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa // indirect
-	github.com/aws/aws-sdk-go-v2 v1.41.0 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.29.5 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.58 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.27 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.16 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.16 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.16 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.24.14 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.13 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.41.5 // indirect
-	github.com/aws/smithy-go v1.24.0 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/coder/websocket v1.8.12 // indirect
 	github.com/creachadair/msync v0.7.1 // indirect
@@ -77,7 +64,7 @@ require (
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jsimonetti/rtnetlink v1.4.0 // indirect
-	github.com/klauspost/compress v1.18.2 // indirect
+	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
@@ -93,13 +80,13 @@ require (
 	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/safchain/ethtool v0.3.0 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
-	github.com/tailscale/certstore v0.1.1-0.20231202035212-d3fa0460f47e // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/tailscale/certstore v0.1.1-0.20260409135935-3638fb84b77d // indirect
 	github.com/tailscale/go-winio v0.0.0-20231025203758-c4f33415bf55 // indirect
-	github.com/tailscale/hujson v0.0.0-20221223112325-20486734a56a // indirect
+	github.com/tailscale/hujson v0.0.0-20260302212456-ecc657c15afd // indirect
 	github.com/tailscale/peercred v0.0.0-20250107143737-35a0c7bd7edc // indirect
 	github.com/tailscale/web-client-prebuilt v0.0.0-20250124233751-d4cd19a26976 // indirect
-	github.com/tailscale/wireguard-go v0.0.0-20250716170648-1d0488a3d7da // indirect
+	github.com/tailscale/wireguard-go v0.0.0-20260427181203-e3ac4a0afb4e // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
@@ -116,7 +103,7 @@ require (
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
 	gvisor.dev/gvisor v0.0.0-20260224225140-573d5e7127a8 // indirect
-	modernc.org/libc v1.72.0 // indirect
+	modernc.org/libc v1.72.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
@@ -143,10 +130,10 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	golang.org/x/arch v0.22.0 // indirect
-	golang.org/x/crypto v0.50.0
-	golang.org/x/net v0.52.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/crypto v0.52.0
+	golang.org/x/net v0.54.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
