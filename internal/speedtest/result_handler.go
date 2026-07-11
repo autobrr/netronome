@@ -6,6 +6,7 @@ package speedtest
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -47,6 +48,25 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 	case "librespeed":
 		serverHost = &result.Server
 		serverID = fmt.Sprintf("librespeed-%s", result.Server)
+	case "url_download":
+		if opts.DownloadURL != "" {
+			// Custom URL
+			u, err := url.Parse(opts.DownloadURL)
+			if err == nil && u.Host != "" {
+				host := u.Host
+				serverHost = &host
+				serverID = fmt.Sprintf("url-custom-%s", u.Host)
+			} else {
+				serverID = "url-custom-unknown"
+			}
+		} else if len(opts.ServerIDs) > 0 {
+			// Built-in IDC
+			serverID = opts.ServerIDs[0]
+			host := result.Server
+			serverHost = &host
+		} else {
+			serverID = "url-unknown"
+		}
 	case "speedtest":
 		// For speedtest.net, we'll need to extract host info from the result
 		serverID = result.Server
