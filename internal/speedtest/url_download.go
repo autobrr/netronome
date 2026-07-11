@@ -131,7 +131,7 @@ func (r *UrlDownloadRunner) RunTest(ctx context.Context, opts *types.TestOptions
 						Progress:    50.0,
 						IsComplete:  false,
 						IsScheduled: opts.IsScheduled,
-					TestType:    "url_download",
+						TestType:    "url_download",
 					})
 				}
 			}

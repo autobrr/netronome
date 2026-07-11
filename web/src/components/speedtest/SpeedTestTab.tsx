@@ -23,6 +23,12 @@ interface SpeedTestTabProps {
   allServers: Server[];
   isServersLoading?: boolean;
   isServersError?: boolean;
+  customUrl?: string;
+  onCustomUrlChange?: (url: string) => void;
+  downloadThreads?: 2 | 4 | 8;
+  onDownloadThreadsChange?: (threads: 2 | 4 | 8) => void;
+  downloadTimeout?: number;
+  onDownloadTimeoutChange?: (timeout: number) => void;
 }
 
 export const SpeedTestTab: React.FC<SpeedTestTabProps> = ({
@@ -36,6 +42,12 @@ export const SpeedTestTab: React.FC<SpeedTestTabProps> = ({
   allServers,
   isServersLoading,
   isServersError,
+  customUrl,
+  onCustomUrlChange,
+  downloadThreads,
+  onDownloadThreadsChange,
+  downloadTimeout,
+  onDownloadTimeoutChange,
 }) => {
   return (
     <div className="flex flex-col md:flex-row gap-6 md:items-start">
@@ -59,6 +71,12 @@ export const SpeedTestTab: React.FC<SpeedTestTabProps> = ({
           onTestTypeChange={onTestTypeChange}
           isServersLoading={isServersLoading}
           isServersError={isServersError}
+          customUrl={customUrl}
+          onCustomUrlChange={onCustomUrlChange}
+          downloadThreads={downloadThreads}
+          onDownloadThreadsChange={onDownloadThreadsChange}
+          downloadTimeout={downloadTimeout}
+          onDownloadTimeoutChange={onDownloadTimeoutChange}
         />
       </motion.div>
 
@@ -74,6 +92,9 @@ export const SpeedTestTab: React.FC<SpeedTestTabProps> = ({
           servers={allServers}
           selectedServers={selectedServers}
           testType={testType}
+          customUrl={customUrl}
+          downloadThreads={downloadThreads}
+          downloadTimeout={downloadTimeout}
         />
       </motion.div>
     </div>

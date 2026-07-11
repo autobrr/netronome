@@ -29,9 +29,9 @@ func validateScheduleServerIDs(schedule types.Schedule) error {
 		if schedule.Options.DownloadURL == "" && !hasServerIDs(schedule) {
 			return fmt.Errorf("%w: url_download schedules require a download URL or server ID", ErrInvalidInput)
 		}
-		if schedule.Options.DownloadThreads != 0 && 
-			schedule.Options.DownloadThreads != 2 && 
-			schedule.Options.DownloadThreads != 4 && 
+		if schedule.Options.DownloadThreads != 0 &&
+			schedule.Options.DownloadThreads != 2 &&
+			schedule.Options.DownloadThreads != 4 &&
 			schedule.Options.DownloadThreads != 8 {
 			return fmt.Errorf("%w: download threads must be 2, 4, or 8", ErrInvalidInput)
 		}

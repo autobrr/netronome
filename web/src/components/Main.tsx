@@ -64,9 +64,12 @@ export default function Main({ isPublic = false }: MainProps) {
     serverIds: [],
   });
   const [testType, setTestType] = useState<
-    "speedtest" | "iperf" | "librespeed"
+    "speedtest" | "iperf" | "librespeed" | "url_download"
   >("speedtest");
   const [selectedServers, setSelectedServers] = useState<Server[]>([]);
+  const [customUrl, setCustomUrl] = useState("");
+  const [downloadThreads, setDownloadThreads] = useState<2 | 4 | 8>(4);
+  const [downloadTimeout, setDownloadTimeout] = useState<number>(30);
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
     "idle"
@@ -258,9 +261,15 @@ export default function Main({ isPublic = false }: MainProps) {
   };
 
   const runTest = async () => {
-    if (selectedServers.length === 0) {
+    if (testType !== "url_download" && selectedServers.length === 0) {
       setError("Please select at least one server");
       showToast("Please select a server", "warning");
+      return;
+    }
+
+    if (testType === "url_download" && selectedServers.length === 0 && !customUrl) {
+      setError("Please select a server or enter a custom URL");
+      showToast("Please select a server or enter a custom URL", "warning");
       return;
     }
 
@@ -297,6 +306,20 @@ export default function Main({ isPublic = false }: MainProps) {
         isIperf: false,
         isLibrespeed: true,
       });
+    } else if (testType === "url_download") {
+      setProgress({
+        currentServer: customUrl || (selectedServers[0]?.name ?? "URL Download"),
+        currentTest: "download",
+        currentSpeed: 0,
+        isComplete: false,
+        type: "download",
+        speed: 0,
+        latency: 0,
+        isScheduled: false,
+        progress: 0,
+        isIperf: false,
+        isLibrespeed: false,
+      });
     }
 
     try {
@@ -306,17 +329,25 @@ export default function Main({ isPublic = false }: MainProps) {
           ? "iperf3"
           : testType === "librespeed"
           ? "Librespeed"
+          : testType === "url_download"
+          ? "URL Download"
           : "Speedtest";
       showToast(`${testTypeName} test started`, "success", {
-        description: `Testing ${selectedServers[0].host}`,
+        description: `Testing ${customUrl || selectedServers[0]?.host || "server"}`,
       });
 
       await speedTestMutation.mutateAsync({
         ...options,
         useIperf: testType === "iperf",
         useLibrespeed: testType === "librespeed",
+        useUrlDownload: testType === "url_download",
+        downloadUrl: testType === "url_download" ? (customUrl || selectedServers[0]?.url || selectedServers[0]?.host) : undefined,
+        downloadThreads: testType === "url_download" ? downloadThreads : undefined,
+        downloadTimeout: testType === "url_download" ? downloadTimeout : undefined,
         serverIds:
           testType === "speedtest" || testType === "librespeed"
+            ? selectedServers.map((s) => s.id)
+            : testType === "url_download" && selectedServers.length > 0
             ? selectedServers.map((s) => s.id)
             : [],
         serverHost: testType === "iperf" ? selectedServers[0].host : undefined,
@@ -347,7 +378,8 @@ export default function Main({ isPublic = false }: MainProps) {
             // Debug log for test updates
             if (
               update.testType === "iperf3" ||
-              update.testType === "speedtest"
+              update.testType === "speedtest" ||
+              update.testType === "url_download"
             ) {
               console.log(`${update.testType} update:`, {
                 type: update.type,
@@ -387,7 +419,7 @@ export default function Main({ isPublic = false }: MainProps) {
                 return baseProgress;
               }
 
-              // For iperf3 and speedtest.net, always update to show live progress
+              // For iperf3, speedtest.net, and url_download, always update to show live progress
               // The backend already throttles updates to once per second
 
               return {
@@ -576,6 +608,12 @@ export default function Main({ isPublic = false }: MainProps) {
                 allServers={allServers}
                 isServersLoading={testType === "librespeed" ? isLibrespeedLoading : false}
                 isServersError={testType === "librespeed" ? isLibrespeedError : false}
+                customUrl={customUrl}
+                onCustomUrlChange={setCustomUrl}
+                downloadThreads={downloadThreads}
+                onDownloadThreadsChange={setDownloadThreads}
+                downloadTimeout={downloadTimeout}
+                onDownloadTimeoutChange={setDownloadTimeout}
               />
             </motion.div>
           )}
