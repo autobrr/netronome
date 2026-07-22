@@ -332,8 +332,22 @@ export default function Main({ isPublic = false }: MainProps) {
           : testType === "url_download"
           ? "URL Download"
           : "Speedtest";
+      
+      // For url_download, extract host from customUrl; for others, use selectedServers[0].host
+      let testTarget: string;
+      if (testType === "url_download" && customUrl) {
+        try {
+          const url = new URL(customUrl);
+          testTarget = url.host;
+        } catch {
+          testTarget = customUrl; // fallback if URL parsing fails
+        }
+      } else {
+        testTarget = selectedServers[0]?.host || "server";
+      }
+      
       showToast(`${testTypeName} test started`, "success", {
-        description: `Testing ${customUrl || selectedServers[0]?.host || "server"}`,
+        description: `Testing ${testTarget}`,
       });
 
       await speedTestMutation.mutateAsync({

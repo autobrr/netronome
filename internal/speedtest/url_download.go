@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"sync"
@@ -87,6 +88,9 @@ func (r *UrlDownloadRunner) RunTest(ctx context.Context, opts *types.TestOptions
 	if timeout == 0 {
 		timeout = 30 // default 30 seconds
 	}
+	if timeout < 1 || timeout > 300 {
+		return nil, fmt.Errorf("download timeout must be between 1 and 300 seconds")
+	}
 
 	testCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
@@ -100,6 +104,7 @@ func (r *UrlDownloadRunner) RunTest(ctx context.Context, opts *types.TestOptions
 	startTime := time.Now()
 	var ttfb time.Duration
 	var totalBytes int64
+	var contentLength int64 // Total expected size from Content-Length header
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	var firstByteOnce sync.Once
@@ -121,6 +126,24 @@ func (r *UrlDownloadRunner) RunTest(ctx context.Context, opts *types.TestOptions
 				if elapsed > 0 {
 					currentSpeed = float64(totalBytes) * 8 / elapsed / 1000000 // Mbps
 				}
+
+				// Calculate real progress
+				progress := 50.0 // Default fallback
+				if contentLength > 0 {
+					// Use actual download progress
+					progress = float64(totalBytes) / float64(contentLength) * 100.0
+					if progress > 100.0 {
+						progress = 100.0
+					}
+				} else {
+					// Estimate based on elapsed time vs timeout
+					timeProgress := (elapsed / float64(timeout)) * 100.0
+					if timeProgress > 95.0 {
+						progress = 95.0 // Cap at 95% for time-based estimation
+					} else {
+						progress = timeProgress
+					}
+				}
 				mu.Unlock()
 
 				if r.progressCallback != nil {
@@ -128,7 +151,7 @@ func (r *UrlDownloadRunner) RunTest(ctx context.Context, opts *types.TestOptions
 						Type:        "download",
 						ServerName:  opts.ServerName,
 						Speed:       currentSpeed,
-						Progress:    50.0,
+						Progress:    progress,
 						IsComplete:  false,
 						IsScheduled: opts.IsScheduled,
 						TestType:    "url_download",
@@ -162,8 +185,21 @@ func (r *UrlDownloadRunner) RunTest(ctx context.Context, opts *types.TestOptions
 				req.Header.Set("Referer", referer)
 			}
 
+			// Configure HTTP client with timeouts to prevent goroutine leaks
+			// Client timeout is slightly longer than context to allow graceful cancellation
 			client := &http.Client{
-				Timeout: time.Duration(timeout) * time.Second,
+				Timeout: time.Duration(timeout+5) * time.Second,
+				Transport: &http.Transport{
+					DialContext: (&net.Dialer{
+						Timeout:   10 * time.Second,
+						KeepAlive: 30 * time.Second,
+					}).DialContext,
+					TLSHandshakeTimeout:   10 * time.Second,
+					ResponseHeaderTimeout: 10 * time.Second,
+					ExpectContinueTimeout: 1 * time.Second,
+					MaxIdleConns:          100,
+					IdleConnTimeout:       90 * time.Second,
+				},
 			}
 
 			workerStart := time.Now()
@@ -181,6 +217,18 @@ func (r *UrlDownloadRunner) RunTest(ctx context.Context, opts *types.TestOptions
 					Int("worker", workerID).
 					Dur("ttfb", ttfb).
 					Msg("First byte received")
+
+				// Get Content-Length from the first successful response
+				if resp.ContentLength > 0 {
+					mu.Lock()
+					contentLength = resp.ContentLength * int64(threads) // Multiply by thread count
+					mu.Unlock()
+					log.Debug().
+						Int64("content_length", resp.ContentLength).
+						Int("threads", threads).
+						Int64("total_expected", contentLength).
+						Msg("Content-Length detected")
+				}
 			})
 
 			if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
@@ -216,17 +264,61 @@ func (r *UrlDownloadRunner) RunTest(ctx context.Context, opts *types.TestOptions
 		}(i)
 	}
 
-	wg.Wait()
-	close(progressDone)
-	close(errChan)
+	// Don't wait indefinitely for goroutines - return before context deadline
+	// Use a separate goroutine to wait for cleanup
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
 
-	// Collect errors
+	// Calculate time buffer: return 500ms before timeout to avoid handler 504
+	deadline, hasDeadline := testCtx.Deadline()
+	if !hasDeadline {
+		deadline = time.Now().Add(time.Duration(timeout) * time.Second)
+	}
+	timeBuffer := 500 * time.Millisecond
+	returnDeadline := deadline.Add(-timeBuffer)
+
+	// Create timer to return before actual timeout
+	returnTimer := time.NewTimer(time.Until(returnDeadline))
+	defer returnTimer.Stop()
+
+	// Wait for either completion or near-timeout
 	var errors []error
-	for err := range errChan {
-		errors = append(errors, err)
+	select {
+	case <-done:
+		// All workers completed normally
+		close(progressDone)
+		close(errChan)
+		for err := range errChan {
+			errors = append(errors, err)
+		}
+	case <-returnTimer.C:
+		// About to hit deadline - return immediately with partial results
+		// Don't wait for goroutines to finish to avoid handler timeout
+		close(progressDone)
+		close(errChan)
+		for err := range errChan {
+			errors = append(errors, err)
+		}
+		// Workers will cleanup in background
+		go func() {
+			<-done // Wait for cleanup to finish
+		}()
+	case <-testCtx.Done():
+		// Fallback: context cancelled/timeout - return immediately
+		close(progressDone)
+		close(errChan)
+		for err := range errChan {
+			errors = append(errors, err)
+		}
+		go func() {
+			<-done
+		}()
 	}
 
-	// Calculate results even if there were some errors
+	// Calculate results
 	elapsed := time.Since(startTime).Seconds()
 	if elapsed == 0 {
 		elapsed = 0.001
@@ -235,17 +327,17 @@ func (r *UrlDownloadRunner) RunTest(ctx context.Context, opts *types.TestOptions
 	downloadSpeed := float64(totalBytes) * 8 / elapsed / 1000000 // Mbps
 	latency := fmt.Sprintf("%.2fms", float64(ttfb.Microseconds())/1000.0)
 
-	// Check for connection errors (no data received at all)
+	// Check timeout status
+	wasTimeout := ctx.Err() == context.DeadlineExceeded || testCtx.Err() == context.DeadlineExceeded
+
+	// Only fail if we received no data AND there were connection errors
+	// If we got data (even partial), consider it a success
 	if totalBytes == 0 {
 		if len(errors) > 0 {
 			return nil, fmt.Errorf("url_download test failed: %v", errors[0])
 		}
 		return nil, fmt.Errorf("url_download test failed: unable to connect or no data received")
 	}
-
-	// Timeout handling: if we got data, return partial results (normal timeout)
-	// Only fail if we got connection errors without any data
-	wasTimeout := ctx.Err() == context.DeadlineExceeded || testCtx.Err() == context.DeadlineExceeded
 
 	result := &Result{
 		Timestamp:     time.Now(),

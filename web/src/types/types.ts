@@ -96,9 +96,6 @@ export interface TestOptions {
   downloadTimeout?: number;
 }
 
-export interface ScheduledTest {
-}
-
 export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
 
 export type TestType = "speedtest" | "iperf" | "librespeed";

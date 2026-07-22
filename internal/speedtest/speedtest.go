@@ -6,6 +6,7 @@ package speedtest
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -118,9 +119,15 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 			return nil, fmt.Errorf("url_download test failed: %w", err)
 		}
 
-		// Save the result
-		if err := s.resultHandler.SaveResult(ctx, result, "url_download", opts); err != nil {
-			log.Error().Err(err).Msg("Failed to save url_download result")
+		// Save the result (even if partial due to timeout, result is non-nil)
+		// Use independent context for save to avoid "context deadline exceeded" errors
+		// when the test itself times out but we still want to save partial results
+		if result != nil {
+			saveCtx, saveCancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer saveCancel()
+			if err := s.resultHandler.SaveResult(saveCtx, result, "url_download", opts); err != nil {
+				log.Error().Err(err).Msg("Failed to save url_download result")
+			}
 		}
 
 		return result, nil

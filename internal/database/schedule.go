@@ -35,6 +35,10 @@ func validateScheduleServerIDs(schedule types.Schedule) error {
 			schedule.Options.DownloadThreads != 8 {
 			return fmt.Errorf("%w: download threads must be 2, 4, or 8", ErrInvalidInput)
 		}
+		if schedule.Options.DownloadTimeout != 0 &&
+			(schedule.Options.DownloadTimeout < 1 || schedule.Options.DownloadTimeout > 300) {
+			return fmt.Errorf("%w: download timeout must be between 1 and 300 seconds", ErrInvalidInput)
+		}
 	}
 	return nil
 }

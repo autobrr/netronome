@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import { SavedIperfServer, Server } from "@/types/types";
 import {
@@ -144,12 +144,17 @@ export const ServerList: React.FC<ServerListProps> = ({
 
   const handleServerSelect = (server: Server) => {
     onSelect(server);
+    // For URL download, selecting a built-in server is mutually exclusive
+    // with the custom URL input — clear it to avoid ambiguity.
+    if (testType === "url_download" && customUrl) {
+      handleCustomUrlChange("");
+    }
   };
 
   // URL Download state - sync with props
   const [customUrl, setCustomUrl] = useState(propCustomUrl || "");
   const [downloadThreads, setDownloadThreads] = useState<2 | 4 | 8>(propDownloadThreads || 4);
-  const [downloadTimeout, setDownloadTimeout] = useState<number>(propDownloadTimeout || 30);
+  const [downloadTimeout, setDownloadTimeout] = useState<number | ''>(propDownloadTimeout || 30);
   const [urlDownloadServers, setUrlDownloadServers] = useState<Server[]>([]);
 
   // Sync local state with props
@@ -166,7 +171,7 @@ export const ServerList: React.FC<ServerListProps> = ({
   }, [propDownloadThreads]);
 
   useEffect(() => {
-    if (propDownloadTimeout !== undefined) {
+    if (propDownloadTimeout !== undefined && propDownloadTimeout !== 0) {
       setDownloadTimeout(propDownloadTimeout);
     }
   }, [propDownloadTimeout]);
@@ -175,6 +180,11 @@ export const ServerList: React.FC<ServerListProps> = ({
   const handleCustomUrlChange = (url: string) => {
     setCustomUrl(url);
     onCustomUrlChange?.(url);
+    // For URL download, custom URL is mutually exclusive with built-in
+    // server selection — deselect any selected preset when typing a URL.
+    if (testType === "url_download" && url.trim() && selectedServers.length > 0) {
+      selectedServers.forEach((server) => onSelect(server));
+    }
   };
 
   const handleDownloadThreadsChange = (threads: 2 | 4 | 8) => {
@@ -182,9 +192,10 @@ export const ServerList: React.FC<ServerListProps> = ({
     onDownloadThreadsChange?.(threads);
   };
 
-  const handleDownloadTimeoutChange = (timeout: number) => {
+  const handleDownloadTimeoutChange = (timeout: number | '') => {
     setDownloadTimeout(timeout);
-    onDownloadTimeoutChange?.(timeout);
+    // Pass 0 for empty values so backend uses default
+    onDownloadTimeoutChange?.(timeout === '' ? 0 : timeout);
   };
 
   // Load the saved test type when component mounts
@@ -286,18 +297,9 @@ export const ServerList: React.FC<ServerListProps> = ({
   }, [testType]); // Re-run when useIperf changes
 
   // Fetch URL download servers when testType is url_download
-  useEffect(() => {
-    if (testType === "url_download") {
-      fetchUrlDownloadServers().catch((error) => {
-        console.error("Failed to fetch URL download servers:", error);
-        showToast("Failed to load URL download servers", "error", {
-          description: error instanceof Error ? error.message : "Unknown error",
-        });
-      });
-    }
-  }, [testType]);
-
-  const fetchUrlDownloadServers = async () => {
+  // NOTE: must be declared before the useEffect below that references it,
+  // otherwise the dependency array touches a TDZ const during render.
+  const fetchUrlDownloadServers = useCallback(async () => {
     try {
       const response = await fetch(getApiUrl("/servers?testType=url_download"));
       if (!response.ok) {
@@ -312,7 +314,18 @@ export const ServerList: React.FC<ServerListProps> = ({
       console.error("Failed to fetch URL download servers:", error);
       throw error;
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (testType === "url_download") {
+      fetchUrlDownloadServers().catch((error) => {
+        console.error("Failed to fetch URL download servers:", error);
+        showToast("Failed to load URL download servers", "error", {
+          description: error instanceof Error ? error.message : "Unknown error",
+        });
+      });
+    }
+  }, [testType, fetchUrlDownloadServers]);
 
   // Update filterCountry logic to handle select component values
   const filteredServersWithSelect = useMemo(() => {
@@ -435,7 +448,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                     {/* Run Test Button */}
                     <Button
                       onClick={onRunTest}
-                      disabled={isLoading || selectedServers.length === 0}
+                      disabled={isLoading || (testType === 'url_download' ? (selectedServers.length === 0 && !customUrl.trim()) : selectedServers.length === 0)}
                       className="w-full sm:w-auto"
                     >
                       Run
@@ -516,10 +529,10 @@ export const ServerList: React.FC<ServerListProps> = ({
                         </Label>
                         <Input
                           type="number"
-                          min="10"
+                          min="1"
                           max="300"
                           value={downloadTimeout}
-                          onChange={(e) => handleDownloadTimeoutChange(Math.max(10, Math.min(300, parseInt(e.target.value) || 60)))}
+                          onChange={(e) => handleDownloadTimeoutChange(e.target.value === '' ? '' : parseInt(e.target.value))}
                           className="w-full"
                         />
                         <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -697,7 +710,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                                 </span>
                               </span>
                               <span className="text-gray-600 dark:text-gray-400 text-sm mt-1">
-                                {server.location}
+                                {server.country}
                               </span>
                             </div>
                           </button>

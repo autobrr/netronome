@@ -426,7 +426,7 @@ export default function ScheduleManager({ servers, selectedServers, testType, cu
     if (schedule?.options?.useUrlDownload) {
       const url = schedule.options.downloadUrl;
       const threads = schedule.options.downloadThreads || 4;
-      const timeout = schedule.options.downloadTimeout || 60;
+      const timeout = schedule.options.downloadTimeout || 30;
       let displayHost = "URL Download";
       
       if (url) {
