@@ -85,7 +85,7 @@ func (s *Server) handleUpdateDashboardSettings(c *gin.Context) {
 }
 
 type purgeHistoryRequest struct {
-	OlderThanDays int `json:"olderThanDays"`
+	OlderThanDays *int `json:"olderThanDays"`
 }
 
 type purgeHistoryResponse struct {
@@ -95,18 +95,19 @@ type purgeHistoryResponse struct {
 
 func (s *Server) handlePurgeHistory(c *gin.Context) {
 	var req purgeHistoryRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil || req.OlderThanDays == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	if req.OlderThanDays < 0 {
+	if *req.OlderThanDays < 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "olderThanDays must be >= 0"})
 		return
 	}
 
-	// olderThanDays == 0 means purge everything (cutoff = now)
-	before := time.Now().AddDate(0, 0, -req.OlderThanDays)
+	// olderThanDays == 0 means purge everything (cutoff = now); nil (field
+	// missing or null) is rejected above so a malformed body can't purge all.
+	before := time.Now().AddDate(0, 0, -*req.OlderThanDays)
 
 	speedTests, packetLoss, err := s.db.PurgeHistoricalData(c.Request.Context(), before)
 	if err != nil {
