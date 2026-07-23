@@ -56,6 +56,10 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 
 	router := gin.New()
 
+	if err := router.SetTrustedProxies(cfg.Auth.TrustedProxies); err != nil {
+		log.Error().Err(err).Msg("failed to set trusted proxies")
+	}
+
 	// Initialize OIDC if configured
 	oidcConfig, err := auth.NewOIDC(context.Background(), cfg.OIDC)
 	if err != nil {
