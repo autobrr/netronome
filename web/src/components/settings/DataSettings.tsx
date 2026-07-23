@@ -37,6 +37,7 @@ export const DataSettings: React.FC = () => {
     onSuccess: (result) => {
       setConfirmOpen(false);
       queryClient.invalidateQueries({ queryKey: ["history"] });
+      queryClient.invalidateQueries({ queryKey: ["history-chart"] });
       queryClient.invalidateQueries({ queryKey: ["packetloss"] });
       showToast("History purged", "success", {
         description: `Deleted ${result.speedTests} speedtests and ${result.packetLoss} packet loss records`,
