@@ -472,7 +472,13 @@ func (c *Config) loadAuthFromEnv() {
 		c.Auth.Whitelist = strings.Split(v, ",")
 	}
 	if v := getEnv("AUTH_TRUSTED_PROXIES"); v != "" {
-		c.Auth.TrustedProxies = strings.Split(v, ",")
+		var proxies []string
+		for _, p := range strings.Split(v, ",") {
+			if p = strings.TrimSpace(p); p != "" {
+				proxies = append(proxies, p)
+			}
+		}
+		c.Auth.TrustedProxies = proxies
 	}
 }
 
