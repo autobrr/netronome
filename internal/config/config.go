@@ -762,6 +762,12 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintln(w, "# Example: whitelist = [\"127.0.0.1/32\"]"); err != nil {
 		return err
 	}
+	if _, err := fmt.Fprintln(w, "# To disable auth entirely behind a trusted reverse proxy: whitelist = [\"0.0.0.0/0\", \"::/0\"]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Only do this when Netronome is not directly reachable; every client that can reach it gets full access."); err != nil {
+		return err
+	}
 	if _, err := fmt.Fprintln(w, "whitelist = []"); err != nil {
 		return err
 	}
