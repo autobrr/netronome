@@ -10,11 +10,13 @@ import {
   ClockIcon,
   MapPinIcon,
   PresentationChartLineIcon,
+  CircleStackIcon,
 } from "@heroicons/react/24/outline";
 import { NotificationSettings } from "./settings/NotificationSettings";
 import { TimeFormatSettings } from "./settings/TimeFormatSettings";
 import { DistanceSettings } from "./settings/DistanceSettings";
 import { DashboardSettings } from "./settings/DashboardSettings";
+import { DataSettings } from "./settings/DataSettings";
 import { Button } from "@/components/ui/Button";
 import {
   Dialog,
@@ -60,6 +62,12 @@ const settingsSections: SettingsSection[] = [
     label: "Dashboard",
     icon: <PresentationChartLineIcon className="w-4 h-4" />,
     component: DashboardSettings,
+  },
+  {
+    id: "data",
+    label: "Data",
+    icon: <CircleStackIcon className="w-4 h-4" />,
+    component: DataSettings,
   },
 ];
 
