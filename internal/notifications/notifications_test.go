@@ -19,7 +19,7 @@ func TestNotificationTitle(t *testing.T) {
 	}{
 		{"", "Netronome"},
 		{"speedtest", "Netronome: Speedtest"},
-		{"packet_loss", "Netronome: Packet loss"},
+		{"packetloss", "Netronome: Packet Loss"},
 		{"agent", "Netronome: Agent"},
 	}
 

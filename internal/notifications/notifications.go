@@ -101,12 +101,14 @@ func (n *Notifier) getThresholdForEvent(category, eventType string) *float64 {
 
 // notificationTitle builds the shoutrrr notification title from a category.
 func notificationTitle(category string) string {
-	if category == "" {
+	switch category {
+	case "":
 		return "Netronome"
+	case database.NotificationCategoryPacketLoss:
+		return "Netronome: Packet Loss"
+	default:
+		return "Netronome: " + strings.ToUpper(category[:1]) + category[1:]
 	}
-	label := strings.ReplaceAll(category, "_", " ")
-	label = strings.ToUpper(label[:1]) + label[1:]
-	return "Netronome: " + label
 }
 
 // SendNotification sends a notification for a specific event
