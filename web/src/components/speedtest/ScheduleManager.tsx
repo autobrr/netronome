@@ -283,8 +283,10 @@ export default function ScheduleManager({ servers, selectedServers, testType, cu
 
   const requiresServerSelection = testType === "iperf" || testType === "librespeed";
   const isMissingServer = requiresServerSelection && selectedServers.length === 0;
+  const isMissingUrlDownloadTarget =
+    testType === "url_download" && selectedServers.length === 0 && !customUrl?.trim();
   const isMissingTime = scheduleType === "exact" && exactTimes.length === 0;
-  const isCreateDisabled = isMissingServer || isMissingTime;
+  const isCreateDisabled = isMissingServer || isMissingUrlDownloadTarget || isMissingTime;
 
   function getScheduleDescription(): string {
     if (scheduleType === "interval") {
@@ -300,6 +302,9 @@ export default function ScheduleManager({ servers, selectedServers, testType, cu
     if (isMissingServer) {
       const label = testType === "iperf" ? "iperf3" : "LibreSpeed";
       return <>Select a {label} server</>;
+    }
+    if (isMissingUrlDownloadTarget) {
+      return <>Select a server or enter a custom URL</>;
     }
     if (isMissingTime) {
       return <>Select at least one time</>;
@@ -323,6 +328,13 @@ export default function ScheduleManager({ servers, selectedServers, testType, cu
     if (isMissingServer) {
       const label = testType === "iperf" ? "iperf3" : "LibreSpeed";
       const msg = `Please select a ${label} server before creating a schedule`;
+      setError(msg);
+      showToast(msg, "error");
+      return;
+    }
+
+    if (isMissingUrlDownloadTarget) {
+      const msg = "Please select a server or enter a custom URL before creating a schedule";
       setError(msg);
       showToast(msg, "error");
       return;

@@ -62,8 +62,7 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 		} else if len(opts.ServerIDs) > 0 {
 			// Built-in IDC
 			serverID = opts.ServerIDs[0]
-			host := result.Server
-			serverHost = &host
+			serverHost = &opts.ServerHost
 		} else {
 			serverID = "url-unknown"
 		}

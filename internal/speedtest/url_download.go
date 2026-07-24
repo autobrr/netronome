@@ -38,7 +38,15 @@ func (r *UrlDownloadRunner) GetServers() ([]ServerResponse, error) {
 	return builtinDownloadServers, nil
 }
 
-func (r *UrlDownloadRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
+func (r *UrlDownloadRunner) RunTest(ctx context.Context, opts *types.TestOptions) (result *Result, err error) {
+	// Recover from panics to prevent server crashes
+	defer func() {
+		if rec := recover(); rec != nil {
+			err = fmt.Errorf("url_download panic: %v", rec)
+			log.Error().Interface("panic", rec).Msg("recovered from panic in url_download")
+		}
+	}()
+
 	downloadURL := opts.DownloadURL
 
 	// If downloadURL is empty, try to get from serverIDs
@@ -47,6 +55,7 @@ func (r *UrlDownloadRunner) RunTest(ctx context.Context, opts *types.TestOptions
 			if server.ID == opts.ServerIDs[0] {
 				downloadURL = server.URL
 				opts.ServerName = server.Name
+				opts.ServerHost = server.Host
 				break
 			}
 		}
@@ -339,7 +348,7 @@ func (r *UrlDownloadRunner) RunTest(ctx context.Context, opts *types.TestOptions
 		return nil, fmt.Errorf("url_download test failed: unable to connect or no data received")
 	}
 
-	result := &Result{
+	result = &Result{
 		Timestamp:     time.Now(),
 		Server:        opts.ServerName,
 		DownloadSpeed: downloadSpeed,

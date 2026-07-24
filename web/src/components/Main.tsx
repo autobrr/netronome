@@ -319,6 +319,7 @@ export default function Main({ isPublic = false }: MainProps) {
         progress: 0,
         isIperf: false,
         isLibrespeed: false,
+        isUrlDownload: true,
       });
     }
 
@@ -355,7 +356,7 @@ export default function Main({ isPublic = false }: MainProps) {
         useIperf: testType === "iperf",
         useLibrespeed: testType === "librespeed",
         useUrlDownload: testType === "url_download",
-        downloadUrl: testType === "url_download" ? (customUrl || selectedServers[0]?.url || selectedServers[0]?.host) : undefined,
+        downloadUrl: testType === "url_download" ? (customUrl || selectedServers[0]?.url) : undefined,
         downloadThreads: testType === "url_download" ? downloadThreads : undefined,
         downloadTimeout: testType === "url_download" ? downloadTimeout : undefined,
         serverIds:
