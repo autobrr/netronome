@@ -77,8 +77,17 @@ netronome.db.backup
 
 .mcp.json
 output/*
-web/dev-dist/sw.js*
-web/dev-dist/workbox-*.js*
+# PWA dev-server output. The whole directory is generated - registerSW.js and
+# suppress-warnings.js were previously untracked and showed up as noise.
+web/dev-dist/
 
 test/*
 .cache/
+
+# Premium theme CSS, fetched at release time from the private themes repo.
+# Never commit these to the public repository.
+web/src/themes/premium/
+.themes-temp/
+
+# Per-install machine fingerprint used for license activation.
+.device-id

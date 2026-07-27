@@ -13,6 +13,7 @@ require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/joho/godotenv v1.5.1
+	github.com/keygen-sh/machineid v1.1.3
 	github.com/lib/pq v1.12.3
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/pkg/errors v0.9.1

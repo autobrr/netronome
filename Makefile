@@ -3,11 +3,37 @@ BINARY_NAME=netronome
 BUILD_DIR=bin
 DOCKER_IMAGE=netronome
 
-.PHONY: all build clean run docker-build docker-run watch dev dev-expose lint
+.PHONY: all build clean run docker-build docker-run watch dev dev-expose lint themes-fetch themes-clean
+
+# Private repo holding the premium theme CSS. Absent in forks and source builds,
+# which ship the default theme only.
+THEMES_REPO=github.com/autobrr/qui-premium-themes
+THEMES_DIR=web/src/themes/premium
 
 all: build
 
-build:
+# Fetch premium themes from the private repository. Requires THEMES_REPO_TOKEN;
+# without it the build succeeds and simply ships no premium themes.
+themes-fetch:
+	@if [ -n "$$THEMES_REPO_TOKEN" ]; then \
+		echo "Fetching premium themes..."; \
+		rm -rf .themes-temp && \
+		git clone --depth=1 --filter=blob:none --sparse \
+			https://$$THEMES_REPO_TOKEN@$(THEMES_REPO).git .themes-temp && \
+		cd .themes-temp && git sparse-checkout set --cone netronome && cd .. && \
+		mkdir -p $(THEMES_DIR) && \
+		cp .themes-temp/netronome/*.css $(THEMES_DIR)/ && \
+		rm -rf .themes-temp && \
+		echo "Premium themes fetched successfully"; \
+	else \
+		echo "THEMES_REPO_TOKEN not set, skipping premium themes"; \
+	fi
+
+themes-clean:
+	@echo "Cleaning premium themes..."
+	@rm -rf $(THEMES_DIR)
+
+build: themes-fetch
 	@echo "Building frontend and backend..."
 	@mkdir -p $(BUILD_DIR)
 	@mkdir -p web/dist

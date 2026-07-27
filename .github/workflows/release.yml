@@ -104,6 +104,21 @@ jobs:
         working-directory: web
         run: pnpm tsc --noEmit
 
+      - name: Fetch premium themes
+        run: |
+          if [ -n "${{ secrets.THEMES_REPO_TOKEN }}" ]; then
+            rm -rf .themes-temp
+            git clone --depth=1 --filter=blob:none --sparse \
+              https://${{ secrets.THEMES_REPO_TOKEN }}@github.com/autobrr/qui-premium-themes.git .themes-temp
+            cd .themes-temp && git sparse-checkout set --cone netronome && cd ..
+            mkdir -p web/src/themes/premium
+            cp .themes-temp/netronome/*.css web/src/themes/premium/
+            rm -rf .themes-temp
+            echo "Premium themes fetched successfully"
+          else
+            echo "THEMES_REPO_TOKEN not set, skipping premium themes"
+          fi
+
       - name: Build web frontend
         working-directory: web
         run: CI= pnpm run build
@@ -146,6 +161,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILDER: ${{ github.actor }}@github-actions
+          POLAR_ORG_ID: ${{ secrets.POLAR_ORG_ID }}
 
       - name: Run GoReleaser build and publish tags
         if: startsWith(github.ref, 'refs/tags/')
@@ -157,6 +173,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILDER: ${{ github.actor }}@github-actions
+          POLAR_ORG_ID: ${{ secrets.POLAR_ORG_ID }}
 
       - name: Upload assets
         uses: actions/upload-artifact@v7

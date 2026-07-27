@@ -57,6 +57,13 @@
   --color-gray-900: #18181b;
   --color-gray-950: #09090b;
 
+  /* Text drawn on top of an accent (blue) surface, e.g. primary buttons.
+     White by default so the stock look is unchanged. Themes whose accent is a
+     light pastel override this with their own on-accent colour, since
+     white-on-light would otherwise be unreadable. Status colours (red,
+     emerald) keep text-white - themes do not retint those ramps. */
+  --color-on-accent: #ffffff;
+
   --breakpoint-xs: 400px;
   --breakpoint-3xl: 2900px;
 }

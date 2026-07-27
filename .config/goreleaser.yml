@@ -1,5 +1,10 @@
 version: 2
 
+# Polar organization id for premium theme licensing. Empty in forks and local
+# builds, which simply disables premium themes rather than failing the build.
+env:
+  - POLAR_ORG_ID={{ if index .Env "POLAR_ORG_ID" }}{{ .Env.POLAR_ORG_ID }}{{ else }}{{ end }}
+
 before:
   hooks:
     - go mod tidy
@@ -15,6 +20,7 @@ builds:
       - -X main.version={{.Version}}
       - -X main.buildTime={{.Date}}
       - -X main.commit={{.Commit}}
+      - -X main.PolarOrgID={{.Env.POLAR_ORG_ID}}
     tags:
       - nosmart
     goos:
