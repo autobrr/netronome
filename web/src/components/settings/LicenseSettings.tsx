@@ -190,11 +190,6 @@ export const LicenseSettings: React.FC = () => {
                 )}
               </div>
 
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                The key is validated against the licensing service and stored on this
-                instance. It is revalidated periodically.
-              </p>
-
               <div className="flex flex-wrap items-center gap-3">
                 <Button
                   type="submit"
