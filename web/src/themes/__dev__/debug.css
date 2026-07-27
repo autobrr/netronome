@@ -33,6 +33,13 @@
   --color-blue-800: #518514;
   --color-blue-900: #35570d;
   --color-blue-950: #1f3d07;
+
+  /* Chart series identity tokens - if a chart series does not adopt these
+     colors under Debug, it is not wired to the --chart-* tokens. */
+  --chart-download: #00e5ff;
+  --chart-upload: #ff6d00;
+  --chart-latency: #ff1744;
+  --chart-jitter: #76ff03;
 }
 
 :root.theme-debug.dark {

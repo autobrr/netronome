@@ -146,52 +146,39 @@
   /* Firefox */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #d1d5db #f3f4f6;
+    scrollbar-color: var(--color-gray-300, #d1d5db) var(--color-gray-100, #f3f4f6);
   }
 
   .dark * {
-    scrollbar-color: #374151 #111827;
+    scrollbar-color: var(--color-gray-700, #374151) var(--color-gray-900, #111827);
   }
 
-  /* Chart theme variables */
+  /* Chart theme variables, derived from the ramp so themes retint charts */
   :root {
-    --tooltip-bg: #ffffff;
-    --tooltip-border: #d1d5db;
-    --tooltip-label: #6b7280;
-    --tooltip-text: #374151;
-    --tooltip-accent: #2563eb;
-    --tooltip-muted: #9ca3af;
-    --chart-text: #6b7280;
+    --tooltip-bg: var(--color-white, #ffffff);
+    --tooltip-border: var(--color-gray-300, #d1d5db);
+    --tooltip-label: var(--color-gray-500, #6b7280);
+    --tooltip-text: var(--color-gray-700, #374151);
+    --tooltip-accent: var(--color-blue-600, #2563eb);
+    --tooltip-muted: var(--color-gray-400, #9ca3af);
+    --chart-text: var(--color-gray-500, #6b7280);
+
+    /* Chart series identity. Themes override these to restyle series colors
+       without touching status colors (RTT quality, progress thresholds). */
+    --chart-download: var(--color-blue-400, #60a5fa);
+    --chart-upload: var(--color-emerald-400, #34d399);
+    --chart-latency: var(--color-amber-400, #fbbf24);
+    --chart-jitter: var(--color-purple-400, #c084fc);
   }
 
   .dark {
-    --tooltip-bg: #1f2937;
-    --tooltip-border: #374151;
-    --tooltip-label: #9ca3af;
-    --tooltip-text: #e5e7eb;
-    --tooltip-accent: #60a5fa;
-    --tooltip-muted: #9ca3af;
-    --chart-text: #9ca3af;
-  }
-
-  /* Small scrollbar styles */
-  .scrollbar-small::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  .scrollbar-small::-webkit-scrollbar-thumb {
-    @apply bg-gray-600 dark:bg-gray-800 rounded-xl;
-  }
-
-  .scrollbar-small::-webkit-scrollbar-track {
-    background-color: transparent;
-  }
-
-  /* Firefox support */
-  .scrollbar-small {
-    scrollbar-width: thin;
-    scrollbar-color: rgb(54, 55, 57) transparent;
+    --tooltip-bg: var(--color-gray-800, #1f2937);
+    --tooltip-border: var(--color-gray-700, #374151);
+    --tooltip-label: var(--color-gray-400, #9ca3af);
+    --tooltip-text: var(--color-gray-200, #e5e7eb);
+    --tooltip-accent: var(--color-blue-400, #60a5fa);
+    --tooltip-muted: var(--color-gray-400, #9ca3af);
+    --chart-text: var(--color-gray-400, #9ca3af);
   }
 
   /* Style scrollbars for webkit enabled browsers */
@@ -206,7 +193,8 @@
 
   *::-webkit-scrollbar-thumb {
     @apply bg-gray-400 dark:bg-gray-700 rounded-xl;
-    background-color: rgba(255, 255, 255, 0.1); /* Very subtle light color */
+    /* Very subtle light thumb; keeps the pre-theme look while following the ramp */
+    background-color: color-mix(in srgb, var(--color-white, #ffffff) 10%, transparent);
   }
 
   *::-webkit-scrollbar-track {
@@ -217,7 +205,8 @@
   /* Firefox */
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.1) transparent; /* Very subtle light color for thumb */
+    scrollbar-color: color-mix(in srgb, var(--color-white, #ffffff) 10%, transparent)
+      transparent;
   }
 
   /* Modal-specific scrollbar styles */

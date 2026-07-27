@@ -334,20 +334,20 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
             >
               <defs>
                 <linearGradient id={`downloadGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-blue-400, #60a5fa)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="var(--color-blue-400, #60a5fa)" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id={`uploadGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-emerald-400, #34d399)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="var(--color-emerald-400, #34d399)" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id={`latencyGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-amber-400, #fbbf24)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="var(--color-amber-400, #fbbf24)" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--chart-latency, #fbbf24)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--chart-latency, #fbbf24)" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id={`jitterGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-purple-400, #c084fc)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="var(--color-purple-400, #c084fc)" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--chart-jitter, #c084fc)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--chart-jitter, #c084fc)" stopOpacity={0} />
                 </linearGradient>
               </defs>
 
@@ -413,13 +413,13 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "rgba(17, 24, 39, 0.95)",
-                  border: "1px solid rgba(75, 85, 99, 0.3)",
+                  backgroundColor: "var(--tooltip-bg)",
+                  border: "1px solid var(--tooltip-border)",
                   borderRadius: "0.5rem",
                   boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
                 }}
                 labelStyle={{
-                  color: "rgb(229, 231, 235)",
+                  color: "var(--tooltip-label)",
                   fontSize: "12px",
                   fontWeight: "medium",
                 }}
@@ -445,12 +445,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   type="monotone"
                   dataKey="download"
                   name="Download"
-                  stroke="var(--color-blue-400, #60a5fa)"
+                  stroke="var(--chart-download, #60a5fa)"
                   strokeWidth={3}
                   dot={false}
                   activeDot={{ r: 6 }}
                   fill={`url(#downloadGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')})`}
-                  className="!stroke-blue-400"
                   animationDuration={1750}
                   animationBegin={0}
                   isAnimationActive={true}
@@ -464,12 +463,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   type="monotone"
                   dataKey="upload"
                   name="Upload"
-                  stroke="var(--color-emerald-400, #34d399)"
+                  stroke="var(--chart-upload, #34d399)"
                   strokeWidth={3}
                   dot={false}
                   activeDot={{ r: 6 }}
                   fill={`url(#uploadGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')})`}
-                  className="!stroke-emerald-400"
                   animationDuration={1750}
                   animationBegin={150}
                   isAnimationActive={true}
@@ -483,12 +481,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   type="monotone"
                   dataKey="latency"
                   name="Latency"
-                  stroke="var(--color-amber-400, #fbbf24)"
+                  stroke="var(--chart-latency, #fbbf24)"
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 6 }}
                   fill={`url(#latencyGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')})`}
-                  className="!stroke-amber-400"
                   animationDuration={1750}
                   animationBegin={300}
                   isAnimationActive={true}
@@ -502,12 +499,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   type="monotone"
                   dataKey="jitter"
                   name="Jitter"
-                  stroke="var(--color-purple-400, #c084fc)"
+                  stroke="var(--chart-jitter, #c084fc)"
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 6 }}
                   fill={`url(#jitterGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')})`}
-                  className="!stroke-purple-400"
                   strokeDasharray="5 5"
                   animationDuration={1750}
                   animationBegin={0}
@@ -563,20 +559,20 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         >
           <defs>
             <linearGradient id="downloadGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-blue-400, #60a5fa)" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="var(--color-blue-400, #60a5fa)" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="uploadGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-emerald-400, #34d399)" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="var(--color-emerald-400, #34d399)" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="latencyGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-amber-400, #fbbf24)" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="var(--color-amber-400, #fbbf24)" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--chart-latency, #fbbf24)" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="var(--chart-latency, #fbbf24)" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="jitterGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-purple-400, #c084fc)" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="var(--color-purple-400, #c084fc)" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--chart-jitter, #c084fc)" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="var(--chart-jitter, #c084fc)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid
@@ -742,12 +738,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               type="monotone"
               dataKey="download"
               name="Download"
-              stroke="var(--color-blue-400, #60a5fa)"
+              stroke="var(--chart-download, #60a5fa)"
               strokeWidth={3}
               dot={false}
               activeDot={{ r: 6 }}
               fill="url(#downloadGradient)"
-              className="!stroke-blue-400"
               animationDuration={1750}
               animationBegin={0}
               isAnimationActive={true}
@@ -761,12 +756,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               type="monotone"
               dataKey="upload"
               name="Upload"
-              stroke="var(--color-emerald-400, #34d399)"
+              stroke="var(--chart-upload, #34d399)"
               strokeWidth={3}
               dot={false}
               activeDot={{ r: 6 }}
               fill="url(#uploadGradient)"
-              className="!stroke-emerald-400"
               animationDuration={1750}
               animationBegin={0}
               isAnimationActive={true}
@@ -780,12 +774,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               type="monotone"
               dataKey="latency"
               name="Latency"
-              stroke="var(--color-amber-400, #fbbf24)"
+              stroke="var(--chart-latency, #fbbf24)"
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 6 }}
               fill="url(#latencyGradient)"
-              className="!stroke-amber-400"
               strokeDasharray="3 3"
               animationDuration={1750}
               animationBegin={0}
@@ -799,12 +792,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               type="monotone"
               dataKey="jitter"
               name="Jitter"
-              stroke="var(--color-purple-400, #c084fc)"
+              stroke="var(--chart-jitter, #c084fc)"
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 6 }}
               fill="url(#jitterGradient)"
-              className="!stroke-purple-400"
               strokeDasharray="5 5"
               animationDuration={1750}
               animationBegin={0}
@@ -894,25 +886,25 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     {[
                       {
                         key: "download",
-                        color: "var(--color-blue-400, #60a5fa)",
+                        color: "var(--chart-download, #60a5fa)",
                         label: "Download",
                         icon: <FaDownload size={14} />,
                       },
                       {
                         key: "upload",
-                        color: "var(--color-emerald-400, #34d399)",
+                        color: "var(--chart-upload, #34d399)",
                         label: "Upload",
                         icon: <FaUpload size={14} />,
                       },
                       {
                         key: "latency",
-                        color: "var(--color-amber-400, #fbbf24)",
+                        color: "var(--chart-latency, #fbbf24)",
                         label: "Latency",
                         icon: <FaClock size={14} />,
                       },
                       {
                         key: "jitter",
-                        color: "var(--color-purple-400, #c084fc)",
+                        color: "var(--chart-jitter, #c084fc)",
                         label: "Jitter",
                         icon: <FaWaveSquare size={14} />,
                       },

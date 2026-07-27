@@ -181,10 +181,10 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                             width: `${hardwareStats.cpu.usage_percent}%`,
                             backgroundColor:
                               hardwareStats.cpu.usage_percent < 70
-                                ? "#10B981"
+                                ? "var(--color-emerald-500, #10b981)"
                                 : hardwareStats.cpu.usage_percent < 85
-                                  ? "#F59E0B"
-                                  : "#EF4444",
+                                  ? "var(--color-amber-500, #f59e0b)"
+                                  : "var(--color-red-500, #ef4444)",
                           }}
                         />
                       </div>
@@ -203,10 +203,10 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                             width: `${hardwareStats.memory.used_percent}%`,
                             backgroundColor:
                               hardwareStats.memory.used_percent < 70
-                                ? "#10B981"
+                                ? "var(--color-emerald-500, #10b981)"
                                 : hardwareStats.memory.used_percent < 85
-                                  ? "#F59E0B"
-                                  : "#EF4444",
+                                  ? "var(--color-amber-500, #f59e0b)"
+                                  : "var(--color-red-500, #ef4444)",
                           }}
                         />
                       </div>

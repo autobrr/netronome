@@ -430,7 +430,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
             >
               <span>
                 {iperfServer?.name || host} -{" "}
-                <span className="text-purple-600 dark:text-purple-400 drop-shadow-[0_0_1px_rgba(168,85,247,0.8)]">
+                <span className="text-purple-600 dark:text-purple-400 drop-shadow-[0_0_1px_var(--color-purple-500)]">
                   iperf3
                 </span>
               </span>
@@ -471,7 +471,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
             return (
               <span key={id}>
                 {server.name} -{" "}
-                <span className="text-blue-600 dark:text-blue-400 drop-shadow-[0_0_1px_rgba(96,165,250,0.8)]">
+                <span className="text-blue-600 dark:text-blue-400 drop-shadow-[0_0_1px_var(--color-blue-400)]">
                   librespeed
                 </span>
               </span>
@@ -480,7 +480,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
           return (
             <span key={id}>
               {server.sponsor} - {server.name} -{" "}
-              <span className="text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_rgba(251,191,36,0.8)]">
+              <span className="text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_var(--color-amber-400)]">
                 speedtest.net
               </span>
             </span>

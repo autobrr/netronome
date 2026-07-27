@@ -134,20 +134,20 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
           >
             <defs>
               <linearGradient id="colorRx" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-blue-500, #3B82F6)" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="var(--color-blue-500, #3B82F6)" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorTx" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-emerald-500, #10B981)" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="var(--color-emerald-500, #10B981)" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorRxPeak" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-indigo-500, #6366F1)" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="var(--color-indigo-500, #6366F1)" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorTxPeak" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-emerald-400, #34D399)" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="var(--color-emerald-400, #34D399)" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" className="stroke-gray-300 dark:stroke-gray-700" />
@@ -162,11 +162,11 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "rgba(31, 41, 55, 0.95)",
-                border: "1px solid rgba(75, 85, 99, 0.3)",
+                backgroundColor: "var(--tooltip-bg)",
+                border: "1px solid var(--tooltip-border)",
                 borderRadius: "0.5rem",
               }}
-              labelStyle={{ color: "#E5E7EB" }}
+              labelStyle={{ color: "var(--tooltip-label)" }}
               formatter={formatTooltipValue}
               labelFormatter={(label) => formatters.chartTooltip(label, "1d")}
             />
@@ -180,7 +180,8 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
               <Area
                 type="monotone"
                 dataKey="rxPeak"
-                stroke="var(--color-indigo-500, #6366F1)"
+                stroke="var(--chart-download, #60a5fa)"
+                strokeDasharray="4 4"
                 fillOpacity={1}
                 fill="url(#colorRxPeak)"
                 name="Download Peak"
@@ -191,7 +192,8 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
               <Area
                 type="monotone"
                 dataKey="txPeak"
-                stroke="var(--color-emerald-400, #34D399)"
+                stroke="var(--chart-upload, #34d399)"
+                strokeDasharray="4 4"
                 fillOpacity={1}
                 fill="url(#colorTxPeak)"
                 name="Upload Peak"
@@ -201,7 +203,7 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
             <Area
               type="monotone"
               dataKey="rx"
-              stroke="var(--color-blue-500, #3B82F6)"
+              stroke="var(--chart-download, #60a5fa)"
               fillOpacity={1}
               fill="url(#colorRx)"
               name="Download"
@@ -210,7 +212,7 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
             <Area
               type="monotone"
               dataKey="tx"
-              stroke="var(--color-emerald-500, #10B981)"
+              stroke="var(--chart-upload, #34d399)"
               fillOpacity={1}
               fill="url(#colorTx)"
               name="Upload"
