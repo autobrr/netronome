@@ -74,6 +74,7 @@ export const ServerList: React.FC<ServerListProps> = ({
   const [displayCount, setDisplayCount] = useState(getInitialDisplayCount);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCountry, setFilterCountry] = useState("");
+  const [customServerId, setCustomServerId] = useState("");
   const [iperfSearchTerm, setIperfSearchTerm] = useState("");
   const [addServerModalOpen, setAddServerModalOpen] = useState(false);
   const [iperfDisplayCount, setIperfDisplayCount] = useState(
@@ -132,6 +133,35 @@ export const ServerList: React.FC<ServerListProps> = ({
 
   const handleServerSelect = (server: Server) => {
     onSelect(server);
+  };
+
+  const handleAddCustomServer = () => {
+    const id = customServerId.trim();
+    if (!/^\d+$/.test(id)) {
+      showToast("Enter a numeric server ID", "error");
+      return;
+    }
+    if (selectedServers.some((s) => s.id === id)) {
+      showToast("Server already added", "warning");
+      return;
+    }
+    // Prefer the real server if it's in the fetched list, so display data is correct
+    const existing = servers.find((s) => s.id === id);
+    handleServerSelect(
+      existing ?? {
+        id,
+        name: `Server ${id}`,
+        host: `speedtest.net server ${id}`,
+        location: "Custom",
+        distance: 0,
+        country: "Custom",
+        sponsor: "Custom ID",
+        latitude: 0,
+        longitude: 0,
+        isIperf: false,
+      }
+    );
+    setCustomServerId("");
   };
 
   // Load the saved test type when component mounts
@@ -419,6 +449,60 @@ export const ServerList: React.FC<ServerListProps> = ({
                       </Select>
                     </div>
                   )}
+
+                  {/* Add speedtest.net server by ID */}
+                  {testType === "speedtest" && (
+                    <div className="flex gap-2 mb-4">
+                      <div className="flex-1">
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Server ID"
+                          value={customServerId}
+                          onChange={(e) => setCustomServerId(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddCustomServer();
+                            }
+                          }}
+                        />
+                      </div>
+                      <button
+                        onClick={handleAddCustomServer}
+                        className="px-3 py-2 bg-gray-100 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300 rounded-lg transition-colors border border-gray-300 dark:border-gray-900 hover:border-gray-400 dark:hover:border-gray-700 shadow-md text-sm"
+                        title="Add speedtest.net server by ID"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Selected custom servers not present in the fetched list */}
+                  {testType === "speedtest" &&
+                    selectedServers.filter(
+                      (s) => !servers.some((v) => v.id === s.id)
+                    ).length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {selectedServers
+                          .filter((s) => !servers.some((v) => v.id === s.id))
+                          .map((s) => (
+                            <div
+                              key={s.id}
+                              className="flex items-center gap-2 pl-3 pr-1.5 py-1 rounded-lg text-sm bg-blue-100/50 dark:bg-blue-500/10 border border-blue-400/50 text-blue-700 dark:text-blue-300"
+                            >
+                              <span>Server {s.id} (custom)</span>
+                              <button
+                                onClick={() => handleServerSelect(s)}
+                                className="p-0.5 rounded hover:bg-blue-200/50 dark:hover:bg-blue-500/20 transition-colors"
+                                title="Remove server"
+                              >
+                                <XMarkIcon className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    )}
 
                   {/* Server Grid */}
                   {testType === "iperf" ? (
