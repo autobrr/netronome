@@ -277,12 +277,12 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
           {maintainers.map((m) => (
             <MaintainerSection key={m.name} maintainer={m} />
           ))}
-
-          {/* Footer */}
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center flex items-center justify-center gap-1 pt-1">
-            Thank you for your support <HeartIcon className="h-4 w-4 text-red-500" />
-          </p>
         </div>
+
+        {/* Outside the scroll area so it is always visible */}
+        <p className="text-sm text-gray-500 dark:text-gray-400 text-center flex items-center justify-center gap-1">
+          Thank you for your support <HeartIcon className="h-4 w-4 text-red-500" />
+        </p>
       </DialogContent>
     </Dialog>
   );
