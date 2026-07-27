@@ -15,6 +15,8 @@ import { SpeedTestTab } from "./speedtest/SpeedTestTab";
 import { TracerouteTab } from "./speedtest/TracerouteTab";
 import { MonitorTab } from "./monitor/MonitorTab";
 import { showToast } from "@/components/common/Toast";
+import { getPublicTheme } from "@/api/license";
+import { applyPublicColorTheme } from "@/utils/colorTheme";
 import {
   ChartBarIcon,
   PlayIcon,
@@ -54,6 +56,17 @@ interface MainProps {
 export default function Main({ isPublic = false }: MainProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+
+  // The public dashboard uses the server-configured public theme. Boot
+  // deliberately skipped the localStorage theme on /public; on failure the
+  // built-in default simply stays.
+  useEffect(() => {
+    if (!isPublic) return;
+    getPublicTheme()
+      .then(({ theme }) => applyPublicColorTheme(theme))
+      .catch(() => {});
+  }, [isPublic]);
+
   const [options, setOptions] = useState<TestOptions>({
     enableDownload: true,
     enableUpload: true,

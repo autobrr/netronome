@@ -105,12 +105,30 @@ const applyColorTheme = (theme: ColorTheme, withTransition: boolean): void => {
   root.classList.add(`${THEME_CLASS_PREFIX}${theme.id}`);
 };
 
+/** True on the anonymous public dashboard (/public). */
+export const isPublicDashboardRoute = (): boolean =>
+  window.location.pathname.includes("/public");
+
 /** Apply the cached theme synchronously at boot, before first paint. */
 export const initColorTheme = (): void => {
+  // The public dashboard shows the server-configured public theme (fetched
+  // after mount), never the operator's personal choice from localStorage.
+  if (isPublicDashboardRoute()) return;
   applyColorTheme(
     resolveTheme(getStoredColorThemeId(), hasPremiumAccessCached()),
     false
   );
+};
+
+/**
+ * Apply the server-resolved public dashboard theme. The server already gates
+ * entitlement (it returns the default id when unlicensed), so there is no
+ * premium check here, and nothing is persisted - localStorage keeps the
+ * operator's own choice.
+ */
+export const applyPublicColorTheme = (id: string): void => {
+  const theme = getColorThemeById(id);
+  if (theme) applyColorTheme(theme, false);
 };
 
 /**

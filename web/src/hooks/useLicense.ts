@@ -19,6 +19,7 @@ import {
   reconcileColorTheme,
   getStoredColorThemeId,
   setColorTheme,
+  isPublicDashboardRoute,
 } from "@/utils/colorTheme";
 import { DEFAULT_THEME_ID, type ColorTheme } from "@/config/themes";
 import { showToast } from "@/components/common/Toast";
@@ -40,9 +41,10 @@ export const useLicense = () => {
   const authoritative = query.data?.hasPremiumAccess;
 
   // Authoritative state arrived: revert an active premium theme if entitlement
-  // was lost. colorTheme.ts owns the actual reconciliation.
+  // was lost. colorTheme.ts owns the actual reconciliation. On /public the
+  // server-configured public theme owns the page - do not touch it.
   useEffect(() => {
-    if (authoritative === undefined) return;
+    if (authoritative === undefined || isPublicDashboardRoute()) return;
     reconcileColorTheme(authoritative);
   }, [authoritative]);
 
@@ -118,7 +120,10 @@ export const useColorThemeSelection = () => {
   const publicTheme = settings?.publicTheme ?? DEFAULT_THEME_ID;
 
   // Boot only applied the localStorage guess; the server is authoritative.
+  // On /public the public theme owns the page (an authenticated operator
+  // previewing /public still mounts this hook via the header controls).
   useEffect(() => {
+    if (isPublicDashboardRoute()) return;
     if (settings?.theme) setColorTheme(settings.theme, hasPremium);
   }, [settings?.theme, hasPremium]);
 
