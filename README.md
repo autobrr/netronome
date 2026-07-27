@@ -306,6 +306,21 @@ Add to `config.toml`:
 whitelist = ["127.0.0.1/32", "192.168.1.0/24"]
 ```
 
+To disable authentication entirely — e.g. when a reverse proxy (SWAG/NGINX, Authelia, TinyAuth) already handles it — whitelist all clients. IPv6 needs its own entry alongside IPv4:
+
+```toml
+[auth]
+whitelist = ["0.0.0.0/0", "::/0"]
+```
+
+Or via environment variable (comma-separated, no spaces):
+
+```bash
+export NETRONOME__AUTH_WHITELIST=0.0.0.0/0,::/0
+```
+
+**Warning:** only do this when Netronome is not directly reachable — bind it to localhost or a proxy-only Docker network. Every client that can reach it gets full access.
+
 ### Database
 
 #### SQLite (Default)
