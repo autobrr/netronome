@@ -281,9 +281,10 @@ const readVars = (body) => {
   return out;
 };
 
+// [ \t] rather than \s: an empty "@key:" line must not capture the next line.
 const meta = (css, key) =>
   css
-    .match(new RegExp(`@${key}:\\s*(.+)`))?.[1]
+    .match(new RegExp(`@${key}:[ \\t]*(.+)`))?.[1]
     ?.replace(/\*\/.*$/, "")
     .trim();
 
@@ -632,9 +633,10 @@ for (const [i, fg, bg] of PAIRS) {
     console.warn(`  warn: ${sel} ${fg} on ${bg} is only ${d.toFixed(2)} L apart`);
 }
 
+const description = meta(src, "description");
 const header = [
   `/* @name: ${meta(src, "name") ?? id}`,
-  ` * @description: ${meta(src, "description") ?? ""}`,
+  ...(description ? [` * @description: ${description}`] : []),
   ` * @premium: ${meta(src, "premium") ?? "true"}`,
   ` *`,
   ` * Converted from a qui theme by scripts/convert-theme.mjs. Hand-tuned after.`,

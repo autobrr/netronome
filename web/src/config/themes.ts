@@ -45,10 +45,11 @@ const devFiles = import.meta.glob("/src/themes/__dev__/*.css", {
 }) as Record<string, string>;
 
 // The trailing-comment strip keeps single-line headers ("/* @premium: true */")
-// from capturing the "*/".
+// from capturing the "*/". [ \t] rather than \s: \s matches newlines, so an
+// empty "@description:" line would capture the next header line as its value.
 const metaValue = (css: string, key: string): string | undefined =>
   css
-    .match(new RegExp(`@${key}:\\s*(.+)`))?.[1]
+    .match(new RegExp(`@${key}:[ \\t]*(.+)`))?.[1]
     ?.replace(/\*\/.*$/, "")
     .trim();
 

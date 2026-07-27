@@ -15,10 +15,9 @@ all: build
 # Fetch premium themes from the private repository. Requires THEMES_REPO_TOKEN;
 # without it the build succeeds and simply ships no premium themes.
 themes-fetch:
-	@rm -rf $(THEMES_DIR)
 	@if [ -n "$$THEMES_REPO_TOKEN" ]; then \
 		echo "Fetching premium themes..."; \
-		rm -rf .themes-temp && \
+		rm -rf $(THEMES_DIR) .themes-temp && \
 		git clone --depth=1 --filter=blob:none --sparse \
 			https://$$THEMES_REPO_TOKEN@$(THEMES_REPO).git .themes-temp && \
 		cd .themes-temp && git sparse-checkout set --cone netronome && cd .. && \
