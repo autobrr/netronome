@@ -9,6 +9,7 @@ import (
 
 	"github.com/containrrr/shoutrrr"
 	"github.com/containrrr/shoutrrr/pkg/router"
+	"github.com/containrrr/shoutrrr/pkg/types"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/database"
@@ -98,6 +99,18 @@ func (n *Notifier) getThresholdForEvent(category, eventType string) *float64 {
 	return nil
 }
 
+// notificationTitle builds the shoutrrr notification title from a category.
+func notificationTitle(category string) string {
+	switch category {
+	case "":
+		return "Netronome"
+	case database.NotificationCategoryPacketLoss:
+		return "Netronome: Packet Loss"
+	default:
+		return "Netronome: " + strings.ToUpper(category[:1]) + category[1:]
+	}
+}
+
 // SendNotification sends a notification for a specific event
 func (n *Notifier) SendNotification(category, eventType string, message string, value *float64) error {
 	if n.db == nil {
@@ -163,7 +176,8 @@ func (n *Notifier) SendNotification(category, eventType string, message string, 
 					continue
 				}
 
-				errs := tempNotifier.Send(message, nil)
+				params := types.Params{types.TitleKey: notificationTitle(category)}
+				errs := tempNotifier.Send(message, &params)
 				for _, err := range errs {
 					if err != nil {
 						sendErr = err
@@ -385,7 +399,8 @@ func (n *Notifier) sendDirect(message string) error {
 	}
 
 	if n.router != nil {
-		for _, err := range n.router.Send(message, nil) {
+		params := types.Params{types.TitleKey: "Netronome"}
+		for _, err := range n.router.Send(message, &params) {
 			if err != nil {
 				errs = append(errs, err)
 			}
