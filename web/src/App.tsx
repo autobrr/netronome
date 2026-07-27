@@ -17,12 +17,10 @@ import {
 import {
   initializeDarkMode,
   getCurrentThemeMode,
-  setAutoTheme,
-  getSystemTheme,
+  setThemeMode,
 } from "@/utils/darkMode";
 import { useAuth } from "@/context/auth";
 import { DonateModal } from "@/components/DonateModal";
-import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { ThemeDropdown, MobileThemePicker } from "@/components/ThemeDropdown";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
@@ -68,27 +66,10 @@ function App() {
     };
   }, []);
 
+  // setThemeMode dispatches "themechange", which the effect above turns into
+  // a setCurrentTheme - no local state update needed here.
   const handleThemeChange = useCallback((theme: "light" | "dark" | "auto") => {
-    if (theme === "auto") {
-      setAutoTheme();
-    } else if (theme === "light") {
-      localStorage.setItem("theme", "light");
-      document.documentElement.classList.remove("dark");
-    } else {
-      localStorage.setItem("theme", "dark");
-      document.documentElement.classList.add("dark");
-    }
-    setCurrentTheme(theme);
-
-    // Dispatch event to notify other components
-    window.dispatchEvent(
-      new CustomEvent("themechange", {
-        detail: {
-          theme: theme === "auto" ? getSystemTheme() : theme,
-          isSystemChange: false,
-        },
-      })
-    );
+    setThemeMode(theme);
   }, []);
 
   const getThemeIcon = (theme: "light" | "dark" | "auto") => {
@@ -145,7 +126,6 @@ function App() {
             >
               <HeartIcon className="h-6 w-6" />
             </Button>
-            <DarkModeToggle />
             <ThemeDropdown />
             <SettingsMenu />
             <Button

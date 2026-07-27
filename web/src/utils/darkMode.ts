@@ -20,7 +20,7 @@ const THEME_TRANSITION_CSS = `
     transition-duration: 0.3s;
     transition-timing-function: ease-in-out;
   }
-  
+
   /* Prevent scrollbar transitions */
   .theme-transition ::-webkit-scrollbar,
   .theme-transition ::-webkit-scrollbar-track,
@@ -30,7 +30,7 @@ const THEME_TRANSITION_CSS = `
   ::-webkit-scrollbar-thumb {
     transition: none !important;
   }
-  
+
   /* Prevent scrollbar color from animating */
   html.theme-transition {
     scrollbar-color: initial !important;
@@ -193,6 +193,17 @@ export const resetToSystemTheme = (): void => {
 
 export const setAutoTheme = (): void => {
   resetToSystemTheme();
+};
+
+/** Set an explicit mode (or hand back to the system with "auto"). */
+export const setThemeMode = (mode: ThemeMode): void => {
+  if (mode === THEME_AUTO) {
+    resetToSystemTheme();
+    return;
+  }
+  setStoredTheme(mode);
+  applyTheme(mode === THEME_DARK, true);
+  dispatchThemeChange(mode, false);
 };
 
 export const hasManualPreference = (): boolean => {
