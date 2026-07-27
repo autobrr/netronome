@@ -386,13 +386,21 @@ func (c *Client) Validate(ctx context.Context, validateReq ValidateRequest) (*Va
 		return nil, errors.Wrap(ErrInvalidLicenseKey, response.Detail)
 
 	case http.StatusNotFound:
+		// Unlike 403, a 404 is not reserved for denials: a retired or moved
+		// endpoint answers 404 too (FastAPI's generic {"detail":"Not Found"}),
+		// and treating that as authoritative would revoke every install's
+		// license fleet-wide. Only a body that actually talks about the
+		// license key counts as a denial; anything else is transient.
 		var response ErrorResponse
 		if err := json.Unmarshal(body, &response); err == nil {
 			if response.Detail == "License key does not match required conditions" {
 				return nil, ErrConditionMismatch
 			}
+			if strings.Contains(strings.ToLower(response.Detail), "license") {
+				return nil, errors.Wrap(ErrInvalidLicenseKey, response.Detail)
+			}
 		}
-		return nil, ErrInvalidLicenseKey
+		return nil, fmt.Errorf("unexpected 404 from polar: %s", string(body))
 
 	case http.StatusTooManyRequests:
 		return nil, ErrRateLimitExceeded

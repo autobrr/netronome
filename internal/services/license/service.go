@@ -146,6 +146,11 @@ func (s *Service) Activate(ctx context.Context, licenseKey string) (*License, er
 		return nil, ErrKeyRequired
 	}
 
+	// Detach from the request context: once Polar commits the activation, a
+	// client disconnect must not cancel the local save, or the seat is burned
+	// with nothing stored. The polar client carries its own timeout.
+	ctx = context.WithoutCancel(ctx)
+
 	if s.polar == nil || !s.polar.IsClientConfigured() {
 		return nil, ErrNotConfigured
 	}
@@ -183,10 +188,18 @@ func (s *Service) Activate(ctx context.Context, licenseKey string) (*License, er
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	prev, prevErr := s.Get(ctx)
+
+	if err := s.save(ctx, lic); err != nil {
+		return nil, err
+	}
+
 	// Replacing a key must release the previous Polar activation, or its seat
-	// leaks forever. Done after the new activation succeeded so a failed swap
-	// never drops a working license; best-effort, like Deactivate.
-	if prev, err := s.Get(ctx); err == nil && prev != nil &&
+	// leaks forever. Done after the new license is persisted: if the release
+	// ran first and the save failed, the stored license would point at a dead
+	// activation and the next Validate would kill it. A leaked seat is
+	// recoverable; a killed license is not. Best-effort, like Deactivate.
+	if prevErr == nil && prev != nil &&
 		prev.PolarActivationID != "" && prev.PolarActivationID != lic.PolarActivationID {
 		derr := s.polar.Deactivate(ctx, polar.DeactivateRequest{
 			Key:          prev.LicenseKey,
@@ -196,10 +209,6 @@ func (s *Service) Activate(ctx context.Context, licenseKey string) (*License, er
 			log.Warn().Err(derr).Str("licenseKey", MaskLicenseKey(prev.LicenseKey)).
 				Msg("failed to release previous activation")
 		}
-	}
-
-	if err := s.save(ctx, lic); err != nil {
-		return nil, err
 	}
 
 	log.Info().Str("licenseKey", MaskLicenseKey(licenseKey)).Msg("license activated")
@@ -271,6 +280,11 @@ func (s *Service) Validate(ctx context.Context) (*License, error) {
 // The local license is cleared even if the remote call fails, otherwise a
 // revoked or offline install could never be reset.
 func (s *Service) Deactivate(ctx context.Context) error {
+	// Detached for the same reason as Activate: a disconnect between the
+	// remote release and the local clear would leave a blob pointing at a
+	// dead activation.
+	ctx = context.WithoutCancel(ctx)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
