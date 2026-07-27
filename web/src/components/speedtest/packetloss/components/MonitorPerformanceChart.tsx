@@ -181,6 +181,7 @@ export const MonitorPerformanceChart: React.FC<
                 fontSize: "12px",
                 fontWeight: "medium",
               }}
+              itemStyle={{ color: "var(--tooltip-text)" }}
               formatter={(value: number | string) => {
                 if (typeof value === "number") {
                   return value.toFixed(1);

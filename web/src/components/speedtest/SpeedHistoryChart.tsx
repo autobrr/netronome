@@ -423,6 +423,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   fontSize: "12px",
                   fontWeight: "medium",
                 }}
+                itemStyle={{ color: "var(--tooltip-text)" }}
                 formatter={(value: number | string, name: string) => {
                   if (typeof value === "number") {
                     if (name === "Download" || name === "Upload") {

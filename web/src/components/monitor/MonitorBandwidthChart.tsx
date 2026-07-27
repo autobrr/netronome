@@ -167,6 +167,7 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
                 borderRadius: "0.5rem",
               }}
               labelStyle={{ color: "var(--tooltip-label)" }}
+              itemStyle={{ color: "var(--tooltip-text)" }}
               formatter={formatTooltipValue}
               labelFormatter={(label) => formatters.chartTooltip(label, "1d")}
             />

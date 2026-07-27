@@ -74,7 +74,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
             theme === "dark"
               ? "var(--color-blue-700, #1d4ed8)"
               : "var(--color-blue-500, #3b82f6)",
-          color: "var(--color-white, #ffffff)",
+          // on-accent, not white: themes with a light accent ramp redefine
+          // --color-white to a light tint, which would vanish on this surface.
+          color: "var(--color-on-accent, #ffffff)",
         },
         cancelButtonStyle: {
           backgroundColor:
