@@ -7,6 +7,7 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
 ARG GITHUB_TOKEN
+ARG POLAR_ORG_ID
 
 RUN apk add --no-cache git tzdata curl ca-certificates
 
@@ -75,7 +76,8 @@ RUN --network=none --mount=target=. \
     go build -ldflags "-s -w \
     -X 'main.version=${VERSION}' \
     -X 'main.commit=${REVISION}' \
-    -X 'main.buildTime=${BUILDTIME}'" \
+    -X 'main.buildTime=${BUILDTIME}' \
+    -X 'main.PolarOrgID=${POLAR_ORG_ID}'" \
     -o /app/netronome ./cmd/netronome
 
 FROM alpine:latest

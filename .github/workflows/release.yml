@@ -252,6 +252,7 @@ jobs:
             REVISION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
             BUILDER=${{ github.actor }}@github-actions
             GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            POLAR_ORG_ID=${{ secrets.POLAR_ORG_ID }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
