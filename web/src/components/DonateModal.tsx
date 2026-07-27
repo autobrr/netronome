@@ -19,6 +19,8 @@ import { SiBuymeacoffee, SiKofi, SiLitecoin, SiMonero } from "react-icons/si";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import s0upAvatar from "@/assets/sponsors/s0up4200.png";
 import zze0sAvatar from "@/assets/sponsors/zze0s.png";
+import { useLicense } from "@/hooks/useLicense";
+import { POLAR_CHECKOUT_URL } from "@/constants/premium";
 
 // Polar SVG component
 const PolarIcon: React.FC<{ className?: string }> = ({ className = "w-full h-full" }) => (
@@ -50,10 +52,18 @@ interface Maintainer {
   crypto: CryptoAddress[];
 }
 
-const projectSponsor: PlatformLink = {
+// One project-level ask, picked by license state. Never both: the premium
+// checkout and the sponsorship checkout are easy to confuse side by side.
+const sponsorCard = {
   name: "Polar",
   url: "https://buy.polar.sh/polar_cl_wWoEUigSOTJIoTrKaGIj3NU6oOCc4xJsKnsDN3NaATF",
-  icon: <PolarIcon className="h-5 w-5" />,
+  description: "Sponsor the Netronome project",
+};
+
+const premiumCard = {
+  name: "Premium Themes",
+  url: POLAR_CHECKOUT_URL,
+  description: "Support the project and unlock premium themes",
 };
 
 const maintainers: Maintainer[] = [
@@ -211,6 +221,9 @@ interface DonateModalProps {
 }
 
 export function DonateModal({ isOpen, onClose }: DonateModalProps) {
+  const { data: license } = useLicense();
+  const project = license?.hasPremiumAccess ? sponsorCard : premiumCard;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
@@ -222,27 +235,27 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
         </DialogHeader>
 
         <div className="max-h-[60vh] overflow-y-auto space-y-5 pr-1">
-          {/* Project-level: Polar */}
+          {/* Project-level: premium checkout, or plain sponsorship once licensed */}
           <a
-            href={projectSponsor.url}
+            href={project.url}
             target="_blank"
             rel="noopener noreferrer"
             className="group flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50 p-4 hover:bg-gray-100/70 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 shadow-sm">
-              {projectSponsor.icon}
+              <PolarIcon className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-medium text-gray-900 dark:text-white group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
-                  {projectSponsor.name}
+                  {project.name}
                 </span>
                 <Badge variant="default" className="text-[10px] px-2 py-0">
                   Recommended
                 </Badge>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Sponsor the Netronome project
+                {project.description}
               </p>
             </div>
             <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors flex-shrink-0" />
