@@ -237,7 +237,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create notifier: %w", err)
 	}
 
-	// premium theme licensing (Polar). Requests proxy through api.autobrr.com.
+	// premium theme licensing (Polar). Requests go directly to api.polar.sh -
+	// the customer-portal license endpoints need no auth, the key itself is
+	// the credential.
 	//
 	// Release builds bake the org id in with -X main.PolarOrgID. `make run` and
 	// air build without ldflags, so fall back to the environment (and therefore

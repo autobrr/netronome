@@ -31,8 +31,8 @@ var (
 )
 
 const (
-	polarAPIBaseURL        = "https://api.autobrr.com"
-	polarSandboxAPIBaseURL = "https://sandbox-api.autobrr.com"
+	polarAPIBaseURL        = "https://api.polar.sh"
+	polarSandboxAPIBaseURL = "https://sandbox-api.polar.sh"
 	validateEndpoint       = "/v1/customer-portal/license-keys/validate"
 	activateEndpoint       = "/v1/customer-portal/license-keys/activate"
 	deactivateEndpoint     = "/v1/customer-portal/license-keys/deactivate"
