@@ -264,10 +264,10 @@ func (c *Client) Activate(ctx context.Context, activateReq ActivateRequest) (*Ac
 		break
 
 	case http.StatusForbidden:
+		// Best-effort parse: a 403 is an authoritative denial even when the
+		// body is empty or malformed.
 		var response ErrorResponse
-		if err := json.Unmarshal(body, &response); err != nil {
-			return nil, ErrCouldNotUnmarshalData
-		}
+		_ = json.Unmarshal(body, &response)
 
 		if response.Detail == "License key activation limit already reached" {
 			return nil, ErrActivationLimitExceeded
@@ -276,6 +276,9 @@ func (c *Client) Activate(ctx context.Context, activateReq ActivateRequest) (*Ac
 		// Any other 403 is an authoritative denial (revoked, disabled, expired).
 		if strings.Contains(strings.ToLower(response.Detail), "expired") {
 			return nil, errors.Wrap(ErrLicenseExpired, response.Detail)
+		}
+		if response.Detail == "" {
+			return nil, ErrInvalidLicenseKey
 		}
 		return nil, errors.Wrap(ErrInvalidLicenseKey, response.Detail)
 
@@ -363,20 +366,22 @@ func (c *Client) Validate(ctx context.Context, validateReq ValidateRequest) (*Va
 		break
 
 	case http.StatusForbidden:
+		// Best-effort parse: a 403 is Polar answering authoritatively (revoked,
+		// disabled, expired), not us failing to ask - surface a denial sentinel
+		// even when the body is empty or malformed so Service.Validate treats
+		// it as one.
 		var response ErrorResponse
-		if err := json.Unmarshal(body, &response); err != nil {
-			return nil, ErrCouldNotUnmarshalData
-		}
+		_ = json.Unmarshal(body, &response)
 
 		if response.Detail == "License key activation limit already reached" {
 			return nil, ErrActivationLimitExceeded
 		}
 
-		// Any other 403 is Polar answering authoritatively (revoked, disabled,
-		// expired), not us failing to ask - surface it as a denial sentinel so
-		// Service.Validate treats it as one.
 		if strings.Contains(strings.ToLower(response.Detail), "expired") {
 			return nil, errors.Wrap(ErrLicenseExpired, response.Detail)
+		}
+		if response.Detail == "" {
+			return nil, ErrInvalidLicenseKey
 		}
 		return nil, errors.Wrap(ErrInvalidLicenseKey, response.Detail)
 
