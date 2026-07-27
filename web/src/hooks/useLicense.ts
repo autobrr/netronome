@@ -70,6 +70,9 @@ export const useActivateLicense = () => {
     mutationFn: (licenseKey: string) => activateLicense(licenseKey),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: LICENSE_KEY });
+      // GET /settings/theme is entitlement-gated on the server, so the cached
+      // payload is stale the moment the license changes.
+      queryClient.invalidateQueries({ queryKey: THEME_SETTINGS_KEY });
     },
   });
 };
@@ -81,6 +84,7 @@ export const useDeactivateLicense = () => {
     mutationFn: deactivateLicense,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: LICENSE_KEY });
+      queryClient.invalidateQueries({ queryKey: THEME_SETTINGS_KEY });
     },
   });
 };
@@ -141,10 +145,21 @@ export const useColorThemeSelection = () => {
     );
   };
 
+  // Until settings resolve, activeTheme/publicTheme are fallbacks - saving
+  // would overwrite the server's other field with a guess. After a failed
+  // fetch the picker renders normally, so a silent return would read as a
+  // dead click.
+  const settingsUnavailable = (): boolean => {
+    if (settings) return false;
+    showToast("Theme settings unavailable", "error", {
+      description: "Could not load theme settings from the server.",
+    });
+    return true;
+  };
+
   const selectTheme = (theme: ColorTheme) => {
-    // Until settings resolve, activeTheme/publicTheme are fallbacks - saving
-    // would overwrite the server's other field with a guess.
-    if (!settings || theme.id === activeTheme) return;
+    if (theme.id === activeTheme) return;
+    if (settingsUnavailable()) return;
     // Returns false for premium themes without entitlement - locked themes
     // are never previewed, deliberately.
     if (!setColorTheme(theme.id, hasPremium)) return;
@@ -152,7 +167,7 @@ export const useColorThemeSelection = () => {
   };
 
   const selectPublicTheme = (id: string) => {
-    if (!settings) return;
+    if (settingsUnavailable()) return;
     save(activeTheme, id);
   };
 

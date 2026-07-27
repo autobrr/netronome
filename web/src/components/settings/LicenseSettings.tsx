@@ -25,7 +25,7 @@ const formatDate = (value: string): string =>
   });
 
 export const LicenseSettings: React.FC = () => {
-  const { data, isLoading } = useLicense();
+  const { data, isLoading, isError, refetch } = useLicense();
   const activate = useActivateLicense();
   const deactivate = useDeactivateLicense();
 
@@ -78,6 +78,29 @@ export const LicenseSettings: React.FC = () => {
           </p>
         </div>
       </div>
+    );
+  }
+
+  // A failed fetch must not render the activate/purchase card: on a licensed
+  // instance that would look like the license vanished and hide Deactivate.
+  if (isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <KeyIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            License
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Could not load the license status. Your license is unaffected.
+          </p>
+          <Button variant="secondary" onClick={() => refetch()}>
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 

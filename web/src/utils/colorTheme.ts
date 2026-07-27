@@ -190,18 +190,31 @@ export const setColorTheme = (id: string, hasPremium: boolean): boolean => {
   return true;
 };
 
+/** Theme id currently applied to <html>; the default has no theme-* class. */
+const getAppliedColorThemeId = (): string => {
+  for (const cls of document.documentElement.classList) {
+    if (cls.startsWith(THEME_CLASS_PREFIX) && cls !== TRANSITION_CLASS) {
+      return cls.slice(THEME_CLASS_PREFIX.length);
+    }
+  }
+  return DEFAULT_THEME_ID;
+};
+
 /**
  * Reconcile against authoritative license state once it arrives. Reverts to
  * the default theme if entitlement was lost while a premium theme was active.
  * The stored selection is deliberately kept: resolveTheme gates every read, so
  * re-activating a license restores the user's premium choice.
+ *
+ * Compared against what is actually applied to <html>, not the stored id: a
+ * lapse downgrades the DOM while keeping the stored premium id, so a
+ * stored-vs-resolved comparison would skip re-applying on re-activation.
  */
 export const reconcileColorTheme = (hasPremium: boolean): void => {
   setPremiumAccessCache(hasPremium);
 
-  const stored = getStoredColorThemeId();
-  const resolved = resolveTheme(stored, hasPremium);
-  if (resolved.id === stored) return;
+  const resolved = resolveTheme(getStoredColorThemeId(), hasPremium);
+  if (resolved.id === getAppliedColorThemeId()) return;
 
   applyColorTheme(resolved, false);
 };
