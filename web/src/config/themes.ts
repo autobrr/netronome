@@ -44,8 +44,13 @@ const devFiles = import.meta.glob("/src/themes/__dev__/*.css", {
   eager: true,
 }) as Record<string, string>;
 
+// The trailing-comment strip keeps single-line headers ("/* @premium: true */")
+// from capturing the "*/".
 const metaValue = (css: string, key: string): string | undefined =>
-  css.match(new RegExp(`@${key}:\\s*(.+)`))?.[1]?.trim();
+  css
+    .match(new RegExp(`@${key}:\\s*(.+)`))?.[1]
+    ?.replace(/\*\/.*$/, "")
+    .trim();
 
 // Later declarations win, so the last match for a var is the dark-block value.
 const lastVarValue = (css: string, name: string): string | undefined => {

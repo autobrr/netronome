@@ -27,7 +27,6 @@ var (
 	ErrBadRequestData          = errors.New("bad request data")
 	ErrCouldNotUnmarshalData   = errors.New("could not unmarshal data")
 	ErrRateLimitExceeded       = errors.New("rate limit exceeded")
-	ErrDataValidationError     = errors.New("data validation error")
 )
 
 const (
@@ -39,30 +38,15 @@ const (
 
 	requestTimeout = 30 * time.Second
 
-	OrgIDNotConfigMsg = "Organization ID not configured"
-	LicenseFailedMsg  = "Failed to validate license"
-	ActivateFailedMsg = "Failed to activate license"
-	InvalidRespMsg    = "Invalid license response"
+	// maxResponseBytes bounds how much of a response body we will read.
+	maxResponseBytes = 1 << 20
 )
 
-// ValidationResponse represents the response from the validate endpoint
-type ValidationResponse struct {
-	ID               string     `json:"id"`
-	BenefitID        string     `json:"benefit_id"`
-	CustomerID       string     `json:"customer_id"`
-	Key              string     `json:"key"`
-	Status           string     `json:"status"`
-	ExpiresAt        *time.Time `json:"expires_at"`
-	LimitActivations int        `json:"limit_activations"`
-	Usage            int        `json:"usage"`
-	Validations      int        `json:"validations"`
-}
-
 type ValidateResp struct {
-	Id               string    `json:"id"`
-	OrganizationId   string    `json:"organization_id"`
-	UserId           string    `json:"user_id"`
-	BenefitId        string    `json:"benefit_id"`
+	ID               string    `json:"id"`
+	OrganizationID   string    `json:"organization_id"`
+	UserID           string    `json:"user_id"`
+	BenefitID        string    `json:"benefit_id"`
 	Key              string    `json:"key"`
 	DisplayKey       string    `json:"display_key"`
 	Status           string    `json:"status"`
@@ -73,8 +57,8 @@ type ValidateResp struct {
 	LastValidatedAt  time.Time `json:"last_validated_at"`
 	ExpiresAt        time.Time `json:"expires_at"`
 	Activation       struct {
-		Id           string         `json:"id"`
-		LicenseKeyId string         `json:"license_key_id"`
+		ID           string         `json:"id"`
+		LicenseKeyID string         `json:"license_key_id"`
 		Label        string         `json:"label"`
 		Meta         map[string]any `json:"meta"`
 		CreatedAt    time.Time      `json:"created_at"`
@@ -83,20 +67,11 @@ type ValidateResp struct {
 }
 
 func (v *ValidateResp) ValidLicense() bool {
-	if v.Status == "granted" {
-		return true
-	}
-
-	return false
-}
-
-// ActivationResponse represents the response from the activate endpoint
-type ActivationResponse struct {
-	LicenseKey LicenseKeyData `json:"license_key"`
+	return v.Status == "granted"
 }
 
 type ActivateKeyResponse struct {
-	Id           string         `json:"id"`
+	ID           string         `json:"id"`
 	LicenseKeyID string         `json:"license_key_id"`
 	Label        string         `json:"label"`
 	Meta         map[string]any `json:"meta"`
@@ -118,18 +93,6 @@ type ActivateKeyResponse struct {
 		LastValidatedAt  *time.Time `json:"last_validated_at"`
 		ExpiresAt        *time.Time `json:"expires_at"`
 	} `json:"license_key"`
-}
-
-// LicenseKeyData represents the nested license key data in activation response
-type LicenseKeyData struct {
-	ID               string     `json:"id"`
-	BenefitID        string     `json:"benefit_id"`
-	CustomerID       string     `json:"customer_id"`
-	Key              string     `json:"key"`
-	Status           string     `json:"status"`
-	ExpiresAt        *time.Time `json:"expires_at"`
-	LimitActivations int        `json:"limit_activations"`
-	Usage            int        `json:"usage"`
 }
 
 type ErrorResponse struct {
@@ -170,6 +133,10 @@ func WithEnvironment(env string) OptFunc {
 		case "development":
 			c.baseURL = "http://localhost:8080"
 			c.environment = env
+		case "":
+			// unset: keep the production default
+		default:
+			log.Warn().Str("environment", env).Msg("Unknown Polar environment, using production")
 		}
 	}
 }
@@ -287,7 +254,7 @@ func (c *Client) Activate(ctx context.Context, activateReq ActivateRequest) (*Ac
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
@@ -306,13 +273,17 @@ func (c *Client) Activate(ctx context.Context, activateReq ActivateRequest) (*Ac
 			return nil, ErrActivationLimitExceeded
 		}
 
-		return nil, errors.Wrapf(errors.New(response.Detail), "%s", response.Error)
+		// Any other 403 is an authoritative denial (revoked, disabled, expired).
+		if strings.Contains(strings.ToLower(response.Detail), "expired") {
+			return nil, errors.Wrap(ErrLicenseExpired, response.Detail)
+		}
+		return nil, errors.Wrap(ErrInvalidLicenseKey, response.Detail)
 
 	case http.StatusNotFound:
 		return nil, ErrInvalidLicenseKey
 
 	case http.StatusTooManyRequests:
-		return nil, ErrActivationLimitExceeded
+		return nil, ErrRateLimitExceeded
 
 	default:
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -382,7 +353,7 @@ func (c *Client) Validate(ctx context.Context, validateReq ValidateRequest) (*Va
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
@@ -401,7 +372,13 @@ func (c *Client) Validate(ctx context.Context, validateReq ValidateRequest) (*Va
 			return nil, ErrActivationLimitExceeded
 		}
 
-		return nil, errors.Wrapf(errors.New(response.Detail), "%s", response.Error)
+		// Any other 403 is Polar answering authoritatively (revoked, disabled,
+		// expired), not us failing to ask - surface it as a denial sentinel so
+		// Service.Validate treats it as one.
+		if strings.Contains(strings.ToLower(response.Detail), "expired") {
+			return nil, errors.Wrap(ErrLicenseExpired, response.Detail)
+		}
+		return nil, errors.Wrap(ErrInvalidLicenseKey, response.Detail)
 
 	case http.StatusNotFound:
 		var response ErrorResponse
@@ -482,7 +459,7 @@ func (c *Client) Deactivate(ctx context.Context, deactivateReq DeactivateRequest
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}

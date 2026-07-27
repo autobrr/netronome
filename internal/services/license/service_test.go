@@ -40,10 +40,20 @@ func (f *fakeStore) SetAppSetting(_ context.Context, key, value string) error {
 type fakePolar struct {
 	resp *polar.ValidateResp
 	err  error
+
+	activateResp *polar.ActivateKeyResponse
+	activateErr  error
+	deactivated  []polar.DeactivateRequest
 }
 
 func (f *fakePolar) Activate(context.Context, polar.ActivateRequest) (*polar.ActivateKeyResponse, error) {
-	return nil, errors.New("not used")
+	if f.activateErr != nil {
+		return nil, f.activateErr
+	}
+	if f.activateResp == nil {
+		return nil, errors.New("not used")
+	}
+	return f.activateResp, nil
 }
 
 func (f *fakePolar) Validate(context.Context, polar.ValidateRequest) (*polar.ValidateResp, error) {
@@ -53,7 +63,10 @@ func (f *fakePolar) Validate(context.Context, polar.ValidateRequest) (*polar.Val
 	return f.resp, nil
 }
 
-func (f *fakePolar) Deactivate(context.Context, polar.DeactivateRequest) error { return nil }
+func (f *fakePolar) Deactivate(_ context.Context, req polar.DeactivateRequest) error {
+	f.deactivated = append(f.deactivated, req)
+	return nil
+}
 
 func (f *fakePolar) IsClientConfigured() bool { return true }
 
@@ -73,7 +86,7 @@ func TestEntitled(t *testing.T) {
 		{"inside grace period", &License{Status: StatusActive, LastValidated: now.Add(-offlineGracePeriod + time.Minute)}, true},
 		{"exactly at grace boundary", &License{Status: StatusActive, LastValidated: now.Add(-offlineGracePeriod)}, true},
 		{"past grace period", &License{Status: StatusActive, LastValidated: now.Add(-offlineGracePeriod - time.Minute)}, false},
-		{"never validated", &License{Status: StatusActive}, true},
+		{"never validated", &License{Status: StatusActive}, false},
 		{"expired", &License{Status: StatusActive, LastValidated: now, ExpiresAt: &past}, false},
 		{"not yet expired", &License{Status: StatusActive, LastValidated: now, ExpiresAt: &future}, true},
 	}
@@ -171,6 +184,51 @@ func TestValidateKeepsEntitlementOnTransientErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestActivate(t *testing.T) {
+	ctx := context.Background()
+
+	activateResp := &polar.ActivateKeyResponse{ID: "act_new"}
+	activateResp.LicenseKey.CustomerID = "cus_1"
+	activateResp.LicenseKey.BenefitID = "ben_1"
+
+	t.Run("success persists license", func(t *testing.T) {
+		store := newFakeStore()
+		svc := NewService(store, &fakePolar{activateResp: activateResp}, t.TempDir())
+
+		lic, err := svc.Activate(ctx, "NETRONOME-1234-5678")
+		require.NoError(t, err)
+		assert.Equal(t, "act_new", lic.PolarActivationID)
+		assert.True(t, svc.HasPremiumAccess(ctx))
+
+		var stored License
+		require.NoError(t, json.Unmarshal([]byte(store.values[SettingKey]), &stored))
+		assert.Equal(t, "act_new", stored.PolarActivationID)
+		assert.Equal(t, "cus_1", stored.PolarCustomerID)
+	})
+
+	t.Run("activation limit maps to ErrActivationLimit", func(t *testing.T) {
+		svc := NewService(newFakeStore(), &fakePolar{activateErr: polar.ErrActivationLimitExceeded}, t.TempDir())
+
+		_, err := svc.Activate(ctx, "NETRONOME-1234-5678")
+		assert.ErrorIs(t, err, ErrActivationLimit)
+	})
+
+	t.Run("replacing a license releases the old activation", func(t *testing.T) {
+		store := newFakeStore()
+		fp := &fakePolar{activateResp: activateResp}
+		svc := NewService(store, fp, t.TempDir())
+
+		blob, err := json.Marshal(License{LicenseKey: "OLD-KEY-1234-5678", Status: StatusActive, PolarActivationID: "act_old", LastValidated: time.Now()})
+		require.NoError(t, err)
+		store.values[SettingKey] = string(blob)
+
+		_, err = svc.Activate(ctx, "NETRONOME-1234-5678")
+		require.NoError(t, err)
+		require.Len(t, fp.deactivated, 1)
+		assert.Equal(t, "act_old", fp.deactivated[0].ActivationID)
+	})
 }
 
 func TestGetNoLicenseIsNotAnError(t *testing.T) {

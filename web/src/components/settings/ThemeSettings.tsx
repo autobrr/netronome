@@ -128,7 +128,7 @@ export const ThemeSettings: React.FC = () => {
                   key={theme.id}
                   href={POLAR_CHECKOUT_URL}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className={cardClass}
                 >
                   {body}
@@ -153,7 +153,7 @@ export const ThemeSettings: React.FC = () => {
               <a
                 href={POLAR_CHECKOUT_URL}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="text-blue-600 dark:text-blue-400 hover:underline"
               >
                 Netronome license
@@ -173,7 +173,10 @@ export const ThemeSettings: React.FC = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              id="public-theme-label"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               Theme
             </label>
             <Select
@@ -181,7 +184,10 @@ export const ThemeSettings: React.FC = () => {
               onValueChange={selectPublicTheme}
               disabled={isPending}
             >
-              <SelectTrigger className="w-full sm:w-[240px]">
+              <SelectTrigger
+                aria-labelledby="public-theme-label"
+                className="w-full sm:w-[240px]"
+              >
                 <SelectValue placeholder="Select theme" />
               </SelectTrigger>
               <SelectContent>

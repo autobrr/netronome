@@ -142,14 +142,19 @@ export const useColorThemeSelection = () => {
   };
 
   const selectTheme = (theme: ColorTheme) => {
-    if (theme.id === activeTheme) return;
+    // Until settings resolve, activeTheme/publicTheme are fallbacks - saving
+    // would overwrite the server's other field with a guess.
+    if (!settings || theme.id === activeTheme) return;
     // Returns false for premium themes without entitlement - locked themes
     // are never previewed, deliberately.
     if (!setColorTheme(theme.id, hasPremium)) return;
     save(theme.id, publicTheme, activeTheme);
   };
 
-  const selectPublicTheme = (id: string) => save(activeTheme, id);
+  const selectPublicTheme = (id: string) => {
+    if (!settings) return;
+    save(activeTheme, id);
+  };
 
   return {
     hasPremium,

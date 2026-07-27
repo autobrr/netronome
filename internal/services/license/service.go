@@ -80,7 +80,9 @@ func (l *License) Entitled(t time.Time) bool {
 	if l.ExpiresAt != nil && t.After(*l.ExpiresAt) {
 		return false
 	}
-	if !l.LastValidated.IsZero() && t.Sub(l.LastValidated) > offlineGracePeriod {
+	// A zero LastValidated never happens for a legitimately activated license
+	// (Activate stamps it), so treat it as lapsed rather than valid forever.
+	if l.LastValidated.IsZero() || t.Sub(l.LastValidated) > offlineGracePeriod {
 		return false
 	}
 	return true
@@ -172,7 +174,7 @@ func (s *Service) Activate(ctx context.Context, licenseKey string) (*License, er
 		ProductName:       ProductNamePremium,
 		ActivatedAt:       now,
 		ExpiresAt:         resp.LicenseKey.ExpiresAt,
-		PolarActivationID: resp.Id,
+		PolarActivationID: resp.ID,
 		PolarCustomerID:   resp.LicenseKey.CustomerID,
 		PolarProductID:    resp.LicenseKey.BenefitID,
 		LastValidated:     now,
@@ -180,6 +182,21 @@ func (s *Service) Activate(ctx context.Context, licenseKey string) (*License, er
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// Replacing a key must release the previous Polar activation, or its seat
+	// leaks forever. Done after the new activation succeeded so a failed swap
+	// never drops a working license; best-effort, like Deactivate.
+	if prev, err := s.Get(ctx); err == nil && prev != nil &&
+		prev.PolarActivationID != "" && prev.PolarActivationID != lic.PolarActivationID {
+		derr := s.polar.Deactivate(ctx, polar.DeactivateRequest{
+			Key:          prev.LicenseKey,
+			ActivationID: prev.PolarActivationID,
+		})
+		if derr != nil && !errors.Is(derr, polar.ErrLicenseNotActivated) && !errors.Is(derr, polar.ErrInvalidLicenseKey) {
+			log.Warn().Err(derr).Str("licenseKey", MaskLicenseKey(prev.LicenseKey)).
+				Msg("failed to release previous activation")
+		}
+	}
 
 	if err := s.save(ctx, lic); err != nil {
 		return nil, err
@@ -313,9 +330,11 @@ func (s *Service) markInvalid(ctx context.Context, lic *License) (*License, erro
 // opposed to us failing to ask.
 func isDenial(err error) bool {
 	switch {
+	// ErrActivationLimitExceeded is deliberately absent: the key hitting its
+	// limit does not prove OUR activation is invalid, so it rides the grace
+	// period like any other transient failure.
 	case errors.Is(err, polar.ErrInvalidLicenseKey),
 		errors.Is(err, polar.ErrConditionMismatch),
-		errors.Is(err, polar.ErrActivationLimitExceeded),
 		errors.Is(err, polar.ErrLicenseExpired),
 		errors.Is(err, polar.ErrLicenseNotActivated):
 		return true

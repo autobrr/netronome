@@ -480,7 +480,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
           return (
             <span key={id}>
               {server.sponsor} - {server.name} -{" "}
-              <span className="text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_var(--color-amber-400)]">
+              <span className="text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_var(--color-emerald-400)]">
                 speedtest.net
               </span>
             </span>

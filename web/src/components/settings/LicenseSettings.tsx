@@ -15,9 +15,10 @@ import {
 } from "@/hooks/useLicense";
 import { showToast } from "@/components/common/Toast";
 import { POLAR_CHECKOUT_URL } from "@/constants/premium";
+import { formatDate as formatDateWithSettings } from "@/utils/timeSettings";
 
 const formatDate = (value: string): string =>
-  new Date(value).toLocaleDateString(undefined, {
+  formatDateWithSettings(value, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -40,16 +41,12 @@ export const LicenseSettings: React.FC = () => {
     const key = licenseKey.trim();
     if (!key) return;
 
+    // Failures surface through the inline activationError under the input.
     activate.mutate(key, {
       onSuccess: () => {
         setLicenseKey("");
         showToast("License activated", "success", {
           description: "Premium themes are now unlocked",
-        });
-      },
-      onError: (err: unknown) => {
-        showToast("Failed to activate license", "error", {
-          description: err instanceof Error ? err.message : undefined,
         });
       },
     });

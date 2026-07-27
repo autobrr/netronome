@@ -156,6 +156,12 @@ const parseColor = (raw, what, vars = {}, depth = 0) => {
   if (/^color-mix\(/i.test(v)) {
     const parts = splitTop(callBody(v, "color-mix") ?? "");
     if (parts.length < 3) throw new Error(`${what}: malformed color-mix`);
+    const space = parts[0].replace(/\s+/g, " ").trim().toLowerCase();
+    if (space !== "in oklab")
+      throw new Error(
+        `${what}: color-mix "${parts[0].trim()}" is not supported, only ` +
+          `"in oklab". Convert it in the source theme first.`
+      );
     const read = (part) => {
       const pct = /([\d.]+)%\s*$/.exec(part);
       return {
@@ -198,7 +204,12 @@ const parseColor = (raw, what, vars = {}, depth = 0) => {
       .replace(/\//g, " ")
       .split(/[\s,]+/)
       .filter(Boolean)
-      .map(Number);
+      .slice(0, 3)
+      .map((x) =>
+        x.endsWith("%") ? (Number(x.slice(0, -1)) / 100) * 255 : Number(x)
+      );
+    if (n.length < 3 || n.some((x) => !Number.isFinite(x)))
+      throw new Error(`${what}: malformed rgb() "${v}"`);
     return srgbToOklch(n[0], n[1], n[2]);
   }
 
@@ -261,14 +272,20 @@ const dropThemeBlocks = (css) => {
   }
 };
 
+// Names are kept as written: custom properties are case-sensitive, and the
+// var() lookup in parseColor resolves against these exact keys.
 const readVars = (body) => {
   const out = {};
-  for (const m of body.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/gi))
-    out[m[1].toLowerCase()] = m[2].trim();
+  for (const m of body.matchAll(/--([a-zA-Z0-9-]+)\s*:\s*([^;]+);/g))
+    out[m[1]] = m[2].trim();
   return out;
 };
 
-const meta = (css, key) => css.match(new RegExp(`@${key}:\\s*(.+)`))?.[1]?.trim();
+const meta = (css, key) =>
+  css
+    .match(new RegExp(`@${key}:\\s*(.+)`))?.[1]
+    ?.replace(/\*\/.*$/, "")
+    .trim();
 
 /** First of `names` present in `vars`, parsed. Throws naming every candidate. */
 const anchor = (vars, block, ...names) => {

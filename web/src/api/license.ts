@@ -23,7 +23,9 @@ const parseErrorMessage = async (response: Response): Promise<string> => {
     } catch {
       // fall through: non-JSON error body
     }
-    return text;
+    // Only surface raw bodies that read as short plain-text messages - proxy
+    // HTML error pages make terrible toasts.
+    if (text.length <= 200 && !/[<>]/.test(text)) return text;
   }
   return response.statusText || `Request failed (${response.status})`;
 };
@@ -55,10 +57,7 @@ export interface ThemeSettings {
 
 // Both fields are required: the server validates them as a pair and rejects an
 // empty id, so a partial update would 400.
-export interface UpdateThemeSettings {
-  theme: string;
-  publicTheme: string;
-}
+export type UpdateThemeSettings = ThemeSettings;
 
 export async function getLicense(): Promise<LicenseStatus> {
   const response = await fetch(getApiUrl("/license"), {

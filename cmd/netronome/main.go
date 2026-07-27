@@ -258,7 +258,20 @@ func runServer(cmd *cobra.Command, args []string) error {
 	if polarOrgID == "" {
 		log.Warn().Msg("No Polar organization ID configured - premium themes will be disabled")
 	}
-	licenseService := license.NewService(db, polarClient, filepath.Dir(configPath))
+	// The device fingerprint lives next to the config file. With no explicit
+	// --config, Load searched DefaultConfigPaths - mirror that search so the
+	// fingerprint lands in the directory actually used.
+	configDir := filepath.Dir(configPath)
+	if configPath == "" {
+		configDir = "."
+		for _, p := range config.DefaultConfigPaths() {
+			if _, err := os.Stat(p); err == nil {
+				configDir = filepath.Dir(p)
+				break
+			}
+		}
+	}
+	licenseService := license.NewService(db, polarClient, configDir)
 
 	// create server handler with all services
 	speedtestSvc := speedtest.New(db, cfg.SpeedTest, notifier, cfg)

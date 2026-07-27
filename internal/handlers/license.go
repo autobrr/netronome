@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/polar"
 	"github.com/autobrr/netronome/internal/services/license"
 )
 
@@ -126,7 +127,8 @@ func (h *LicenseHandler) ActivateLicense(c *gin.Context) {
 	lic, err := h.service.Activate(ctx, req.LicenseKey)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to activate license")
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		status, msg := activationErrorResponse(err)
+		c.JSON(status, gin.H{"error": msg})
 		return
 	}
 
@@ -213,7 +215,7 @@ func (h *LicenseHandler) buildLicenseResponse(ctx context.Context, lic *license.
 	}
 
 	resp.License = &licenseDetailsResponse{
-		LicenseKey:  maskLicenseKey(lic.LicenseKey),
+		LicenseKey:  license.MaskLicenseKey(lic.LicenseKey),
 		Status:      lic.Status,
 		ProductName: lic.ProductName,
 		ActivatedAt: lic.ActivatedAt.Format(time.RFC3339),
@@ -255,11 +257,24 @@ func gateTheme(theme string, hasPremiumAccess bool) string {
 	return theme
 }
 
-// maskLicenseKey returns the first 8 characters plus "***". Short keys are
-// masked entirely so nothing usable is ever returned.
-func maskLicenseKey(key string) string {
-	if len(key) <= 8 {
-		return "***"
+// activationErrorResponse maps activation failures to safe client-facing
+// responses. Unknown errors stay generic: raw messages can carry transport
+// internals (URLs, addresses) that do not belong in an API response.
+func activationErrorResponse(err error) (int, string) {
+	switch {
+	case errors.Is(err, license.ErrKeyRequired):
+		return http.StatusBadRequest, "License key is required"
+	case errors.Is(err, license.ErrNotConfigured):
+		return http.StatusServiceUnavailable, "License activation is not available on this instance"
+	case errors.Is(err, license.ErrActivationLimit):
+		return http.StatusBadRequest, "License key activation limit already reached"
+	case errors.Is(err, polar.ErrLicenseExpired):
+		return http.StatusBadRequest, "License key has expired"
+	case errors.Is(err, polar.ErrInvalidLicenseKey), errors.Is(err, polar.ErrConditionMismatch):
+		return http.StatusBadRequest, "License key is not valid"
+	case errors.Is(err, polar.ErrRateLimitExceeded):
+		return http.StatusTooManyRequests, "Too many attempts, please try again later"
+	default:
+		return http.StatusBadGateway, "Failed to activate license"
 	}
-	return key[:8] + "***"
 }

@@ -15,6 +15,7 @@ all: build
 # Fetch premium themes from the private repository. Requires THEMES_REPO_TOKEN;
 # without it the build succeeds and simply ships no premium themes.
 themes-fetch:
+	@rm -rf $(THEMES_DIR)
 	@if [ -n "$$THEMES_REPO_TOKEN" ]; then \
 		echo "Fetching premium themes..."; \
 		rm -rf .themes-temp && \

@@ -62,9 +62,15 @@ export default function Main({ isPublic = false }: MainProps) {
   // built-in default simply stays.
   useEffect(() => {
     if (!isPublic) return;
+    let active = true;
     getPublicTheme()
-      .then(({ theme }) => applyPublicColorTheme(theme))
+      .then(({ theme }) => {
+        if (active) applyPublicColorTheme(theme);
+      })
       .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, [isPublic]);
 
   const [options, setOptions] = useState<TestOptions>({

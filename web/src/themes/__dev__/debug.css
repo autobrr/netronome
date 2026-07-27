@@ -43,7 +43,8 @@
 }
 
 :root.theme-debug.dark {
-  --color-white: #3d0724;
+  /* white is TEXT in dark mode (dark:text-white) - it must stay light. */
+  --color-white: #ffe4f3;
   --color-gray-50: #ffd6ec;
   --color-gray-100: #ffc2e2;
   --color-gray-200: #ff99ce;
@@ -58,15 +59,17 @@
   --color-gray-900: #2b0519;
   --color-gray-950: #17030e;
 
-  --color-blue-50: #1f3d07;
-  --color-blue-100: #35570d;
-  --color-blue-200: #518514;
-  --color-blue-300: #6db31f;
-  --color-blue-400: #8ae02f;
+  /* The ramp keeps its direction in dark mode (50 lightest, 950 darkest) -
+     it is re-anchored, never reversed. See scripts/README-themes.md. */
+  --color-blue-50: #f0ffe0;
+  --color-blue-100: #e1ffc2;
+  --color-blue-200: #d2ffa3;
+  --color-blue-300: #c3ff85;
+  --color-blue-400: #b4ff66;
   --color-blue-500: #a5ff47;
-  --color-blue-600: #b4ff66;
-  --color-blue-700: #c3ff85;
-  --color-blue-800: #d2ffa3;
-  --color-blue-900: #e1ffc2;
-  --color-blue-950: #f0ffe0;
+  --color-blue-600: #8ae02f;
+  --color-blue-700: #6db31f;
+  --color-blue-800: #518514;
+  --color-blue-900: #35570d;
+  --color-blue-950: #1f3d07;
 }

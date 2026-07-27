@@ -92,17 +92,22 @@ export const syncThemeColorMeta = (): void => {
   // one pixel is the only path guaranteed to yield sRGB bytes. Assigning
   // fallback first keeps it in place if raw fails to parse.
   let color = fallback;
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = 1;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.fillStyle = fallback;
-    ctx.fillStyle = raw;
-    ctx.fillRect(0, 0, 1, 1);
-    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-    color = `#${[r, g, b]
-      .map((v) => v.toString(16).padStart(2, "0"))
-      .join("")}`;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = fallback;
+      ctx.fillStyle = raw;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+      color = `#${[r, g, b]
+        .map((v) => v.toString(16).padStart(2, "0"))
+        .join("")}`;
+    }
+  } catch {
+    // Canvas reads can be blocked (privacy modes); keep the fallback rather
+    // than let a throw abort theme application at boot.
   }
 
   document
@@ -146,9 +151,9 @@ const applyColorTheme = (theme: ColorTheme, withTransition: boolean): void => {
   syncThemeColorMeta();
 };
 
-/** True on the anonymous public dashboard (/public). */
+/** True on the anonymous public dashboard (/public, incl. under a base URL). */
 export const isPublicDashboardRoute = (): boolean =>
-  window.location.pathname.includes("/public");
+  /\/public(\/|$)/.test(window.location.pathname);
 
 /** Apply the cached theme synchronously at boot, before first paint. */
 export const initColorTheme = (): void => {
@@ -188,6 +193,8 @@ export const setColorTheme = (id: string, hasPremium: boolean): boolean => {
 /**
  * Reconcile against authoritative license state once it arrives. Reverts to
  * the default theme if entitlement was lost while a premium theme was active.
+ * The stored selection is deliberately kept: resolveTheme gates every read, so
+ * re-activating a license restores the user's premium choice.
  */
 export const reconcileColorTheme = (hasPremium: boolean): void => {
   setPremiumAccessCache(hasPremium);
@@ -197,5 +204,4 @@ export const reconcileColorTheme = (hasPremium: boolean): void => {
   if (resolved.id === stored) return;
 
   applyColorTheme(resolved, false);
-  setStoredColorThemeId(resolved.id);
 };

@@ -103,7 +103,7 @@ export const MonitorPerformanceChart: React.FC<
               <span>Min RTT</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5 bg-yellow-500 border-dashed"></div>
+              <div className="w-3 h-0.5 bg-amber-400 border-dashed"></div>
               <span>Max RTT</span>
             </div>
           </div>

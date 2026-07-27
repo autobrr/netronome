@@ -36,6 +36,23 @@ The only theme CSS that lives in this repo is `web/src/themes/__dev__/debug.css`
 deliberately garish fixture so the ramp-override engine stays exercisable without a
 `THEMES_REPO_TOKEN`.
 
+## Release provisioning
+
+Two secrets control premium behaviour at release time. Both are optional, and both
+degrade to "no premium themes" rather than failing the build:
+
+- `THEMES_REPO_TOKEN` — `make themes-fetch` (run by `make build` and the release
+  workflow) clones the private themes repo and copies `netronome/*.css` into
+  `web/src/themes/premium/`. Without it the fetch is skipped and the build ships
+  the default theme only.
+- `POLAR_ORG_ID` — baked into release binaries by goreleaser
+  (`-X main.PolarOrgID`). Without it, license activation is disabled and premium
+  themes stay locked.
+
+For local development neither is set; the binary falls back to the
+`NETRONOME__POLAR_ORG_ID` environment variable (readable from `.env`), and leaves
+licensing disabled when that is absent too.
+
 ## Input and output
 
 Input is a qui theme: a metadata header, `:root { ... }` for light, `.dark { ... }`
