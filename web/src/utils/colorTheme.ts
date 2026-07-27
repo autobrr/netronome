@@ -71,6 +71,45 @@ const resolveTheme = (id: string, hasPremium: boolean): ColorTheme => {
   return getColorThemeById(DEFAULT_THEME_ID)!;
 };
 
+/**
+ * Mirror the app-shell background (bg-white / dark:bg-gray-900) into the
+ * theme-color metas so Safari tabs and PWA chrome follow the active theme.
+ * Stamps every tag: Safari uses the first media-matching meta, so updating
+ * only the default one would not take effect there.
+ */
+export const syncThemeColorMeta = (): void => {
+  const root = document.documentElement;
+  const isDark = root.classList.contains("dark");
+  const fallback = isDark ? "#18181b" : "#ffffff";
+  const raw =
+    getComputedStyle(root)
+      .getPropertyValue(isDark ? "--color-gray-900" : "--color-white")
+      .trim() || fallback;
+
+  // Themes declare ramps in oklch, which Safari's theme-color parser does not
+  // reliably accept - and every string-level normalization (getComputedStyle,
+  // canvas fillStyle getter) now preserves Color-4 values as-is. Rasterizing
+  // one pixel is the only path guaranteed to yield sRGB bytes. Assigning
+  // fallback first keeps it in place if raw fails to parse.
+  let color = fallback;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = fallback;
+    ctx.fillStyle = raw;
+    ctx.fillRect(0, 0, 1, 1);
+    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+    color = `#${[r, g, b]
+      .map((v) => v.toString(16).padStart(2, "0"))
+      .join("")}`;
+  }
+
+  document
+    .querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
+    .forEach((meta) => (meta.content = color));
+};
+
 const applyColorTheme = (theme: ColorTheme, withTransition: boolean): void => {
   const root = document.documentElement;
 
@@ -92,17 +131,19 @@ const applyColorTheme = (theme: ColorTheme, withTransition: boolean): void => {
 
   let style = document.getElementById(STYLE_ELEMENT_ID);
   if (!theme.css) {
+    // Back to the default ramp: drop the override but still re-sync below.
     style?.remove();
-    return;
+  } else {
+    if (!style) {
+      style = document.createElement("style");
+      style.id = STYLE_ELEMENT_ID;
+      document.head.appendChild(style);
+    }
+    style.textContent = theme.css;
+    root.classList.add(`${THEME_CLASS_PREFIX}${theme.id}`);
   }
 
-  if (!style) {
-    style = document.createElement("style");
-    style.id = STYLE_ELEMENT_ID;
-    document.head.appendChild(style);
-  }
-  style.textContent = theme.css;
-  root.classList.add(`${THEME_CLASS_PREFIX}${theme.id}`);
+  syncThemeColorMeta();
 };
 
 /** True on the anonymous public dashboard (/public). */

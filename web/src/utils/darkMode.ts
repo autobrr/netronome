@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+import { syncThemeColorMeta } from './colorTheme';
+
 // Theme constants
 const THEME_KEY = 'theme';
 const THEME_DARK = 'dark';
@@ -89,6 +91,9 @@ const applyTheme = (isDark: boolean, withTransition = false): void => {
   } else {
     root.classList.remove(THEME_DARK);
   }
+
+  // Every mode change funnels through here, so browser chrome stays in sync.
+  syncThemeColorMeta();
 
   if (withTransition) {
     setTimeout(() => {

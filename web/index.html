@@ -5,15 +5,15 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Netronome</title>
-    
+
     <!-- Theme Color for Safari and PWA -->
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#18181b" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#ffffff" />
-    
+
     <!-- PWA Meta Tags -->
     <meta name="description" content="Network performance testing and monitoring tool" />
-    
+
     <!-- iOS specific -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -26,27 +26,20 @@
       // Handle empty base URL and template variable cases
       const rawBaseUrl = '{{.BaseURL}}';
       window.__BASE_URL__ = rawBaseUrl.startsWith('{{') || !rawBaseUrl ? '/' : rawBaseUrl;
-      
+
       // Initialize theme before page render to prevent flash
       (function() {
         const storedTheme = localStorage.getItem('theme');
         const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        
+
         // Apply theme based on stored preference or system theme
         const isDark = storedTheme === 'dark' || (!storedTheme && systemTheme) || (storedTheme === 'auto' && systemTheme);
-        
+
         if (isDark) {
           document.documentElement.classList.add('dark');
         }
-        
-        // Update theme-color meta tags for Safari and PWAs
-        const themeColorMetas = document.querySelectorAll('meta[name="theme-color"]');
-        themeColorMetas.forEach(meta => {
-          if (!meta.media) {
-            // Default theme-color (no media query) - set based on current theme
-            meta.content = isDark ? '#18181b' : '#ffffff';
-          }
-        });
+        // theme-color metas: the media-qualified pair above covers this pre-JS
+        // window; colorTheme.ts syncThemeColorMeta() takes over at boot.
       })();
     </script>
     <style>
