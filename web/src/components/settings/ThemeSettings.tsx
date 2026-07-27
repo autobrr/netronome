@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useEffect } from "react";
+import React from "react";
 import {
   SwatchIcon,
   GlobeAltIcon,
@@ -18,60 +18,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { colorThemes, DEFAULT_THEME_ID, type ColorTheme } from "@/config/themes";
-import {
-  setColorTheme,
-  getStoredColorThemeId,
-  hasPremiumAccessCached,
-} from "@/utils/colorTheme";
-import {
-  useLicense,
-  useThemeSettings,
-  useUpdateThemeSettings,
-} from "@/hooks/useLicense";
-import { showToast } from "@/components/common/Toast";
+import { colorThemes, type ColorTheme } from "@/config/themes";
+import { useColorThemeSelection } from "@/hooks/useLicense";
+import { LicenseSettings } from "./LicenseSettings";
 import { cn } from "@/lib/utils";
 
 import { POLAR_CHECKOUT_URL } from "@/constants/premium";
 
 export const ThemeSettings: React.FC = () => {
-  const { data: license } = useLicense();
-  const { data: settings, isLoading } = useThemeSettings();
-  const mutation = useUpdateThemeSettings();
-
-  // Fall back to the cached entitlement so premium cards do not flash "locked"
-  // while the license request is in flight.
-  const hasPremium = license?.hasPremiumAccess ?? hasPremiumAccessCached();
-
-  const activeTheme = settings?.theme ?? getStoredColorThemeId();
-  const publicTheme = settings?.publicTheme ?? DEFAULT_THEME_ID;
-
-  // Boot only applied the localStorage guess; the server is authoritative.
-  useEffect(() => {
-    if (settings?.theme) setColorTheme(settings.theme, hasPremium);
-  }, [settings?.theme, hasPremium]);
-
-  const save = (theme: string, publicThemeId: string, revertTo?: string) => {
-    mutation.mutate(
-      { theme, publicTheme: publicThemeId },
-      {
-        onError: (err: unknown) => {
-          if (revertTo) setColorTheme(revertTo, hasPremium);
-          showToast("Failed to save theme", "error", {
-            description: err instanceof Error ? err.message : undefined,
-          });
-        },
-      }
-    );
-  };
-
-  const selectTheme = (theme: ColorTheme) => {
-    if (theme.id === activeTheme) return;
-    // Returns false for premium themes without entitlement - locked themes are
-    // never previewed, deliberately.
-    if (!setColorTheme(theme.id, hasPremium)) return;
-    save(theme.id, publicTheme, activeTheme);
-  };
+  const {
+    hasPremium,
+    activeTheme,
+    publicTheme,
+    isLoading,
+    isPending,
+    selectTheme,
+    selectPublicTheme,
+  } = useColorThemeSelection();
 
   if (isLoading) {
     return (
@@ -91,12 +54,15 @@ export const ThemeSettings: React.FC = () => {
       <div>
         <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <SwatchIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-          Theme Settings
+          Themes & License
         </h3>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Choose the color palette used across Netronome
+          Choose the color palette used across Netronome and manage the license
+          that unlocks premium themes
         </p>
       </div>
+
+      <LicenseSettings />
 
       <Card>
         <CardHeader>
@@ -172,7 +138,7 @@ export const ThemeSettings: React.FC = () => {
                   key={theme.id}
                   type="button"
                   onClick={() => selectTheme(theme)}
-                  disabled={mutation.isPending}
+                  disabled={isPending}
                   className={cardClass}
                 >
                   {body}
@@ -192,7 +158,7 @@ export const ThemeSettings: React.FC = () => {
               >
                 Netronome license
               </a>
-              . Activate an existing key under Settings {">"} License.
+              . Already have a key? Activate it above.
             </p>
           )}
         </CardContent>
@@ -212,14 +178,14 @@ export const ThemeSettings: React.FC = () => {
             </label>
             <Select
               value={publicTheme}
-              onValueChange={(value) => save(activeTheme, value)}
-              disabled={mutation.isPending}
+              onValueChange={selectPublicTheme}
+              disabled={isPending}
             >
               <SelectTrigger className="w-full sm:w-[240px]">
                 <SelectValue placeholder="Select theme" />
               </SelectTrigger>
               <SelectContent>
-                {colorThemes.map((theme) => {
+                {colorThemes.map((theme: ColorTheme) => {
                   const locked = theme.isPremium && !hasPremium;
                   return (
                     <SelectItem key={theme.id} value={theme.id} disabled={locked}>

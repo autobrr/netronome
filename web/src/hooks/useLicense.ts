@@ -14,7 +14,14 @@ import {
   type LicenseStatus,
   type ThemeSettings,
 } from "@/api/license";
-import { hasPremiumAccessCached, reconcileColorTheme } from "@/utils/colorTheme";
+import {
+  hasPremiumAccessCached,
+  reconcileColorTheme,
+  getStoredColorThemeId,
+  setColorTheme,
+} from "@/utils/colorTheme";
+import { DEFAULT_THEME_ID, type ColorTheme } from "@/config/themes";
+import { showToast } from "@/components/common/Toast";
 
 const LICENSE_KEY = ["license"];
 const THEME_SETTINGS_KEY = ["theme-settings"];
@@ -90,4 +97,62 @@ export const useUpdateThemeSettings = () => {
     // The response is the new state, so no refetch is needed.
     onSuccess: (data) => queryClient.setQueryData(THEME_SETTINGS_KEY, data),
   });
+};
+
+/**
+ * Shared color-theme selection: entitlement, active/public theme, and
+ * persistence with optimistic apply + revert on save failure. Used by the
+ * header dropdown, the mobile menu, and the settings page so they stay in
+ * lockstep.
+ */
+export const useColorThemeSelection = () => {
+  const { data: license } = useLicense();
+  const { data: settings, isLoading } = useThemeSettings();
+  const mutation = useUpdateThemeSettings();
+
+  // Fall back to the cached entitlement so premium themes do not flash
+  // "locked" while the license request is in flight.
+  const hasPremium = license?.hasPremiumAccess ?? hasPremiumAccessCached();
+
+  const activeTheme = settings?.theme ?? getStoredColorThemeId();
+  const publicTheme = settings?.publicTheme ?? DEFAULT_THEME_ID;
+
+  // Boot only applied the localStorage guess; the server is authoritative.
+  useEffect(() => {
+    if (settings?.theme) setColorTheme(settings.theme, hasPremium);
+  }, [settings?.theme, hasPremium]);
+
+  const save = (theme: string, publicThemeId: string, revertTo?: string) => {
+    mutation.mutate(
+      { theme, publicTheme: publicThemeId },
+      {
+        onError: (err: unknown) => {
+          if (revertTo) setColorTheme(revertTo, hasPremium);
+          showToast("Failed to save theme", "error", {
+            description: err instanceof Error ? err.message : undefined,
+          });
+        },
+      }
+    );
+  };
+
+  const selectTheme = (theme: ColorTheme) => {
+    if (theme.id === activeTheme) return;
+    // Returns false for premium themes without entitlement - locked themes
+    // are never previewed, deliberately.
+    if (!setColorTheme(theme.id, hasPremium)) return;
+    save(theme.id, publicTheme, activeTheme);
+  };
+
+  const selectPublicTheme = (id: string) => save(activeTheme, id);
+
+  return {
+    hasPremium,
+    activeTheme,
+    publicTheme,
+    isLoading,
+    isPending: mutation.isPending,
+    selectTheme,
+    selectPublicTheme,
+  };
 };

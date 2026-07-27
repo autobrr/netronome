@@ -12,7 +12,6 @@ import {
   PresentationChartLineIcon,
   CircleStackIcon,
   SwatchIcon,
-  KeyIcon,
 } from "@heroicons/react/24/outline";
 import { NotificationSettings } from "./settings/NotificationSettings";
 import { TimeFormatSettings } from "./settings/TimeFormatSettings";
@@ -20,7 +19,6 @@ import { DistanceSettings } from "./settings/DistanceSettings";
 import { DashboardSettings } from "./settings/DashboardSettings";
 import { DataSettings } from "./settings/DataSettings";
 import { ThemeSettings } from "./settings/ThemeSettings";
-import { LicenseSettings } from "./settings/LicenseSettings";
 import { Button } from "@/components/ui/Button";
 import {
   Dialog,
@@ -75,15 +73,9 @@ const settingsSections: SettingsSection[] = [
   },
   {
     id: "themes",
-    label: "Themes",
+    label: "Themes & License",
     icon: <SwatchIcon className="w-4 h-4" />,
     component: ThemeSettings,
-  },
-  {
-    id: "license",
-    label: "License",
-    icon: <KeyIcon className="w-4 h-4" />,
-    component: LicenseSettings,
   },
 ];
 

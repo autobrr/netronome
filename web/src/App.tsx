@@ -23,6 +23,7 @@ import {
 import { useAuth } from "@/context/auth";
 import { DonateModal } from "@/components/DonateModal";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
+import { ThemeDropdown, MobileThemePicker } from "@/components/ThemeDropdown";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { Button } from "@/components/ui/Button";
@@ -145,6 +146,7 @@ function App() {
               <HeartIcon className="h-6 w-6" />
             </Button>
             <DarkModeToggle />
+            <ThemeDropdown />
             <SettingsMenu />
             <Button
               onClick={() => logout()}
@@ -246,6 +248,9 @@ function App() {
                           ))}
                         </div>
                       </div>
+
+                      {/* Color theme */}
+                      <MobileThemePicker />
 
                       {/* Notifications */}
                       <Button

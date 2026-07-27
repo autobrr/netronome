@@ -73,7 +73,7 @@ export const LicenseSettings: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[220px]">
+      <div className="flex items-center justify-center min-h-[120px]">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-gray-300 dark:border-gray-700 border-t-blue-500 dark:border-t-blue-400 rounded-full mx-auto mb-4 animate-spin" />
           <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -84,18 +84,9 @@ export const LicenseSettings: React.FC = () => {
     );
   }
 
+  // Rendered as a card inside ThemeSettings; the page header lives there.
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <KeyIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-          License
-        </h3>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Activate a Netronome license to unlock premium themes
-        </p>
-      </div>
-
+    <>
       {license ? (
         <Card>
           <CardHeader>
@@ -225,6 +216,6 @@ export const LicenseSettings: React.FC = () => {
           </CardContent>
         </Card>
       )}
-    </div>
+    </>
   );
 };
