@@ -74,7 +74,8 @@ type LoggingConfig struct {
 }
 
 type AuthConfig struct {
-	Whitelist []string `toml:"whitelist" env:"AUTH_WHITELIST"`
+	Whitelist      []string `toml:"whitelist" env:"AUTH_WHITELIST"`
+	TrustedProxies []string `toml:"trusted_proxies" env:"AUTH_TRUSTED_PROXIES"`
 }
 
 type OIDCConfig struct {
@@ -470,6 +471,15 @@ func (c *Config) loadAuthFromEnv() {
 	if v := getEnv("AUTH_WHITELIST"); v != "" {
 		c.Auth.Whitelist = strings.Split(v, ",")
 	}
+	if v := getEnv("AUTH_TRUSTED_PROXIES"); v != "" {
+		var proxies []string
+		for _, p := range strings.Split(v, ",") {
+			if p = strings.TrimSpace(p); p != "" {
+				proxies = append(proxies, p)
+			}
+		}
+		c.Auth.TrustedProxies = proxies
+	}
 }
 
 func (c *Config) loadOIDCFromEnv() {
@@ -772,6 +782,21 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, "whitelist = []"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Only trust proxy headers (X-Forwarded-For, X-Real-IP) from these addresses, using IPs or CIDR notation."); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Empty list = headers ignored, the client IP is always the direct peer. Set this when running behind a"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# reverse proxy so the whitelist above matches real client IPs."); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Example: trusted_proxies = [\"172.16.0.0/12\"]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "trusted_proxies = []"); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
