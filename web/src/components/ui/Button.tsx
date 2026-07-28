@@ -67,11 +67,21 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        disabled={disabled || isLoading}
+        disabled={asChild ? undefined : disabled || isLoading}
         {...props}
       >
-        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {children}
+        {/* Slot accepts exactly one child, and `{isLoading && ...}` counts as a
+            second one even while it renders false. asChild callers supply their
+            own element, so there is nowhere to put a spinner regardless - and
+            `disabled` is not a valid attribute on an anchor. */}
+        {asChild ? (
+          children
+        ) : (
+          <>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {children}
+          </>
+        )}
       </Comp>
     );
   }

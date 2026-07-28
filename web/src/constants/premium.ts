@@ -20,3 +20,12 @@ export const POLAR_CHECKOUT_URL =
  * can release an old activation, and only from here.
  */
 export const POLAR_PORTAL_URL = "https://polar.sh/netronome/portal";
+
+/**
+ * Where a crypto donation is turned into a license.
+ *
+ * The buyer proves the transaction there and gets back a checkout link with a
+ * 100% discount code already in the query string, so the key still comes from
+ * the normal Polar checkout and activation is unchanged.
+ */
+export const CRYPTO_VERIFIER_URL = "https://crypto.netrono.me";

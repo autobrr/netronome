@@ -18,7 +18,8 @@ import {
   useDeactivateLicense,
 } from "@/hooks/useLicense";
 import { showToast } from "@/components/common/Toast";
-import { POLAR_CHECKOUT_URL, POLAR_PORTAL_URL } from "@/constants/premium";
+import { PremiumLicenseModal } from "@/components/PremiumLicenseModal";
+import { POLAR_PORTAL_URL } from "@/constants/premium";
 import { formatDate as formatDateWithSettings } from "@/utils/timeSettings";
 
 const formatDate = (value: string): string =>
@@ -47,6 +48,7 @@ export const LicenseSettings: React.FC = () => {
 
   const [licenseKey, setLicenseKey] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [showPurchase, setShowPurchase] = useState(false);
 
   const license = data?.license ?? null;
   const activationError =
@@ -238,7 +240,7 @@ export const LicenseSettings: React.FC = () => {
                   id="license-key"
                   value={licenseKey}
                   onChange={(e) => setLicenseKey(e.target.value)}
-                  placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+                  placeholder="NETRONOME-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
                   autoComplete="off"
                   spellCheck={false}
                   aria-invalid={activationError ? true : undefined}
@@ -275,19 +277,25 @@ export const LicenseSettings: React.FC = () => {
                 >
                   Activate
                 </Button>
-                <a
-                  href={POLAR_CHECKOUT_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                {/* Crypto pays for a license too, and that needs explaining -
+                    so the buy link is a dialog, not a jump to checkout. */}
+                <button
+                  type="button"
+                  onClick={() => setShowPurchase(true)}
                   className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   Don&apos;t have a license? Get one &rarr;
-                </a>
+                </button>
               </div>
             </form>
           </CardContent>
         </Card>
       )}
+
+      <PremiumLicenseModal
+        isOpen={showPurchase}
+        onClose={() => setShowPurchase(false)}
+      />
     </>
   );
 };

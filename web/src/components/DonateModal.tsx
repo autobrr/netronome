@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,15 +12,15 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/Button";
-import { Check, Copy, ExternalLink } from "lucide-react";
-import { FaGithub, FaBitcoin, FaEthereum, FaPatreon } from "react-icons/fa";
-import { SiBuymeacoffee, SiKofi, SiLitecoin, SiMonero } from "react-icons/si";
+import { ExternalLink } from "lucide-react";
+import { FaGithub, FaPatreon } from "react-icons/fa";
+import { SiBuymeacoffee, SiKofi } from "react-icons/si";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import s0upAvatar from "@/assets/sponsors/s0up4200.png";
-import zze0sAvatar from "@/assets/sponsors/zze0s.png";
 import { useLicense } from "@/hooks/useLicense";
-import { POLAR_CHECKOUT_URL } from "@/constants/premium";
+import { CryptoAddressRow } from "@/components/common/CryptoAddressRow";
+import { MAINTAINER_CRYPTO, type CryptoAddress } from "@/constants/crypto";
+import { PremiumLicenseModal } from "@/components/PremiumLicenseModal";
 
 // Polar SVG component
 const PolarIcon: React.FC<{ className?: string }> = ({ className = "w-full h-full" }) => (
@@ -35,13 +35,6 @@ const PolarIcon: React.FC<{ className?: string }> = ({ className = "w-full h-ful
 interface PlatformLink {
   name: string;
   url: string;
-  icon: React.ReactNode;
-}
-
-interface CryptoAddress {
-  name: string;
-  symbol: string;
-  address: string;
   icon: React.ReactNode;
 }
 
@@ -60,17 +53,16 @@ const sponsorCard = {
   description: "Sponsor the Netronome project",
 };
 
+// No url: this one opens PremiumLicenseModal rather than jumping straight to
+// checkout, because crypto is a real payment route here and the checkout page
+// cannot explain it.
 const premiumCard = {
   name: "Premium Themes",
-  url: POLAR_CHECKOUT_URL,
-  description: "Support the project and unlock premium themes",
+  description: "Pay by card or crypto, and unlock all premium themes",
 };
 
-// Crypto buyers are handed off to a human: we check the transaction and issue a
-// 100% discount code, so the key still comes from the normal Polar checkout.
-const DISCORD_URL = "https://discord.gg/WehFCZxq5B";
-const SUPPORT_EMAIL = "soup@netrono.me";
-
+// ponytail: still an array for one maintainer - the section renderer already
+// takes one, and a second name only means another entry here.
 const maintainers: Maintainer[] = [
   {
     name: "s0up",
@@ -81,56 +73,9 @@ const maintainers: Maintainer[] = [
       { name: "Buy Me a Coffee", url: "https://buymeacoffee.com/s0up4200", icon: <SiBuymeacoffee className="h-4 w-4" /> },
       { name: "Ko-fi", url: "https://ko-fi.com/s0up4200", icon: <SiKofi className="h-4 w-4" /> },
     ],
-    crypto: [
-      { name: "Bitcoin", symbol: "BTC", address: "bc1qfe093kmhvsa436v4ksz0udfcggg3vtnm2tjgem", icon: <FaBitcoin className="h-4 w-4 text-orange-500" /> },
-      { name: "Ethereum", symbol: "ETH", address: "0xD8f517c395a68FEa8d19832398d4dA7b45cbc38F", icon: <FaEthereum className="h-4 w-4 text-indigo-400" /> },
-      { name: "Litecoin", symbol: "LTC", address: "ltc1q86nx64mu2j22psj378amm58ghvy4c9dw80z88h", icon: <SiLitecoin className="h-4 w-4 text-gray-400" /> },
-      { name: "Monero", symbol: "XMR", address: "8AMPTPgjmLG9armLBvRA8NMZqPWuNT4US3kQoZrxDDVSU21kpYpFr1UCWmmtcBKGsvDCFA3KTphGXExWb3aHEu67JkcjAvC", icon: <SiMonero className="h-4 w-4 text-orange-400" /> },
-    ],
-  },
-  {
-    name: "zze0s",
-    avatar: zze0sAvatar,
-    platforms: [
-      { name: "GitHub Sponsors", url: "https://github.com/sponsors/zze0s", icon: <FaGithub className="h-4 w-4" /> },
-      { name: "Buy Me a Coffee", url: "https://buymeacoffee.com/ze0s", icon: <SiBuymeacoffee className="h-4 w-4" /> },
-      { name: "Ko-fi", url: "https://ko-fi.com/theze0s", icon: <SiKofi className="h-4 w-4" /> },
-    ],
-    crypto: [
-      { name: "Bitcoin", symbol: "BTC", address: "bc1q2nvdd83hrzelqn4vyjm8tvjwmsuuxsdlg4ws7x", icon: <FaBitcoin className="h-4 w-4 text-orange-500" /> },
-      { name: "Ethereum", symbol: "ETH", address: "0xBF7d749574aabF17fC35b27232892d3F0ff4D423", icon: <FaEthereum className="h-4 w-4 text-indigo-400" /> },
-      { name: "Litecoin", symbol: "LTC", address: "ltc1qza9ffjr5y43uk8nj9ndjx9hkj0ph3rhur6wudn", icon: <SiLitecoin className="h-4 w-4 text-gray-400" /> },
-      { name: "Monero", symbol: "XMR", address: "44AvbWXzFN3bnv2oj92AmEaR26PQf5Ys4W155zw3frvEJf2s4g325bk4tRBgH7umSVMhk88vkU3gw9cDvuCSHgpRPsuWVJp", icon: <SiMonero className="h-4 w-4 text-orange-400" /> },
-    ],
+    crypto: MAINTAINER_CRYPTO,
   },
 ];
-
-function truncateAddress(address: string): string {
-  if (address.length <= 16) return address;
-  return `${address.slice(0, 8)}...${address.slice(-6)}`;
-}
-
-function copyToClipboard(text: string): Promise<boolean> {
-  return navigator.clipboard.writeText(text).then(
-    () => true,
-    () => {
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      textArea.style.position = "fixed";
-      textArea.style.opacity = "0";
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        const ok = document.execCommand("copy");
-        document.body.removeChild(textArea);
-        return ok;
-      } catch {
-        document.body.removeChild(textArea);
-        return false;
-      }
-    }
-  );
-}
 
 function PlatformLinkItem({ link }: { link: PlatformLink }) {
   return (
@@ -144,43 +89,6 @@ function PlatformLinkItem({ link }: { link: PlatformLink }) {
       <span className="truncate">{link.name}</span>
       <ExternalLink className="h-3 w-3 ml-auto flex-shrink-0 text-gray-400" />
     </a>
-  );
-}
-
-function CryptoAddressRow({ crypto }: { crypto: CryptoAddress }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = useCallback(async () => {
-    const ok = await copyToClipboard(crypto.address);
-    if (ok) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  }, [crypto.address]);
-
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      {crypto.icon}
-      <span className="font-medium text-gray-600 dark:text-gray-400 w-8 flex-shrink-0">
-        {crypto.symbol}
-      </span>
-      <code className="flex-1 truncate text-xs text-gray-500 dark:text-gray-500 font-mono">
-        {truncateAddress(crypto.address)}
-      </code>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 flex-shrink-0"
-        onClick={handleCopy}
-        aria-label={copied ? `${crypto.symbol} address copied` : `Copy ${crypto.symbol} address`}
-      >
-        {copied ? (
-          <Check className="h-3.5 w-3.5 text-emerald-500" />
-        ) : (
-          <Copy className="h-3.5 w-3.5" />
-        )}
-      </Button>
-    </div>
   );
 }
 
@@ -225,11 +133,45 @@ interface DonateModalProps {
   onClose: () => void;
 }
 
+const cardClass =
+  "group flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50 p-4 hover:bg-gray-100/70 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors";
+
 export function DonateModal({ isOpen, onClose }: DonateModalProps) {
   const { data: license } = useLicense();
   const project = license?.hasPremiumAccess ? sponsorCard : premiumCard;
+  const [showPremium, setShowPremium] = useState(false);
+
+  // Hand off rather than stack: two dialogs deep is worse than one that replaces
+  // the other. This component stays mounted (App.tsx), so the state survives.
+  const openPremium = () => {
+    onClose();
+    setShowPremium(true);
+  };
+
+  const card = (
+    <>
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 shadow-sm">
+        <PolarIcon className="h-5 w-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-gray-900 dark:text-white group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
+            {project.name}
+          </span>
+          <Badge variant="default" className="text-[10px] px-2 py-0">
+            Recommended
+          </Badge>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          {project.description}
+        </p>
+      </div>
+      <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors flex-shrink-0" />
+    </>
+  );
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
         <DialogHeader>
@@ -240,55 +182,22 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
         </DialogHeader>
 
         <div className="max-h-[60vh] overflow-y-auto space-y-5 pr-1">
-          {/* Project-level: premium checkout, or plain sponsorship once licensed */}
-          <a
-            href={project.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50 p-4 hover:bg-gray-100/70 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 shadow-sm">
-              <PolarIcon className="h-5 w-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-gray-900 dark:text-white group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
-                  {project.name}
-                </span>
-                <Badge variant="default" className="text-[10px] px-2 py-0">
-                  Recommended
-                </Badge>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {project.description}
-              </p>
-            </div>
-            <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors flex-shrink-0" />
-          </a>
-
-          {/* Only while unlicensed: this is a way to buy the license above, not
-              a second thing to buy. */}
-          {project === premiumCard && (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Prefer crypto? Send to an address below, then reach us on{" "}
-              <a
-                href={DISCORD_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                Discord
-              </a>{" "}
-              or email{" "}
-              <a
-                href={`mailto:${SUPPORT_EMAIL}`}
-                className="text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                {SUPPORT_EMAIL}
-              </a>{" "}
-              with the transaction and we&apos;ll issue a discount code for the
-              checkout above. Codes are sent by hand, as soon as we can.
-            </p>
+          {/* Project-level: premium purchase, or plain sponsorship once licensed.
+              The premium one opens the purchase dialog instead of the checkout,
+              because crypto is a real route and checkout cannot explain it. */}
+          {project === premiumCard ? (
+            <button type="button" onClick={openPremium} className={`${cardClass} w-full text-left`}>
+              {card}
+            </button>
+          ) : (
+            <a
+              href={sponsorCard.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cardClass}
+            >
+              {card}
+            </a>
           )}
 
           {/* Divider */}
@@ -298,7 +207,7 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
             </div>
             <div className="relative flex justify-center text-xs">
               <span className="bg-white dark:bg-gray-900 px-3 text-gray-400 dark:text-gray-500 font-medium">
-                Maintainers
+                Maintainer
               </span>
             </div>
           </div>
@@ -315,5 +224,11 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
         </p>
       </DialogContent>
     </Dialog>
+
+    <PremiumLicenseModal
+      isOpen={showPremium}
+      onClose={() => setShowPremium(false)}
+    />
+    </>
   );
 }
