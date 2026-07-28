@@ -149,9 +149,9 @@ export const LicenseSettings: React.FC = () => {
                 </p>
                 <p className="mt-2">
                   If you released this machine&apos;s activation in the{" "}
-                  <PortalLink>Polar customer portal</PortalLink>, deactivate
-                  here and activate the key again. A temporary outage clears on
-                  its own at the next check.
+                  <PortalLink>Polar customer portal</PortalLink>, or moved this
+                  install to a new machine, deactivate here and activate the key
+                  again. A temporary outage clears on its own at the next check.
                 </p>
               </div>
             )}
