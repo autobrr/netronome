@@ -590,18 +590,3 @@ type SpeedTestResult struct {
 	ISP        string
 	Failed     bool
 }
-
-// PacketLossNotification represents packet loss monitoring data for notifications
-type PacketLossNotification struct {
-	MonitorName string
-	Host        string
-	PacketLoss  float64
-	Threshold   float64
-	AvgRTT      float64 // in milliseconds
-	MinRTT      float64 // in milliseconds
-	MaxRTT      float64 // in milliseconds
-	PacketsSent int
-	PacketsRecv int
-	UsedMTR     bool
-	HopCount    int
-}
