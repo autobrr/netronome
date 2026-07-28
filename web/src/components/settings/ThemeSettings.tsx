@@ -214,6 +214,14 @@ export const ThemeSettings: React.FC = () => {
       <PremiumLicenseModal
         isOpen={showPurchase}
         onClose={() => setShowPurchase(false)}
+        // LicenseSettings renders inside this section, so its activate form is
+        // already on screen once this closes.
+        onActivate={() => {
+          setShowPurchase(false);
+          requestAnimationFrame(() =>
+            document.getElementById("license-key")?.focus()
+          );
+        }}
       />
     </div>
   );

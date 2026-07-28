@@ -49,6 +49,12 @@ const Step: React.FC<{
 interface PremiumLicenseModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * Only pass this where an activate form is genuinely behind the dialog. Opened
+   * from the donate dialog there is no form to return to - closing would look
+   * like the button did nothing - so step 3 says where to go instead.
+   */
+  onActivate?: () => void;
 }
 
 /**
@@ -61,6 +67,7 @@ interface PremiumLicenseModalProps {
 export function PremiumLicenseModal({
   isOpen,
   onClose,
+  onActivate,
 }: PremiumLicenseModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -157,13 +164,23 @@ export function PremiumLicenseModal({
           </Step>
 
           <Step number={3} title="Activate your license">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Paste the key into the form behind this dialog and hit Activate.
-            </p>
-            <Button variant="outline" size="sm" onClick={onClose}>
-              <KeyIcon className="w-4 h-4" />
-              I have my key
-            </Button>
+            {onActivate ? (
+              <>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Paste the key into the form behind this dialog and hit
+                  Activate.
+                </p>
+                <Button variant="outline" size="sm" onClick={onActivate}>
+                  <KeyIcon className="w-4 h-4" />
+                  I have my key
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Open Settings &rarr; Themes &amp; License and paste your key
+                there.
+              </p>
+            )}
           </Step>
         </div>
 

@@ -295,6 +295,14 @@ export const LicenseSettings: React.FC = () => {
       <PremiumLicenseModal
         isOpen={showPurchase}
         onClose={() => setShowPurchase(false)}
+        // The form is right behind this dialog, so land the cursor in it -
+        // otherwise "I have my key" looks like it did nothing.
+        onActivate={() => {
+          setShowPurchase(false);
+          requestAnimationFrame(() =>
+            document.getElementById("license-key")?.focus()
+          );
+        }}
       />
     </>
   );
