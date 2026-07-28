@@ -91,6 +91,14 @@ export const SettingsDialog: React.FC<{
       <DialogContent
         className="w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] sm:w-full sm:max-w-3xl md:max-w-5xl lg:max-w-6xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-800 shadow-2xl !p-0 gap-0"
         showCloseButton
+        // Radix focuses the first focusable child on open, which lands on
+        // whatever control a section happens to start with - Deactivate on
+        // Themes & License. Focus the dialog itself instead, so nothing reads
+        // as pre-selected while the focus trap still starts inside.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          (event.currentTarget as HTMLElement | null)?.focus();
+        }}
       >
         <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-800">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">
