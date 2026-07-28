@@ -67,33 +67,39 @@ release:
   footer: |
     **Full Changelog**: https://github.com/autobrr/netronome/compare/{{ .PreviousTag }}...{{ .Tag }}
 
-    ## 🐳 Docker images
+    ## Docker images
 
     - `docker pull ghcr.io/autobrr/netronome:{{ .Tag }}`
     - `docker pull ghcr.io/autobrr/netronome:latest`
 
-    ## 📚 Resources
+    ## Resources
 
     - [Documentation](https://netrono.me)
     - [Discord Community](https://discord.gg/WQ2eUycxyT)
     - [GitHub Issues](https://github.com/autobrr/netronome/issues)
     - [GitHub Discussions](https://github.com/autobrr/netronome/discussions)
 
-    ## 💝 Support the project
+    ## Support the project
 
-    If you find Netronome useful, consider:
+    Netronome is free and always will be. If you want to support its
+    development, there is now a one-time [premium themes
+    license](https://buy.polar.sh/polar_cl_laGHY1sxRB9p9s4bnPz1ZUxaC5Uk8dm6dAB66116IcK)
+    that unlocks the full set of color themes. Activate it under
+    Settings -> Themes & License.
+
+    Other ways to help:
     - Starring the repository
     - Contributing to the project
     - Sharing your feedback
     - Sponsoring the project
 
-    ## ⚠️ Temperature Monitoring Support
+    ## Temperature Monitoring Support
 
     Release binaries include most temperature monitoring via gopsutil:
-    - ✅ CPU temperatures (all cores, packages, dies)
-    - ✅ NVMe temperatures (M.2 drives)
-    - ✅ Battery temperatures
-    - ✅ System sensors
+    - CPU temperatures (all cores, packages, dies)
+    - NVMe temperatures (M.2 drives)
+    - Battery temperatures
+    - System sensors
 
     For SATA/HDD temperatures and disk model names, build from source:
     ```bash
@@ -119,25 +125,25 @@ changelog:
       - Merge remote-tracking branch
       - Merge branch
   groups:
-    - title: "🚀 New Features"
+    - title: "New Features"
       regexp: "^.*feat[(\\w)]*:+.*$"
       order: 0
-    - title: "🐛 Bug Fixes"
+    - title: "Bug Fixes"
       regexp: "^.*fix[(\\w)]*:+.*$"
       order: 10
-    - title: "🔧 Maintenance"
+    - title: "Maintenance"
       regexp: "^.*chore[(\\w)]*:+.*$"
       order: 20
-    - title: "🔒 Security"
+    - title: "Security"
       regexp: "^.*security[(\\w)]*:+.*$"
       order: 30
-    - title: "⚡ Performance"
+    - title: "Performance"
       regexp: "^.*perf[(\\w)]*:+.*$"
       order: 40
-    - title: "📝 Documentation"
+    - title: "Documentation"
       regexp: "^.*docs[(\\w)]*:+.*$"
       order: 50
-    - title: "🔄 Other Changes"
+    - title: "Other Changes"
       order: 999
 
 nfpms:
