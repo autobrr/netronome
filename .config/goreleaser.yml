@@ -50,7 +50,7 @@ builds:
 
 archives:
   - id: netronome
-    builds:
+    ids:
       - netronome
     format_overrides:
       - goos: windows
