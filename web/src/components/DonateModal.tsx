@@ -66,6 +66,11 @@ const premiumCard = {
   description: "Support the project and unlock premium themes",
 };
 
+// Crypto buyers are handed off to a human: we check the transaction and issue a
+// 100% discount code, so the key still comes from the normal Polar checkout.
+const DISCORD_URL = "https://discord.gg/WehFCZxq5B";
+const SUPPORT_EMAIL = "soup@netrono.me";
+
 const maintainers: Maintainer[] = [
   {
     name: "s0up",
@@ -260,6 +265,31 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
             </div>
             <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors flex-shrink-0" />
           </a>
+
+          {/* Only while unlicensed: this is a way to buy the license above, not
+              a second thing to buy. */}
+          {project === premiumCard && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Prefer crypto? Send to an address below, then reach us on{" "}
+              <a
+                href={DISCORD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Discord
+              </a>{" "}
+              or email{" "}
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {SUPPORT_EMAIL}
+              </a>{" "}
+              with the transaction and we&apos;ll issue a discount code for the
+              checkout above. Codes are sent by hand, as soon as we can.
+            </p>
+          )}
 
           {/* Divider */}
           <div className="relative">
