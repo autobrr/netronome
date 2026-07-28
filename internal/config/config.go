@@ -4,6 +4,7 @@
 package config
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
 	"os"
@@ -14,8 +15,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/rs/zerolog/log"
-
-	"github.com/autobrr/netronome/internal/utils"
 )
 
 const (
@@ -112,8 +111,6 @@ type PingConfig struct {
 
 type PaginationConfig struct {
 	DefaultPage      int    `toml:"default_page" env:"DEFAULT_PAGE"`
-	DefaultPageSize  int    `toml:"default_page_size" env:"DEFAULT_PAGE_SIZE"`
-	MaxPageSize      int    `toml:"max_page_size" env:"MAX_PAGE_SIZE"`
 	DefaultTimeRange string `toml:"default_time_range" env:"DEFAULT_TIME_RANGE"`
 	DefaultLimit     int    `toml:"default_limit" env:"DEFAULT_LIMIT"`
 }
@@ -128,13 +125,10 @@ type GeoIPConfig struct {
 }
 
 type PacketLossConfig struct {
-	Enabled                  bool `toml:"enabled" env:"PACKETLOSS_ENABLED"`
-	DefaultInterval          int  `toml:"default_interval" env:"PACKETLOSS_DEFAULT_INTERVAL"`
-	DefaultPacketCount       int  `toml:"default_packet_count" env:"PACKETLOSS_DEFAULT_PACKET_COUNT"`
-	MaxConcurrentMonitors    int  `toml:"max_concurrent_monitors" env:"PACKETLOSS_MAX_CONCURRENT_MONITORS"`
-	PrivilegedMode           bool `toml:"privileged_mode" env:"PACKETLOSS_PRIVILEGED_MODE"`
-	MTREnableDNS             bool `toml:"mtr_enable_dns" env:"PACKETLOSS_MTR_ENABLE_DNS"`
-	RestoreMonitorsOnStartup bool `toml:"restore_monitors_on_startup" env:"PACKETLOSS_RESTORE_MONITORS_ON_STARTUP"`
+	Enabled               bool `toml:"enabled" env:"PACKETLOSS_ENABLED"`
+	MaxConcurrentMonitors int  `toml:"max_concurrent_monitors" env:"PACKETLOSS_MAX_CONCURRENT_MONITORS"`
+	PrivilegedMode        bool `toml:"privileged_mode" env:"PACKETLOSS_PRIVILEGED_MODE"`
+	MTREnableDNS          bool `toml:"mtr_enable_dns" env:"PACKETLOSS_MTR_ENABLE_DNS"`
 }
 
 type AgentConfig struct {
@@ -148,8 +142,7 @@ type AgentConfig struct {
 }
 
 type MonitorConfig struct {
-	Enabled           bool   `toml:"enabled" env:"MONITOR_ENABLED"`
-	ReconnectInterval string `toml:"reconnect_interval" env:"MONITOR_RECONNECT_INTERVAL"`
+	Enabled bool `toml:"enabled" env:"MONITOR_ENABLED"`
 }
 
 type TailscaleConfig struct {
@@ -181,9 +174,8 @@ type TailscaleConfig struct {
 
 // Deprecated - kept for backward compatibility
 type TailscaleAgentConfig struct {
-	Enabled      bool `toml:"enabled" env:"TAILSCALE_AGENT_ENABLED"`
-	AcceptRoutes bool `toml:"accept_routes" env:"TAILSCALE_AGENT_ACCEPT_ROUTES"`
-	Port         int  `toml:"port" env:"TAILSCALE_AGENT_PORT"`
+	Enabled bool `toml:"enabled" env:"TAILSCALE_AGENT_ENABLED"`
+	Port    int  `toml:"port" env:"TAILSCALE_AGENT_PORT"`
 }
 
 // Deprecated - kept for backward compatibility
@@ -262,8 +254,6 @@ func New() *Config {
 		},
 		Pagination: PaginationConfig{
 			DefaultPage:      1,
-			DefaultPageSize:  20,
-			MaxPageSize:      100,
 			DefaultTimeRange: "1w",
 			DefaultLimit:     20,
 		},
@@ -275,13 +265,10 @@ func New() *Config {
 			ASNDatabasePath:     "",
 		},
 		PacketLoss: PacketLossConfig{
-			Enabled:                  true,
-			DefaultInterval:          3600,
-			DefaultPacketCount:       10,
-			MaxConcurrentMonitors:    10,
-			PrivilegedMode:           true,
-			MTREnableDNS:             false,
-			RestoreMonitorsOnStartup: false,
+			Enabled:               true,
+			MaxConcurrentMonitors: 10,
+			PrivilegedMode:        true,
+			MTREnableDNS:          false,
 		},
 		Agent: AgentConfig{
 			Host:         "0.0.0.0",
@@ -291,8 +278,7 @@ func New() *Config {
 			DiskExcludes: []string{},
 		},
 		Monitor: MonitorConfig{
-			Enabled:           true,
-			ReconnectInterval: "30s",
+			Enabled: true,
 		},
 		Tailscale: TailscaleConfig{
 			Enabled:           false,
@@ -309,9 +295,8 @@ func New() *Config {
 			DiscoveryPrefix:   "",
 			// Deprecated fields - kept for compatibility during migration
 			Agent: TailscaleAgentConfig{
-				Enabled:      false,
-				AcceptRoutes: true,
-				Port:         8200,
+				Enabled: false,
+				Port:    8200,
 			},
 			Monitor: TailscaleMonitorConfig{
 				AutoDiscover:      true,
@@ -558,16 +543,6 @@ func (c *Config) loadPaginationFromEnv() {
 			c.Pagination.DefaultPage = page
 		}
 	}
-	if v := getEnv("DEFAULT_PAGE_SIZE"); v != "" {
-		if size, err := strconv.Atoi(v); err == nil {
-			c.Pagination.DefaultPageSize = size
-		}
-	}
-	if v := getEnv("MAX_PAGE_SIZE"); v != "" {
-		if size, err := strconv.Atoi(v); err == nil {
-			c.Pagination.MaxPageSize = size
-		}
-	}
 	if v := getEnv("DEFAULT_TIME_RANGE"); v != "" {
 		c.Pagination.DefaultTimeRange = v
 	}
@@ -599,16 +574,6 @@ func (c *Config) loadPacketLossFromEnv() {
 			c.PacketLoss.Enabled = enabled
 		}
 	}
-	if v := getEnv("PACKETLOSS_DEFAULT_INTERVAL"); v != "" {
-		if interval, err := strconv.Atoi(v); err == nil {
-			c.PacketLoss.DefaultInterval = interval
-		}
-	}
-	if v := getEnv("PACKETLOSS_DEFAULT_PACKET_COUNT"); v != "" {
-		if count, err := strconv.Atoi(v); err == nil {
-			c.PacketLoss.DefaultPacketCount = count
-		}
-	}
 	if v := getEnv("PACKETLOSS_MAX_CONCURRENT_MONITORS"); v != "" {
 		if max, err := strconv.Atoi(v); err == nil {
 			c.PacketLoss.MaxConcurrentMonitors = max
@@ -622,11 +587,6 @@ func (c *Config) loadPacketLossFromEnv() {
 	if v := getEnv("PACKETLOSS_MTR_ENABLE_DNS"); v != "" {
 		if enableDNS, err := strconv.ParseBool(v); err == nil {
 			c.PacketLoss.MTREnableDNS = enableDNS
-		}
-	}
-	if v := getEnv("PACKETLOSS_RESTORE_MONITORS_ON_STARTUP"); v != "" {
-		if restore, err := strconv.ParseBool(v); err == nil {
-			c.PacketLoss.RestoreMonitorsOnStartup = restore
 		}
 	}
 }
@@ -671,9 +631,6 @@ func (c *Config) loadMonitorFromEnv() {
 			c.Monitor.Enabled = enabled
 		}
 	}
-	if v := getEnv("MONITOR_RECONNECT_INTERVAL"); v != "" {
-		c.Monitor.ReconnectInterval = v
-	}
 }
 
 func (c *Config) loadTailscaleFromEnv() {
@@ -684,11 +641,10 @@ func (c *Config) WriteToml(w io.Writer) error {
 	cfg := New()
 	cfg.Database.Path = "netronome.db"
 
-	secret, err := utils.GenerateSecureToken(32)
-	if err != nil {
-		return fmt.Errorf("failed to generate session secret: %w", err)
-	}
-	cfg.Session.Secret = secret
+	// Two rand.Text() calls: this is a long-lived signing key, so keep the
+	// ~256 bits the old 32-byte generator gave. One call (~130 bits) is
+	// plenty for the per-request tokens elsewhere, but not worth shaving here.
+	cfg.Session.Secret = rand.Text() + rand.Text()
 
 	if isRunningInContainer() {
 		cfg.Server.Host = "0.0.0.0"
@@ -920,12 +876,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.PacketLoss.Enabled); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "default_interval = %d # seconds between tests\n", cfg.PacketLoss.DefaultInterval); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "default_packet_count = %d # packets per test\n", cfg.PacketLoss.DefaultPacketCount); err != nil {
-		return err
-	}
 	if _, err := fmt.Fprintf(w, "max_concurrent_monitors = %d\n", cfg.PacketLoss.MaxConcurrentMonitors); err != nil {
 		return err
 	}
@@ -944,9 +894,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.Monitor.Enabled); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "reconnect_interval = \"%s\"\n", cfg.Monitor.ReconnectInterval); err != nil {
 		return err
 	}
 
@@ -1312,11 +1259,6 @@ func (t *TailscaleConfig) loadFromEnv() {
 	if v := getEnv("TAILSCALE_AGENT_ENABLED"); v != "" {
 		if enabled, err := strconv.ParseBool(v); err == nil {
 			t.Agent.Enabled = enabled
-		}
-	}
-	if v := getEnv("TAILSCALE_AGENT_ACCEPT_ROUTES"); v != "" {
-		if accept, err := strconv.ParseBool(v); err == nil {
-			t.Agent.AcceptRoutes = accept
 		}
 	}
 	if v := getEnv("TAILSCALE_AGENT_PORT"); v != "" {

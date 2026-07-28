@@ -4,6 +4,7 @@
 package server
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/database"
-	"github.com/autobrr/netronome/internal/utils"
 )
 
 type AuthHandler struct {
@@ -344,12 +344,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	sessionToken, err := utils.GenerateSecureToken(32)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to generate session token")
-		_ = c.Error(fmt.Errorf("failed to generate session token: %w", err))
-		return
-	}
+	sessionToken := rand.Text()
 
 	h.refreshSession(c, sessionToken, nil)
 
@@ -396,14 +391,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	sessionToken, err := utils.GenerateSecureToken(32)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to generate session token")
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to generate session token",
-		})
-		return
-	}
+	sessionToken := rand.Text()
 
 	h.refreshSession(c, sessionToken, nil)
 

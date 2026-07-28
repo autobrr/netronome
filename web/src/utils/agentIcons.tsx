@@ -17,18 +17,9 @@ import {
   TvIcon,
   HomeIcon,
 } from "@heroicons/react/24/outline";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faLaptop } from "@fortawesome/free-solid-svg-icons";
-import { IconProp } from "@fortawesome/fontawesome-svg-core";
+import { FaLaptop } from "react-icons/fa";
 
 export type IconComponent = React.FC<{ className?: string }>;
-
-// Helper function to create Font Awesome icon components
-const createFAIcon = (icon: IconProp): IconComponent => {
-  return ({ className }) => (
-    <FontAwesomeIcon icon={icon} className={className} />
-  );
-};
 
 interface DevicePattern {
   patterns: RegExp[];
@@ -43,7 +34,7 @@ const devicePatterns: DevicePattern[] = [
       /\b(laptop|macbook|notebook|thinkpad|ideapad|pavilion|inspiron|latitude|xps|chromebook)\b/i,
       /\b(macbook pro|macbook air|surface laptop)\b/i,
     ],
-    icon: createFAIcon(faLaptop),
+    icon: FaLaptop,
     description: "Laptop",
   },
 

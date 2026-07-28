@@ -782,8 +782,6 @@ NETRONOME__LIBRESPEED_TIMEOUT=60             # LibreSpeed timeout (seconds)
 
 ```bash
 NETRONOME__DEFAULT_PAGE=1                    # Default page number
-NETRONOME__DEFAULT_PAGE_SIZE=20              # Default items per page
-NETRONOME__MAX_PAGE_SIZE=100                 # Maximum items per page
 NETRONOME__DEFAULT_TIME_RANGE=1w             # Default time range for queries
 NETRONOME__DEFAULT_LIMIT=20                  # Default query limit
 ```
@@ -799,11 +797,9 @@ NETRONOME__GEOIP_ASN_DATABASE_PATH=          # Path to GeoLite2-ASN.mmdb
 
 ```bash
 NETRONOME__PACKETLOSS_ENABLED=true                      # Enable packet loss monitoring
-NETRONOME__PACKETLOSS_DEFAULT_INTERVAL=3600             # Default test interval (seconds)
-NETRONOME__PACKETLOSS_DEFAULT_PACKET_COUNT=10           # Packets per test
 NETRONOME__PACKETLOSS_MAX_CONCURRENT_MONITORS=10        # Max concurrent monitors
 NETRONOME__PACKETLOSS_PRIVILEGED_MODE=true              # Use privileged ICMP mode
-NETRONOME__PACKETLOSS_RESTORE_MONITORS_ON_STARTUP=false # Restore monitors on startup
+NETRONOME__PACKETLOSS_MTR_ENABLE_DNS=false              # Resolve hostnames in MTR output
 ```
 
 ### Agent Configuration
@@ -821,7 +817,6 @@ NETRONOME__AGENT_DISK_EXCLUDES=              # Comma-separated paths to exclude
 
 ```bash
 NETRONOME__MONITOR_ENABLED=true              # Enable system monitoring
-NETRONOME__MONITOR_RECONNECT_INTERVAL=30s    # Agent reconnection interval
 ```
 
 ### Tailscale Configuration
@@ -850,7 +845,6 @@ NETRONOME__TAILSCALE_DISCOVERY_PREFIX=       # Hostname prefix filter
 # Deprecated (for backward compatibility)
 NETRONOME__TAILSCALE_PREFER_HOST=false       # Prefer host mode over tsnet
 NETRONOME__TAILSCALE_AGENT_ENABLED=false     # Enable agent mode
-NETRONOME__TAILSCALE_AGENT_ACCEPT_ROUTES=true # Accept Tailscale routes
 ```
 
 </details>

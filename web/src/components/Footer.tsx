@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faReadme, faDiscord } from "@fortawesome/free-brands-svg-icons";
+import { FaDiscord } from "react-icons/fa";
+import { SiReadme } from "react-icons/si";
 import {
   Tooltip,
   TooltipContent,
@@ -28,7 +28,7 @@ export const Footer = () => {
                 alignItems: "center",
               }}
             >
-              <FontAwesomeIcon icon={faDiscord} className="h-4 w-4" />
+              <FaDiscord className="h-4 w-4" />
             </a>
           </TooltipTrigger>
           <TooltipContent>
@@ -48,7 +48,7 @@ export const Footer = () => {
                 alignItems: "center",
               }}
             >
-              <FontAwesomeIcon icon={faReadme} className="h-4 w-4" />
+              <SiReadme className="h-4 w-4" />
             </a>
           </TooltipTrigger>
           <TooltipContent>

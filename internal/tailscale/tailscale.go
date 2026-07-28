@@ -10,15 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"tailscale.com/client/tailscale"
-	"tailscale.com/ipn/ipnstate"
+	"tailscale.com/client/local"
 	"tailscale.com/tsnet"
 )
 
-// Client provides a unified interface for both tsnet and host tailscaled
-type Client interface {
-	Status(ctx context.Context) (*ipnstate.Status, error)
-}
+// Client talks to a tailscaled LocalAPI, whether that is the host's daemon or
+// an embedded tsnet server. Both hand back the same type, so there is nothing
+// to abstract over.
+type Client = local.Client
 
 // Mode represents how we're connecting to Tailscale
 type Mode string
@@ -28,76 +27,54 @@ const (
 	ModeTsnet Mode = "tsnet" // Using embedded tsnet
 )
 
-// hostClient wraps the system tailscaled client
-type hostClient struct {
-	client *tailscale.LocalClient
-}
-
-func (h *hostClient) Status(ctx context.Context) (*ipnstate.Status, error) {
-	return h.client.Status(ctx)
-}
-
-// tsnetClient wraps a tsnet server's local client
-type tsnetClient struct {
-	client *tailscale.LocalClient
-}
-
-func (t *tsnetClient) Status(ctx context.Context) (*ipnstate.Status, error) {
-	return t.client.Status(ctx)
-}
-
 // GetHostClient attempts to connect to the host's tailscaled
-func GetHostClient() (Client, error) {
+func GetHostClient() (*Client, error) {
 	// Try default client first (it will auto-detect socket/HTTP)
-	client := &tailscale.LocalClient{}
-	
+	client := &Client{}
+
 	// Test the connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	if _, err := client.Status(ctx); err == nil {
-		return &hostClient{client: client}, nil
+		return client, nil
 	}
-	
+
 	return nil, fmt.Errorf("no running tailscaled found on host")
 }
 
 // GetTsnetClient creates a client from a tsnet server
-func GetTsnetClient(server *tsnet.Server) (Client, error) {
-	localClient, err := server.LocalClient()
-	if err != nil {
-		return nil, err
-	}
-	return &tsnetClient{client: localClient}, nil
+func GetTsnetClient(server *tsnet.Server) (*Client, error) {
+	return server.LocalClient()
 }
 
 // ListenOnTailscale listens on the Tailscale network if available
-func ListenOnTailscale(hostClient Client, port int) (net.Listener, error) {
+func ListenOnTailscale(hostClient *Client, port int) (net.Listener, error) {
 	status, err := hostClient.Status(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Tailscale status: %w", err)
 	}
-	
+
 	if status.Self == nil || len(status.Self.TailscaleIPs) == 0 {
 		return nil, fmt.Errorf("no Tailscale IPs available")
 	}
-	
+
 	// Listen on the first Tailscale IP
 	addr := fmt.Sprintf("%s:%d", status.Self.TailscaleIPs[0], port)
 	return net.Listen("tcp", addr)
 }
 
 // GetSelfInfo returns information about the current Tailscale node
-func GetSelfInfo(client Client) (hostname string, ips []string, err error) {
+func GetSelfInfo(client *Client) (hostname string, ips []string, err error) {
 	status, err := client.Status(context.Background())
 	if err != nil {
 		return "", nil, err
 	}
-	
+
 	if status.Self == nil {
 		return "", nil, fmt.Errorf("no self information available")
 	}
-	
+
 	// Use the actual Tailscale machine name (DNSName without suffix)
 	hostname = status.Self.DNSName
 	// Trim the MagicDNS suffix to get just the machine name
@@ -108,10 +85,10 @@ func GetSelfInfo(client Client) (hostname string, ips []string, err error) {
 	if hostname == "" {
 		hostname = status.Self.HostName
 	}
-	
+
 	for _, ip := range status.Self.TailscaleIPs {
 		ips = append(ips, ip.String())
 	}
-	
+
 	return hostname, ips, nil
 }

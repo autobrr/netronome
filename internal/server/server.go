@@ -14,7 +14,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/auth"
-	"github.com/autobrr/netronome/internal/broadcaster"
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/handlers"
@@ -25,8 +24,6 @@ import (
 	"github.com/autobrr/netronome/internal/types"
 	"github.com/autobrr/netronome/web"
 )
-
-var _ broadcaster.Broadcaster = &Server{}
 
 type Server struct {
 	Router               *gin.Engine

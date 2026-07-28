@@ -7,8 +7,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/auth";
 import { router } from "@/routes";
 import logo from "@/assets/logo_small.png";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faOpenid } from "@fortawesome/free-brands-svg-icons";
+import { FaOpenid } from "react-icons/fa";
 import { Footer } from "@/components/Footer";
 import { getApiUrl } from "@/utils/baseUrl";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -142,7 +141,7 @@ export default function Login() {
               >
                 <span className="flex items-center" aria-label="Sign in with OpenID">
                   Sign in with
-                  <FontAwesomeIcon icon={faOpenid} className="text-lg ml-2" aria-hidden="true" />
+                  <FaOpenid className="text-lg ml-2" aria-hidden="true" />
                 </span>
               </Button>
             )}

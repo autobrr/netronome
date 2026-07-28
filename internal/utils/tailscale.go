@@ -4,9 +4,11 @@
 package utils
 
 import (
-	"net"
+	"net/netip"
 	"net/url"
 	"strings"
+
+	"tailscale.com/net/tsaddr"
 )
 
 // IsTailscaleIP checks if a given URL contains a Tailscale IP address
@@ -16,30 +18,12 @@ func IsTailscaleIP(urlStr string) bool {
 		return false
 	}
 
-	host := parsedURL.Hostname()
-	if host == "" {
+	ip, err := netip.ParseAddr(parsedURL.Hostname())
+	if err != nil {
 		return false
 	}
 
-	// Parse the IP address
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return false
-	}
-
-	// Check if it's in the Tailscale CGNAT range (100.64.0.0/10)
-	_, tailscaleNet, _ := net.ParseCIDR("100.64.0.0/10")
-	if tailscaleNet != nil && tailscaleNet.Contains(ip) {
-		return true
-	}
-
-	// Check if it's in the Tailscale IPv6 range (fd7a:115c:a1e0::/48)
-	_, tailscaleNet6, _ := net.ParseCIDR("fd7a:115c:a1e0::/48")
-	if tailscaleNet6 != nil && tailscaleNet6.Contains(ip) {
-		return true
-	}
-
-	return false
+	return tsaddr.IsTailscaleIP(ip)
 }
 
 // IsTailscaleHostname checks if a hostname looks like a Tailscale MagicDNS name
