@@ -80,17 +80,6 @@ export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
 
 export type TestType = "speedtest" | "iperf" | "librespeed";
 
-export interface SpeedUpdate {
-  isComplete: boolean;
-  type: "download" | "upload" | "ping" | "complete";
-  speed: number;
-  progress: number;
-  serverName: string;
-  latency?: string;
-  isScheduled: boolean;
-  testType?: string; // "speedtest", "iperf3", "librespeed"
-}
-
 export interface PaginatedResponse<T> {
   data: T[];
   page: number;

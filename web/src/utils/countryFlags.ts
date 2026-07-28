@@ -4,7 +4,7 @@
  */
 
 // Country code to emoji flag mapping
-export const flagEmojis: Record<string, string> = {
+const flagEmojis: Record<string, string> = {
   US: "🇺🇸",
   NL: "🇳🇱",
   DE: "🇩🇪",
