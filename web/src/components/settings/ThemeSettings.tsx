@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React from "react";
+import React, { useState } from "react";
 import {
   SwatchIcon,
   GlobeAltIcon,
@@ -23,7 +23,7 @@ import { useColorThemeSelection } from "@/hooks/useLicense";
 import { LicenseSettings } from "./LicenseSettings";
 import { cn } from "@/lib/utils";
 
-import { POLAR_CHECKOUT_URL } from "@/constants/premium";
+import { PremiumLicenseModal } from "@/components/PremiumLicenseModal";
 
 export const ThemeSettings: React.FC = () => {
   const {
@@ -35,6 +35,10 @@ export const ThemeSettings: React.FC = () => {
     selectTheme,
     selectPublicTheme,
   } = useColorThemeSelection();
+
+  // Locked cards and the footer note used to link straight to Polar checkout,
+  // which silently hid the crypto route. Both open the purchase dialog now.
+  const [showPurchase, setShowPurchase] = useState(false);
 
   if (isLoading) {
     return (
@@ -124,15 +128,14 @@ export const ThemeSettings: React.FC = () => {
               );
 
               return locked ? (
-                <a
+                <button
                   key={theme.id}
-                  href={POLAR_CHECKOUT_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  type="button"
+                  onClick={() => setShowPurchase(true)}
                   className={cardClass}
                 >
                   {body}
-                </a>
+                </button>
               ) : (
                 <button
                   key={theme.id}
@@ -150,14 +153,13 @@ export const ThemeSettings: React.FC = () => {
           {!hasPremium && (
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Premium themes are unlocked with a one-time{" "}
-              <a
-                href={POLAR_CHECKOUT_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => setShowPurchase(true)}
                 className="text-blue-600 dark:text-blue-400 hover:underline"
               >
                 Netronome license
-              </a>
+              </button>
               . Already have a key? Activate it above.
             </p>
           )}
@@ -208,6 +210,11 @@ export const ThemeSettings: React.FC = () => {
           </p>
         </CardContent>
       </Card>
+
+      <PremiumLicenseModal
+        isOpen={showPurchase}
+        onClose={() => setShowPurchase(false)}
+      />
     </div>
   );
 };
