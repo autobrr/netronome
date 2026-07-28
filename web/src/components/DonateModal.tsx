@@ -17,9 +17,10 @@ import { FaGithub, FaPatreon } from "react-icons/fa";
 import { SiBuymeacoffee, SiKofi } from "react-icons/si";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import s0upAvatar from "@/assets/sponsors/s0up4200.png";
+import zze0sAvatar from "@/assets/sponsors/zze0s.png";
 import { useLicense } from "@/hooks/useLicense";
 import { CryptoAddressRow } from "@/components/common/CryptoAddressRow";
-import { MAINTAINER_CRYPTO, type CryptoAddress } from "@/constants/crypto";
+import { SOUP_CRYPTO, ZZE0S_CRYPTO, type CryptoAddress } from "@/constants/crypto";
 import { PremiumLicenseModal } from "@/components/PremiumLicenseModal";
 
 // Polar SVG component
@@ -61,8 +62,6 @@ const premiumCard = {
   description: "Pay by card or crypto, and unlock all premium themes",
 };
 
-// ponytail: still an array for one maintainer - the section renderer already
-// takes one, and a second name only means another entry here.
 const maintainers: Maintainer[] = [
   {
     name: "s0up",
@@ -73,7 +72,17 @@ const maintainers: Maintainer[] = [
       { name: "Buy Me a Coffee", url: "https://buymeacoffee.com/s0up4200", icon: <SiBuymeacoffee className="h-4 w-4" /> },
       { name: "Ko-fi", url: "https://ko-fi.com/s0up4200", icon: <SiKofi className="h-4 w-4" /> },
     ],
-    crypto: MAINTAINER_CRYPTO,
+    crypto: SOUP_CRYPTO,
+  },
+  {
+    name: "zze0s",
+    avatar: zze0sAvatar,
+    platforms: [
+      { name: "GitHub Sponsors", url: "https://github.com/sponsors/zze0s", icon: <FaGithub className="h-4 w-4" /> },
+      { name: "Buy Me a Coffee", url: "https://buymeacoffee.com/ze0s", icon: <SiBuymeacoffee className="h-4 w-4" /> },
+      { name: "Ko-fi", url: "https://ko-fi.com/theze0s", icon: <SiKofi className="h-4 w-4" /> },
+    ],
+    crypto: ZZE0S_CRYPTO,
   },
 ];
 

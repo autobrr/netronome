@@ -20,7 +20,7 @@ export interface CryptoAddress {
   verifiable: boolean;
 }
 
-export const MAINTAINER_CRYPTO: CryptoAddress[] = [
+export const SOUP_CRYPTO: CryptoAddress[] = [
   {
     name: "Bitcoin",
     symbol: "BTC",
@@ -48,5 +48,25 @@ export const MAINTAINER_CRYPTO: CryptoAddress[] = [
   },
 ];
 
-/** The three the verifier can settle automatically. */
-export const VERIFIABLE_CRYPTO = MAINTAINER_CRYPTO.filter((c) => c.verifiable);
+/**
+ * XMR is settled by hand, so this address carries over from before netronome
+ * had its own wallets - there is no verifier allowlist for it to collide with.
+ *
+ * BTC/ETH/LTC are pending: they have to be new wallets, not the ones already
+ * serving qui. productForAddress checks netronome's list first, so a shared
+ * address would route qui's own donors to netronome.
+ */
+export const ZZE0S_CRYPTO: CryptoAddress[] = [
+  {
+    name: "Monero",
+    symbol: "XMR",
+    address:
+      "44AvbWXzFN3bnv2oj92AmEaR26PQf5Ys4W155zw3frvEJf2s4g325bk4tRBgH7umSVMhk88vkU3gw9cDvuCSHgpRPsuWVJp",
+    verifiable: false,
+  },
+];
+
+/** The ones the verifier can settle automatically, across every maintainer. */
+export const VERIFIABLE_CRYPTO = [...SOUP_CRYPTO, ...ZZE0S_CRYPTO].filter(
+  (c) => c.verifiable
+);
