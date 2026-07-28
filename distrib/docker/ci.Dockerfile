@@ -1,3 +1,7 @@
+# check=skip=SecretsUsedInArgOrEnv
+# GITHUB_TOKEN is builder-stage only (never reaches the final image) and is the
+# ephemeral per-job Actions token; provenance is disabled in release.yml.
+
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine3.22 AS app-builder
 
 ARG VERSION=dev
