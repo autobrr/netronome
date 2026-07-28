@@ -9,7 +9,7 @@ import { ArrowRightStartOnRectangleIcon as LogoutIcon } from "@heroicons/react/2
 import { HeartIcon } from "@heroicons/react/24/solid";
 import {
   Bars3Icon,
-  BellIcon,
+  ChevronRightIcon,
   SunIcon,
   MoonIcon,
   ComputerDesktopIcon,
@@ -21,9 +21,12 @@ import {
 } from "@/utils/darkMode";
 import { useAuth } from "@/context/auth";
 import { DonateModal } from "@/components/DonateModal";
-import { ThemeDropdown, MobileThemePicker } from "@/components/ThemeDropdown";
-import { SettingsMenu } from "@/components/SettingsMenu";
-import { NotificationSettings } from "@/components/settings/NotificationSettings";
+import { ThemeDropdown } from "@/components/ThemeDropdown";
+import {
+  SettingsMenu,
+  SettingsDialog,
+  settingsSections,
+} from "@/components/SettingsMenu";
 import { Button } from "@/components/ui/Button";
 import { Toaster } from "@/components/ui/sonner";
 import {
@@ -33,20 +36,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import logo from "@/assets/logo_small.png";
 import { PWAUpdatePrompt } from "@/components/PWAUpdatePrompt";
 
 function App() {
   const { isAuthenticated, logout } = useAuth();
   const [isDonateOpen, setIsDonateOpen] = useState(false);
-  const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] =
-    useState(false);
+  const [mobileSettingsSection, setMobileSettingsSection] = useState<
+    string | null
+  >(null);
   const [currentTheme, setCurrentTheme] = useState<"light" | "dark" | "auto">(
     getCurrentThemeMode()
   );
@@ -180,85 +178,50 @@ function App() {
                         </span>
                       </Button>
 
-                      {/* Theme Selection */}
+                      {/* Theme mode - compact segmented toggle */}
                       <div className="px-4 py-3">
                         <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
                           Theme
                         </h3>
-                        <div className="space-y-2">
+                        <div className="flex gap-1 rounded-lg bg-gray-100 dark:bg-gray-800 p-1">
                           {(["light", "dark", "auto"] as const).map((theme) => (
                             <Button
                               key={theme}
                               onClick={() => handleThemeChange(theme)}
                               variant="ghost"
-                              className={`w-full justify-start gap-3 h-auto px-3 py-2 ${
+                              aria-label={theme === "auto" ? "System" : theme}
+                              className={`flex-1 h-9 ${
                                 currentTheme === theme
-                                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                  : "text-gray-700 dark:text-gray-300"
+                                  ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm hover:bg-white dark:hover:bg-gray-700"
+                                  : "text-gray-600 dark:text-gray-400"
                               }`}
                             >
-                              <div
-                                className={`w-5 h-5 flex items-center justify-center ${
-                                  currentTheme === theme
-                                    ? "text-blue-600 dark:text-blue-400"
-                                    : "text-gray-600 dark:text-gray-400"
-                                }`}
-                              >
-                                {getThemeIcon(theme)}
-                              </div>
-                              <span className="text-sm font-medium capitalize">
-                                {theme === "auto" ? "System" : theme}
-                              </span>
-                              {currentTheme === theme && (
-                                <svg
-                                  className="w-4 h-4 ml-auto text-blue-600 dark:text-blue-400"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M5 13l4 4L19 7"
-                                  />
-                                </svg>
-                              )}
+                              {getThemeIcon(theme)}
                             </Button>
                           ))}
                         </div>
                       </div>
 
-                      {/* Color theme */}
-                      <MobileThemePicker />
-
-                      {/* Notifications */}
-                      <Button
-                        onClick={() => {
-                          setIsNotificationSettingsOpen(true);
-                          setMobileMenuOpen(false);
-                        }}
-                        variant="ghost"
-                        className="w-full justify-start gap-3 h-auto px-4 py-3"
-                      >
-                        <BellIcon className="h-5 w-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Notifications
-                        </span>
-                        <svg
-                          className="w-4 h-4 ml-auto text-gray-400"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
+                      {/* Settings sections - same dialogs as desktop */}
+                      {settingsSections.map((section) => (
+                        <Button
+                          key={section.id}
+                          onClick={() => {
+                            setMobileSettingsSection(section.id);
+                            setMobileMenuOpen(false);
+                          }}
+                          variant="ghost"
+                          className="w-full justify-start gap-3 h-auto px-4 py-3"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5l7 7-7 7"
-                          />
-                        </svg>
-                      </Button>
+                          <span className="text-gray-600 dark:text-gray-400 flex-shrink-0">
+                            {section.icon}
+                          </span>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {section.label}
+                          </span>
+                          <ChevronRightIcon className="w-4 h-4 ml-auto text-gray-400" />
+                        </Button>
+                      ))}
                     </div>
                   </div>
 
@@ -285,22 +248,11 @@ function App() {
         onClose={() => setIsDonateOpen(false)}
       />
 
-      {/* Notification Settings Dialog */}
-      <Dialog
-        open={isNotificationSettingsOpen}
-        onOpenChange={setIsNotificationSettingsOpen}
-      >
-        <DialogContent className="w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] sm:w-full sm:max-w-3xl md:max-w-5xl lg:max-w-6xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-800 shadow-2xl !p-0 gap-0">
-          <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-800">
-            <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">
-              Notification Settings
-            </DialogTitle>
-          </DialogHeader>
-          <div className="p-0 sm:p-6 lg:p-8 max-h-[70vh] overflow-y-auto modal-scrollbar">
-            <NotificationSettings />
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Mobile settings dialog - same sections/dialog as desktop */}
+      <SettingsDialog
+        sectionId={mobileSettingsSection}
+        onClose={() => setMobileSettingsSection(null)}
+      />
 
       <Outlet />
       <Toaster position="bottom-right" />
