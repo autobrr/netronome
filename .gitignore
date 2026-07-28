@@ -91,3 +91,4 @@ web/src/themes/premium/
 
 # Per-install machine fingerprint used for license activation.
 .device-id
+config/*
