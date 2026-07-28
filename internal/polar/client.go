@@ -24,6 +24,7 @@ var (
 	ErrInvalidLicenseKey       = errors.New("license key is not valid")
 	ErrConditionMismatch       = errors.New("license key does not match required conditions")
 	ErrActivationLimitExceeded = errors.New("license key activation limit already reached")
+	ErrActivationNotSupported  = errors.New("license key does not support activations")
 	ErrBadRequestData          = errors.New("bad request data")
 	ErrCouldNotUnmarshalData   = errors.New("could not unmarshal data")
 	ErrRateLimitExceeded       = errors.New("rate limit exceeded")
@@ -45,7 +46,7 @@ const (
 type ValidateResp struct {
 	ID               string    `json:"id"`
 	OrganizationID   string    `json:"organization_id"`
-	UserID           string    `json:"user_id"`
+	CustomerID       string    `json:"customer_id"`
 	BenefitID        string    `json:"benefit_id"`
 	Key              string    `json:"key"`
 	DisplayKey       string    `json:"display_key"`
@@ -81,7 +82,6 @@ type ActivateKeyResponse struct {
 		ID               string     `json:"id"`
 		OrganizationID   string     `json:"organization_id"`
 		CustomerID       string     `json:"customer_id"`
-		UserID           string     `json:"user_id"`
 		BenefitID        string     `json:"benefit_id"`
 		Key              string     `json:"key"`
 		DisplayKey       string     `json:"display_key"`
@@ -95,9 +95,55 @@ type ActivateKeyResponse struct {
 	} `json:"license_key"`
 }
 
+// ErrorResponse is Polar's typed error envelope: {"error":"ResourceNotFound",
+// "detail":"..."}. The Error field is the useful half - a generic FastAPI or
+// proxy error carries only a detail, so its presence is what tells us Polar
+// itself answered.
+//
+// It deliberately does not cover 422, whose detail is an array of field errors
+// rather than a string and therefore fails to decode here.
 type ErrorResponse struct {
 	Error  string `json:"error"`
 	Detail string `json:"detail"`
+}
+
+// denialFromDetail maps a Polar error detail to a denial sentinel. The strings
+// come from Polar's license_key service; an unrecognised or empty detail still
+// resolves to a denial, since callers only reach here on a status code that
+// already established one.
+func denialFromDetail(detail string) error {
+	lower := strings.ToLower(detail)
+
+	switch {
+	case detail == "License key activation limit already reached":
+		return ErrActivationLimitExceeded
+	case detail == "License key does not match required conditions":
+		return ErrConditionMismatch
+	case strings.Contains(lower, "does not support activations"):
+		return errors.Wrap(ErrActivationNotSupported, detail)
+	case strings.Contains(lower, "expired"):
+		return errors.Wrap(ErrLicenseExpired, detail)
+	case detail == "":
+		return ErrInvalidLicenseKey
+	default:
+		return errors.Wrap(ErrInvalidLicenseKey, detail)
+	}
+}
+
+// isPolarError reports whether body came from Polar itself, as opposed to a
+// generic 404/403 emitted by a proxy or a retired route.
+//
+// Polar's typed envelope always carries an "error" field, which a bare FastAPI
+// or proxy error does not - that is the primary signal. A detail that names
+// the license key is accepted too, so the check survives Polar dropping the
+// envelope without every install losing its license at once.
+func isPolarError(body []byte) (ErrorResponse, bool) {
+	var response ErrorResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return ErrorResponse{}, false
+	}
+
+	return response, response.Error != "" || strings.Contains(strings.ToLower(response.Detail), "license key")
 }
 
 // Client wraps the Polar API for license management
@@ -264,26 +310,25 @@ func (c *Client) Activate(ctx context.Context, activateReq ActivateRequest) (*Ac
 		break
 
 	case http.StatusForbidden:
-		// Best-effort parse: a 403 is an authoritative denial even when the
-		// body is empty or malformed.
-		var response ErrorResponse
-		_ = json.Unmarshal(body, &response)
-
-		if response.Detail == "License key activation limit already reached" {
-			return nil, ErrActivationLimitExceeded
-		}
-
-		// Any other 403 is an authoritative denial (revoked, disabled, expired).
-		if strings.Contains(strings.ToLower(response.Detail), "expired") {
-			return nil, errors.Wrap(ErrLicenseExpired, response.Detail)
-		}
-		if response.Detail == "" {
-			return nil, ErrInvalidLicenseKey
-		}
-		return nil, errors.Wrap(ErrInvalidLicenseKey, response.Detail)
+		// Best-effort parse: activation is the only call Polar answers 403 to,
+		// and it is an authoritative denial (revoked, disabled, expired, no
+		// activation support, limit reached) even when the body is empty or
+		// malformed.
+		response, _ := isPolarError(body)
+		return nil, denialFromDetail(response.Detail)
 
 	case http.StatusNotFound:
-		return nil, ErrInvalidLicenseKey
+		// Only Polar's own typed 404 means "no such key" - a generic 404 is a
+		// retired route or a proxy, which must not read as a bad key.
+		if _, ok := isPolarError(body); ok {
+			return nil, ErrInvalidLicenseKey
+		}
+		return nil, fmt.Errorf("unexpected 404 from polar: %s", string(body))
+
+	case http.StatusUnprocessableEntity:
+		// Our request was malformed - in practice a misconfigured organization
+		// id, since the key itself is an opaque string to Polar.
+		return nil, errors.Wrap(ErrBadRequestData, "polar rejected the request payload")
 
 	case http.StatusTooManyRequests:
 		return nil, ErrRateLimitExceeded
@@ -366,41 +411,30 @@ func (c *Client) Validate(ctx context.Context, validateReq ValidateRequest) (*Va
 		break
 
 	case http.StatusForbidden:
-		// Best-effort parse: a 403 is Polar answering authoritatively (revoked,
-		// disabled, expired), not us failing to ask - surface a denial sentinel
-		// even when the body is empty or malformed so Service.Validate treats
-		// it as one.
-		var response ErrorResponse
-		_ = json.Unmarshal(body, &response)
-
-		if response.Detail == "License key activation limit already reached" {
-			return nil, ErrActivationLimitExceeded
-		}
-
-		if strings.Contains(strings.ToLower(response.Detail), "expired") {
-			return nil, errors.Wrap(ErrLicenseExpired, response.Detail)
-		}
-		if response.Detail == "" {
-			return nil, ErrInvalidLicenseKey
-		}
-		return nil, errors.Wrap(ErrInvalidLicenseKey, response.Detail)
+		// Polar's spec documents no 403 on this endpoint, but if one ever
+		// arrives it is Polar answering authoritatively, not us failing to
+		// ask - map it to a denial even when the body is empty or malformed.
+		response, _ := isPolarError(body)
+		return nil, denialFromDetail(response.Detail)
 
 	case http.StatusNotFound:
-		// Unlike 403, a 404 is not reserved for denials: a retired or moved
+		// Every validation denial lands here: revoked, disabled, expired,
+		// condition mismatch, unknown key, and an activation the customer
+		// released from the Polar portal.
+		//
+		// A 404 is not reserved for denials though - a retired or moved
 		// endpoint answers 404 too (FastAPI's generic {"detail":"Not Found"}),
 		// and treating that as authoritative would revoke every install's
-		// license fleet-wide. Only a body that actually talks about the
-		// license key counts as a denial; anything else is transient.
-		var response ErrorResponse
-		if err := json.Unmarshal(body, &response); err == nil {
-			if response.Detail == "License key does not match required conditions" {
-				return nil, ErrConditionMismatch
-			}
-			if strings.Contains(strings.ToLower(response.Detail), "license") {
-				return nil, errors.Wrap(ErrInvalidLicenseKey, response.Detail)
-			}
+		// license fleet-wide. Polar's typed envelope is what separates the
+		// two: an unknown key answers {"error":"ResourceNotFound",
+		// "detail":"Not found"}, a dead route has no "error" field at all.
+		if response, ok := isPolarError(body); ok {
+			return nil, denialFromDetail(response.Detail)
 		}
 		return nil, fmt.Errorf("unexpected 404 from polar: %s", string(body))
+
+	case http.StatusUnprocessableEntity:
+		return nil, errors.Wrap(ErrBadRequestData, "polar rejected the request payload")
 
 	case http.StatusTooManyRequests:
 		return nil, ErrRateLimitExceeded
@@ -491,28 +525,24 @@ func (c *Client) Deactivate(ctx context.Context, deactivateReq DeactivateRequest
 			Msg("Polar license deactivated successfully")
 		return nil
 	case http.StatusForbidden:
-		var response ErrorResponse
-		if err := json.Unmarshal(body, &response); err != nil {
-			return ErrCouldNotUnmarshalData
-		}
+		response, _ := isPolarError(body)
 		log.Warn().
 			Str("licenseKey", maskLicenseKey(deactivateReq.Key)).
 			Str("activationId", maskID(deactivateReq.ActivationID)).
 			Str("detail", response.Detail).
 			Msg("Polar license deactivation forbidden")
-		return errors.Wrapf(errors.New(response.Detail), "%s", response.Error)
+		return denialFromDetail(response.Detail)
 	case http.StatusNotFound:
-		var response ErrorResponse
-		if err := json.Unmarshal(body, &response); err == nil && response.Detail != "" {
-			if strings.Contains(strings.ToLower(response.Detail), "activation") {
-				log.Info().
-					Str("licenseKey", maskLicenseKey(deactivateReq.Key)).
-					Str("activationId", maskID(deactivateReq.ActivationID)).
-					Msg("Polar license activation not found (already deactivated)")
-				return ErrLicenseNotActivated
-			}
-		}
-		return ErrInvalidLicenseKey
+		// Polar answers a bare {"error":"ResourceNotFound","detail":"Not found"}
+		// whether it is the key or the activation that is gone. Either way
+		// there is no seat left to release, which is what callers care about.
+		log.Info().
+			Str("licenseKey", maskLicenseKey(deactivateReq.Key)).
+			Str("activationId", maskID(deactivateReq.ActivationID)).
+			Msg("Polar license activation not found (already deactivated)")
+		return ErrLicenseNotActivated
+	case http.StatusUnprocessableEntity:
+		return errors.Wrap(ErrBadRequestData, "polar rejected the request payload")
 	case http.StatusTooManyRequests:
 		log.Warn().
 			Str("licenseKey", maskLicenseKey(deactivateReq.Key)).

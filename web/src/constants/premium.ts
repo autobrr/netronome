@@ -11,3 +11,12 @@
  */
 export const POLAR_CHECKOUT_URL =
   "https://buy.polar.sh/polar_cl_laGHY1sxRB9p9s4bnPz1ZUxaC5Uk8dm6dAB66116IcK";
+
+/**
+ * Polar's customer portal for this organization.
+ *
+ * The way out of "activation limit already reached": activations are seats,
+ * and a reinstall onto a fresh config directory burns one. Only the customer
+ * can release an old activation, and only from here.
+ */
+export const POLAR_PORTAL_URL = "https://polar.sh/netronome/portal";

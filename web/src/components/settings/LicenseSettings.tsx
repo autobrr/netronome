@@ -4,7 +4,11 @@
  */
 
 import React, { useState } from "react";
-import { KeyIcon, CheckBadgeIcon } from "@heroicons/react/24/outline";
+import {
+  KeyIcon,
+  CheckBadgeIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +18,7 @@ import {
   useDeactivateLicense,
 } from "@/hooks/useLicense";
 import { showToast } from "@/components/common/Toast";
-import { POLAR_CHECKOUT_URL } from "@/constants/premium";
+import { POLAR_CHECKOUT_URL, POLAR_PORTAL_URL } from "@/constants/premium";
 import { formatDate as formatDateWithSettings } from "@/utils/timeSettings";
 
 const formatDate = (value: string): string =>
@@ -23,6 +27,18 @@ const formatDate = (value: string): string =>
     month: "short",
     day: "numeric",
   });
+
+/** Link to the Polar portal, where a customer releases their own activations. */
+const PortalLink: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <a
+    href={POLAR_PORTAL_URL}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+  >
+    {children}
+  </a>
+);
 
 export const LicenseSettings: React.FC = () => {
   const { data, isLoading, isError, refetch } = useLicense();
@@ -35,6 +51,11 @@ export const LicenseSettings: React.FC = () => {
   const license = data?.license ?? null;
   const activationError =
     activate.error instanceof Error ? activate.error.message : null;
+
+  // A license row with entitlement switched off: Polar rejected it on the last
+  // check, or nothing has reached Polar for longer than the offline grace
+  // period. Either way the themes are already gone, so say why.
+  const isRejected = license !== null && !data?.hasPremiumAccess;
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -111,11 +132,30 @@ export const LicenseSettings: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CheckBadgeIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              Premium Access
+              {isRejected ? (
+                <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              ) : (
+                <CheckBadgeIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              )}
+              {isRejected ? "Premium Access Inactive" : "Premium Access"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {isRejected && (
+              <div className="rounded-md border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
+                <p>
+                  Premium themes are disabled because this license did not pass
+                  its last check with Polar.
+                </p>
+                <p className="mt-2">
+                  If you released this machine&apos;s activation in the{" "}
+                  <PortalLink>Polar customer portal</PortalLink>, deactivate
+                  here and activate the key again. A temporary outage clears on
+                  its own at the next check.
+                </p>
+              </div>
+            )}
+
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <dt className="text-gray-600 dark:text-gray-400">License key</dt>
@@ -146,6 +186,8 @@ export const LicenseSettings: React.FC = () => {
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Deactivating releases this key so it can be used on another instance.
               Premium themes revert to the default until a license is activated again.
+              Activations from other machines are managed in the{" "}
+              <PortalLink>Polar customer portal</PortalLink>.
             </p>
 
             {confirming ? (
@@ -206,6 +248,21 @@ export const LicenseSettings: React.FC = () => {
                 {activationError && (
                   <p className="mt-2 text-sm text-red-600 dark:text-red-400">
                     {activationError}
+                  </p>
+                )}
+                {/* Activations are seats and a reinstall onto a fresh config
+                    directory burns one, so this is a dead end without a way
+                    to release the old machine.
+
+                    ponytail: matched against the server's copy rather than an
+                    error code. Reword activationErrorResponse and the hint
+                    silently stops showing - swap to a code on the response if
+                    a second hint ever needs one. */}
+                {activationError?.includes("activation limit") && (
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    Release an activation you no longer use in the{" "}
+                    <PortalLink>Polar customer portal</PortalLink>, then try
+                    again.
                   </p>
                 )}
               </div>

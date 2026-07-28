@@ -264,6 +264,10 @@ func (s *Service) Validate(ctx context.Context) (*License, error) {
 
 	lic.Status = StatusActive
 	lic.LastValidated = time.Now()
+
+	// Mirror Polar's expiry in both directions: a key whose expiry was pushed
+	// out or removed entirely must not keep expiring on a stale local copy.
+	lic.ExpiresAt = nil
 	if !resp.ExpiresAt.IsZero() {
 		expiresAt := resp.ExpiresAt
 		lic.ExpiresAt = &expiresAt

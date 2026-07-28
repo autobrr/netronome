@@ -272,6 +272,10 @@ func activationErrorResponse(err error) (int, string) {
 		return http.StatusBadRequest, "License key has expired"
 	case errors.Is(err, polar.ErrInvalidLicenseKey), errors.Is(err, polar.ErrConditionMismatch):
 		return http.StatusBadRequest, "License key is not valid"
+	case errors.Is(err, polar.ErrActivationNotSupported):
+		return http.StatusBadRequest, "This license key does not support activations"
+	case errors.Is(err, polar.ErrBadRequestData):
+		return http.StatusServiceUnavailable, "License activation is not configured correctly on this instance"
 	case errors.Is(err, polar.ErrRateLimitExceeded):
 		return http.StatusTooManyRequests, "Too many attempts, please try again later"
 	default:
