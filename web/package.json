@@ -81,7 +81,6 @@
   },
   "pnpm": {
     "overrides": {
-      "glob": "^10.5.0",
       "@babel/core": "^7.29.6",
       "brace-expansion@2": "^2.1.2",
       "defu": "^6.1.5",
