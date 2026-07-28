@@ -962,17 +962,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 	return nil
 }
 
-func GetDefaultConfigPath() string {
-	if configDir, err := os.UserConfigDir(); err == nil {
-		configPath := filepath.Join(configDir, AppName, "config.toml")
-		if _, err := os.Stat(configPath); err == nil {
-			return configPath
-		}
-	}
-
-	return "config.toml"
-}
-
 func DefaultConfigPaths() []string {
 	var paths []string
 

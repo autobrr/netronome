@@ -155,12 +155,6 @@ func (s *Server) BroadcastMonitorUpdate(update types.MonitorUpdate) {
 		Msg("Broadcasting monitor update")
 }
 
-func (s *Server) SetPacketLossService(service *speedtest.PacketLossService) {
-	s.mu.Lock()
-	s.packetLossService = service
-	s.mu.Unlock()
-}
-
 func (s *Server) SetMonitorService(service *monitor.Service) {
 	s.mu.Lock()
 	s.monitorService = service

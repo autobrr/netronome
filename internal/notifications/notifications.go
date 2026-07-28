@@ -579,33 +579,6 @@ func (n *Notifier) formatHighPingMessage(result *SpeedTestResult, threshold *flo
 	return sb.String()
 }
 
-// MigrateDiscordWebhook converts an old Discord webhook URL to Shoutrrr format
-func MigrateDiscordWebhook(webhookURL string) string {
-	if webhookURL == "" {
-		return ""
-	}
-
-	// Already in Shoutrrr format
-	if strings.HasPrefix(webhookURL, "discord://") {
-		return webhookURL
-	}
-
-	// Parse Discord webhook URL
-	// Format: https://discord.com/api/webhooks/{id}/{token}
-	if strings.Contains(webhookURL, "discord.com/api/webhooks/") ||
-		strings.Contains(webhookURL, "discordapp.com/api/webhooks/") {
-		parts := strings.Split(webhookURL, "/")
-		if len(parts) >= 2 {
-			token := parts[len(parts)-1]
-			id := parts[len(parts)-2]
-			return fmt.Sprintf("discord://%s@%s", token, id)
-		}
-	}
-
-	// Return as-is if we can't parse it
-	return webhookURL
-}
-
 // SpeedTestResult represents the result of a speed test
 type SpeedTestResult struct {
 	ServerName string
