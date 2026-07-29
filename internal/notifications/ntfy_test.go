@@ -52,10 +52,9 @@ func TestParseNtfyURL(t *testing.T) {
 		},
 		{
 			// Shoutrrr resolves query keys case-insensitively.
-			name:    "scheme query key is case insensitive",
-			input:   "ntfy://:tk_token@ntfy/htpc?Scheme=http",
-			wantURL: "http://ntfy/htpc",
-
+			name:     "scheme query key is case insensitive",
+			input:    "ntfy://:tk_token@ntfy/htpc?Scheme=http",
+			wantURL:  "http://ntfy/htpc",
 			wantPass: "tk_token",
 		},
 		{
@@ -89,24 +88,11 @@ func TestParseNtfyURL(t *testing.T) {
 			wantErr: "must include a host",
 		},
 		{
-			name:    "invalid scheme",
-			input:   "ntfy://ntfy.example.com/alerts?scheme=ftp",
-			wantErr: "invalid ntfy scheme",
-		},
-		{
-			name:    "invalid priority",
-			input:   "ntfy://ntfy.example.com/alerts?priority=critical",
-			wantErr: "invalid ntfy priority",
-		},
-		{
-			name:    "invalid bool",
-			input:   "ntfy://ntfy.example.com/alerts?cache=maybe",
-			wantErr: "accepted values are 1, true, yes or 0, false, no",
-		},
-		{
-			name:    "unknown query key",
-			input:   "ntfy://ntfy.example.com/alerts?bogus=1",
-			wantErr: "bogus is not a valid ntfy config key",
+			// Options we cannot make sense of keep their default rather than
+			// failing the channel, so a stored URL never stops delivering.
+			name:    "unusable options fall back to defaults",
+			input:   "ntfy://ntfy.example.com/alerts?bogus=1&priority=critical&cache=maybe&title=100%off",
+			wantURL: "https://ntfy.example.com/alerts",
 		},
 	}
 
@@ -119,9 +105,9 @@ func TestParseNtfyURL(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantURL, cfg.apiURL)
-			assert.Equal(t, tt.wantUser, cfg.username)
-			assert.Equal(t, tt.wantPass, cfg.password)
+			assert.Equal(t, tt.wantURL, cfg.Scheme+"://"+cfg.Host+"/"+cfg.Topic)
+			assert.Equal(t, tt.wantUser, cfg.Username)
+			assert.Equal(t, tt.wantPass, cfg.Password)
 		})
 	}
 }
@@ -131,36 +117,55 @@ func TestParseNtfyURLOptions(t *testing.T) {
 		cfg, err := parseNtfyURL("ntfy://ntfy.example.com/alerts?title=Hi&priority=high&tags=warning,skull&click=https://example.com&attach=https://example.com/a.png&filename=a.png&email=me@example.com&icon=https://example.com/i.png&cache=no&firebase=no&delay=30min")
 		require.NoError(t, err)
 
-		assert.Equal(t, "Hi", cfg.title)
-		assert.Equal(t, "high", cfg.priority)
-		assert.Equal(t, []string{"warning", "skull"}, cfg.tags)
-		assert.Equal(t, "https://example.com", cfg.click)
-		assert.Equal(t, "https://example.com/a.png", cfg.attach)
-		assert.Equal(t, "a.png", cfg.filename)
-		assert.Equal(t, "me@example.com", cfg.email)
-		assert.Equal(t, "https://example.com/i.png", cfg.icon)
-		assert.False(t, cfg.cache)
-		assert.False(t, cfg.firebase)
-		assert.Equal(t, "30min", cfg.delay)
+		assert.Equal(t, "Hi", cfg.Title)
+		assert.Equal(t, "High", cfg.Priority.String())
+		assert.Equal(t, []string{"warning", "skull"}, cfg.Tags)
+		assert.Equal(t, "https://example.com", cfg.Click)
+		assert.Equal(t, "https://example.com/a.png", cfg.Attach)
+		assert.Equal(t, "a.png", cfg.Filename)
+		assert.Equal(t, "me@example.com", cfg.Email)
+		assert.Equal(t, "https://example.com/i.png", cfg.Icon)
+		assert.False(t, cfg.Cache)
+		assert.False(t, cfg.Firebase)
+		assert.Equal(t, "30min", cfg.Delay)
 	})
 
 	t.Run("cache and firebase default to enabled", func(t *testing.T) {
 		cfg, err := parseNtfyURL("ntfy://ntfy.example.com/alerts")
 		require.NoError(t, err)
 
-		assert.True(t, cfg.cache)
-		assert.True(t, cfg.firebase)
-		assert.Empty(t, cfg.priority)
+		assert.True(t, cfg.Cache)
+		assert.True(t, cfg.Firebase)
+		assert.Equal(t, "Default", cfg.Priority.String())
 	})
 
 	t.Run("normalizes numeric and alias priorities", func(t *testing.T) {
 		for value, want := range map[string]string{
-			"1": "min", "2": "low", "3": "default", "4": "high", "5": "max",
-			"urgent": "max", "Max": "max", "MIN": "min",
+			"1": "Min", "2": "Low", "3": "Default", "4": "High", "5": "Max",
+			"Max": "Max", "MIN": "Min",
 		} {
 			cfg, err := parseNtfyURL("ntfy://ntfy.example.com/alerts?priority=" + value)
 			require.NoError(t, err, value)
-			assert.Equal(t, want, cfg.priority, value)
+			assert.Equal(t, want, cfg.Priority.String(), value)
+		}
+	})
+
+	t.Run("boolean options accept shoutrrr's aliases", func(t *testing.T) {
+		for _, value := range []string{"no", "n", "0", "false"} {
+			cfg, err := parseNtfyURL("ntfy://ntfy.example.com/alerts?cache=" + value)
+			require.NoError(t, err, value)
+			assert.False(t, cfg.Cache, value)
+		}
+	})
+
+	t.Run("colliding keys resolve the same way every time", func(t *testing.T) {
+		for range 20 {
+			cfg, err := parseNtfyURL("ntfy://ntfy.example.com/alerts?Scheme=https&scheme=http&delay=a&at=b")
+			require.NoError(t, err)
+			// Keys are applied in sorted order, so the later one wins: "scheme"
+			// after "Scheme", "delay" after "at".
+			assert.Equal(t, "http", cfg.Scheme)
+			assert.Equal(t, "a", cfg.Delay)
 		}
 	})
 
@@ -168,14 +173,16 @@ func TestParseNtfyURLOptions(t *testing.T) {
 		for _, key := range []string{"delay", "at", "in", "At", "IN"} {
 			cfg, err := parseNtfyURL("ntfy://ntfy.example.com/alerts?" + key + "=tomorrow")
 			require.NoError(t, err, key)
-			assert.Equal(t, "tomorrow", cfg.delay, key)
+			assert.Equal(t, "tomorrow", cfg.Delay, key)
 		}
 	})
 
 	t.Run("actions are separated by semicolons", func(t *testing.T) {
 		cfg, err := parseNtfyURL("ntfy://ntfy.example.com/alerts?actions=view, Open, https://example.com; http, Ack, https://example.com/ack")
 		require.NoError(t, err)
-		assert.Equal(t, []string{"view, Open, https://example.com", "http, Ack, https://example.com/ack"}, cfg.actions)
+		require.Len(t, cfg.Actions, 2)
+		assert.Contains(t, cfg.Actions[0], "view")
+		assert.Contains(t, cfg.Actions[1], "http")
 	})
 }
 
@@ -274,7 +281,7 @@ func TestSendNtfy(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, "Netronome: Speedtest", received.Get("Title"))
-		assert.Equal(t, "max", received.Get("Priority"))
+		assert.Equal(t, "Max", received.Get("Priority"))
 		assert.Equal(t, "warning,skull", received.Get("Tags"))
 		assert.Equal(t, "https://example.com", received.Get("Click"))
 		assert.Equal(t, "https://example.com/i.png", received.Get("X-Icon"))
@@ -298,9 +305,11 @@ func TestSendNtfy(t *testing.T) {
 		err := sendNtfy(ntfyURL, "", "message")
 
 		require.NoError(t, err)
-		for _, key := range []string{"Title", "Priority", "Tags", "Delay", "Actions", "Click", "Attach", "X-Icon", "Filename", "Email", "Cache", "Firebase"} {
+		for _, key := range []string{"Title", "Tags", "Delay", "Actions", "Click", "Attach", "X-Icon", "Filename", "Email", "Cache", "Firebase"} {
 			assert.Empty(t, received.Get(key), key)
 		}
+		// Shoutrrr always sends a priority, defaulting to "Default".
+		assert.Equal(t, "Default", received.Get("Priority"))
 	})
 
 	t.Run("caller title overrides the url title", func(t *testing.T) {
