@@ -37,6 +37,10 @@ func TestValidateNotificationURL(t *testing.T) {
 			wantErr: "must include a host",
 		},
 		{
+			name:   "ntfy scheme override with shoutrrr casing",
+			rawURL: "ntfy://:tk_token@ntfy/htpc?Scheme=http",
+		},
+		{
 			name:    "trims whitespace before validating",
 			rawURL:  "  pushover://API_TOKEN@USER_KEY  ",
 			wantErr: "token missing",

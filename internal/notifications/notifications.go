@@ -151,7 +151,7 @@ func (n *Notifier) SendNotification(category, eventType string, message string, 
 			var sendErr error
 
 			if isNtfyURL(rule.Channel.URL) {
-				sendErr = sendNtfy(rule.Channel.URL, message)
+				sendErr = sendNtfy(rule.Channel.URL, notificationTitle(category), message)
 			} else {
 				tempNotifier, err := shoutrrr.CreateSender(rule.Channel.URL)
 				if err != nil {
@@ -393,7 +393,7 @@ func (n *Notifier) sendDirect(message string) error {
 	var errs []error
 
 	for _, ntfyURL := range n.ntfyURLs {
-		if err := sendNtfy(ntfyURL, message); err != nil {
+		if err := sendNtfy(ntfyURL, "Netronome", message); err != nil {
 			errs = append(errs, err)
 		}
 	}

@@ -652,6 +652,8 @@ Configure notifications through the web interface at **Settings > Notifications*
 - Gotify, Matrix, Ntfy, Webhook
 - [And 15+ more via Shoutrrr](https://containrrr.dev/shoutrrr/)
 
+ntfy URLs accept [Shoutrrr's ntfy query parameters](https://containrrr.dev/shoutrrr/v0.8/services/ntfy/#query-param-props) — `title`, `priority`, `tags`, `actions`, `click`, `attach`, `filename`, `delay` (aka `at`/`in`), `email`, `icon`, `cache` and `firebase`. Add `?scheme=http` for a self-hosted server without TLS; the default is `https`. Parameters Netronome cannot make sense of are logged and ignored, never fatal.
+
 #### Notification Events
 
 - Speed test completion, failures, threshold breaches
