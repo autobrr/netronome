@@ -692,6 +692,7 @@ All configuration options can be set via environment variables using the `NETRON
 NETRONOME__HOST=0.0.0.0              # Listen address
 NETRONOME__PORT=7575                 # Web UI port
 NETRONOME__BASE_URL=/                # Base URL for reverse proxy
+NETRONOME__CHECK_FOR_UPDATES=true    # Check releases and show in-app update notifications
 
 # Database (SQLite by default)
 NETRONOME__DB_TYPE=sqlite            # sqlite or postgres
@@ -716,6 +717,14 @@ NETRONOME__OIDC_CLIENT_SECRET=your-secret
 NETRONOME__OIDC_REDIRECT_URL=https://example.com/api/auth/oidc/callback
 ```
 
+### Update notifications
+
+Netronome checks for new releases by default and shows an in-app notification. Disable it with this top-level setting, or `NETRONOME__CHECK_FOR_UPDATES=false`:
+
+```toml
+check_for_updates = false
+```
+
 <details>
 <summary><b>Complete Environment Variables Reference</b> (click to expand)</summary>
 
@@ -726,6 +735,7 @@ NETRONOME__HOST=127.0.0.1                    # Server listen address
 NETRONOME__PORT=7575                         # Server port
 NETRONOME__BASE_URL=/                        # Base URL path (for reverse proxy)
 NETRONOME__GIN_MODE=                         # Gin framework mode (debug/release/test)
+NETRONOME__CHECK_FOR_UPDATES=true            # Check releases and show in-app update notifications
 ```
 
 ### Database Configuration
