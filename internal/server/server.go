@@ -20,8 +20,10 @@ import (
 	"github.com/autobrr/netronome/internal/monitor"
 	"github.com/autobrr/netronome/internal/notifications"
 	"github.com/autobrr/netronome/internal/scheduler"
+	"github.com/autobrr/netronome/internal/services/license"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
+	"github.com/autobrr/netronome/internal/update"
 	"github.com/autobrr/netronome/web"
 )
 
@@ -40,9 +42,15 @@ type Server struct {
 	lastPacketLossUpdate *types.PacketLossUpdate
 	lastMonitorUpdate    *types.MonitorUpdate
 	config               *config.Config
+	licenseService       *license.Service
+	updateChecker        *update.Checker
 }
 
-func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config, packetLossService *speedtest.PacketLossService, monitorService *monitor.Service, notifier *notifications.Notifier) *Server {
+func (s *Server) SetUpdateChecker(checker *update.Checker) {
+	s.updateChecker = checker
+}
+
+func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config, packetLossService *speedtest.PacketLossService, monitorService *monitor.Service, notifier *notifications.Notifier, licenseService *license.Service) *Server {
 	// Set Gin mode from config
 	if cfg.Server.GinMode != "" {
 		gin.SetMode(cfg.Server.GinMode)
@@ -93,6 +101,7 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 		notifier:          notifier,
 		lastUpdate:        &types.SpeedUpdate{},
 		config:            cfg,
+		licenseService:    licenseService,
 	}
 
 	// Don't register routes here - let the caller do it after setting up packet loss service
@@ -216,6 +225,13 @@ func (s *Server) RegisterRoutes() {
 		// public speedtest history
 		api.GET("/speedtest/public/history", s.handlePublicSpeedTestHistory)
 
+		licenseHandler := handlers.NewLicenseHandler(s.db, s.licenseService)
+
+		// the public dashboard needs its theme without being authenticated.
+		// The handler resolves it through entitlement, so an unlicensed
+		// instance can never serve a premium theme here.
+		api.GET("/public/theme", licenseHandler.GetPublicTheme)
+
 		// protected routes
 		protected := api.Group("")
 		protected.Use(RequireAuth(s.db, s.auth.oidc, s.config.Session.Secret, s.auth, s.config.Auth.Whitelist))
@@ -223,6 +239,13 @@ func (s *Server) RegisterRoutes() {
 			protected.POST("/auth/logout", s.auth.Logout)
 			protected.GET("/auth/verify", s.auth.Verify)
 			protected.GET("/auth/user", s.auth.GetUserInfo)
+			protected.GET("/version/latest", s.handleLatestVersion)
+
+			protected.GET("/license", licenseHandler.GetLicense)
+			protected.POST("/license/activate", licenseHandler.ActivateLicense)
+			protected.POST("/license/deactivate", licenseHandler.DeactivateLicense)
+			protected.GET("/settings/theme", licenseHandler.GetThemeSettings)
+			protected.PUT("/settings/theme", licenseHandler.UpdateThemeSettings)
 
 			protected.GET("/servers", s.handleGetServers)
 			protected.POST("/speedtest", s.handleSpeedTest)

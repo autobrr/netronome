@@ -26,9 +26,9 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
   showOnlyTemperature = false,
 }) => {
   const getProgressColor = (percent: number) => {
-    if (percent < 50) return "#34d399"; // emerald-400
-    if (percent < 85) return "#d97706"; // amber-600
-    return "#EF4444"; // red
+    if (percent < 50) return "var(--color-emerald-400, #34d399)";
+    if (percent < 85) return "var(--color-amber-600, #d97706)";
+    return "var(--color-red-500, #ef4444)";
   };
 
   const formatFrequency = (mhz: number): string => {
@@ -476,9 +476,9 @@ export const MonitorHardwareStats: React.FC<MonitorHardwareStatsProps> = ({
                             const isHot = temp.temperature > hotThreshold;
 
                             const getTemperatureColor = () => {
-                              if (isHot) return "#EF4444"; // red
-                              if (isWarm) return "#F59E0B"; // amber
-                              return "#34d399"; // green
+                              if (isHot) return "var(--color-red-500, #ef4444)";
+                              if (isWarm) return "var(--color-amber-500, #f59e0b)";
+                              return "var(--color-emerald-400, #34d399)";
                             };
 
                             // Extract device identifier from label if it contains parentheses

@@ -35,19 +35,20 @@ const (
 
 // Config represents the application configuration
 type Config struct {
-	Database   DatabaseConfig   `toml:"database"`
-	Server     ServerConfig     `toml:"server"`
-	Logging    LoggingConfig    `toml:"logging"`
-	Auth       AuthConfig       `toml:"auth"`
-	OIDC       OIDCConfig       `toml:"oidc"`
-	SpeedTest  SpeedTestConfig  `toml:"speedtest"`
-	GeoIP      GeoIPConfig      `toml:"geoip"`
-	Pagination PaginationConfig `toml:"pagination"`
-	Session    SessionConfig    `toml:"session"`
-	PacketLoss PacketLossConfig `toml:"packetloss"`
-	Agent      AgentConfig      `toml:"agent"`
-	Monitor    MonitorConfig    `toml:"monitor"`
-	Tailscale  TailscaleConfig  `toml:"tailscale"`
+	CheckForUpdates bool             `toml:"check_for_updates" env:"CHECK_FOR_UPDATES"`
+	Database        DatabaseConfig   `toml:"database"`
+	Server          ServerConfig     `toml:"server"`
+	Logging         LoggingConfig    `toml:"logging"`
+	Auth            AuthConfig       `toml:"auth"`
+	OIDC            OIDCConfig       `toml:"oidc"`
+	SpeedTest       SpeedTestConfig  `toml:"speedtest"`
+	GeoIP           GeoIPConfig      `toml:"geoip"`
+	Pagination      PaginationConfig `toml:"pagination"`
+	Session         SessionConfig    `toml:"session"`
+	PacketLoss      PacketLossConfig `toml:"packetloss"`
+	Agent           AgentConfig      `toml:"agent"`
+	Monitor         MonitorConfig    `toml:"monitor"`
+	Tailscale       TailscaleConfig  `toml:"tailscale"`
 }
 
 type DatabaseConfig struct {
@@ -218,6 +219,7 @@ func isRunningInContainer() bool {
 // New creates a new Config instance with default values
 func New() *Config {
 	return &Config{
+		CheckForUpdates: true,
 		Database: DatabaseConfig{
 			Type:    SQLite,
 			Host:    "localhost",
@@ -397,7 +399,16 @@ func (c *Config) loadFromEnv() error {
 	c.loadAgentFromEnv()
 	c.loadMonitorFromEnv()
 	c.loadTailscaleFromEnv()
+	c.loadUpdatesFromEnv()
 	return nil
+}
+
+func (c *Config) loadUpdatesFromEnv() {
+	if v := getEnv("CHECK_FOR_UPDATES"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			c.CheckForUpdates = enabled
+		}
+	}
 }
 
 func (c *Config) loadDatabaseFromEnv() {
@@ -654,6 +665,9 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "# Check for new releases in the background and show available updates in the UI\ncheck_for_updates = %v\n\n", cfg.CheckForUpdates); err != nil {
 		return err
 	}
 

@@ -13,6 +13,11 @@ import { router } from "@/routes";
 import { AuthProvider } from "@/context/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { initColorTheme } from "@/utils/colorTheme";
+
+// Before render, not in an effect: applying the ramp after first paint would
+// flash the default theme on every load.
+initColorTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: {

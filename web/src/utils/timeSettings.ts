@@ -268,6 +268,17 @@ export const useTimeSettings = () => {
 
   return { settings, updateSettings };
 };
+
+/**
+ * Format a date consistently using the current time settings.
+ */
+export const formatDate = (
+  date: Date | string,
+  options: Intl.DateTimeFormatOptions = {}
+): string => {
+  return formatDateWithSettings(date, options);
+};
+
 /**
  * Convert user's selected time (HH:MM) to UTC for backend storage
  * Using a reference date to handle timezone offset calculation

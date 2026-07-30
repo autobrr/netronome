@@ -233,7 +233,8 @@ export const SHOUTRRR_SERVICES = [
   { value: "join", label: "Join", example: "join://APIKEY@DEVICE/?icon=URL&title=TITLE" },
   { value: "mattermost", label: "Mattermost", example: "mattermost://HOSTNAME/TOKEN" },
   { value: "matrix", label: "Matrix", example: "matrix://USERNAME:PASSWORD@HOSTNAME:PORT/ROOM" },
-  { value: "ntfy", label: "ntfy", example: "ntfy://[USER:PASS@]HOSTNAME/topic" },
+  // ntfy defaults to https; add ?scheme=http for plain-HTTP servers.
+  { value: "ntfy", label: "ntfy", example: "ntfy://[USER:PASS@]HOSTNAME/topic[?scheme=http]" },
   { value: "opsgenie", label: "OpsGenie", example: "opsgenie://APIKEY" },
   { value: "pushbullet", label: "Pushbullet", example: "pushbullet://APIKEY" },
   // Pushover token is the URL "password" per Shoutrrr's format.
