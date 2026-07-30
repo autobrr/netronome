@@ -51,15 +51,30 @@ export const SOUP_CRYPTO: CryptoAddress[] = [
 ];
 
 /**
- * XMR carries over from before netronome had its own wallets - it is settled by
- * hand, so there is no verifier allowlist for it to collide with.
- *
- * BTC/ETH/LTC are pending new wallets. They have to be new: productForAddress
- * checks netronome's list first, so reusing his qui addresses would route qui's
- * own donors to netronome. Add them here (and to the verifier's allowlist) and
- * they show up in both dialogs on their own.
+ * BTC/ETH/LTC are netronome-only wallets, deliberately not his qui ones:
+ * productForAddress checks netronome's list first, so a shared address would
+ * route qui's own donors to netronome. XMR carries over from before netronome
+ * had its own wallets - settled by hand, no allowlist to collide with.
  */
 export const ZZE0S_CRYPTO: CryptoAddress[] = [
+  {
+    name: "Bitcoin",
+    symbol: "BTC",
+    address: "bc1qx7usmx4v2ek6wd6azqrhw8t88eqc7jnmjfwfkg",
+    owner: "zze0s",
+  },
+  {
+    name: "Ethereum",
+    symbol: "ETH",
+    address: "0xc1C761c00dec2Bb2D76A0a05df2fde16aD1A8A75",
+    owner: "zze0s",
+  },
+  {
+    name: "Litecoin",
+    symbol: "LTC",
+    address: "ltc1qyf0kfrt76j6y254gyjkt6tchg4sqngwtsa5q9t",
+    owner: "zze0s",
+  },
   {
     name: "Monero",
     symbol: "XMR",
