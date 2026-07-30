@@ -17,9 +17,10 @@ import { FaGithub, FaPatreon } from "react-icons/fa";
 import { SiBuymeacoffee, SiKofi } from "react-icons/si";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import s0upAvatar from "@/assets/sponsors/s0up4200.png";
+import zze0sAvatar from "@/assets/sponsors/zze0s.png";
 import { useLicense } from "@/hooks/useLicense";
 import { CryptoAddressRow } from "@/components/common/CryptoAddressRow";
-import { MAINTAINER_CRYPTO, type CryptoAddress } from "@/constants/crypto";
+import { SOUP_CRYPTO, ZZE0S_CRYPTO, type CryptoAddress } from "@/constants/crypto";
 import { PremiumLicenseModal } from "@/components/PremiumLicenseModal";
 
 // Polar SVG component
@@ -40,6 +41,7 @@ interface PlatformLink {
 
 interface Maintainer {
   name: string;
+  role: string;
   avatar: string;
   platforms: PlatformLink[];
   crypto: CryptoAddress[];
@@ -61,11 +63,10 @@ const premiumCard = {
   description: "Pay by card or crypto, and unlock all premium themes",
 };
 
-// ponytail: still an array for one maintainer - the section renderer already
-// takes one, and a second name only means another entry here.
 const maintainers: Maintainer[] = [
   {
     name: "s0up",
+    role: "Maintainer",
     avatar: s0upAvatar,
     platforms: [
       { name: "GitHub Sponsors", url: "https://github.com/sponsors/s0up4200/", icon: <FaGithub className="h-4 w-4" /> },
@@ -73,7 +74,18 @@ const maintainers: Maintainer[] = [
       { name: "Buy Me a Coffee", url: "https://buymeacoffee.com/s0up4200", icon: <SiBuymeacoffee className="h-4 w-4" /> },
       { name: "Ko-fi", url: "https://ko-fi.com/s0up4200", icon: <SiKofi className="h-4 w-4" /> },
     ],
-    crypto: MAINTAINER_CRYPTO,
+    crypto: SOUP_CRYPTO,
+  },
+  {
+    name: "zze0s",
+    role: "autobrr maintainer",
+    avatar: zze0sAvatar,
+    platforms: [
+      { name: "GitHub Sponsors", url: "https://github.com/sponsors/zze0s", icon: <FaGithub className="h-4 w-4" /> },
+      { name: "Buy Me a Coffee", url: "https://buymeacoffee.com/ze0s", icon: <SiBuymeacoffee className="h-4 w-4" /> },
+      { name: "Ko-fi", url: "https://ko-fi.com/theze0s", icon: <SiKofi className="h-4 w-4" /> },
+    ],
+    crypto: ZZE0S_CRYPTO,
   },
 ];
 
@@ -101,9 +113,14 @@ function MaintainerSection({ maintainer }: { maintainer: Maintainer }) {
           alt={maintainer.name}
           className="h-8 w-8 rounded-full border border-gray-200 dark:border-gray-700"
         />
-        <span className="font-medium text-gray-900 dark:text-white">
-          {maintainer.name}
-        </span>
+        <div className="min-w-0">
+          <p className="font-medium text-gray-900 dark:text-white leading-tight">
+            {maintainer.name}
+          </p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-tight">
+            {maintainer.role}
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -207,7 +224,7 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
             </div>
             <div className="relative flex justify-center text-xs">
               <span className="bg-white dark:bg-gray-900 px-3 text-gray-400 dark:text-gray-500 font-medium">
-                Maintainer
+                Maintainers
               </span>
             </div>
           </div>

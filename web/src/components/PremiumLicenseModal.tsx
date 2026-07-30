@@ -25,6 +25,12 @@ import { VERIFIABLE_CRYPTO } from "@/constants/crypto";
 const DISCORD_URL = "https://discord.gg/WehFCZxq5B";
 const SUPPORT_EMAIL = "soup@netrono.me";
 
+// With one maintainer's wallets the list is just "pick your coin" and an owner
+// column would be noise. Once a second maintainer's addresses land, the same
+// list holds two per coin, and then it has to say whose is whose.
+const MIXED_OWNERS =
+  new Set(VERIFIABLE_CRYPTO.map((c) => c.owner)).size > 1;
+
 const linkClass =
   "text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1";
 
@@ -110,12 +116,24 @@ export function PremiumLicenseModal({
               </p>
               <ol className="list-decimal space-y-2 pl-5 text-xs text-gray-600 dark:text-gray-400">
                 <li>
-                  <p>Send at least $4.99 worth to one of these:</p>
+                  <p>
+                    Send at least $4.99 worth to one of these
+                    {MIXED_OWNERS
+                      ? " - either maintainer's address unlocks the same license"
+                      : ""}
+                    :
+                  </p>
                   {/* Right here, not "go find them in the other dialog" - this is
-                      the middle of a purchase, not a donation browse. */}
+                      the middle of a purchase, not a donation browse. Sorted by
+                      coin, so a coin with two recipients reads as one choice.
+                      Keyed on address: the symbol repeats across owners. */}
                   <div className="mt-2 space-y-1">
                     {VERIFIABLE_CRYPTO.map((c) => (
-                      <CryptoAddressRow key={c.symbol} crypto={c} />
+                      <CryptoAddressRow
+                        key={c.address}
+                        crypto={c}
+                        showOwner={MIXED_OWNERS}
+                      />
                     ))}
                   </div>
                 </li>

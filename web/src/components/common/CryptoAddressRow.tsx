@@ -46,7 +46,18 @@ function copyToClipboard(text: string): Promise<boolean> {
   );
 }
 
-export function CryptoAddressRow({ crypto }: { crypto: CryptoAddress }) {
+/**
+ * showOwner is opt-in rather than driven off crypto.owner: the donate dialog
+ * already groups rows under a maintainer's name, so labelling them there would
+ * just repeat the heading. Only the purchase flow mixes owners in one list.
+ */
+export function CryptoAddressRow({
+  crypto,
+  showOwner = false,
+}: {
+  crypto: CryptoAddress;
+  showOwner?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
@@ -66,14 +77,21 @@ export function CryptoAddressRow({ crypto }: { crypto: CryptoAddress }) {
       <code className="flex-1 truncate text-xs text-gray-500 dark:text-gray-500 font-mono">
         {truncateAddress(crypto.address)}
       </code>
+      {showOwner && (
+        <span className="flex-shrink-0 text-[11px] text-gray-400 dark:text-gray-500">
+          {crypto.owner}
+        </span>
+      )}
       <Button
         variant="ghost"
         size="icon"
         className="h-7 w-7 flex-shrink-0"
         onClick={handleCopy}
-        aria-label={
-          copied ? `${crypto.symbol} address copied` : `Copy ${crypto.symbol} address`
-        }
+        // Two owners can share a coin, so the owner is part of the label -
+        // otherwise a screen reader hears "Copy BTC address" twice in a row.
+        aria-label={`${copied ? "Copied" : "Copy"} ${crypto.symbol} address${
+          showOwner ? ` for ${crypto.owner}` : ""
+        }`}
       >
         {copied ? (
           <Check className="h-3.5 w-3.5 text-emerald-500" />
