@@ -24,6 +24,7 @@ import (
 	"github.com/autobrr/netronome/internal/services/license"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
+	"github.com/autobrr/netronome/internal/update"
 	"github.com/autobrr/netronome/web"
 )
 
@@ -45,6 +46,11 @@ type Server struct {
 	lastMonitorUpdate    *types.MonitorUpdate
 	config               *config.Config
 	licenseService       *license.Service
+	updateChecker        *update.Checker
+}
+
+func (s *Server) SetUpdateChecker(checker *update.Checker) {
+	s.updateChecker = checker
 }
 
 func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config, packetLossService *speedtest.PacketLossService, monitorService *monitor.Service, notifier *notifications.Notifier, licenseService *license.Service) *Server {
@@ -242,6 +248,7 @@ func (s *Server) RegisterRoutes() {
 			protected.POST("/auth/logout", s.auth.Logout)
 			protected.GET("/auth/verify", s.auth.Verify)
 			protected.GET("/auth/user", s.auth.GetUserInfo)
+			protected.GET("/version/latest", s.handleLatestVersion)
 
 			protected.GET("/license", licenseHandler.GetLicense)
 			protected.POST("/license/activate", licenseHandler.ActivateLicense)

@@ -31,6 +31,7 @@ import (
 	"github.com/autobrr/netronome/internal/server"
 	"github.com/autobrr/netronome/internal/services/license"
 	"github.com/autobrr/netronome/internal/speedtest"
+	"github.com/autobrr/netronome/internal/update"
 	appversion "github.com/autobrr/netronome/internal/version"
 )
 
@@ -293,6 +294,8 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	// create server handler with packet loss service and monitor service
 	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService, monitorService, notifier, licenseService)
+	updateChecker := update.New(cfg.CheckForUpdates, appversion.Version, nil)
+	serverHandler.SetUpdateChecker(updateChecker)
 
 	speedtestSvc.SetBroadcastUpdate(serverHandler.BroadcastUpdate)
 	speedtestSvc.SetBroadcastTracerouteUpdate(serverHandler.BroadcastTracerouteUpdate)
@@ -328,6 +331,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 	serverHandler.Initialize()
 
 	serverHandler.StartScheduler(context.Background())
+	updateCtx, cancelUpdateChecker := context.WithCancel(context.Background())
+	defer cancelUpdateChecker()
+	go updateChecker.Start(updateCtx)
 
 	// revalidate the premium license in the background (24h ticker, 7 day
 	// offline grace). Only meaningful when a Polar org was built in.
@@ -354,6 +360,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	<-quit
 
 	log.Info().Msg("Shutting down server...")
+	cancelUpdateChecker()
 
 	// the context is used to inform the server it has 5 seconds to finish
 	// the request it is currently handling
