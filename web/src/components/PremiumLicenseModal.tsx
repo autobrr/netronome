@@ -18,18 +18,34 @@ import {
   KeyIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
-import { CRYPTO_VERIFIER_URL, POLAR_CHECKOUT_URL } from "@/constants/premium";
+import {
+  CRYPTO_VERIFIER_URL,
+  POLAR_CHECKOUT_URL,
+  PREMIUM_MIN_PRICE,
+} from "@/constants/premium";
 import { CryptoAddressRow } from "@/components/common/CryptoAddressRow";
-import { VERIFIABLE_CRYPTO } from "@/constants/crypto";
+import {
+  VERIFIABLE_CRYPTO,
+  type CryptoAddress,
+} from "@/constants/crypto";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
 const DISCORD_URL = "https://discord.gg/WehFCZxq5B";
 const SUPPORT_EMAIL = "soup@netrono.me";
+const PRIMARY_CRYPTO_RECIPIENT = "s0up";
 
-// With one maintainer's wallets the list is just "pick your coin" and an owner
-// column would be noise. Once a second maintainer's addresses land, the same
-// list holds two per coin, and then it has to say whose is whose.
-const MIXED_OWNERS =
-  new Set(VERIFIABLE_CRYPTO.map((c) => c.owner)).size > 1;
+const CRYPTO_RECIPIENTS = Array.from(
+  new Set(VERIFIABLE_CRYPTO.map((crypto) => crypto.owner))
+).sort((a, b) => {
+  if (a === PRIMARY_CRYPTO_RECIPIENT) return -1;
+  if (b === PRIMARY_CRYPTO_RECIPIENT) return 1;
+  return a.localeCompare(b);
+});
 
 const linkClass =
   "text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1";
@@ -51,6 +67,20 @@ const Step: React.FC<{
     <div className="pl-8 space-y-3">{children}</div>
   </div>
 );
+
+function CryptoRows({ addresses }: { addresses: CryptoAddress[] }) {
+  return (
+    <div className="space-y-0.5">
+      {addresses.map((crypto) => (
+        <CryptoAddressRow
+          key={crypto.address}
+          crypto={crypto}
+          density="comfortable"
+        />
+      ))}
+    </div>
+  );
+}
 
 interface PremiumLicenseModalProps {
   isOpen: boolean;
@@ -84,8 +114,8 @@ export function PremiumLicenseModal({
             Get a Premium License
           </DialogTitle>
           <DialogDescription>
-            Pay what you want (min $4.99) &bull; Lifetime license &bull; All
-            premium themes
+            Pay what you want (min {PREMIUM_MIN_PRICE}) &bull; Lifetime license
+            &bull; All premium themes
           </DialogDescription>
         </DialogHeader>
 
@@ -117,25 +147,62 @@ export function PremiumLicenseModal({
               <ol className="list-decimal space-y-2 pl-5 text-xs text-gray-600 dark:text-gray-400">
                 <li>
                   <p>
-                    Send at least $4.99 worth to one of these
-                    {MIXED_OWNERS
-                      ? " - either maintainer's address unlocks the same license"
-                      : ""}
-                    :
+                    Send at least {PREMIUM_MIN_PRICE} worth to one of these
+                    addresses:
                   </p>
-                  {/* Right here, not "go find them in the other dialog" - this is
-                      the middle of a purchase, not a donation browse. Sorted by
-                      coin, so a coin with two recipients reads as one choice.
-                      Keyed on address: the symbol repeats across owners. */}
-                  <div className="mt-2 space-y-1">
-                    {VERIFIABLE_CRYPTO.map((c) => (
-                      <CryptoAddressRow
-                        key={c.address}
-                        crypto={c}
-                        showOwner={MIXED_OWNERS}
-                      />
-                    ))}
-                  </div>
+                  {/* Every recipient stays visible; order and the default
+                      selection provide the hierarchy without extra promotion. */}
+                  {CRYPTO_RECIPIENTS.length > 1 ? (
+                    <Tabs
+                      defaultValue={PRIMARY_CRYPTO_RECIPIENT}
+                      className="mt-2 gap-2"
+                    >
+                      {/* items-baseline, not items-end: the triggers center
+                          their text inside min-h-10 while the label is a bare
+                          span, so box-edge alignment leaves the two baselines
+                          visibly offset. */}
+                      <div className="flex items-baseline gap-4">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                          Send to
+                        </span>
+                        <TabsList
+                          aria-label="Choose who receives your crypto payment"
+                          className="gap-4 border-b-0 sm:gap-5"
+                        >
+                          {CRYPTO_RECIPIENTS.map((recipient) => (
+                            <TabsTrigger
+                              key={recipient}
+                              value={recipient}
+                              // items-end overrides the base items-center:
+                              // min-h-10 is a touch target, and centering in it
+                              // strands the text ~10px above the underline.
+                              className="min-h-10 items-end px-0 pb-2"
+                            >
+                              {recipient}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                      </div>
+
+                      {CRYPTO_RECIPIENTS.map((recipient) => (
+                        <TabsContent
+                          key={recipient}
+                          value={recipient}
+                          className="mt-0"
+                        >
+                          <CryptoRows
+                            addresses={VERIFIABLE_CRYPTO.filter(
+                              (crypto) => crypto.owner === recipient
+                            )}
+                          />
+                        </TabsContent>
+                      ))}
+                    </Tabs>
+                  ) : (
+                    <div className="mt-2">
+                      <CryptoRows addresses={VERIFIABLE_CRYPTO} />
+                    </div>
+                  )}
                 </li>
                 <li>
                   Verify your transaction at{" "}

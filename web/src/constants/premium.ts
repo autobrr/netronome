@@ -29,3 +29,5 @@ export const POLAR_PORTAL_URL = "https://polar.sh/netronome/portal";
  * the normal Polar checkout and activation is unchanged.
  */
 export const CRYPTO_VERIFIER_URL = "https://crypto.netrono.me";
+
+export const PREMIUM_MIN_PRICE = "$4.99";

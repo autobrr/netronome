@@ -224,7 +224,7 @@ export function DonateModal({ isOpen, onClose }: DonateModalProps) {
             </div>
             <div className="relative flex justify-center text-xs">
               <span className="bg-white dark:bg-gray-900 px-3 text-gray-400 dark:text-gray-500 font-medium">
-                Maintainers
+                Or just want to donate?
               </span>
             </div>
           </div>
