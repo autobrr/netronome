@@ -26,8 +26,10 @@ import (
 	"github.com/autobrr/netronome/internal/logger"
 	"github.com/autobrr/netronome/internal/monitor"
 	"github.com/autobrr/netronome/internal/notifications"
+	"github.com/autobrr/netronome/internal/polar"
 	"github.com/autobrr/netronome/internal/scheduler"
 	"github.com/autobrr/netronome/internal/server"
+	"github.com/autobrr/netronome/internal/services/license"
 	"github.com/autobrr/netronome/internal/speedtest"
 	appversion "github.com/autobrr/netronome/internal/version"
 )
@@ -37,6 +39,11 @@ var (
 	version   = "dev"
 	buildTime = "unknown"
 	commit    = "unknown"
+
+	// PolarOrgID is the Polar organization premium theme licenses are validated
+	// against. Set via -X main.PolarOrgID=... at release time; empty in source
+	// builds, which simply disables premium themes.
+	PolarOrgID = ""
 
 	configPath string
 	rootCmd    = &cobra.Command{
@@ -230,6 +237,42 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create notifier: %w", err)
 	}
 
+	// premium theme licensing (Polar). Requests go directly to api.polar.sh -
+	// the customer-portal license endpoints need no auth, the key itself is
+	// the credential.
+	//
+	// Release builds bake the org id in with -X main.PolarOrgID. `make run` and
+	// air build without ldflags, so fall back to the environment (and therefore
+	// .env) to keep licensing exercisable in local development. The org id is
+	// not a credential - it ships inside every released binary.
+	polarOrgID := PolarOrgID
+	if polarOrgID == "" {
+		polarOrgID = os.Getenv("NETRONOME__POLAR_ORG_ID")
+	}
+
+	polarClient := polar.NewClient(
+		polar.WithOrganizationID(polarOrgID),
+		polar.WithEnvironment(os.Getenv("NETRONOME__POLAR_ENVIRONMENT")),
+		polar.WithUserAgent("netronome/"+version),
+	)
+	if polarOrgID == "" {
+		log.Warn().Msg("No Polar organization ID configured - premium themes will be disabled")
+	}
+	// The device fingerprint lives next to the config file. With no explicit
+	// --config, Load searched DefaultConfigPaths - mirror that search so the
+	// fingerprint lands in the directory actually used.
+	configDir := filepath.Dir(configPath)
+	if configPath == "" {
+		configDir = "."
+		for _, p := range config.DefaultConfigPaths() {
+			if _, err := os.Stat(p); err == nil {
+				configDir = filepath.Dir(p)
+				break
+			}
+		}
+	}
+	licenseService := license.NewService(db, polarClient, configDir)
+
 	// create server handler with all services
 	speedtestSvc := speedtest.New(db, cfg.SpeedTest, notifier, cfg)
 
@@ -249,7 +292,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	schedulerSvc := scheduler.New(db, speedtestSvc, packetLossService, notifier)
 
 	// create server handler with packet loss service and monitor service
-	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService, monitorService, notifier)
+	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService, monitorService, notifier, licenseService)
 
 	speedtestSvc.SetBroadcastUpdate(serverHandler.BroadcastUpdate)
 	speedtestSvc.SetBroadcastTracerouteUpdate(serverHandler.BroadcastTracerouteUpdate)
@@ -285,6 +328,12 @@ func runServer(cmd *cobra.Command, args []string) error {
 	serverHandler.Initialize()
 
 	serverHandler.StartScheduler(context.Background())
+
+	// revalidate the premium license in the background (24h ticker, 7 day
+	// offline grace). Only meaningful when a Polar org was built in.
+	if polarOrgID != "" {
+		go license.NewChecker(licenseService).StartPeriodicChecks(context.Background())
+	}
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	srv := &http.Server{

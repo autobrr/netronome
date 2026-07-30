@@ -23,7 +23,7 @@ const Checkbox = React.forwardRef<
       "border-gray-300 dark:border-gray-600",
       "data-[state=checked]:bg-blue-500 dark:data-[state=checked]:bg-blue-600",
       "data-[state=checked]:border-blue-500 dark:data-[state=checked]:border-blue-600",
-      "data-[state=checked]:text-white",
+      "data-[state=checked]:text-on-accent",
       "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500",
       "disabled:cursor-not-allowed disabled:opacity-50",
       "transition-colors",

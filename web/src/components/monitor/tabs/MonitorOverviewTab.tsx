@@ -131,14 +131,14 @@ const UsageCard: React.FC<UsageCardProps> = ({ title, icon, usage, delay = 0 }) 
         </h3>
         <div className="hidden sm:block">{icon}</div>
       </div>
-      
+
       {usage ? (
         <div className="flex items-center justify-between sm:block">
           {/* Total */}
           <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white sm:mb-2">
             {formatBytes(usage.total)}
           </p>
-          
+
           {/* Download/Upload stats */}
           <div className="flex items-center space-x-3 sm:space-x-4 text-xs sm:text-sm">
             <div className="flex items-center space-x-1">
@@ -176,9 +176,9 @@ const ResourceProgressBar: React.FC<ResourceProgressBarProps> = ({
   thresholds = { low: 50, medium: 85 },
 }) => {
   const getBarColor = () => {
-    if (percentage < thresholds.low) return "#34d399"; // emerald-400
-    if (percentage < thresholds.medium) return "#d97706"; // amber-600
-    return "#EF4444"; // red-500
+    if (percentage < thresholds.low) return "var(--color-emerald-400, #34d399)";
+    if (percentage < thresholds.medium) return "var(--color-amber-600, #d97706)";
+    return "var(--color-red-500, #ef4444)";
   };
 
   return (
@@ -288,7 +288,7 @@ const SystemInfoDetails: React.FC<SystemInfoDetailsProps> = ({ cpu, kernel }) =>
 
   const getOSIcon = () => {
     if (!kernel) return null;
-    
+
     if (kernel.toLowerCase().includes("darwin")) {
       return <FontAwesomeIcon icon={faApple} className="h-4 w-4 text-gray-500 dark:text-gray-500 ml-2 mr-1" />;
     }
@@ -384,7 +384,7 @@ const ResourceMonitorCard: React.FC<ResourceMonitorCardProps> = ({
           </p>
         </div>
       </div>
-      
+
       {/* Right side - Circular progress (mobile only) */}
       <div className="sm:hidden ml-4">
         <div className="relative h-12 w-12">
@@ -464,7 +464,7 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
               <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                 {systemInfo?.hostname || agent.name}
               </h2>
-              
+
               {/* CPU Info */}
               {hardwareStats?.cpu && (
                 <div className="flex items-center space-x-1 sm:mt-0.5">
@@ -477,7 +477,7 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
                   </p>
                 </div>
               )}
-              
+
               {/* Kernel - Mobile only */}
               {systemInfo?.kernel && (
                 <div className="flex items-center space-x-1 sm:hidden">
@@ -493,7 +493,7 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
                   </span>
                 </div>
               )}
-              
+
               {/* Uptime - Mobile only */}
               <div className="flex items-center space-x-1 sm:hidden">
                 <ClockIcon className="h-4 w-4 text-gray-400" aria-hidden="true" />
