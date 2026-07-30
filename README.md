@@ -128,6 +128,7 @@ Monitor multiple servers from one dashboard:
 ### Additional Features
 
 - **Modern UI**: Responsive design with dark mode support
+- **Themes**: Optional premium theme catalogue, unlockable with a one-time license
 - **Authentication**: Built-in auth, OIDC support, IP whitelisting
 - **Notifications**: 15+ services via Shoutrrr (Discord, Telegram, Email, etc.)
 - **Database Support**: SQLite (default) or PostgreSQL
