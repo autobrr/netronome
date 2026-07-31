@@ -239,7 +239,7 @@ export const SHOUTRRR_SERVICES = [
   { value: "notifiarr", label: "Notifiarr", example: "notifiarr://APIKEY?channel=CHANNEL_ID" },
   // ntfy defaults to https. Add ?scheme=http for plain-HTTP servers.
   { value: "ntfy", label: "ntfy", example: "ntfy://[USER:PASS@]HOSTNAME/topic[?scheme=http]" },
-  { value: "opsgenie", label: "OpsGenie", example: "opsgenie://APIKEY" },
+  { value: "opsgenie", label: "OpsGenie", example: "opsgenie://api.opsgenie.com/APIKEY" },
   { value: "pagerduty", label: "PagerDuty", example: "pagerduty://events.pagerduty.com/INTEGRATION_KEY" },
   { value: "pushbullet", label: "Pushbullet", example: "pushbullet://APIKEY" },
   // The Pushover token is the URL "password" in the Shoutrrr URL format.
