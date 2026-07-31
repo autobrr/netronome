@@ -4,8 +4,12 @@
  */
 
 import { useEffect, useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Outlet } from "@tanstack/react-router";
-import { ArrowRightStartOnRectangleIcon as LogoutIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowRightStartOnRectangleIcon as LogoutIcon,
+  ArrowTopRightOnSquareIcon,
+} from "@heroicons/react/24/outline";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import {
   Bars3Icon,
@@ -38,9 +42,25 @@ import {
 } from "@/components/ui/sheet";
 import logo from "@/assets/logo_small.png";
 import { PWAUpdatePrompt } from "@/components/PWAUpdatePrompt";
+import {
+  formatReleaseTag,
+  getLatestRelease,
+  latestReleaseQueryKey,
+} from "@/api/version";
+import { AppUpdatePrompt } from "@/components/AppUpdatePrompt";
+
+const RELEASE_POLL_INTERVAL = 2 * 60 * 1000;
 
 function App() {
   const { isAuthenticated, logout } = useAuth();
+  const { data: latestRelease } = useQuery({
+    queryKey: latestReleaseQueryKey,
+    queryFn: getLatestRelease,
+    enabled: isAuthenticated,
+    staleTime: RELEASE_POLL_INTERVAL,
+    refetchInterval: RELEASE_POLL_INTERVAL,
+    refetchOnWindowFocus: false,
+  });
   const [isDonateOpen, setIsDonateOpen] = useState(false);
   const [mobileSettingsSection, setMobileSettingsSection] = useState<
     string | null
@@ -84,6 +104,7 @@ function App() {
   // Check if we're on the public route
   const isPublicRoute = window.location.pathname.includes("/public");
   const showHeader = isAuthenticated || isPublicRoute;
+  const availableRelease = isAuthenticated ? latestRelease ?? null : null;
 
   return (
     <div className="min-h-screen bg-white pattern dark:bg-gray-900 relative transition-colors duration-300 ease-in-out">
@@ -125,7 +146,7 @@ function App() {
               <HeartIcon className="h-6 w-6" />
             </Button>
             <ThemeDropdown />
-            <SettingsMenu />
+            <SettingsMenu release={availableRelease} />
             <Button
               onClick={() => logout()}
               variant="ghost"
@@ -144,10 +165,20 @@ function App() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                  aria-label="Open menu"
+                  className="relative text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  aria-label={
+                    availableRelease
+                      ? `Open menu, Netronome ${formatReleaseTag(availableRelease.tag_name)} update available`
+                      : "Open menu"
+                  }
                 >
                   <Bars3Icon className="h-6 w-6" />
+                  {availableRelease && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute right-1 top-1 h-2 w-2 rounded-full bg-blue-500 ring-2 ring-white dark:ring-gray-900"
+                    />
+                  )}
                 </Button>
               </SheetTrigger>
               <SheetContent
@@ -163,6 +194,30 @@ function App() {
 
                   <div className="flex-1 py-6">
                     <div className="space-y-2">
+                      {availableRelease && (
+                        <Button
+                          asChild
+                          variant="ghost"
+                          className="h-auto w-full justify-start gap-3 px-4 py-3"
+                        >
+                          <a
+                            href={availableRelease.html_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setMobileMenuOpen(false)}
+                            aria-label={`View Netronome ${formatReleaseTag(availableRelease.tag_name)} release`}
+                          >
+                            <ArrowTopRightOnSquareIcon className="h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+                            <span className="flex-1 text-left text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Netronome {formatReleaseTag(availableRelease.tag_name)} available
+                            </span>
+                            <span className="text-xs text-blue-600 dark:text-blue-400">
+                              View release
+                            </span>
+                          </a>
+                        </Button>
+                      )}
+
                       {/* Support */}
                       <Button
                         onClick={() => {
@@ -256,6 +311,7 @@ function App() {
 
       <Outlet />
       <Toaster position="bottom-right" />
+      <AppUpdatePrompt release={availableRelease} />
       <PWAUpdatePrompt />
     </div>
   );
