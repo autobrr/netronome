@@ -9,7 +9,6 @@ import (
 	"math"
 	"sort"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -40,8 +39,10 @@ const (
 
 type SpeedtestNetRunner struct {
 	// speedtest-go keeps its counters on the client, so two tests sharing one
-	// client corrupt each other. Tests are serialised rather than rejected.
-	mu               sync.Mutex
+	// client corrupt each other. Tests queue for this slot rather than being
+	// rejected, but a caller that gives up while queued leaves without starting
+	// a test its deadline has already passed.
+	running          chan struct{}
 	client           *st.Speedtest
 	config           config.SpeedTestConfig
 	progressCallback func(types.SpeedUpdate)
@@ -52,6 +53,7 @@ type SpeedtestNetRunner struct {
 
 func NewSpeedtestNetRunner(cfg config.SpeedTestConfig) *SpeedtestNetRunner {
 	return &SpeedtestNetRunner{
+		running:       make(chan struct{}, 1),
 		client:        st.New(st.WithUserConfig(&st.UserConfig{MaxConnections: speedtestStreams})),
 		config:        cfg,
 		cacheDuration: 30 * time.Minute,
@@ -92,10 +94,15 @@ func (r *SpeedtestNetRunner) SetProgressCallback(callback func(types.SpeedUpdate
 }
 
 func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	select {
+	case r.running <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-r.running }()
 
-	// Deferred so the early returns below cannot leave stale state on the client.
+	// Deferred so the early returns below cannot leave stale state on the
+	// client. Registered second, so it runs before the slot is released.
 	defer r.client.Reset()
 
 	log.Debug().
@@ -145,6 +152,9 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 			return nil, fmt.Errorf("requested server(s) %v not found in public list or by direct lookup", opts.ServerIDs)
 		}
 		selectedServer = selectNearestServer(serverList)
+		if selectedServer == nil {
+			return nil, fmt.Errorf("no speedtest servers available")
+		}
 	}
 
 	log.Info().

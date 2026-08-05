@@ -4,11 +4,30 @@
 package speedtest
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 
 	st "github.com/showwin/speedtest-go/speedtest"
+
+	"github.com/autobrr/netronome/internal/config"
+	"github.com/autobrr/netronome/internal/types"
 )
+
+// A caller whose deadline passes while it waits for a running test must give up
+// instead of starting a test nobody is waiting for any more.
+func TestRunTestGivesUpWhenCallerCancels(t *testing.T) {
+	r := NewSpeedtestNetRunner(config.SpeedTestConfig{Timeout: 60})
+	r.running <- struct{}{} // pretend another test holds the slot
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := r.RunTest(ctx, &types.TestOptions{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("got %v, want context.Canceled", err)
+	}
+}
 
 func TestSelectNearestServer(t *testing.T) {
 	server := func(name string, distance float64, latency time.Duration) *st.Server {
