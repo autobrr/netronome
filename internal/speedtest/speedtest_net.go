@@ -101,8 +101,14 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 	}
 	defer func() { <-r.running }()
 
+	// Both cases above can become ready together when the slot frees, and Go
+	// then picks one at random, so the caller may have given up while queued.
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	// Deferred so the early returns below cannot leave stale state on the
-	// client. Registered second, so it runs before the slot is released.
+	// client. Registered after the release, so it runs while the slot is held.
 	defer r.client.Reset()
 
 	log.Debug().

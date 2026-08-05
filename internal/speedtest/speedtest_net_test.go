@@ -29,6 +29,34 @@ func TestRunTestGivesUpWhenCallerCancels(t *testing.T) {
 	}
 }
 
+// The caller is still waiting when it gives up. Once the slot frees, both
+// select cases are ready and Go picks one at random, so the cancellation has to
+// be rechecked after the slot is taken.
+func TestRunTestGivesUpWhenCancelledWhileQueued(t *testing.T) {
+	r := NewSpeedtestNetRunner(config.SpeedTestConfig{Timeout: 60})
+	r.running <- struct{}{} // another test holds the slot
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errc := make(chan error, 1)
+	go func() {
+		_, err := r.RunTest(ctx, &types.TestOptions{})
+		errc <- err
+	}()
+
+	time.Sleep(50 * time.Millisecond) // let RunTest reach the select
+	cancel()
+	<-r.running // the other test finishes, freeing the slot
+
+	select {
+	case err := <-errc:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("got %v, want context.Canceled", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("RunTest started a test for a caller that had given up")
+	}
+}
+
 func TestSelectNearestServer(t *testing.T) {
 	server := func(name string, distance float64, latency time.Duration) *st.Server {
 		return &st.Server{Name: name, Distance: distance, Latency: latency}
