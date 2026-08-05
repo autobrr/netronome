@@ -9,6 +9,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -19,7 +20,28 @@ import (
 	"github.com/autobrr/netronome/internal/types"
 )
 
+const (
+	// speedtest-go defaults its parallel stream count to runtime.NumCPU(), which
+	// makes a result depend on how many cores the host has instead of on the
+	// line. A single TCP stream cannot fill a fast or high-latency path, so a
+	// 4-core box measured about half the upload of a 16-core box on the same
+	// line. Pin the count so every host runs the same test. On a path where one
+	// stream already saturates the line the extra streams change nothing, and
+	// they cost almost no CPU.
+	speedtestStreams = 16
+
+	// Ookla reports the same distance for every server in a city, so sorting by
+	// distance alone leaves a large tie that resolves arbitrarily. Servers this
+	// close to the nearest one count as tied and the tie goes to the lowest
+	// latency. Without the limit a distant server with a quick ping would beat a
+	// much closer one.
+	speedtestDistanceTieKm = 5.0
+)
+
 type SpeedtestNetRunner struct {
+	// speedtest-go keeps its counters on the client, so two tests sharing one
+	// client corrupt each other. Tests are serialised rather than rejected.
+	mu               sync.Mutex
 	client           *st.Speedtest
 	config           config.SpeedTestConfig
 	progressCallback func(types.SpeedUpdate)
@@ -30,11 +52,35 @@ type SpeedtestNetRunner struct {
 
 func NewSpeedtestNetRunner(cfg config.SpeedTestConfig) *SpeedtestNetRunner {
 	return &SpeedtestNetRunner{
-		client:        st.New(),
+		client:        st.New(st.WithUserConfig(&st.UserConfig{MaxConnections: speedtestStreams})),
 		config:        cfg,
 		cacheDuration: 30 * time.Minute,
 		cacheExpiry:   time.Now(),
 	}
+}
+
+// selectNearestServer returns the closest server, breaking distance ties on the
+// latency that FetchServers() already measured. Latency is st.PingTimeout (-1)
+// when that ping failed, so only positive values count. Sorts in place.
+func selectNearestServer(servers []*st.Server) *st.Server {
+	if len(servers) == 0 {
+		return nil
+	}
+
+	sort.Slice(servers, func(i, j int) bool {
+		return servers[i].Distance < servers[j].Distance
+	})
+
+	best := servers[0]
+	for _, server := range servers[1:] {
+		if server.Distance > servers[0].Distance+speedtestDistanceTieKm {
+			break
+		}
+		if server.Latency > 0 && (best.Latency <= 0 || server.Latency < best.Latency) {
+			best = server
+		}
+	}
+	return best
 }
 
 func (r *SpeedtestNetRunner) GetTestType() string {
@@ -46,6 +92,12 @@ func (r *SpeedtestNetRunner) SetProgressCallback(callback func(types.SpeedUpdate
 }
 
 func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Deferred so the early returns below cannot leave stale state on the client.
+	defer r.client.Reset()
+
 	log.Debug().
 		Bool("isScheduled", opts.IsScheduled).
 		Str("server_ids", fmt.Sprintf("%v", opts.ServerIDs)).
@@ -92,10 +144,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		if len(opts.ServerIDs) > 0 {
 			return nil, fmt.Errorf("requested server(s) %v not found in public list or by direct lookup", opts.ServerIDs)
 		}
-		sort.Slice(serverList, func(i, j int) bool {
-			return serverList[i].Distance < serverList[j].Distance
-		})
-		selectedServer = serverList[0]
+		selectedServer = selectNearestServer(serverList)
 	}
 
 	log.Info().
@@ -281,8 +330,6 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		Float64("download_mbps", result.DownloadSpeed).
 		Float64("upload_mbps", result.UploadSpeed).
 		Msg("Speedtest.net test complete")
-
-	selectedServer.Context.Reset()
 
 	jitterFloat := selectedServer.Jitter.Seconds() * 1000
 	result.Jitter = jitterFloat
