@@ -17,9 +17,9 @@ import (
 
 // A caller whose deadline passes while it waits for a running test must give up
 // instead of starting a test nobody is waiting for any more.
-func TestRunTestGivesUpWhenCallerCancels(t *testing.T) {
+func TestRunTestGivesUpWhenQueuedBehindARunningTest(t *testing.T) {
 	r := NewSpeedtestNetRunner(config.SpeedTestConfig{Timeout: 60})
-	r.running <- struct{}{} // pretend another test holds the slot
+	r.running <- struct{}{} // another test holds the slot
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -29,31 +29,32 @@ func TestRunTestGivesUpWhenCallerCancels(t *testing.T) {
 	}
 }
 
-// The caller is still waiting when it gives up. Once the slot frees, both
-// select cases are ready and Go picks one at random, so the cancellation has to
-// be rechecked after the slot is taken.
-func TestRunTestGivesUpWhenCancelledWhileQueued(t *testing.T) {
-	r := NewSpeedtestNetRunner(config.SpeedTestConfig{Timeout: 60})
-	r.running <- struct{}{} // another test holds the slot
+// Nothing is running, so taking the slot and observing the cancellation are both
+// ready when the select is evaluated, and Go then picks one at random. Taking
+// the slot must not be enough to start the test. No single run can force the
+// random choice, so repeat: without the recheck about half of these reach the
+// network and return something other than context.Canceled.
+func TestRunTestGivesUpWhenSlotIsFree(t *testing.T) {
+	for i := range 20 {
+		r := NewSpeedtestNetRunner(config.SpeedTestConfig{Timeout: 60})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	errc := make(chan error, 1)
-	go func() {
-		_, err := r.RunTest(ctx, &types.TestOptions{})
-		errc <- err
-	}()
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
 
-	time.Sleep(50 * time.Millisecond) // let RunTest reach the select
-	cancel()
-	<-r.running // the other test finishes, freeing the slot
+		errc := make(chan error, 1)
+		go func() {
+			_, err := r.RunTest(ctx, &types.TestOptions{})
+			errc <- err
+		}()
 
-	select {
-	case err := <-errc:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("got %v, want context.Canceled", err)
+		select {
+		case err := <-errc:
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("run %d: got %v, want context.Canceled", i, err)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatalf("run %d: RunTest started a test for a caller that had given up", i)
 		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("RunTest started a test for a caller that had given up")
 	}
 }
 
