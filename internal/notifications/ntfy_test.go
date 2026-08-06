@@ -212,7 +212,7 @@ func TestSendNtfy(t *testing.T) {
 		err := sendNtfy(ntfyURL, "Netronome", "Hello from Netronome")
 
 		require.NoError(t, err)
-		assert.Equal(t, "text/plain", receivedContentType)
+		assert.Equal(t, "text/plain; charset=utf-8", receivedContentType)
 		assert.Equal(t, "Hello from Netronome", receivedBody)
 	})
 

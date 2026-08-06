@@ -45,6 +45,18 @@ func TestValidateNotificationURL(t *testing.T) {
 			rawURL:  "  pushover://API_TOKEN@USER_KEY  ",
 			wantErr: "token missing",
 		},
+		{
+			// This URL caused a panic in shoutrrr v0.8.0 (slice bounds). The
+			// panic stopped the whole validation request.
+			name:    "opsgenie missing host does not panic",
+			rawURL:  "opsgenie://APIKEY",
+			wantErr: "API key missing",
+		},
+		{
+			name:    "unknown service scheme",
+			rawURL:  "carrierpigeon://coop.example.com/loft",
+			wantErr: "unknown service",
+		},
 	}
 
 	for _, tt := range tests {

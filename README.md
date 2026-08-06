@@ -130,7 +130,7 @@ Monitor multiple servers from one dashboard:
 - **Modern UI**: Responsive design with dark mode support
 - **Themes**: Optional premium theme catalogue, unlockable with a one-time license
 - **Authentication**: Built-in auth, OIDC support, IP whitelisting
-- **Notifications**: 15+ services via Shoutrrr (Discord, Telegram, Email, etc.)
+- **Notifications**: 25+ services via Shoutrrr (Discord, Telegram, Email, etc.)
 - **Database Support**: SQLite (default) or PostgreSQL
 - **Tailscale Integration**: Secure mesh networking without port exposure
 
@@ -651,9 +651,12 @@ Configure notifications through the web interface at **Settings > Notifications*
 - Discord, Telegram, Slack, Teams
 - Email (SMTP), Pushover, Pushbullet
 - Gotify, Matrix, Ntfy, Webhook
-- [And 15+ more via Shoutrrr](https://containrrr.dev/shoutrrr/)
+- [And 25+ more via Shoutrrr](https://shoutrrr.nickfedor.com/latest/)
 
-ntfy URLs accept [Shoutrrr's ntfy query parameters](https://containrrr.dev/shoutrrr/v0.8/services/ntfy/#query-param-props) — `title`, `priority`, `tags`, `actions`, `click`, `attach`, `filename`, `delay` (aka `at`/`in`), `email`, `icon`, `cache` and `firebase`. Add `?scheme=http` for a self-hosted server without TLS; the default is `https`. Parameters Netronome cannot make sense of are logged and ignored, never fatal.
+ntfy URLs accept [Shoutrrr's ntfy query parameters](https://shoutrrr.nickfedor.com/latest/services/push/ntfy/) — `title`, `priority`, `tags`, `actions`, `click`, `attach`, `filename`, `delay` (aka `at`/`in`), `email`, `icon`, `cache` and `firebase`. Add `?scheme=http` for a self-hosted server without TLS; the default is `https`. Parameters Netronome cannot make sense of are logged and ignored, never fatal.
+
+> [!WARNING]
+> Create each `teams://` channel again with a [Power Automate workflow webhook](https://shoutrrr.nickfedor.com/latest/services/chat/teams/) URL: `teams://?host=<workflow URL>`. Microsoft retired the old `webhook.office.com` connectors, and old `teams://` channels do not deliver notifications anymore.
 
 #### Notification Events
 
