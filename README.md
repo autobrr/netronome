@@ -611,6 +611,20 @@ Common interface names:
 * `tun0` - OpenVPN or Gluetun custom provider
 * `wg0` - WireGuard
 
+#### Missing Interfaces
+
+`vnstat` records only the interfaces in its database. It does not add an interface that appeared after it made the database, or that was down at that time. The agent then shows no bandwidth data for that interface. The agent log shows `No interface matching "eth1" found in database`.
+
+Show which interfaces `vnstat` records. Then add the missing interface:
+
+```sh
+docker exec vnstat vnstat            # interfaces in the database
+docker exec vnstat vnstat --iflist   # interfaces the container can see
+docker exec vnstat vnstat --add -i eth1
+```
+
+If the interface is not in `--iflist`, the container cannot see it. Put the agent and `vnstat` in the same network namespace as the interface.
+
 #### Limiting Monitored Interfaces
 
 By default, `vnstat` will monitor all detected interfaces (e.g., eth0 and tun0). To monitor only the VPN tunnel:

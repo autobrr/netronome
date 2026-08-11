@@ -5,11 +5,13 @@ package agent
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -34,10 +36,12 @@ func (a *Agent) handleHistoricalExport(c *gin.Context) {
 	cmd := exec.Command("vnstat", args...)
 	output, err := cmd.Output()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to export historical data")
+		// vnstat writes errors to stdout, so err alone is only "exit status 1".
+		details := cmp.Or(strings.TrimSpace(string(output)), err.Error())
+		log.Error().Err(err).Str("vnstat_output", details).Str("interface", iface).Msg("Failed to export historical data")
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "failed to export historical data",
-			"details": err.Error(),
+			"details": details,
 		})
 		return
 	}
@@ -111,7 +115,8 @@ func (a *Agent) runBandwidthMonitor(ctx context.Context) {
 		// Parse JSON to validate it
 		var data MonitorLiveData
 		if err := json.Unmarshal([]byte(line), &data); err != nil {
-			log.Warn().Err(err).Str("line", line).Msg("Failed to parse bandwidth data JSON")
+			// vnstat writes errors to stdout, so this line is usually the reason.
+			log.Warn().Str("vnstat_output", line).Str("interface", a.config.Interface).Msg("Unexpected vnstat output, expected JSON")
 			continue
 		}
 
@@ -146,7 +151,7 @@ func (a *Agent) runBandwidthMonitor(ctx context.Context) {
 	}
 
 	if err := cmd.Wait(); err != nil {
-		log.Error().Err(err).Msg("vnstat command failed")
+		log.Error().Err(err).Str("interface", a.config.Interface).Msg("vnstat command failed")
 	}
 }
 
