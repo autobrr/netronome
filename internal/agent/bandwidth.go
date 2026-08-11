@@ -37,11 +37,11 @@ func (a *Agent) handleHistoricalExport(c *gin.Context) {
 	output, err := cmd.Output()
 	if err != nil {
 		// vnstat writes errors to stdout, so err alone is only "exit status 1".
-		details := cmp.Or(strings.TrimSpace(string(output)), err.Error())
-		log.Error().Err(err).Str("vnstat_output", details).Str("interface", iface).Msg("Failed to export historical data")
+		vnstatOutput := strings.TrimSpace(string(output))
+		log.Error().Err(err).Str("vnstat_output", vnstatOutput).Str("interface", iface).Msg("Failed to export historical data")
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "failed to export historical data",
-			"details": details,
+			"details": cmp.Or(vnstatOutput, err.Error()),
 		})
 		return
 	}

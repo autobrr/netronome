@@ -682,7 +682,9 @@ Give the API key to the agent with `NETRONOME__AGENT_API_KEY`, not with the `--a
 
 #### Missing Interfaces
 
-`vnstat` records only the interfaces in its database. It does not add an interface that appeared after it made the database, or that was down at that time. The agent then shows no bandwidth data for that interface. The agent log shows `No interface matching "eth1" found in database`.
+`vnstat` records only the interfaces in its database. The default of `AlwaysAddNewInterfaces` is 0, so the daemon does not add an interface that appears later. The `vergoh/vnstat` image registers the interfaces only when it creates the database. An interface that was down or absent at that moment stays unrecorded.
+
+The agent then shows no bandwidth data for that interface. The agent log shows `No interface matching "eth1" found in database`.
 
 Show which interfaces `vnstat` records. Then add the missing interface:
 
@@ -691,6 +693,10 @@ docker exec vnstat vnstat            # interfaces in the database
 docker exec vnstat vnstat --iflist   # interfaces the container can see
 docker exec vnstat vnstat --add -i eth1
 ```
+
+The daemon reads the new interface at its next save, because `RescanDatabaseOnSave` is enabled by default. This takes up to 5 minutes (`SaveInterval`), or up to 30 minutes when the interface is down (`OfflineSaveInterval`). To apply it at once, restart the container.
+
+To record every new interface without this step, set `AlwaysAddNewInterfaces 1` in `/etc/vnstat.conf`.
 
 If the interface is not in `--iflist`, the container cannot see it. Put the agent and `vnstat` in the same network namespace as the interface.
 
