@@ -116,7 +116,7 @@ func (a *Agent) runBandwidthMonitor(ctx context.Context) {
 		var data MonitorLiveData
 		if err := json.Unmarshal([]byte(line), &data); err != nil {
 			// vnstat writes errors to stdout, so this line is usually the reason.
-			log.Warn().Str("vnstat_output", line).Str("interface", a.config.Interface).Msg("Unexpected vnstat output, expected JSON")
+			log.Warn().Err(err).Str("vnstat_output", line).Str("interface", a.config.Interface).Msg("Unexpected vnstat output, expected JSON")
 			continue
 		}
 

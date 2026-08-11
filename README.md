@@ -615,6 +615,8 @@ Common interface names:
 
 To monitor a physical interface of the host instead of a VPN tunnel, give the agent and `vnstat` the host network. Both must see the same interface, and both must use the same `vnstat` database.
 
+This example is for Linux. On Docker Desktop, the host network gives the network of the Docker virtual machine, not the physical interface of the computer.
+
 <details>
 <summary>Host Interface Compose Example</summary>
 
@@ -638,21 +640,18 @@ services:
       - netronome
 
   # The agent needs the host network to see the host interfaces.
-  # With the host network, Docker ignores a "ports" entry.
+  # Do not add a "ports" entry. It is not compatible with the host network.
   netronome-agent:
     image: ghcr.io/autobrr/netronome:latest
     container_name: netronome-agent
     network_mode: host
     environment:
-      - NETRONOME__AGENT_API_KEY=<apikey>
+      - NETRONOME__AGENT_API_KEY=${NETRONOME_AGENT_API_KEY}
     command:
       - agent
       - --interface
       - <interface>
-      - --disk-include
-      - /<pool>
     volumes:
-      - /:/hostfs
       - ./netronome/vnstat:/var/lib/vnstat
     restart: unless-stopped
 
@@ -679,6 +678,12 @@ networks:
 The agent is on the host network, but the dashboard is on a bridge network. The dashboard therefore cannot find the agent by container name. Add the agent with the IP address of the host, such as `http://192.168.1.10:8200`.
 
 Give the API key to the agent with `NETRONOME__AGENT_API_KEY`, not with the `--api-key` flag. A command line is visible to all users of the host, in `docker inspect` and in the process list.
+
+Keep the key out of the compose file. Put it in a `.env` file next to the compose file, and keep that file out of Git:
+
+```sh
+NETRONOME_AGENT_API_KEY=your-key-here
+```
 
 #### Missing Interfaces
 
