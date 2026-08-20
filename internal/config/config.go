@@ -389,6 +389,11 @@ func Load(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("failed to load from environment: %w", err)
 	}
 
+	// Fold the deprecated [tailscale.agent] and [tailscale.monitor] sections
+	// into the unified fields. Runs last so it sees both file and env values,
+	// and only fills settings the user left unset.
+	cfg.Tailscale = cfg.Tailscale.MigrateFromOldFormat()
+
 	return cfg, nil
 }
 

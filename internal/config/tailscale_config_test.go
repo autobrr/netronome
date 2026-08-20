@@ -5,6 +5,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -79,7 +80,7 @@ func TestTailscaleConfig_AutoDetection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			method, err := tt.config.GetEffectiveMethod()
-			
+
 			if tt.expectError {
 				require.Error(t, err, "expected error but got none")
 				if tt.errorContains != "" {
@@ -170,7 +171,7 @@ func TestTailscaleConfig_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.config.Validate()
-			
+
 			if tt.expectError {
 				require.Error(t, err, "expected error but got none")
 				if tt.errorContains != "" {
@@ -263,16 +264,16 @@ func TestTailscaleConfig_EnvironmentOverrides(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear env
 			os.Clearenv()
-			
+
 			// Set test env vars
 			for k, v := range tt.envVars {
 				os.Setenv(k, v)
 			}
-			
+
 			// Apply env overrides
 			cfg := tt.initial
 			cfg.loadFromEnv()
-			
+
 			// Compare
 			assert.Equal(t, tt.expected.Enabled, cfg.Enabled, "Enabled field mismatch")
 			assert.Equal(t, tt.expected.Method, cfg.Method, "Method field mismatch")
@@ -377,7 +378,7 @@ func TestTailscaleConfig_BackwardCompatibility(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			migrated := tt.oldStyle.Tailscale.MigrateFromOldFormat()
-			
+
 			assert.Equal(t, tt.expected.Enabled, migrated.Enabled, "Enabled field mismatch")
 			assert.Equal(t, tt.expected.Method, migrated.Method, "Method field mismatch")
 			assert.Equal(t, tt.expected.AuthKey, migrated.AuthKey, "AuthKey field mismatch")
@@ -480,4 +481,30 @@ func splitEnvPair(env string) []string {
 		}
 	}
 	return []string{env, ""}
+}
+// Load must fold the deprecated [tailscale.monitor] section into the unified
+// fields. Before this was wired up, MigrateFromOldFormat existed but was never
+// called, so these settings were silently dropped in favour of the defaults.
+func TestLoad_MigratesDeprecatedTailscaleSection(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+
+	require.NoError(t, os.WriteFile(path, []byte(`
+[tailscale]
+enabled = true
+
+[tailscale.monitor]
+discovery_prefix = "netronome-agent"
+`), 0o600))
+
+	cfg, err := Load(path)
+	require.NoError(t, err)
+
+	assert.Equal(t, "netronome-agent", cfg.Tailscale.DiscoveryPrefix,
+		"deprecated [tailscale.monitor] discovery_prefix should reach the unified field")
+
+	// Values the user did not set must keep their defaults, not be zeroed.
+	assert.Equal(t, "5m", cfg.Tailscale.DiscoveryInterval)
+	assert.Equal(t, 8200, cfg.Tailscale.DiscoveryPort)
+	assert.True(t, cfg.Tailscale.AutoDiscover)
 }
