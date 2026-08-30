@@ -128,8 +128,9 @@ Monitor multiple servers from one dashboard:
 ### Additional Features
 
 - **Modern UI**: Responsive design with dark mode support
+- **Themes**: Optional premium theme catalogue, unlockable with a one-time license
 - **Authentication**: Built-in auth, OIDC support, IP whitelisting
-- **Notifications**: 15+ services via Shoutrrr (Discord, Telegram, Email, etc.)
+- **Notifications**: 25+ services via Shoutrrr (Discord, Telegram, Email, etc.)
 - **Database Support**: SQLite (default) or PostgreSQL
 - **Tailscale Integration**: Secure mesh networking without port exposure
 
@@ -305,6 +306,21 @@ Add to `config.toml`:
 [auth]
 whitelist = ["127.0.0.1/32", "192.168.1.0/24"]
 ```
+
+To disable authentication entirely — e.g. when a reverse proxy (SWAG/NGINX, Authelia, TinyAuth) already handles it — whitelist all clients. IPv6 needs its own entry alongside IPv4:
+
+```toml
+[auth]
+whitelist = ["0.0.0.0/0", "::/0"]
+```
+
+Or via environment variable (comma-separated, no spaces):
+
+```bash
+export NETRONOME__AUTH_WHITELIST=0.0.0.0/0,::/0
+```
+
+**Warning:** only do this when Netronome is not directly reachable — bind it to localhost or a proxy-only Docker network. Every client that can reach it gets full access.
 
 ### Database
 
@@ -595,6 +611,100 @@ Common interface names:
 * `tun0` - OpenVPN or Gluetun custom provider
 * `wg0` - WireGuard
 
+#### Monitoring a Host Interface
+
+To monitor a physical interface of the host instead of a VPN tunnel, give the agent and `vnstat` the host network. Both must see the same interface, and both must use the same `vnstat` database.
+
+This example is for Linux. On Docker Desktop, the host network gives the network of the Docker virtual machine, not the physical interface of the computer.
+
+<details>
+<summary>Host Interface Compose Example</summary>
+
+```yml
+services:
+  netronome:
+    image: ghcr.io/autobrr/netronome:latest
+    container_name: netronome
+    command: ["serve"]
+    environment:
+      - NETRONOME__HOST=0.0.0.0
+      - NETRONOME__PORT=7575
+      - TZ=UTC
+    ports:
+      - "7575:7575"
+    volumes:
+      - ./netronome/config:/config
+      - ./netronome/data:/data
+    restart: unless-stopped
+    networks:
+      - netronome
+
+  # The agent needs the host network to see the host interfaces.
+  # Do not add a "ports" entry. It is not compatible with the host network.
+  netronome-agent:
+    image: ghcr.io/autobrr/netronome:latest
+    container_name: netronome-agent
+    network_mode: host
+    environment:
+      - NETRONOME__AGENT_API_KEY=${NETRONOME_AGENT_API_KEY}
+    command:
+      - agent
+      - --interface
+      - <interface>
+    volumes:
+      - ./netronome/vnstat:/var/lib/vnstat
+    restart: unless-stopped
+
+  vnstat:
+    image: ghcr.io/vergoh/vnstat
+    container_name: vnstat
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      - VNSTAT_Interfaces=<interface>
+      - TZ=UTC
+    volumes:
+      - ./netronome/vnstat:/var/lib/vnstat
+    restart: unless-stopped
+
+networks:
+  netronome:
+    driver: bridge
+```
+</details>
+
+The agent is on the host network, but the dashboard is on a bridge network. The dashboard therefore cannot find the agent by container name. Add the agent with the IP address of the host, such as `http://192.168.1.10:8200`.
+
+Give the API key to the agent with `NETRONOME__AGENT_API_KEY`, not with the `--api-key` flag. A command line is visible to all users of the host, in `docker inspect` and in the process list.
+
+Keep the key out of the compose file. Put it in a `.env` file next to the compose file, and keep that file out of Git:
+
+```sh
+NETRONOME_AGENT_API_KEY=your-key-here
+```
+
+#### Missing Interfaces
+
+`vnstat` records only the interfaces in its database. The default of `AlwaysAddNewInterfaces` is 0, so the daemon does not add an interface that appears later. The `vergoh/vnstat` image registers the interfaces only when it creates the database. An interface that was down or absent at that moment stays unrecorded.
+
+The agent then shows no bandwidth data for that interface. The agent log shows `No interface matching "eth1" found in database`.
+
+Show which interfaces `vnstat` records. Then add the missing interface:
+
+```sh
+docker exec vnstat vnstat            # interfaces in the database
+docker exec vnstat vnstat --iflist   # interfaces the container can see
+docker exec vnstat vnstat --add -i eth1
+```
+
+The daemon reads the new interface at its next save, because `RescanDatabaseOnSave` is enabled by default. This takes up to 5 minutes (`SaveInterval`), or up to 30 minutes when the interface is down (`OfflineSaveInterval`). To apply it at once, restart the container.
+
+To record every new interface without this step, set `AlwaysAddNewInterfaces 1` in `/etc/vnstat.conf`.
+
+If the interface is not in `--iflist`, the container cannot see it. Put the agent and `vnstat` in the same network namespace as the interface.
+
 #### Limiting Monitored Interfaces
 
 By default, `vnstat` will monitor all detected interfaces (e.g., eth0 and tun0). To monitor only the VPN tunnel:
@@ -635,7 +745,12 @@ Configure notifications through the web interface at **Settings > Notifications*
 - Discord, Telegram, Slack, Teams
 - Email (SMTP), Pushover, Pushbullet
 - Gotify, Matrix, Ntfy, Webhook
-- [And 15+ more via Shoutrrr](https://containrrr.dev/shoutrrr/)
+- [And 25+ more via Shoutrrr](https://shoutrrr.nickfedor.com/latest/)
+
+ntfy URLs accept [Shoutrrr's ntfy query parameters](https://shoutrrr.nickfedor.com/latest/services/push/ntfy/) — `title`, `priority`, `tags`, `actions`, `click`, `attach`, `filename`, `delay` (aka `at`/`in`), `email`, `icon`, `cache` and `firebase`. Add `?scheme=http` for a self-hosted server without TLS; the default is `https`. Parameters Netronome cannot make sense of are logged and ignored, never fatal.
+
+> [!WARNING]
+> Create each `teams://` channel again with a [Power Automate workflow webhook](https://shoutrrr.nickfedor.com/latest/services/chat/teams/) URL: `teams://?host=<workflow URL>`. Microsoft retired the old `webhook.office.com` connectors, and old `teams://` channels do not deliver notifications anymore.
 
 #### Notification Events
 
@@ -675,6 +790,7 @@ All configuration options can be set via environment variables using the `NETRON
 NETRONOME__HOST=0.0.0.0              # Listen address
 NETRONOME__PORT=7575                 # Web UI port
 NETRONOME__BASE_URL=/                # Base URL for reverse proxy
+NETRONOME__CHECK_FOR_UPDATES=true    # Check releases and show in-app update notifications
 
 # Database (SQLite by default)
 NETRONOME__DB_TYPE=sqlite            # sqlite or postgres
@@ -699,6 +815,14 @@ NETRONOME__OIDC_CLIENT_SECRET=your-secret
 NETRONOME__OIDC_REDIRECT_URL=https://example.com/api/auth/oidc/callback
 ```
 
+### Update notifications
+
+Netronome checks for new releases by default and shows an in-app notification. Disable it with this top-level setting, or `NETRONOME__CHECK_FOR_UPDATES=false`:
+
+```toml
+check_for_updates = false
+```
+
 <details>
 <summary><b>Complete Environment Variables Reference</b> (click to expand)</summary>
 
@@ -709,6 +833,7 @@ NETRONOME__HOST=127.0.0.1                    # Server listen address
 NETRONOME__PORT=7575                         # Server port
 NETRONOME__BASE_URL=/                        # Base URL path (for reverse proxy)
 NETRONOME__GIN_MODE=                         # Gin framework mode (debug/release/test)
+NETRONOME__CHECK_FOR_UPDATES=true            # Check releases and show in-app update notifications
 ```
 
 ### Database Configuration

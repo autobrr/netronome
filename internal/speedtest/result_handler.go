@@ -62,8 +62,9 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 		resultURL = &result.ResultURL
 	}
 
-	// Give the DB write up to 10s while still respecting upstream cancellations and values.
-	saveCtx, saveCancel := context.WithTimeout(ctx, 10*time.Second)
+	// Give the DB write up to 10s, detached from the caller's deadline/cancellation
+	// (a test that overran the speedtest timeout must still persist its result) while keeping values.
+	saveCtx, saveCancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer saveCancel()
 
 	createdAt := time.Now().UTC()

@@ -1,5 +1,8 @@
 # Netronome Configuration
 
+# Check for new releases in the background and show available updates in the UI
+check_for_updates = true
+
 [database]
 type = "sqlite"
 path = "netronome.db"

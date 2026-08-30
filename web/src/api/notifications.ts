@@ -224,25 +224,37 @@ export const notificationsApi = {
 
 // Helper functions
 export const SHOUTRRR_SERVICES = [
+  { value: "bark", label: "Bark", example: "bark://:DEVICE_KEY@HOSTNAME" },
   { value: "discord", label: "Discord", example: "discord://TOKEN@ID" },
   { value: "generic", label: "Generic Webhook", example: "generic://HOSTNAME/PATH?template=json" },
   { value: "gotify", label: "Gotify", example: "gotify://HOSTNAME/TOKEN" },
-  { value: "email", label: "Email", example: "smtp://USERNAME:PASSWORD@HOST:PORT/?from=FROM&to=TO" },
+  { value: "smtp", label: "Email", example: "smtp://USERNAME:PASSWORD@HOST:PORT/?from=FROM&to=TO" },
   { value: "googlechat", label: "Google Chat", example: "googlechat://SPACE/KEY/TOKEN" },
   { value: "ifttt", label: "IFTTT", example: "ifttt://KEY/?event=EVENT" },
   { value: "join", label: "Join", example: "join://APIKEY@DEVICE/?icon=URL&title=TITLE" },
+  { value: "lark", label: "Lark", example: "lark://HOSTNAME/TOKEN?secret=SECRET" },
   { value: "mattermost", label: "Mattermost", example: "mattermost://HOSTNAME/TOKEN" },
   { value: "matrix", label: "Matrix", example: "matrix://USERNAME:PASSWORD@HOSTNAME:PORT/ROOM" },
-  { value: "ntfy", label: "ntfy", example: "ntfy://[USER:PASS@]HOSTNAME/topic" },
-  { value: "opsgenie", label: "OpsGenie", example: "opsgenie://APIKEY" },
+  { value: "mqtt", label: "MQTT", example: "mqtt://HOSTNAME:1883/TOPIC" },
+  { value: "notifiarr", label: "Notifiarr", example: "notifiarr://APIKEY?channel=CHANNEL_ID" },
+  // ntfy defaults to https. Add ?scheme=http for plain-HTTP servers.
+  { value: "ntfy", label: "ntfy", example: "ntfy://[USER:PASS@]HOSTNAME/topic[?scheme=http]" },
+  { value: "opsgenie", label: "OpsGenie", example: "opsgenie://api.opsgenie.com/APIKEY" },
+  { value: "pagerduty", label: "PagerDuty", example: "pagerduty://events.pagerduty.com/INTEGRATION_KEY" },
   { value: "pushbullet", label: "Pushbullet", example: "pushbullet://APIKEY" },
-  // Pushover token is the URL "password" per Shoutrrr's format.
+  // The Pushover token is the URL "password" in the Shoutrrr URL format.
   { value: "pushover", label: "Pushover", example: "pushover://shoutrrr:API_TOKEN@USER_KEY" },
-  { value: "rocketchat", label: "Rocket.Chat", example: "rocketchat://HOSTNAME/TOKEN@CHANNEL" },
-  { value: "slack", label: "Slack", example: "slack://TOKEN@CHANNEL" },
-  { value: "teams", label: "Microsoft Teams", example: "teams://WEBHOOK_URL" },
+  { value: "rocketchat", label: "Rocket.Chat", example: "rocketchat://HOSTNAME/TOKEN_A/TOKEN_B" },
+  { value: "signal", label: "Signal", example: "signal://HOSTNAME:PORT/SOURCE_PHONE/RECIPIENT" },
+  // The token prefix selects the API: xoxb: for bot tokens, hook: for webhooks.
+  { value: "slack", label: "Slack", example: "slack://xoxb:BOT_TOKEN@CHANNEL" },
+  // Teams supports only Power Automate workflow webhooks. Microsoft retired
+  // the old webhook.office.com connectors.
+  { value: "teams", label: "Microsoft Teams", example: "teams://?host=POWER_AUTOMATE_WORKFLOW_URL" },
   { value: "telegram", label: "Telegram", example: "telegram://TOKEN@telegram?chats=CHAT_ID" },
-  { value: "zulip", label: "Zulip", example: "zulip://BOTMAIL:BOTKEY@DOMAIN" },
+  { value: "twilio", label: "Twilio (SMS)", example: "twilio://ACCOUNT_SID:AUTH_TOKEN@FROM_NUMBER/TO_NUMBER" },
+  { value: "wecom", label: "WeCom", example: "wecom://WEBHOOK_KEY" },
+  { value: "zulip", label: "Zulip", example: "zulip://BOTMAIL:BOTKEY@DOMAIN?stream=STREAM&topic=TOPIC" },
 ];
 
 export const getThresholdOperatorLabel = (operator: string): string => {

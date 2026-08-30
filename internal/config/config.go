@@ -36,19 +36,20 @@ const (
 
 // Config represents the application configuration
 type Config struct {
-	Database   DatabaseConfig   `toml:"database"`
-	Server     ServerConfig     `toml:"server"`
-	Logging    LoggingConfig    `toml:"logging"`
-	Auth       AuthConfig       `toml:"auth"`
-	OIDC       OIDCConfig       `toml:"oidc"`
-	SpeedTest  SpeedTestConfig  `toml:"speedtest"`
-	GeoIP      GeoIPConfig      `toml:"geoip"`
-	Pagination PaginationConfig `toml:"pagination"`
-	Session    SessionConfig    `toml:"session"`
-	PacketLoss PacketLossConfig `toml:"packetloss"`
-	Agent      AgentConfig      `toml:"agent"`
-	Monitor    MonitorConfig    `toml:"monitor"`
-	Tailscale  TailscaleConfig  `toml:"tailscale"`
+	CheckForUpdates bool             `toml:"check_for_updates" env:"CHECK_FOR_UPDATES"`
+	Database        DatabaseConfig   `toml:"database"`
+	Server          ServerConfig     `toml:"server"`
+	Logging         LoggingConfig    `toml:"logging"`
+	Auth            AuthConfig       `toml:"auth"`
+	OIDC            OIDCConfig       `toml:"oidc"`
+	SpeedTest       SpeedTestConfig  `toml:"speedtest"`
+	GeoIP           GeoIPConfig      `toml:"geoip"`
+	Pagination      PaginationConfig `toml:"pagination"`
+	Session         SessionConfig    `toml:"session"`
+	PacketLoss      PacketLossConfig `toml:"packetloss"`
+	Agent           AgentConfig      `toml:"agent"`
+	Monitor         MonitorConfig    `toml:"monitor"`
+	Tailscale       TailscaleConfig  `toml:"tailscale"`
 }
 
 type DatabaseConfig struct {
@@ -74,7 +75,8 @@ type LoggingConfig struct {
 }
 
 type AuthConfig struct {
-	Whitelist []string `toml:"whitelist" env:"AUTH_WHITELIST"`
+	Whitelist      []string `toml:"whitelist" env:"AUTH_WHITELIST"`
+	TrustedProxies []string `toml:"trusted_proxies" env:"AUTH_TRUSTED_PROXIES"`
 }
 
 type OIDCConfig struct {
@@ -226,6 +228,7 @@ func isRunningInContainer() bool {
 // New creates a new Config instance with default values
 func New() *Config {
 	return &Config{
+		CheckForUpdates: true,
 		Database: DatabaseConfig{
 			Type:    SQLite,
 			Host:    "localhost",
@@ -412,7 +415,16 @@ func (c *Config) loadFromEnv() error {
 	c.loadAgentFromEnv()
 	c.loadMonitorFromEnv()
 	c.loadTailscaleFromEnv()
+	c.loadUpdatesFromEnv()
 	return nil
+}
+
+func (c *Config) loadUpdatesFromEnv() {
+	if v := getEnv("CHECK_FOR_UPDATES"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			c.CheckForUpdates = enabled
+		}
+	}
 }
 
 func (c *Config) loadDatabaseFromEnv() {
@@ -470,6 +482,15 @@ func (c *Config) loadLoggingFromEnv() {
 func (c *Config) loadAuthFromEnv() {
 	if v := getEnv("AUTH_WHITELIST"); v != "" {
 		c.Auth.Whitelist = strings.Split(v, ",")
+	}
+	if v := getEnv("AUTH_TRUSTED_PROXIES"); v != "" {
+		var proxies []string
+		for _, p := range strings.Split(v, ",") {
+			if p = strings.TrimSpace(p); p != "" {
+				proxies = append(proxies, p)
+			}
+		}
+		c.Auth.TrustedProxies = proxies
 	}
 }
 
@@ -696,6 +717,9 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintln(w, ""); err != nil {
 		return err
 	}
+	if _, err := fmt.Fprintf(w, "# Check for new releases in the background and show available updates in the UI\ncheck_for_updates = %v\n\n", cfg.CheckForUpdates); err != nil {
+		return err
+	}
 
 	// Database section
 	if _, err := fmt.Fprintln(w, "[database]"); err != nil {
@@ -768,7 +792,31 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintln(w, "# Example: whitelist = [\"127.0.0.1/32\"]"); err != nil {
 		return err
 	}
+	if _, err := fmt.Fprintln(w, "# To disable auth entirely behind a trusted reverse proxy, replace the whitelist value below with:"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# whitelist = [\"0.0.0.0/0\", \"::/0\"]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Only do this when Netronome is not directly reachable; every client that can reach it gets full access."); err != nil {
+		return err
+	}
 	if _, err := fmt.Fprintln(w, "whitelist = []"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Only trust proxy headers (X-Forwarded-For, X-Real-IP) from these addresses, using IPs or CIDR notation."); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Empty list = headers ignored, the client IP is always the direct peer. Set this when running behind a"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# reverse proxy so the whitelist above matches real client IPs."); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "# Example: trusted_proxies = [\"172.16.0.0/12\"]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "trusted_proxies = []"); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {

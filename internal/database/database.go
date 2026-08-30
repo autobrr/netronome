@@ -118,6 +118,7 @@ type Service interface {
 	GetMonitorLatestSnapshot(ctx context.Context, agentID int64, periodType string) (*types.MonitorHistoricalSnapshot, error)
 
 	CleanupMonitorData(ctx context.Context) error
+	PurgeHistoricalData(ctx context.Context, before time.Time) (speedTests int64, packetLoss int64, err error)
 
 	// Embed NotificationService interface
 	NotificationService

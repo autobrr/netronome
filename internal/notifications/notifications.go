@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/containrrr/shoutrrr"
-	"github.com/containrrr/shoutrrr/pkg/router"
+	"github.com/nicholas-fedor/shoutrrr"
+	"github.com/nicholas-fedor/shoutrrr/pkg/router"
+	"github.com/nicholas-fedor/shoutrrr/pkg/types"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/database"
@@ -46,7 +47,7 @@ func NewNotifierFromURLs(urls []string) (*Notifier, error) {
 	}
 
 	if len(shoutrrrURLs) > 0 {
-		r, err := shoutrrr.CreateSender(shoutrrrURLs...)
+		r, err := createSender(shoutrrrURLs...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create shoutrrr router: %w", err)
 		}
@@ -54,6 +55,12 @@ func NewNotifierFromURLs(urls []string) (*Notifier, error) {
 	}
 
 	return notifier, nil
+}
+
+// createSender builds a shoutrrr router that uses the shared HTTP client.
+// Without this client, shoutrrr uses a default 10s timeout for each service.
+func createSender(rawURLs ...string) (*router.ServiceRouter, error) {
+	return shoutrrr.CreateSenderWithOptions(types.SenderOptions{HTTPClient: notificationHTTPClient}, rawURLs...)
 }
 
 // ValidateNotificationURL validates a single notification URL without attempting to send.
@@ -70,9 +77,36 @@ func ValidateNotificationURL(rawURL string) error {
 		return err
 	}
 
-	// Shoutrrr validation is primarily URL parsing/initialization, no network calls.
-	_, err := shoutrrr.CreateSender(rawURL)
-	return err
+	// Initialize the service directly, not through CreateSender. CreateSender
+	// wraps each failure as "<scheme>: failed to initialize service", which
+	// hides the cause. Its error text also contains the raw URL with the
+	// credentials.
+	var r router.ServiceRouter
+	scheme, serviceURL, err := r.ExtractServiceName(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid notification URL format")
+	}
+
+	service, err := r.NewService(scheme)
+	if err != nil {
+		return err
+	}
+
+	if serviceURL.Scheme != scheme {
+		custom, ok := service.(types.CustomURLService)
+		if !ok {
+			return fmt.Errorf("custom URLs are not supported by the %s service", scheme)
+		}
+		if serviceURL, err = custom.GetServiceURLFromCustom(serviceURL); err != nil {
+			return fmt.Errorf("invalid custom %s URL", scheme)
+		}
+	}
+
+	if err := service.Initialize(serviceURL, nil); err != nil {
+		return fmt.Errorf("%s: %w", scheme, err)
+	}
+
+	return nil
 }
 
 // getThresholdForEvent retrieves the threshold value for a specific event from the database
@@ -96,6 +130,18 @@ func (n *Notifier) getThresholdForEvent(category, eventType string) *float64 {
 	}
 
 	return nil
+}
+
+// notificationTitle builds the shoutrrr notification title from a category.
+func notificationTitle(category string) string {
+	switch category {
+	case "":
+		return "Netronome"
+	case database.NotificationCategoryPacketLoss:
+		return "Netronome: Packet Loss"
+	default:
+		return "Netronome: " + strings.ToUpper(category[:1]) + category[1:]
+	}
 }
 
 // SendNotification sends a notification for a specific event
@@ -138,9 +184,9 @@ func (n *Notifier) SendNotification(category, eventType string, message string, 
 			var sendErr error
 
 			if isNtfyURL(rule.Channel.URL) {
-				sendErr = sendNtfy(rule.Channel.URL, message)
+				sendErr = sendNtfy(rule.Channel.URL, notificationTitle(category), message)
 			} else {
-				tempNotifier, err := shoutrrr.CreateSender(rule.Channel.URL)
+				tempNotifier, err := createSender(rule.Channel.URL)
 				if err != nil {
 					lastError = err
 					errMsg := err.Error()
@@ -163,7 +209,8 @@ func (n *Notifier) SendNotification(category, eventType string, message string, 
 					continue
 				}
 
-				errs := tempNotifier.Send(message, nil)
+				params := types.Params{types.TitleKey: notificationTitle(category)}
+				errs := tempNotifier.Send(message, &params)
 				for _, err := range errs {
 					if err != nil {
 						sendErr = err
@@ -379,13 +426,14 @@ func (n *Notifier) sendDirect(message string) error {
 	var errs []error
 
 	for _, ntfyURL := range n.ntfyURLs {
-		if err := sendNtfy(ntfyURL, message); err != nil {
+		if err := sendNtfy(ntfyURL, "Netronome", message); err != nil {
 			errs = append(errs, err)
 		}
 	}
 
 	if n.router != nil {
-		for _, err := range n.router.Send(message, nil) {
+		params := types.Params{types.TitleKey: "Netronome"}
+		for _, err := range n.router.Send(message, &params) {
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -562,33 +610,6 @@ func (n *Notifier) formatHighPingMessage(result *SpeedTestResult, threshold *flo
 	}
 
 	return sb.String()
-}
-
-// MigrateDiscordWebhook converts an old Discord webhook URL to Shoutrrr format
-func MigrateDiscordWebhook(webhookURL string) string {
-	if webhookURL == "" {
-		return ""
-	}
-
-	// Already in Shoutrrr format
-	if strings.HasPrefix(webhookURL, "discord://") {
-		return webhookURL
-	}
-
-	// Parse Discord webhook URL
-	// Format: https://discord.com/api/webhooks/{id}/{token}
-	if strings.Contains(webhookURL, "discord.com/api/webhooks/") ||
-		strings.Contains(webhookURL, "discordapp.com/api/webhooks/") {
-		parts := strings.Split(webhookURL, "/")
-		if len(parts) >= 2 {
-			token := parts[len(parts)-1]
-			id := parts[len(parts)-2]
-			return fmt.Sprintf("discord://%s@%s", token, id)
-		}
-	}
-
-	// Return as-is if we can't parse it
-	return webhookURL
 }
 
 // SpeedTestResult represents the result of a speed test

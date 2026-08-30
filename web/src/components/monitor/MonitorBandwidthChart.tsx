@@ -76,16 +76,16 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
 
     const rxValues = data.map(d => d.rx);
     const txValues = data.map(d => d.tx);
-    
+
     // Calculate time period in seconds based on timeFormat
-    const secondsPerPeriod = timeFormat === "hour" ? 3600 : 
-                            timeFormat === "day" ? 86400 : 
+    const secondsPerPeriod = timeFormat === "hour" ? 3600 :
+                            timeFormat === "day" ? 86400 :
                             timeFormat === "month" ? 2592000 : 3600; // default to hour
-    
+
     // Convert each period's total bytes to average rate during that period
     const rxRates = rxValues.map(bytes => bytes / secondsPerPeriod);
     const txRates = txValues.map(bytes => bytes / secondsPerPeriod);
-    
+
     return {
       avgRx: rxRates.reduce((a, b) => a + b, 0) / rxRates.length, // Average of period rates
       avgTx: txRates.reduce((a, b) => a + b, 0) / txRates.length, // Average of period rates
@@ -115,7 +115,7 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
               onClick={() => onTimeRangeChange?.(range as "6h" | "12h" | "24h" | "48h" | "7d" | "30d")}
               className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
                 selectedTimeRange === range
-                  ? "bg-blue-600 text-white"
+                  ? "bg-blue-600 text-on-accent"
                   : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
               }`}
             >
@@ -134,20 +134,20 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
           >
             <defs>
               <linearGradient id="colorRx" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorTx" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10B981" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorRxPeak" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366F1" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorTxPeak" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#34D399" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#34D399" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" className="stroke-gray-300 dark:stroke-gray-700" />
@@ -162,11 +162,12 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "rgba(31, 41, 55, 0.95)",
-                border: "1px solid rgba(75, 85, 99, 0.3)",
+                backgroundColor: "var(--tooltip-bg)",
+                border: "1px solid var(--tooltip-border)",
                 borderRadius: "0.5rem",
               }}
-              labelStyle={{ color: "#E5E7EB" }}
+              labelStyle={{ color: "var(--tooltip-label)" }}
+              itemStyle={{ color: "var(--tooltip-text)" }}
               formatter={formatTooltipValue}
               labelFormatter={(label) => formatters.chartTooltip(label, "1d")}
             />
@@ -180,7 +181,8 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
               <Area
                 type="monotone"
                 dataKey="rxPeak"
-                stroke="#6366F1"
+                stroke="var(--chart-download, #60a5fa)"
+                strokeDasharray="4 4"
                 fillOpacity={1}
                 fill="url(#colorRxPeak)"
                 name="Download Peak"
@@ -191,7 +193,8 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
               <Area
                 type="monotone"
                 dataKey="txPeak"
-                stroke="#34D399"
+                stroke="var(--chart-upload, #34d399)"
+                strokeDasharray="4 4"
                 fillOpacity={1}
                 fill="url(#colorTxPeak)"
                 name="Upload Peak"
@@ -201,7 +204,7 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
             <Area
               type="monotone"
               dataKey="rx"
-              stroke="#3B82F6"
+              stroke="var(--chart-download, #60a5fa)"
               fillOpacity={1}
               fill="url(#colorRx)"
               name="Download"
@@ -210,7 +213,7 @@ export const MonitorBandwidthChart: React.FC<MonitorBandwidthChartProps> = ({
             <Area
               type="monotone"
               dataKey="tx"
-              stroke="#10B981"
+              stroke="var(--chart-upload, #34d399)"
               fillOpacity={1}
               fill="url(#colorTx)"
               name="Upload"

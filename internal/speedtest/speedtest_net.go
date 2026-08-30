@@ -319,10 +319,19 @@ func (r *SpeedtestNetRunner) GetServers() ([]ServerResponse, error) {
 		return nil, fmt.Errorf("failed to fetch servers: %w", err)
 	}
 
+	// Available() drops servers whose HTTP ping failed during FetchServers().
+	// In restricted networks (e.g. Docker) all pings time out, leaving an empty
+	// (non-nil) slice, so fall back to the unfiltered list to keep the selectable
+	// server list populated.
 	availableServers := serverList.Available()
-	if availableServers == nil {
-		log.Error().Msg("No available speedtest servers found")
-		return nil, fmt.Errorf("no available servers found")
+	if availableServers == nil || len(*availableServers) == 0 {
+		log.Warn().Msg("No pingable speedtest servers, falling back to unfiltered server list")
+		availableServers = &serverList
+	}
+
+	if len(*availableServers) == 0 {
+		log.Error().Msg("No speedtest servers found")
+		return nil, fmt.Errorf("no speedtest servers found")
 	}
 
 	response := make([]ServerResponse, len(*availableServers))

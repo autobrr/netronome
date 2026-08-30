@@ -402,7 +402,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
           errorData.message || `HTTP error! status: ${response.status}`
         );
       }
-      
+
       showToast("Schedule deleted successfully", "success");
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to delete schedule";
@@ -430,7 +430,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
             >
               <span>
                 {iperfServer?.name || host} -{" "}
-                <span className="text-purple-600 dark:text-purple-400 drop-shadow-[0_0_1px_rgba(168,85,247,0.8)]">
+                <span className="text-purple-600 dark:text-purple-400 drop-shadow-[0_0_1px_var(--color-purple-500)]">
                   iperf3
                 </span>
               </span>
@@ -443,7 +443,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
                     rounded-lg shadow-lg
                     border border-gray-300/50 dark:border-gray-700/50
                     backdrop-blur-sm
-                    opacity-0 scale-95 invisible 
+                    opacity-0 scale-95 invisible
                     group-hover:opacity-100 group-hover:scale-100 group-hover:visible
                     transition-all duration-200 ease-out
                     whitespace-nowrap
@@ -471,7 +471,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
             return (
               <span key={id}>
                 {server.name} -{" "}
-                <span className="text-blue-600 dark:text-blue-400 drop-shadow-[0_0_1px_rgba(96,165,250,0.8)]">
+                <span className="text-blue-600 dark:text-blue-400 drop-shadow-[0_0_1px_var(--color-blue-400)]">
                   librespeed
                 </span>
               </span>
@@ -480,7 +480,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
           return (
             <span key={id}>
               {server.sponsor} - {server.name} -{" "}
-              <span className="text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_rgba(251,191,36,0.8)]">
+              <span className="text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_var(--color-emerald-400)]">
                 speedtest.net
               </span>
             </span>
@@ -760,7 +760,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
                               className={`w-full px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
                                 isCreateDisabled
                                   ? "bg-gray-300/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-500 cursor-not-allowed border border-gray-400 dark:border-gray-900"
-                                  : "bg-blue-500 hover:bg-blue-600 text-white shadow-lg border border-blue-600 hover:border-blue-700 hover:shadow-xl"
+                                  : "bg-blue-500 hover:bg-blue-600 text-on-accent shadow-lg border border-blue-600 hover:border-blue-700 hover:shadow-xl"
                               }`}
                               onClick={handleCreateSchedule}
                               disabled={isCreateDisabled}

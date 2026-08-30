@@ -41,13 +41,15 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       style={
         {
-          "--normal-bg": "rgb(255 255 255)",
-          "--normal-text": "rgb(17 24 39)",
-          "--normal-border": "rgb(228 228 231)",
+          "--normal-bg": "var(--color-white, #ffffff)",
+          "--normal-text": "var(--color-gray-900, #18181b)",
+          "--normal-border": "var(--color-gray-200, #e4e4e7)",
           ...(theme === "dark" && {
-            "--normal-bg": "rgb(39 39 42 / 0.5)",
-            "--normal-text": "rgb(255 255 255)",
-            "--normal-border": "rgb(63 63 70 / 0.5)",
+            "--normal-bg":
+              "color-mix(in srgb, var(--color-gray-800, #27272a) 50%, transparent)",
+            "--normal-text": "var(--color-white, #ffffff)",
+            "--normal-border":
+              "color-mix(in srgb, var(--color-gray-700, #3f3f46) 50%, transparent)",
           }),
         } as React.CSSProperties
       }
@@ -68,12 +70,23 @@ const Toaster = ({ ...props }: ToasterProps) => {
           info: "group-[.toaster]:bg-blue-50 group-[.toaster]:text-blue-900 group-[.toaster]:border-blue-200 dark:group-[.toaster]:bg-blue-900/10 dark:group-[.toaster]:text-blue-400 dark:group-[.toaster]:border-blue-800",
         },
         actionButtonStyle: {
-          backgroundColor: theme === "dark" ? "#1d4ed8" : "#3b82f6",
-          color: "#ffffff",
+          backgroundColor:
+            theme === "dark"
+              ? "var(--color-blue-700, #1d4ed8)"
+              : "var(--color-blue-500, #3b82f6)",
+          // on-accent, not white: themes with a light accent ramp redefine
+          // --color-white to a light tint, which would vanish on this surface.
+          color: "var(--color-on-accent, #ffffff)",
         },
         cancelButtonStyle: {
-          backgroundColor: theme === "dark" ? "#3f3f46" : "#e4e4e7",
-          color: theme === "dark" ? "#f4f4f5" : "#3f3f46",
+          backgroundColor:
+            theme === "dark"
+              ? "var(--color-gray-700, #3f3f46)"
+              : "var(--color-gray-200, #e4e4e7)",
+          color:
+            theme === "dark"
+              ? "var(--color-gray-100, #f4f4f5)"
+              : "var(--color-gray-700, #3f3f46)",
         },
       }}
       {...props}

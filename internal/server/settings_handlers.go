@@ -6,6 +6,7 @@ package server
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -81,6 +82,41 @@ func (s *Server) handleUpdateDashboardSettings(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dashboardSettingsResponse{RecentSpeedtestsRows: req.RecentSpeedtestsRows})
+}
+
+type purgeHistoryRequest struct {
+	OlderThanDays *int `json:"olderThanDays"`
+}
+
+type purgeHistoryResponse struct {
+	SpeedTests int64 `json:"speedTests"`
+	PacketLoss int64 `json:"packetLoss"`
+}
+
+func (s *Server) handlePurgeHistory(c *gin.Context) {
+	var req purgeHistoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.OlderThanDays == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	if *req.OlderThanDays < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "olderThanDays must be >= 0"})
+		return
+	}
+
+	// olderThanDays == 0 means purge everything (cutoff = now); nil (field
+	// missing or null) is rejected above so a malformed body can't purge all.
+	before := time.Now().AddDate(0, 0, -*req.OlderThanDays)
+
+	speedTests, packetLoss, err := s.db.PurgeHistoricalData(c.Request.Context(), before)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to purge historical data")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to purge historical data"})
+		return
+	}
+
+	c.JSON(http.StatusOK, purgeHistoryResponse{SpeedTests: speedTests, PacketLoss: packetLoss})
 }
 
 func isAllowedDashboardRecentRows(rows int) bool {

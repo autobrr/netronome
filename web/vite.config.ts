@@ -115,6 +115,10 @@ export default defineConfig({
             }
           },
           {
+            urlPattern: /\/api\/version\/latest$/,
+            handler: 'NetworkOnly'
+          },
+          {
             urlPattern: /\/api\/.*/,
             handler: 'NetworkFirst',
             options: {
