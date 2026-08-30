@@ -28,3 +28,9 @@ updates:
       npm:
         patterns:
           - "*"
+    ignore:
+      # TypeScript 7.0 ships no JavaScript API, so typescript-eslint cannot
+      # load and `pnpm lint` fails. Remove this after typescript-eslint adds
+      # support for TypeScript 7.1 (typescript-eslint#10940).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
