@@ -155,6 +155,32 @@ func (s *service) UpdateDNSMonitor(monitor *types.DNSMonitor) error {
 	return nil
 }
 
+// UpdateDNSMonitorSchedule writes only the run times. The scheduler holds a
+// monitor it read one tick ago, so a full row write there would put the stale
+// configuration back over an edit the user made while the check ran.
+func (s *service) UpdateDNSMonitorSchedule(monitorID int64, lastRun *time.Time, nextRun time.Time) error {
+	query := s.sqlBuilder.
+		Update("dns_monitors").
+		Set("last_run", lastRun).
+		Set("next_run", nextRun).
+		Where(sq.Eq{"id": monitorID})
+
+	res, err := query.RunWith(s.db).Exec()
+	if err != nil {
+		return fmt.Errorf("failed to update dns monitor schedule: %w", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
 // UpdateDNSMonitorState updates the monitor state and timestamp
 func (s *service) UpdateDNSMonitorState(monitorID int64, state string) error {
 	query := s.sqlBuilder.

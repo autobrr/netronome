@@ -99,6 +99,7 @@ type Service interface {
 	GetDNSMonitor(monitorID int64) (*types.DNSMonitor, error)
 	GetDNSMonitors() ([]*types.DNSMonitor, error)
 	UpdateDNSMonitor(monitor *types.DNSMonitor) error
+	UpdateDNSMonitorSchedule(monitorID int64, lastRun *time.Time, nextRun time.Time) error
 	UpdateDNSMonitorState(monitorID int64, state string) error
 	DeleteDNSMonitor(monitorID int64) error
 	SaveDNSResult(result *types.DNSResult) error

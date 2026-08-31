@@ -83,6 +83,33 @@ func TestUpdateDNSMonitorState(t *testing.T) {
 	})
 }
 
+func TestUpdateDNSMonitorSchedule_KeepsConfiguration(t *testing.T) {
+	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
+		monitor := CreateTestDNSMonitor(t, td)
+
+		lastRun := time.Now().UTC().Truncate(time.Second)
+		nextRun := lastRun.Add(time.Minute)
+		require.NoError(t, td.Service.UpdateDNSMonitorSchedule(monitor.ID, &lastRun, nextRun))
+
+		updated, err := td.Service.GetDNSMonitor(monitor.ID)
+		require.NoError(t, err)
+		require.NotNil(t, updated.LastRun)
+		require.NotNil(t, updated.NextRun)
+		assert.Equal(t, lastRun, updated.LastRun.UTC())
+		assert.Equal(t, nextRun, updated.NextRun.UTC())
+
+		// the configuration the user owns is untouched
+		assert.Equal(t, monitor.Host, updated.Host)
+		assert.Equal(t, monitor.Protocol, updated.Protocol)
+		assert.Equal(t, monitor.Query, updated.Query)
+		assert.Equal(t, monitor.RecordType, updated.RecordType)
+		assert.Equal(t, monitor.Interval, updated.Interval)
+		assert.Equal(t, monitor.Enabled, updated.Enabled)
+
+		assert.ErrorIs(t, td.Service.UpdateDNSMonitorSchedule(99999, &lastRun, nextRun), ErrNotFound)
+	})
+}
+
 func TestDNSResults_SaveAndLatest(t *testing.T) {
 	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
 		monitor := CreateTestDNSMonitor(t, td)

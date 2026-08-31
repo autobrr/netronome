@@ -637,8 +637,7 @@ func (s *service) initializeDNSMonitors() {
 			continue
 		}
 
-		monitor.NextRun = &nextRun
-		if err := s.db.UpdateDNSMonitor(monitor); err != nil {
+		if err := s.db.UpdateDNSMonitorSchedule(monitor.ID, monitor.LastRun, nextRun); err != nil {
 			log.Error().Err(err).Int64("monitor_id", monitor.ID).Msg("Error updating dns monitor during initialization")
 		}
 	}
@@ -680,10 +679,9 @@ func (s *service) checkAndRunDNSMonitors() {
 				nextRun = s.calculateNextRun(monitor.Interval, completed, true)
 			}
 
-			monitor.LastRun = &scheduledStart
-			monitor.NextRun = &nextRun
-
-			if err := s.db.UpdateDNSMonitor(monitor); err != nil {
+			// only the run times, so a user edit made while the check ran
+			// survives
+			if err := s.db.UpdateDNSMonitorSchedule(monitor.ID, &scheduledStart, nextRun); err != nil {
 				log.Error().Err(err).Int64("monitor_id", monitor.ID).Msg("Error updating dns monitor schedule")
 			}
 		}(monitor, scheduledStart)
