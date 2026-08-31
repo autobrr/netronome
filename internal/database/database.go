@@ -94,6 +94,17 @@ type Service interface {
 	GetPacketLossResultDetail(monitorID int64, resultID int64) (*types.PacketLossResult, error)
 	UpdatePacketLossMonitorState(monitorID int64, state string) error
 
+	// DNS monitor operations
+	CreateDNSMonitor(monitor *types.DNSMonitor) (*types.DNSMonitor, error)
+	GetDNSMonitor(monitorID int64) (*types.DNSMonitor, error)
+	GetDNSMonitors() ([]*types.DNSMonitor, error)
+	UpdateDNSMonitor(monitor *types.DNSMonitor) error
+	UpdateDNSMonitorState(monitorID int64, state string) error
+	DeleteDNSMonitor(monitorID int64) error
+	SaveDNSResult(result *types.DNSResult) error
+	GetLatestDNSResult(monitorID int64) (*types.DNSResult, error)
+	GetDNSResults(monitorID int64, page int, limit int) (*types.PaginatedDNSResults, error)
+
 	// Monitor operations
 	CreateMonitorAgent(ctx context.Context, agent *types.MonitorAgent) (*types.MonitorAgent, error)
 	GetMonitorAgent(ctx context.Context, agentID int64) (*types.MonitorAgent, error)
@@ -118,7 +129,7 @@ type Service interface {
 	GetMonitorLatestSnapshot(ctx context.Context, agentID int64, periodType string) (*types.MonitorHistoricalSnapshot, error)
 
 	CleanupMonitorData(ctx context.Context) error
-	PurgeHistoricalData(ctx context.Context, before time.Time) (speedTests int64, packetLoss int64, err error)
+	PurgeHistoricalData(ctx context.Context, before time.Time) (speedTests int64, packetLoss int64, dnsResults int64, err error)
 
 	// Embed NotificationService interface
 	NotificationService
