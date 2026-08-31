@@ -16,7 +16,7 @@ import {
 import { PacketLossMonitor } from "@/types/types";
 import { formatTimeWithSettings } from "@/utils/timeSettings";
 import { formatInterval } from "./utils/packetLossUtils";
-import { DeleteMonitorModal } from "./DeleteMonitorModal";
+import { DeleteMonitorModal } from "@/components/common/DeleteMonitorModal";
 import { MonitorStatus } from "./types/monitorStatus";
 
 interface MonitorStatusDisplayProps {
