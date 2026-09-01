@@ -114,7 +114,11 @@ release:
     - Building from source with CGO enabled
 
 checksum:
-  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  # Keep this name free of the version. The self-updater must name the checksums
+  # asset before it knows which version it is about to download, and it writes the
+  # same name in cmd/netronome/update.go.
+  # See docs/adr/0002-fixed-checksums-asset-name.md.
+  name_template: "checksums.txt"
 
 changelog:
   sort: asc
