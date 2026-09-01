@@ -16,6 +16,7 @@ import { getAgentIcon } from "@/utils/agentIcons";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { parseMonitorUsagePeriods } from "@/utils/monitorDataParser";
 import { formatBytes } from "@/utils/formatBytes";
+import { temperatureLevel } from "@/utils/temperature";
 import { TailscaleLogo } from "@/components/icons/TailscaleLogo";
 import {
   Dialog,
@@ -215,10 +216,10 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                         hardwareStats.temperature.length > 0 &&
                         (() => {
                           const hotSensors = hardwareStats.temperature.filter(
-                            (t) => t.temperature > 80,
+                            (t) => temperatureLevel(t) === "hot",
                           );
                           const warmSensors = hardwareStats.temperature.filter(
-                            (t) => t.temperature > 60 && t.temperature <= 80,
+                            (t) => temperatureLevel(t) === "warm",
                           );
 
                           if (hotSensors.length > 0) {

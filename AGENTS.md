@@ -15,6 +15,7 @@
 - `make watch`: runs Go watcher only (prompts to install `air` if missing).
 - `make docker-build` / `make docker-run`: build and run a Docker image.
 - `pnpm -C web dev|build|lint`: frontend dev server, production build, lint.
+- `pnpm -C web test`: frontend unit tests (`node:test`, no test framework). CI runs this in the web job.
 - `go test ./...`: backend unit tests.
 - `./test/test-local.sh`: local dockerized scenario tests.
 
@@ -26,6 +27,7 @@
 
 ## Testing Guidelines
 - Go tests live alongside code as `*_test.go`.
+- Frontend tests live alongside code as `*.test.ts` and use `node:test`; do not add a test framework.
 - Prefer table-driven tests for new backend logic.
 - Scenario scripts live in `test/`; add fixtures under `test/data/`.
 - `test/` also contains docker-compose scenarios, SSL cert scripts, and base-URL test harnesses.
