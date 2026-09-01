@@ -6,7 +6,6 @@ package main
 import (
 	"fmt"
 	"runtime"
-	"strings"
 
 	"github.com/creativeprojects/go-selfupdate"
 	"github.com/rs/zerolog/log"
@@ -27,8 +26,12 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	// Create GitHub repository source
 	repo := selfupdate.ParseSlug("autobrr/netronome")
 
-	// First, detect the latest release without validation to get the version
-	updater, err := selfupdate.NewUpdater(selfupdate.Config{})
+	// The validator must be set before DetectLatest. DetectLatest records the ID of the
+	// checksums asset only when the updater has a validator, and UpdateTo cannot download
+	// the checksums without that ID.
+	updater, err := selfupdate.NewUpdater(selfupdate.Config{
+		Validator: &selfupdate.ChecksumValidator{UniqueFilename: "checksums.txt"},
+	})
 	if err != nil {
 		return fmt.Errorf("failed to create updater: %w", err)
 	}
@@ -58,18 +61,6 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		Str("latest_version", release.Version()).
 		Msg("New version available")
 
-	// Now create updater with correct checksum filename
-	versionStr := strings.TrimPrefix(release.Version(), "v")
-
-	updaterWithChecksum, err := selfupdate.NewUpdater(selfupdate.Config{
-		Validator: &selfupdate.ChecksumValidator{
-			UniqueFilename: fmt.Sprintf("netronome_%s_checksums.txt", versionStr),
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create updater with checksum: %w", err)
-	}
-
 	// Perform the update
 	exe, err := selfupdate.ExecutablePath()
 	if err != nil {
@@ -78,7 +69,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 
 	log.Info().Str("path", exe).Msg("Updating binary...")
 
-	if err := updaterWithChecksum.UpdateTo(cmd.Context(), release, exe); err != nil {
+	if err := updater.UpdateTo(cmd.Context(), release, exe); err != nil {
 		return fmt.Errorf("failed to update: %w", err)
 	}
 

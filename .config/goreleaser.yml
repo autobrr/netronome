@@ -114,7 +114,9 @@ release:
     - Building from source with CGO enabled
 
 checksum:
-  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  # Keep this name free of the version. The self-updater must name the checksums
+  # asset before it knows which version it is about to download.
+  name_template: "checksums.txt"
 
 changelog:
   sort: asc
