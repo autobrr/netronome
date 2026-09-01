@@ -43,7 +43,7 @@ func TestPKCEVerifierExpires(t *testing.T) {
 func TestStorePKCEVerifierSweepsExpiredEntries(t *testing.T) {
 	h := NewAuthHandler(nil, nil, false, "", nil)
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		h.pkceVerifiers[fmt.Sprintf("stale-%d", i)] = pkceEntry{
 			verifier: "old",
 			expires:  time.Now().Add(-time.Minute),
@@ -59,7 +59,7 @@ func TestStorePKCEVerifierSweepsExpiredEntries(t *testing.T) {
 func TestStorePKCEVerifierEnforcesCap(t *testing.T) {
 	h := NewAuthHandler(nil, nil, false, "", nil)
 
-	for i := 0; i < pkceVerifierMax+2; i++ {
+	for i := range pkceVerifierMax+2 {
 		h.storePKCEVerifier(fmt.Sprintf("state-%d", i), "verifier")
 	}
 
@@ -104,7 +104,7 @@ func TestMemorySessionExpiry(t *testing.T) {
 func TestTrackMemorySessionSweepsExpiredEntries(t *testing.T) {
 	h := NewAuthHandler(nil, nil, false, "", nil)
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		h.sessionTokens[fmt.Sprintf("stale-%d", i)] = memorySession{
 			claims:  SessionClaims{Version: sessionClaimsVersion, Type: sessionTypeLocal},
 			expires: time.Now().Add(-time.Minute),
