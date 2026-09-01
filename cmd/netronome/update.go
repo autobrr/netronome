@@ -29,6 +29,9 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	// The validator must be set before DetectLatest. DetectLatest records the ID of the
 	// checksums asset only when the updater has a validator, and UpdateTo cannot download
 	// the checksums without that ID.
+	//
+	// This name must stay equal to checksum.name_template in .config/goreleaser.yml.
+	// See docs/adr/0002-fixed-checksums-asset-name.md.
 	updater, err := selfupdate.NewUpdater(selfupdate.Config{
 		Validator: &selfupdate.ChecksumValidator{UniqueFilename: "checksums.txt"},
 	})
