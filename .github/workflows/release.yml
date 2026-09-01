@@ -47,14 +47,6 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Cache Go modules
-        uses: actions/cache@v6
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
       - name: Install dependencies
         run: go mod download
 
@@ -145,11 +137,24 @@ jobs:
           name: web-dist
           path: web/dist
 
+      # setup-go keys only on go.sum, so the test job's native cache wins this
+      # key and blocks the save here. A separate namespace keeps the
+      # cross-compile build cache.
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: true
+          cache: false
+
+      - name: Cache Go cross-compile build cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-goreleaser-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-goreleaser-${{ env.GO_VERSION }}-
 
       - name: Run GoReleaser build
         if: github.event_name == 'pull_request'
@@ -157,7 +162,9 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --clean --skip=validate,publish --parallelism 5
+          # One slot per build target. Fewer slots make a second wave that
+          # leaves most of the runner idle.
+          args: release --clean --skip=validate,publish --parallelism 7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILDER: ${{ github.actor }}@github-actions
@@ -169,7 +176,7 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --clean
+          args: release --clean --parallelism 7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILDER: ${{ github.actor }}@github-actions
