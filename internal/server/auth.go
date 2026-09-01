@@ -20,12 +20,34 @@ import (
 	"github.com/autobrr/netronome/internal/utils"
 )
 
+const (
+	// pkceVerifierTTL is the time a user has to complete a login at the identity provider.
+	pkceVerifierTTL = 15 * time.Minute
+	// pkceVerifierMax is the number of pending logins kept in memory.
+	pkceVerifierMax = 1024
+	// sessionTTL is the life of a session cookie, and of its sessionTokens entry.
+	sessionTTL = 24 * time.Hour
+)
+
+// pkceEntry is a PKCE code verifier and the time it becomes invalid.
+type pkceEntry struct {
+	verifier string
+	expires  time.Time
+}
+
+// memorySession is a session that exists only in memory, with the time it
+// becomes invalid.
+type memorySession struct {
+	claims  SessionClaims
+	expires time.Time
+}
+
 type AuthHandler struct {
 	db             database.Service
 	oidc           *auth.OIDCConfig
 	oidcConfigured bool                     // true when OIDC issuer is set in config, independent of provider state
-	sessionTokens  map[string]SessionClaims // Track valid memory sessions
-	pkceVerifiers  map[string]string        // Track PKCE code verifiers by state
+	sessionTokens  map[string]memorySession // Track valid memory sessions
+	pkceVerifiers  map[string]pkceEntry     // Track PKCE code verifiers by state
 	sessionMutex   sync.RWMutex
 	pkceMutex      sync.RWMutex
 	sessionSecret  string
@@ -37,8 +59,8 @@ func NewAuthHandler(db database.Service, oidc *auth.OIDCConfig, oidcConfigured b
 		db:             db,
 		oidc:           oidc,
 		oidcConfigured: oidcConfigured,
-		sessionTokens:  make(map[string]SessionClaims),
-		pkceVerifiers:  make(map[string]string),
+		sessionTokens:  make(map[string]memorySession),
+		pkceVerifiers:  make(map[string]pkceEntry),
 		sessionSecret:  sessionSecret,
 		whitelist:      whitelist,
 	}
@@ -98,19 +120,7 @@ func (h *AuthHandler) refreshSession(c *gin.Context, token string, claims *Sessi
 
 	// Track memory-only sessions
 	if h.sessionSecret == "" {
-		h.sessionMutex.Lock()
-		if claims != nil {
-			if token != "" && token != signedToken {
-				delete(h.sessionTokens, token)
-			}
-			h.sessionTokens[signedToken] = *claims
-		} else if _, exists := h.sessionTokens[signedToken]; !exists {
-			h.sessionTokens[signedToken] = SessionClaims{
-				Version: sessionClaimsVersion,
-				Type:    sessionTypeLocal,
-			}
-		}
-		h.sessionMutex.Unlock()
+		h.trackMemorySession(token, signedToken, claims)
 	}
 
 	logger := log.Trace().
@@ -127,7 +137,7 @@ func (h *AuthHandler) refreshSession(c *gin.Context, token string, claims *Sessi
 	c.SetCookie(
 		"session",
 		signedToken,
-		int((24 * time.Hour).Seconds()), // 24 hour expiry
+		int(sessionTTL.Seconds()),
 		"/",
 		"",       // empty domain for maximum compatibility
 		isSecure, // secure flag only if HTTPS
@@ -140,10 +150,8 @@ func (h *AuthHandler) isValidMemorySession(token string) bool {
 		return false
 	}
 
-	h.sessionMutex.RLock()
-	_, valid := h.sessionTokens[token]
-	h.sessionMutex.RUnlock()
-	return valid
+	_, ok := h.getMemorySessionClaims(token)
+	return ok
 }
 
 func (h *AuthHandler) getMemorySessionClaims(token string) (SessionClaims, bool) {
@@ -152,9 +160,50 @@ func (h *AuthHandler) getMemorySessionClaims(token string) (SessionClaims, bool)
 	}
 
 	h.sessionMutex.RLock()
-	claims, ok := h.sessionTokens[token]
+	session, ok := h.sessionTokens[token]
 	h.sessionMutex.RUnlock()
-	return claims, ok
+
+	if !ok || time.Now().After(session.expires) {
+		return SessionClaims{}, false
+	}
+	return session.claims, true
+}
+
+// trackMemorySession records a memory-only session and extends its expiry. A
+// new session first removes the sessions that expired, so that abandoned
+// browser sessions do not stay in memory. A refresh of a known session keeps
+// the request path free of the sweep.
+func (h *AuthHandler) trackMemorySession(oldToken, signedToken string, claims *SessionClaims) {
+	now := time.Now()
+
+	h.sessionMutex.Lock()
+	defer h.sessionMutex.Unlock()
+
+	existing, known := h.sessionTokens[signedToken]
+	if !known {
+		for token, session := range h.sessionTokens {
+			if now.After(session.expires) {
+				delete(h.sessionTokens, token)
+			}
+		}
+	}
+
+	session := memorySession{expires: now.Add(sessionTTL)}
+	switch {
+	case claims != nil:
+		if oldToken != "" && oldToken != signedToken {
+			delete(h.sessionTokens, oldToken)
+		}
+		session.claims = *claims
+	case known:
+		session.claims = existing.claims
+	default:
+		session.claims = SessionClaims{
+			Version: sessionClaimsVersion,
+			Type:    sessionTypeLocal,
+		}
+	}
+	h.sessionTokens[signedToken] = session
 }
 
 func (h *AuthHandler) getSessionClaims(signedToken, rawToken string) (*SessionClaims, bool) {
@@ -286,23 +335,51 @@ func sessionUsername(claims *SessionClaims) string {
 	return claims.Subject
 }
 
-// storePKCEVerifier stores a PKCE code verifier for the given state
+// storePKCEVerifier stores a PKCE code verifier for the given state. It first
+// removes the verifiers of the logins that were abandoned, then keeps the map
+// below pkceVerifierMax.
+//
+// Use it before you redirect a user to the identity provider. The callback
+// reads the verifier back with getPKCEVerifier.
 func (h *AuthHandler) storePKCEVerifier(state, codeVerifier string) {
+	now := time.Now()
+
 	h.pkceMutex.Lock()
-	h.pkceVerifiers[state] = codeVerifier
-	h.pkceMutex.Unlock()
+	defer h.pkceMutex.Unlock()
+
+	for key, entry := range h.pkceVerifiers {
+		if now.After(entry.expires) {
+			delete(h.pkceVerifiers, key)
+		}
+	}
+
+	// ponytail: random eviction under a flood of login requests. Rate limit
+	// the login route if that becomes a problem.
+	if len(h.pkceVerifiers) >= pkceVerifierMax {
+		for key := range h.pkceVerifiers {
+			delete(h.pkceVerifiers, key)
+			break
+		}
+	}
+
+	h.pkceVerifiers[state] = pkceEntry{
+		verifier: codeVerifier,
+		expires:  now.Add(pkceVerifierTTL),
+	}
 }
 
-// getPKCEVerifier retrieves and removes the PKCE code verifier for the given state
+// getPKCEVerifier retrieves and removes the PKCE code verifier for the given
+// state. An expired verifier is reported as missing.
 func (h *AuthHandler) getPKCEVerifier(state string) (string, bool) {
 	h.pkceMutex.Lock()
 	defer h.pkceMutex.Unlock()
 
-	verifier, exists := h.pkceVerifiers[state]
-	if exists {
-		delete(h.pkceVerifiers, state)
+	entry, exists := h.pkceVerifiers[state]
+	delete(h.pkceVerifiers, state)
+	if !exists || time.Now().After(entry.expires) {
+		return "", false
 	}
-	return verifier, exists
+	return entry.verifier, true
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
@@ -415,7 +492,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"access_token": sessionToken,
 		"token_type":   "Bearer",
-		"expires_in":   int((24 * time.Hour).Seconds()),
+		"expires_in":   int(sessionTTL.Seconds()),
 		"user": gin.H{
 			"id":       user.ID,
 			"username": user.Username,
