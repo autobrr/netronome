@@ -9,10 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
-	"os"
-	"os/exec"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -23,43 +20,6 @@ import (
 var Dist embed.FS
 
 var DistDirFS = MustSubFS(Dist, "dist")
-
-// BuildFrontend executes the frontend build process
-func BuildFrontend() error {
-	webDir, err := filepath.Abs("web")
-	if err != nil {
-		return fmt.Errorf("failed to get web directory path: %w", err)
-	}
-
-	log.Info().Str("webDir", webDir).Msg("Building frontend in directory")
-
-	// Run pnpm install
-	installCmd := exec.Command("pnpm", "install")
-	installCmd.Dir = webDir
-	installCmd.Stdout = os.Stdout
-	installCmd.Stderr = os.Stderr
-	if err := installCmd.Run(); err != nil {
-		return fmt.Errorf("failed to run pnpm install: %w", err)
-	}
-
-	// Run pnpm build
-	buildCmd := exec.Command("pnpm", "build")
-	buildCmd.Dir = webDir
-	buildCmd.Stdout = os.Stdout
-	buildCmd.Stderr = os.Stderr
-	if err := buildCmd.Run(); err != nil {
-		return fmt.Errorf("failed to run pnpm build: %w", err)
-	}
-
-	// Verify dist directory was created
-	distDir := filepath.Join(webDir, "dist")
-	if _, err := os.Stat(distDir); os.IsNotExist(err) {
-		return fmt.Errorf("dist directory was not created at %s", distDir)
-	}
-
-	log.Info().Str("distDir", distDir).Msg("Frontend built successfully")
-	return nil
-}
 
 // MustSubFS creates sub FS from current filesystem or panic on failure
 func MustSubFS(currentFs fs.FS, fsRoot string) fs.FS {

@@ -264,19 +264,6 @@ type MonitorAgent struct {
 	UpdatedAt         time.Time  `db:"updated_at" json:"updatedAt"`
 }
 
-// MonitorBandwidth represents bandwidth data from monitoring agent
-type MonitorBandwidth struct {
-	ID                 int64     `db:"id" json:"id"`
-	AgentID            int64     `db:"agent_id" json:"agentId"`
-	RxBytesPerSecond   *int64    `db:"rx_bytes_per_second" json:"rxBytesPerSecond"`
-	TxBytesPerSecond   *int64    `db:"tx_bytes_per_second" json:"txBytesPerSecond"`
-	RxPacketsPerSecond *int      `db:"rx_packets_per_second" json:"rxPacketsPerSecond"`
-	TxPacketsPerSecond *int      `db:"tx_packets_per_second" json:"txPacketsPerSecond"`
-	RxRateString       *string   `db:"rx_rate_string" json:"rxRateString"`
-	TxRateString       *string   `db:"tx_rate_string" json:"txRateString"`
-	CreatedAt          time.Time `db:"created_at" json:"createdAt"`
-}
-
 // MonitorLiveData represents live data from monitoring agent
 type MonitorLiveData struct {
 	Index   int `json:"index"`
@@ -299,92 +286,6 @@ type MonitorLiveData struct {
 		Totalbytes       int    `json:"totalbytes"`
 		Totalpackets     int    `json:"totalpackets"`
 	} `json:"tx"`
-}
-
-// MonitorFullData represents the complete bandwidth monitor JSON export structure
-type MonitorFullData struct {
-	Vnstatversion string `json:"vnstatversion"`
-	Jsonversion   string `json:"jsonversion"`
-	Interfaces    []struct {
-		Name    string `json:"name"`
-		Alias   string `json:"alias"`
-		Created struct {
-			Date struct {
-				Year  int `json:"year"`
-				Month int `json:"month"`
-				Day   int `json:"day"`
-			} `json:"date"`
-		} `json:"created"`
-		Updated struct {
-			Date struct {
-				Year  int `json:"year"`
-				Month int `json:"month"`
-				Day   int `json:"day"`
-			} `json:"date"`
-			Time struct {
-				Hour   int `json:"hour"`
-				Minute int `json:"minute"`
-			} `json:"time"`
-		} `json:"updated"`
-		Traffic struct {
-			Total struct {
-				Rx int64 `json:"rx"`
-				Tx int64 `json:"tx"`
-			} `json:"total"`
-			Fiveminute []struct {
-				ID   int `json:"id"`
-				Date struct {
-					Year  int `json:"year"`
-					Month int `json:"month"`
-					Day   int `json:"day"`
-				} `json:"date"`
-				Time struct {
-					Hour   int `json:"hour"`
-					Minute int `json:"minute"`
-				} `json:"time"`
-				Rx int64 `json:"rx"`
-				Tx int64 `json:"tx"`
-			} `json:"fiveminute"`
-			Hour []struct {
-				ID   int `json:"id"`
-				Date struct {
-					Year  int `json:"year"`
-					Month int `json:"month"`
-					Day   int `json:"day"`
-				} `json:"date"`
-				Hour int   `json:"hour"`
-				Rx   int64 `json:"rx"`
-				Tx   int64 `json:"tx"`
-			} `json:"hour"`
-			Day []struct {
-				ID   int `json:"id"`
-				Date struct {
-					Year  int `json:"year"`
-					Month int `json:"month"`
-					Day   int `json:"day"`
-				} `json:"date"`
-				Rx int64 `json:"rx"`
-				Tx int64 `json:"tx"`
-			} `json:"day"`
-			Month []struct {
-				ID   int `json:"id"`
-				Date struct {
-					Year  int `json:"year"`
-					Month int `json:"month"`
-				} `json:"date"`
-				Rx int64 `json:"rx"`
-				Tx int64 `json:"tx"`
-			} `json:"month"`
-			Year []struct {
-				ID   int `json:"id"`
-				Date struct {
-					Year int `json:"year"`
-				} `json:"date"`
-				Rx int64 `json:"rx"`
-				Tx int64 `json:"tx"`
-			} `json:"year"`
-		} `json:"traffic"`
-	} `json:"interfaces"`
 }
 
 // MonitorUpdate represents real-time monitoring updates

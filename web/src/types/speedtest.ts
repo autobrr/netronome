@@ -21,10 +21,3 @@ export interface SpeedTest {
   isComplete: boolean;
   isScheduled?: boolean;
 }
-
-export interface SpeedTestHistory {
-  results: SpeedTest[];
-  total: number;
-  page: number;
-  limit: number;
-}

@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect, useMemo } from "react";
-import { Container } from "@mui/material";
 import { FaGithub } from "react-icons/fa";
 import { XMarkIcon } from "@heroicons/react/20/solid";
 import { ShareModal } from "./speedtest/ShareModal";
@@ -451,7 +450,7 @@ export default function Main({ isPublic = false }: MainProps) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Container maxWidth="xl" className="pb-20 sm:pb-8 pt-16 sm:pt-20 md:pt-14 flex-1">
+      <div className="mx-auto w-full max-w-[1536px] px-4 min-[600px]:px-6 pb-20 sm:pb-8 pt-16 sm:pt-20 md:pt-14 flex-1">
         {/* Test Progress - Always rendered with fixed height to prevent layout shift */}
         <div className="flex justify-center mb-2 sm:mb-4 mt-2 sm:mt-4 md:mt-0 h-5">
           <TestProgress progress={progress} />
@@ -642,13 +641,13 @@ export default function Main({ isPublic = false }: MainProps) {
             </motion.div>
           )}
         </AnimatePresence>
-      </Container>
+      </div>
 
 
       {/* Public Footer */}
       {isPublic && (
         <div className="mb-8">
-          <Container maxWidth="xl">
+          <div className="mx-auto w-full max-w-[1536px] px-4 min-[600px]:px-6">
             <div className="flex justify-center">
               <div className="text-gray-600 dark:text-gray-500 text-sm">
                 Powered by{" "}
@@ -674,7 +673,7 @@ export default function Main({ isPublic = false }: MainProps) {
                 </a>
               </div>
             </div>
-          </Container>
+          </div>
         </div>
       )}
     </div>
