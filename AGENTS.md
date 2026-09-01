@@ -21,7 +21,7 @@
 ## Coding Style & Naming Conventions
 - Go: `gofmt` or `goimports`, Go 1.26 target.
 - TypeScript: 2-space indentation, PascalCase components, camelCase utilities.
-- Tailwind tokens should align with `web/tailwind.config.*`.
+- Tailwind tokens should align with the `@theme` block in `web/src/index.css`.
 - Lint: `pnpm -C web lint` (ESLint).
 
 ## Testing Guidelines

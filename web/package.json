@@ -47,7 +47,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/postcss": "^4.3.2",
     "@tailwindcss/vite": "^4.3.2",
     "@types/node": "^26.1.0",
@@ -63,7 +62,6 @@
     "knip": "^6.23.0",
     "postcss": "^8.5.16",
     "sharp": "^0.35.3",
-    "tailwind-lerp-colors": "^1.2.6",
     "tailwindcss": "^4.3.2",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.62.1",
