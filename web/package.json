@@ -8,6 +8,7 @@
     "dev": "NETRONOME__BASE_URL=\"\" vite",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "node --experimental-strip-types --test \"src/**/*.test.ts\"",
     "preview": "vite preview",
     "unused": "knip",
     "unused:production": "knip --production",
