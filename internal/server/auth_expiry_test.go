@@ -59,7 +59,7 @@ func TestStorePKCEVerifierSweepsExpiredEntries(t *testing.T) {
 func TestStorePKCEVerifierEnforcesCap(t *testing.T) {
 	h := NewAuthHandler(nil, nil, false, "", nil)
 
-	for i := range pkceVerifierMax+2 {
+	for i := range pkceVerifierMax + 2 {
 		h.storePKCEVerifier(fmt.Sprintf("state-%d", i), "verifier")
 	}
 
