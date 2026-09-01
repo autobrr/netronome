@@ -247,9 +247,9 @@ export const DNSMonitorDetails: React.FC<DNSMonitorDetailsProps> = ({
                   <th className="text-center py-2 px-3 text-gray-600 dark:text-gray-400 font-medium">
                     Response
                   </th>
-                  <th className="text-center py-2 px-3 text-gray-600 dark:text-gray-400 font-medium">
-                    Code
-                  </th>
+                  {/* the response code adds nothing here: it is NOERROR on
+                      every good row, and the error text repeats it on a bad
+                      one */}
                   <th className="text-left py-2 px-3 text-gray-600 dark:text-gray-400 font-medium">
                     Error
                   </th>
@@ -274,9 +274,6 @@ export const DNSMonitorDetails: React.FC<DNSMonitorDetailsProps> = ({
                       {result.success
                         ? `${result.responseTimeMs.toFixed(1)}ms`
                         : "failed"}
-                    </td>
-                    <td className="py-2 px-3 text-center text-gray-600 dark:text-gray-400">
-                      {result.responseCode || "—"}
                     </td>
                     <td className="py-2 px-3 text-red-600 dark:text-red-400 break-words">
                       {result.error || ""}
