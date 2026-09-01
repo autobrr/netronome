@@ -36,7 +36,8 @@ const jsonBody = (monitor: DNSMonitorInput): RequestInit => ({
 
 export const getDNSMonitors = async (): Promise<DNSMonitor[]> => {
   const response = await dnsFetch("/dns/monitors");
-  return response.json();
+  // an empty list comes back as null, so hand callers a list either way
+  return (await response.json()) ?? [];
 };
 
 export const createDNSMonitor = async (
