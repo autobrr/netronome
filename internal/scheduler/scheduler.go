@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/dnsmonitor"
 	"github.com/autobrr/netronome/internal/notifications"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
@@ -31,6 +32,7 @@ type service struct {
 	db         database.Service
 	speedtest  speedtest.Service
 	packetLoss *speedtest.PacketLossService
+	dns        *dnsmonitor.Service
 	notifier   *notifications.Notifier
 	ticker     *time.Ticker
 	done       chan bool
@@ -38,11 +40,12 @@ type service struct {
 	running    bool
 }
 
-func New(db database.Service, speedtest speedtest.Service, packetLoss *speedtest.PacketLossService, notifier *notifications.Notifier) Service {
+func New(db database.Service, speedtest speedtest.Service, packetLoss *speedtest.PacketLossService, dns *dnsmonitor.Service, notifier *notifications.Notifier) Service {
 	return &service{
 		db:         db,
 		speedtest:  speedtest,
 		packetLoss: packetLoss,
+		dns:        dns,
 		notifier:   notifier,
 		done:       make(chan bool),
 	}
@@ -62,6 +65,7 @@ func (s *service) Start(ctx context.Context) {
 	// Initialize schedules before starting
 	s.initializeSchedules(ctx)
 	s.initializePacketLossMonitors(ctx)
+	s.initializeDNSMonitors()
 
 	go func() {
 		for {
@@ -74,6 +78,7 @@ func (s *service) Start(ctx context.Context) {
 			case <-s.ticker.C:
 				s.checkAndRunScheduledTests(ctx)
 				s.checkAndRunPacketLossMonitors(ctx)
+				s.checkAndRunDNSMonitors()
 			}
 		}
 	}()
@@ -602,6 +607,85 @@ func (s *service) UpdateMonitorSchedule(monitorID int64, interval string) error 
 		Msg("Updating monitor schedule after test completion")
 
 	return s.db.UpdatePacketLossMonitor(monitor)
+}
+
+// initializeDNSMonitors gives every enabled DNS monitor a next run time on
+// startup. Missed runs are not executed, as with the other schedules.
+func (s *service) initializeDNSMonitors() {
+	if s.dns == nil {
+		return
+	}
+
+	monitors, err := s.db.GetDNSMonitors()
+	if err != nil {
+		log.Error().Err(err).Msg("Error fetching dns monitors during initialization")
+		return
+	}
+
+	now := time.Now().UTC()
+	for _, monitor := range monitors {
+		if !monitor.Enabled || (monitor.NextRun != nil && monitor.NextRun.After(now)) {
+			continue
+		}
+
+		nextRun := s.calculateNextRun(monitor.Interval, now, true)
+		if nextRun.IsZero() {
+			log.Error().
+				Int64("monitor_id", monitor.ID).
+				Str("interval", monitor.Interval).
+				Msg("Could not calculate next run time for dns monitor")
+			continue
+		}
+
+		if err := s.db.UpdateDNSMonitorSchedule(monitor.ID, monitor.LastRun, nextRun); err != nil {
+			log.Error().Err(err).Int64("monitor_id", monitor.ID).Msg("Error updating dns monitor during initialization")
+		}
+	}
+}
+
+// checkAndRunDNSMonitors runs every enabled DNS monitor that is due
+func (s *service) checkAndRunDNSMonitors() {
+	if s.dns == nil {
+		return
+	}
+
+	monitors, err := s.db.GetDNSMonitors()
+	if err != nil {
+		log.Error().Err(err).Msg("Error fetching dns monitors")
+		return
+	}
+
+	now := time.Now().UTC()
+	for _, monitor := range monitors {
+		if !monitor.Enabled || monitor.NextRun == nil || monitor.NextRun.UTC().After(now) {
+			continue
+		}
+
+		scheduledStart := monitor.NextRun.UTC()
+		go func(monitor *types.DNSMonitor, scheduledStart time.Time) {
+			s.dns.RunCheck(monitor)
+
+			// keep the interval steady by counting from the scheduled start,
+			// unless the check ran past the next slot
+			nextRun := s.calculateNextRun(monitor.Interval, scheduledStart, true)
+			if nextRun.IsZero() {
+				log.Error().
+					Int64("monitor_id", monitor.ID).
+					Str("interval", monitor.Interval).
+					Msg("Error calculating next run time for dns monitor")
+				return
+			}
+			if completed := time.Now().UTC(); nextRun.Before(completed) {
+				nextRun = s.calculateNextRun(monitor.Interval, completed, true)
+			}
+
+			// only the run times, so a user edit made while the check ran
+			// survives
+			if err := s.db.UpdateDNSMonitorSchedule(monitor.ID, &scheduledStart, nextRun); err != nil {
+				log.Error().Err(err).Int64("monitor_id", monitor.ID).Msg("Error updating dns monitor schedule")
+			}
+		}(monitor, scheduledStart)
+	}
 }
 
 // CalculateNextRun is a public wrapper for calculateNextRun

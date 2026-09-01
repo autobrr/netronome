@@ -16,6 +16,7 @@ import (
 	"github.com/autobrr/netronome/internal/auth"
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/dnsmonitor"
 	"github.com/autobrr/netronome/internal/handlers"
 	"github.com/autobrr/netronome/internal/monitor"
 	"github.com/autobrr/netronome/internal/notifications"
@@ -31,6 +32,7 @@ type Server struct {
 	Router               *gin.Engine
 	speedtest            speedtest.Service
 	packetLossService    *speedtest.PacketLossService
+	dnsService           *dnsmonitor.Service
 	monitorService       *monitor.Service
 	db                   database.Service
 	scheduler            scheduler.Service
@@ -40,6 +42,7 @@ type Server struct {
 	lastUpdate           *types.SpeedUpdate
 	lastTracerouteUpdate *types.TracerouteUpdate
 	lastPacketLossUpdate *types.PacketLossUpdate
+	lastDNSUpdate        *types.DNSUpdate
 	lastMonitorUpdate    *types.MonitorUpdate
 	config               *config.Config
 	licenseService       *license.Service
@@ -50,7 +53,7 @@ func (s *Server) SetUpdateChecker(checker *update.Checker) {
 	s.updateChecker = checker
 }
 
-func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config, packetLossService *speedtest.PacketLossService, monitorService *monitor.Service, notifier *notifications.Notifier, licenseService *license.Service) *Server {
+func NewServer(speedtest speedtest.Service, db database.Service, scheduler scheduler.Service, cfg *config.Config, packetLossService *speedtest.PacketLossService, dnsService *dnsmonitor.Service, monitorService *monitor.Service, notifier *notifications.Notifier, licenseService *license.Service) *Server {
 	// Set Gin mode from config
 	if cfg.Server.GinMode != "" {
 		gin.SetMode(cfg.Server.GinMode)
@@ -94,6 +97,7 @@ func NewServer(speedtest speedtest.Service, db database.Service, scheduler sched
 		Router:            router,
 		speedtest:         speedtest,
 		packetLossService: packetLossService,
+		dnsService:        dnsService,
 		monitorService:    monitorService,
 		db:                db,
 		scheduler:         scheduler,
@@ -148,6 +152,21 @@ func (s *Server) BroadcastPacketLossUpdate(update types.PacketLossUpdate) {
 		Bool("isComplete", update.IsComplete).
 		Float64("packetLoss", update.PacketLoss).
 		Msg("Broadcasting packet loss update")
+}
+
+func (s *Server) BroadcastDNSUpdate(update types.DNSUpdate) {
+	s.mu.Lock()
+	s.lastDNSUpdate = &update
+	s.mu.Unlock()
+
+	log.Debug().
+		Int64("monitorID", update.MonitorID).
+		Str("host", update.Host).
+		Bool("isRunning", update.IsRunning).
+		Bool("success", update.Success).
+		Str("responseCode", update.ResponseCode).
+		Float64("responseTimeMs", update.ResponseTimeMs).
+		Msg("Broadcasting dns update")
 }
 
 func (s *Server) BroadcastMonitorUpdate(update types.MonitorUpdate) {
@@ -275,6 +294,17 @@ func (s *Server) RegisterRoutes() {
 				protected.GET("/packetloss/monitors/:id/history/:resultId", packetLossHandler.GetMonitorHistoryDetail)
 				protected.POST("/packetloss/monitors/:id/start", packetLossHandler.StartMonitor)
 				protected.POST("/packetloss/monitors/:id/stop", packetLossHandler.StopMonitor)
+			}
+
+			// DNS monitoring routes
+			if s.dnsService != nil {
+				dnsHandler := handlers.NewDNSHandler(s.db, s.dnsService, s.scheduler)
+				protected.GET("/dns/monitors", dnsHandler.GetMonitors)
+				protected.POST("/dns/monitors", dnsHandler.CreateMonitor)
+				protected.PUT("/dns/monitors/:id", dnsHandler.UpdateMonitor)
+				protected.DELETE("/dns/monitors/:id", dnsHandler.DeleteMonitor)
+				protected.GET("/dns/monitors/:id/status", dnsHandler.GetMonitorStatus)
+				protected.GET("/dns/monitors/:id/history", dnsHandler.GetMonitorHistory)
 			}
 
 			// Vnstat monitoring routes

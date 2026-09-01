@@ -2,7 +2,7 @@
 # GITHUB_TOKEN is builder-stage only (never reaches the final image) and is the
 # ephemeral per-job Actions token; provenance is disabled in release.yml.
 
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine3.22 AS app-builder
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine3.23 AS app-builder
 
 ARG VERSION=dev
 ARG REVISION=dev
@@ -88,7 +88,7 @@ FROM alpine:latest
 
 LABEL org.opencontainers.image.source="https://github.com/autobrr/netronome"
 LABEL org.opencontainers.image.licenses="GPL-2.0-or-later"
-LABEL org.opencontainers.image.base.name="alpine:3.22"
+LABEL org.opencontainers.image.base.name="alpine:latest"
 
 # Install dependencies including tini for proper process reaping
 RUN apk add --no-cache tini sqlite iperf3 traceroute mtr tzdata vnstat

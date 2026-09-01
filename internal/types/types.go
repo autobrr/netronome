@@ -190,6 +190,65 @@ type PaginatedPacketLossResults struct {
 	Limit int                       `json:"limit"`
 }
 
+// DNS protocols a DNS monitor can use.
+const (
+	DNSProtocolUDP = "udp"
+	DNSProtocolTCP = "tcp"
+	DNSProtocolDoT = "dot"
+)
+
+// DNSMonitor is a resolver, an interval, a query, and a protocol. The server
+// sends the query to the resolver and records the response time and the
+// response code. It measures the resolver, not the record.
+type DNSMonitor struct {
+	ID              int64      `db:"id" json:"id"`
+	Host            string     `db:"host" json:"host"`
+	Name            string     `db:"name" json:"name"`
+	Protocol        string     `db:"protocol" json:"protocol"`
+	Query           string     `db:"query" json:"query"`
+	RecordType      string     `db:"record_type" json:"recordType"`
+	Interval        string     `db:"interval" json:"interval"`
+	Enabled         bool       `db:"enabled" json:"enabled"`
+	LastRun         *time.Time `db:"last_run" json:"lastRun"`
+	NextRun         *time.Time `db:"next_run" json:"nextRun"`
+	LastState       string     `db:"last_state" json:"lastState"`
+	LastStateChange *time.Time `db:"last_state_change" json:"lastStateChange"`
+	CreatedAt       time.Time  `db:"created_at" json:"createdAt"`
+	UpdatedAt       time.Time  `db:"updated_at" json:"updatedAt"`
+}
+
+// DNSResult is one recorded DNS check.
+type DNSResult struct {
+	ID             int64     `db:"id" json:"id"`
+	MonitorID      int64     `db:"monitor_id" json:"monitorId"`
+	ResponseTimeMs float64   `db:"response_time_ms" json:"responseTimeMs"`
+	ResponseCode   string    `db:"response_code" json:"responseCode"`
+	Success        bool      `db:"success" json:"success"`
+	Error          *string   `db:"error" json:"error,omitempty"`
+	CreatedAt      time.Time `db:"created_at" json:"createdAt"`
+}
+
+type PaginatedDNSResults struct {
+	Data  []DNSResult `json:"data"`
+	Total int         `json:"total"`
+	Page  int         `json:"page"`
+	Limit int         `json:"limit"`
+}
+
+// DNSUpdate is the live status of a DNS monitor.
+type DNSUpdate struct {
+	Type           string  `json:"type"`
+	MonitorID      int64   `json:"monitorId"`
+	Host           string  `json:"host"`
+	IsRunning      bool    `json:"isRunning"`
+	Enabled        bool    `json:"enabled"`
+	Success        bool    `json:"success"`
+	ResponseTimeMs float64 `json:"responseTimeMs,omitempty"`
+	ResponseCode   string  `json:"responseCode,omitempty"`
+	State          string  `json:"state,omitempty"`
+	Error          string  `json:"error,omitempty"`
+}
+
 // MonitorAgent represents a monitoring agent configuration
 type MonitorAgent struct {
 	ID                int64      `db:"id" json:"id"`

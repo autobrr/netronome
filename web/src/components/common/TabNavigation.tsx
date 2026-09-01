@@ -38,6 +38,11 @@ const TAB_COLORS = {
     inactive:
       "text-gray-500 dark:text-gray-400 hover:text-amber-500 dark:hover:text-amber-300",
   },
+  dns: {
+    active: "text-cyan-600 dark:text-cyan-400",
+    inactive:
+      "text-gray-500 dark:text-gray-400 hover:text-cyan-500 dark:hover:text-cyan-300",
+  },
   monitor: {
     active: "text-purple-600 dark:text-purple-400",
     inactive:

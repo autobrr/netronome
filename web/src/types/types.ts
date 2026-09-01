@@ -207,3 +207,49 @@ export interface PacketLossUpdate {
   hopCount?: number;
   error?: string;
 }
+
+export type DNSProtocol = "udp" | "tcp" | "dot";
+
+// The host holds an optional ":port". Without one the server uses port 53, or
+// port 853 for DoT.
+export interface DNSMonitorInput {
+  host: string;
+  name: string;
+  protocol: DNSProtocol;
+  query: string;
+  recordType: string;
+  interval: string;
+  enabled: boolean;
+}
+
+export interface DNSMonitor extends DNSMonitorInput {
+  id: number;
+  lastRun?: string | null;
+  nextRun?: string | null;
+  lastState?: string;
+  lastStateChange?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DNSResult {
+  id: number;
+  monitorId: number;
+  responseTimeMs: number;
+  responseCode: string;
+  success: boolean;
+  error?: string;
+  createdAt: string;
+}
+
+// DNSUpdate is the last known result of a monitor, not the progress of a
+// running check. State is "unknown" until the first check, then "ok", "down",
+// or "recovered".
+export interface DNSUpdate {
+  monitorId: number;
+  success: boolean;
+  responseTimeMs?: number;
+  responseCode?: string;
+  state?: string;
+  error?: string;
+}

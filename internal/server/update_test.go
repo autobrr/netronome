@@ -32,7 +32,7 @@ func TestLatestVersionRouteUsesBaseURLAndReturnsCachedRelease(t *testing.T) {
 	cfg := config.New()
 	cfg.Server.BaseURL = "/netronome"
 	cfg.Auth.Whitelist = []string{"127.0.0.1/32"}
-	server := NewServer(nil, nil, nil, cfg, nil, nil, nil, nil)
+	server := NewServer(nil, nil, nil, cfg, nil, nil, nil, nil, nil)
 	server.SetUpdateChecker(checker)
 	server.RegisterRoutes()
 
@@ -49,7 +49,7 @@ func TestLatestVersionRouteReturnsNoContentWithoutCachedRelease(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := config.New()
 	cfg.Auth.Whitelist = []string{"127.0.0.1/32"}
-	server := NewServer(nil, nil, nil, cfg, nil, nil, nil, nil)
+	server := NewServer(nil, nil, nil, cfg, nil, nil, nil, nil, nil)
 	server.SetUpdateChecker(update.New(false, "1.2.3", nil))
 	server.RegisterRoutes()
 
