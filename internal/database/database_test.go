@@ -183,6 +183,8 @@ var testTablesToClear = []string{
 	"app_settings",
 	"packet_loss_results",
 	"packet_loss_monitors",
+	"dns_results",
+	"dns_monitors",
 	"monitor_historical_snapshots",
 	"monitor_resource_stats",
 	"monitor_peak_stats",
@@ -427,6 +429,28 @@ func CreateTestPacketLossMonitor(t *testing.T, td *TestDatabase) *types.PacketLo
 	}
 
 	result, err := td.Service.CreatePacketLossMonitor(monitor)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Greater(t, result.ID, int64(0))
+
+	return result
+}
+
+// CreateTestDNSMonitor creates a test DNS monitor
+func CreateTestDNSMonitor(t *testing.T, td *TestDatabase) *types.DNSMonitor {
+	t.Helper()
+
+	monitor := &types.DNSMonitor{
+		Name:       "Test DNS Monitor",
+		Host:       "127.0.0.1:5353",
+		Protocol:   types.DNSProtocolUDP,
+		Query:      "example.invalid",
+		RecordType: "A",
+		Interval:   "60s",
+		Enabled:    true,
+	}
+
+	result, err := td.Service.CreateDNSMonitor(monitor)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Greater(t, result.ID, int64(0))

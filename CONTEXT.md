@@ -49,6 +49,13 @@ agent as the server stores it, not a monitor in the packet loss sense.
 **Bandwidth** — the interface counters that an agent reads with `vnstat`. This is
 the traffic that the machine passes. It is not a speed test.
 
+**DNS monitor** (`DNSMonitor`) — a resolver, an interval, a query, and a protocol
+(UDP, TCP, or DoT). The server sends the query to the resolver and records the
+response time and the response code. A check fails on a timeout or an error
+response code. Its states are the normal state, `down`, and `recovered`. The DNS
+monitor measures the resolver, not the record. It does not check that an answer
+is correct.
+
 ## Notifications
 
 Four tables, and the relation between them is the design:

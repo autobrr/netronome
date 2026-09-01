@@ -15,6 +15,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/keygen-sh/machineid v1.1.3
 	github.com/lib/pq v1.12.3
+	github.com/miekg/dns v1.1.73
 	github.com/nicholas-fedor/shoutrrr v0.18.0
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/pkg/errors v0.9.1
