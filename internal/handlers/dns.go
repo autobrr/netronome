@@ -127,12 +127,14 @@ func (h *DNSHandler) CreateMonitor(c *gin.Context) {
 		return
 	}
 
-	if nextRun := h.scheduler.CalculateNextRun(monitor.Interval, time.Now()); !nextRun.IsZero() {
-		monitor.NextRun = &nextRun
-	} else {
+	// a new monitor runs on the next scheduler tick; the interval only has to
+	// parse
+	now := time.Now().UTC()
+	if h.scheduler.CalculateNextRun(monitor.Interval, now).IsZero() {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid interval"})
 		return
 	}
+	monitor.NextRun = &now
 
 	created, err := h.db.CreateDNSMonitor(&monitor)
 	if err != nil {
