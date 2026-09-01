@@ -184,14 +184,15 @@ func (h *DNSHandler) UpdateMonitor(c *gin.Context) {
 	monitor.RecordType = updateData.RecordType
 	monitor.Enabled = updateData.Enabled
 
+	// same as CreateMonitor: a new interval takes effect on the next tick
 	if monitor.Interval != updateData.Interval {
 		monitor.Interval = updateData.Interval
-		nextRun := h.scheduler.CalculateNextRun(monitor.Interval, time.Now())
-		if nextRun.IsZero() {
+		now := time.Now().UTC()
+		if h.scheduler.CalculateNextRun(monitor.Interval, now).IsZero() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid interval"})
 			return
 		}
-		monitor.NextRun = &nextRun
+		monitor.NextRun = &now
 	}
 
 	if err := h.db.UpdateDNSMonitor(monitor); err != nil {
