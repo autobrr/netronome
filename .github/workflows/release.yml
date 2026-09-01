@@ -47,14 +47,6 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Cache Go modules
-        uses: actions/cache@v6
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
       - name: Install dependencies
         run: go mod download
 
@@ -145,14 +137,31 @@ jobs:
           name: web-dist
           path: web/dist
 
+      # setup-go keys only on go.mod, so the test job's native cache wins that
+      # key and blocks the save here. A separate namespace keeps the
+      # cross-compile build cache. Pull request runs cannot read each other's
+      # caches, so the entry that matters is the one a develop push writes.
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: true
+          cache: false
 
+      - name: Cache Go cross-compile build cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-goreleaser-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-goreleaser-${{ env.GO_VERSION }}-
+
+      # Branch pushes build too, not just pull requests. A develop push is what
+      # writes the cache every pull request restores from, and a run that built
+      # nothing would store an empty one under that key and never replace it.
       - name: Run GoReleaser build
-        if: github.event_name == 'pull_request'
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
