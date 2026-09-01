@@ -65,7 +65,7 @@ func TestStorePKCEVerifierEnforcesCap(t *testing.T) {
 
 	assert.LessOrEqual(t, len(h.pkceVerifiers), pkceVerifierMax)
 
-	// The newest state survives the eviction of the oldest entries.
+	// The newest state survives the eviction.
 	_, ok := h.getPKCEVerifier(fmt.Sprintf("state-%d", pkceVerifierMax+1))
 	assert.True(t, ok)
 }

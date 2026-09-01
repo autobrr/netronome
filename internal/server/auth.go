@@ -336,8 +336,8 @@ func sessionUsername(claims *SessionClaims) string {
 }
 
 // storePKCEVerifier stores a PKCE code verifier for the given state. It first
-// removes the verifiers of the logins that were abandoned, then keeps the map
-// below pkceVerifierMax.
+// removes the verifiers of abandoned logins, then keeps the map below
+// pkceVerifierMax.
 //
 // Use it before you redirect a user to the identity provider. The callback
 // reads the verifier back with getPKCEVerifier.
