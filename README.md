@@ -39,18 +39,15 @@ Download prebuilt binaries from the [Releases page](https://github.com/autobrr/n
 ### Option 2: Download with curl
 
 Use this on Linux, macOS, or FreeBSD with `curl` and `tar` installed.
+The extraction step uses `sudo` to write to `/usr/local/bin`. If you run as root, omit `sudo`.
 
 ```bash
 arch=$(uname -m | sed 's/^aarch64$/arm64/; s/^amd64$/x86_64/; s/^armv[67]l$/arm/')
 url=$(curl -fsSL https://api.github.com/repos/autobrr/netronome/releases/latest | grep -i "browser_download_url.*_$(uname -s)_${arch}\.tar\.gz\"" | cut -d'"' -f4)
 curl -fL "$url" -o netronome.tar.gz &&
-  tar -C /usr/local/bin -xzf netronome.tar.gz
-
-# Generate the default configuration
-netronome generate-config
-
-# Start the server
-netronome serve
+  sudo tar -C /usr/local/bin -xzf netronome.tar.gz &&
+  netronome generate-config &&
+  netronome serve
 ```
 
 Open `http://localhost:7575` in your browser and create your account through the registration page. For Docker users, see the [Docker Installation](#docker-installation) section.
