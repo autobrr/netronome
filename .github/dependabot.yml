@@ -28,3 +28,10 @@ updates:
       npm:
         patterns:
           - "*"
+    ignore:
+      # Do not offer npm major updates. The group matches all packages, so a
+      # major update would arrive with the routine monthly minor and patch
+      # bumps. Do majors by hand, one at a time. Use `pnpm outdated` to see
+      # which majors are available.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

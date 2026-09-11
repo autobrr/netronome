@@ -113,10 +113,10 @@ export const getServerTypeLabel = (server: Server): string => {
  */
 export const getServerTypeColorClass = (server: Server): string => {
   if (server.isIperf) {
-    return "text-purple-600 dark:text-purple-400 drop-shadow-[0_0_1px_rgba(168,85,247,0.8)]";
+    return "text-purple-600 dark:text-purple-400 drop-shadow-[0_0_1px_var(--color-purple-500)]";
   }
   if (server.isLibrespeed) {
-    return "text-blue-600 dark:text-blue-400 drop-shadow-[0_0_1px_rgba(96,165,250,0.8)]";
+    return "text-blue-600 dark:text-blue-400 drop-shadow-[0_0_1px_var(--color-blue-400)]";
   }
-  return "text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_rgba(251,191,36,0.8)]";
+  return "text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_var(--color-amber-400)]";
 };

@@ -72,6 +72,7 @@ const (
 	NotificationCategorySpeedtest  = "speedtest"
 	NotificationCategoryPacketLoss = "packetloss"
 	NotificationCategoryAgent      = "agent"
+	NotificationCategoryDNS        = "dns"
 )
 
 // NotificationEventType constants
@@ -87,6 +88,10 @@ const (
 	NotificationEventPacketLossHigh      = "threshold_exceeded"
 	NotificationEventPacketLossDown      = "monitor_down"
 	NotificationEventPacketLossRecovered = "monitor_recovered"
+
+	// DNS monitor events
+	NotificationEventDNSDown      = "monitor_down"
+	NotificationEventDNSRecovered = "monitor_recovered"
 
 	// Agent events
 	NotificationEventAgentOffline       = "offline"

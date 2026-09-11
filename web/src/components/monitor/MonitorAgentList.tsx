@@ -530,13 +530,6 @@ const AgentActionsCell: React.FC<AgentActionsCellProps> = ({
         setFeaturedAgentIds(existingFeatured);
       }
 
-      if (existingFeatured.length >= 3) {
-        showToast("Feature limit reached", "error", {
-          description: "You can only feature up to 3 agents at a time",
-        });
-        return;
-      }
-
       if (existingFeatured.includes(agent.id)) {
         setIsFeatured(true);
         return;

@@ -42,18 +42,10 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-
-      - name: Cache Go modules
-        uses: actions/cache@v6
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
 
       - name: Install dependencies
         run: go mod download
@@ -86,7 +78,7 @@ jobs:
           package_json_file: web/package.json
 
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "pnpm"
@@ -103,6 +95,25 @@ jobs:
       - name: Type check frontend
         working-directory: web
         run: pnpm tsc --noEmit
+
+      - name: Test frontend
+        working-directory: web
+        run: pnpm test
+
+      - name: Fetch premium themes
+        run: |
+          if [ -n "${{ secrets.THEMES_REPO_TOKEN }}" ]; then
+            rm -rf .themes-temp
+            git clone --depth=1 --filter=blob:none --sparse \
+              https://${{ secrets.THEMES_REPO_TOKEN }}@github.com/autobrr/qui-premium-themes.git .themes-temp
+            cd .themes-temp && git sparse-checkout set --cone netronome && cd ..
+            mkdir -p web/src/themes/premium
+            cp .themes-temp/netronome/*.css web/src/themes/premium/
+            rm -rf .themes-temp
+            echo "Premium themes fetched successfully"
+          else
+            echo "THEMES_REPO_TOKEN not set, skipping premium themes"
+          fi
 
       - name: Build web frontend
         working-directory: web
@@ -130,14 +141,31 @@ jobs:
           name: web-dist
           path: web/dist
 
+      # setup-go keys only on go.mod, so the test job's native cache wins that
+      # key and blocks the save here. A separate namespace keeps the
+      # cross-compile build cache. Pull request runs cannot read each other's
+      # caches, so the entry that matters is the one a develop push writes.
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: true
+          cache: false
 
+      - name: Cache Go cross-compile build cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-goreleaser-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-goreleaser-${{ env.GO_VERSION }}-
+
+      # Branch pushes build too, not just pull requests. A develop push is what
+      # writes the cache every pull request restores from, and a run that built
+      # nothing would store an empty one under that key and never replace it.
       - name: Run GoReleaser build
-        if: github.event_name == 'pull_request'
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
@@ -146,6 +174,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILDER: ${{ github.actor }}@github-actions
+          POLAR_ORG_ID: ${{ secrets.POLAR_ORG_ID }}
 
       - name: Run GoReleaser build and publish tags
         if: startsWith(github.ref, 'refs/tags/')
@@ -157,6 +186,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILDER: ${{ github.actor }}@github-actions
+          POLAR_ORG_ID: ${{ secrets.POLAR_ORG_ID }}
 
       - name: Upload assets
         uses: actions/upload-artifact@v7
@@ -235,6 +265,7 @@ jobs:
             REVISION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
             BUILDER=${{ github.actor }}@github-actions
             GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            POLAR_ORG_ID=${{ secrets.POLAR_ORG_ID }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false

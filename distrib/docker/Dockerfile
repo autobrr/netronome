@@ -1,4 +1,4 @@
-FROM node:lts-alpine3.22 AS web-builder
+FROM node:lts-alpine3.23 AS web-builder
 
 RUN npm install -g pnpm@9.9.0
 
@@ -10,7 +10,7 @@ RUN pnpm install --frozen-lockfile
 COPY web/ ./
 RUN pnpm run build
 
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine3.22 AS app-builder
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine3.23 AS app-builder
 
 ARG VERSION=dev
 ARG REVISION=dev
@@ -80,7 +80,7 @@ RUN export GOOS=$TARGETOS; \
     -o /app/netronome ./cmd/netronome
 
 # build runner
-FROM alpine:3.22
+FROM alpine:3.23
 
 # Install dependencies including tini for proper process reaping
 RUN apk add --no-cache tini sqlite iperf3 traceroute mtr tzdata vnstat

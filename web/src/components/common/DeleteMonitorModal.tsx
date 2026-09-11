@@ -9,13 +9,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PacketLossMonitor } from "@/types/types";
-
 interface DeleteMonitorModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  monitor: PacketLossMonitor | null;
+  // any monitor with a name and a host: packet loss and DNS both fit
+  monitor: { name?: string; host: string } | null;
 }
 
 export function DeleteMonitorModal({

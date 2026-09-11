@@ -38,6 +38,12 @@ export interface DashboardSettings {
   recentSpeedtestsRows: number;
 }
 
+export interface PurgeHistoryResult {
+  speedTests: number;
+  packetLoss: number;
+  dns: number;
+}
+
 export const settingsApi = {
   getDashboardSettings: async (): Promise<DashboardSettings> => {
     const response = await fetch(getApiUrl("/settings/dashboard"), {
@@ -57,6 +63,17 @@ export const settingsApi = {
       body: JSON.stringify(input),
     });
     await assertOk(response, "Failed to update dashboard settings");
+    return response.json();
+  },
+
+  purgeHistory: async (olderThanDays: number): Promise<PurgeHistoryResult> => {
+    const response = await fetch(getApiUrl("/history/purge"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ olderThanDays }),
+    });
+    await assertOk(response, "Failed to purge history");
     return response.json();
   },
 };
