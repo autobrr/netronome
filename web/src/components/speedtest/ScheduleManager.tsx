@@ -49,6 +49,9 @@ interface ScheduleManagerProps {
   servers: Server[];
   selectedServers: Server[];
   testType: TestType;
+  customUrl?: string;
+  downloadThreads?: 2 | 4 | 8;
+  downloadTimeout?: number;
 }
 
 interface IntervalOption {
@@ -182,7 +185,7 @@ const formatExactTimeFromUTC = (time: string): string => {
   return formatTimeWithSettings(candidate);
 };
 
-export default function ScheduleManager({ servers, selectedServers, testType }: ScheduleManagerProps) {
+export default function ScheduleManager({ servers, selectedServers, testType, customUrl, downloadThreads = 4, downloadTimeout = 30 }: ScheduleManagerProps) {
   const queryClient = useQueryClient();
   const [iperfServers, setIperfServers] = useState<SavedIperfServer[]>([]);
   const [interval, setInterval] = useState<string>("1h");
@@ -280,8 +283,10 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
 
   const requiresServerSelection = testType === "iperf" || testType === "librespeed";
   const isMissingServer = requiresServerSelection && selectedServers.length === 0;
+  const isMissingUrlDownloadTarget =
+    testType === "url_download" && selectedServers.length === 0 && !customUrl?.trim();
   const isMissingTime = scheduleType === "exact" && exactTimes.length === 0;
-  const isCreateDisabled = isMissingServer || isMissingTime;
+  const isCreateDisabled = isMissingServer || isMissingUrlDownloadTarget || isMissingTime;
 
   function getScheduleDescription(): string {
     if (scheduleType === "interval") {
@@ -297,6 +302,9 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
     if (isMissingServer) {
       const label = testType === "iperf" ? "iperf3" : "LibreSpeed";
       return <>Select a {label} server</>;
+    }
+    if (isMissingUrlDownloadTarget) {
+      return <>Select a server or enter a custom URL</>;
     }
     if (isMissingTime) {
       return <>Select at least one time</>;
@@ -325,8 +333,16 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
       return;
     }
 
+    if (isMissingUrlDownloadTarget) {
+      const msg = "Please select a server or enter a custom URL before creating a schedule";
+      setError(msg);
+      showToast(msg, "error");
+      return;
+    }
+
     const isIperfServer = selectedServers[0]?.isIperf ?? false;
     const isLibrespeedServer = selectedServers[0]?.isLibrespeed ?? false;
+    const isUrlDownload = testType === "url_download";
 
     // Get user's timezone for conversion
     const timeSettings = getTimeFormatSettings();
@@ -349,6 +365,10 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
         serverIds: selectedServers.map((s) => s.id),
         useIperf: isIperfServer,
         useLibrespeed: isLibrespeedServer,
+        useUrlDownload: isUrlDownload,
+        downloadUrl: isUrlDownload ? (customUrl || selectedServers[0]?.url) : undefined,
+        downloadThreads: isUrlDownload ? downloadThreads : undefined,
+        downloadTimeout: isUrlDownload ? downloadTimeout : undefined,
         serverHost: isIperfServer ? selectedServers[0].host : undefined,
         serverName: isIperfServer ? selectedServers[0].name : undefined,
         isPublicServer: isLibrespeedServer && (selectedServers[0]?.isPublic ?? false),
@@ -413,7 +433,47 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
     }
   };
 
-  const getServerNames = (serverIds: string[] | undefined) => {
+  const getServerNames = (serverIds: string[] | undefined, schedule?: Schedule) => {
+    // Handle URL download type
+    if (schedule?.options?.useUrlDownload) {
+      const url = schedule.options.downloadUrl;
+      const threads = schedule.options.downloadThreads || 4;
+      const timeout = schedule.options.downloadTimeout || 30;
+      let displayHost = "URL Download";
+      
+      if (url) {
+        try {
+          const urlObj = new URL(url);
+          displayHost = urlObj.hostname;
+        } catch {
+          // If URL parsing fails, try to extract host from custom URL
+          displayHost = url.split("/")[2] || url;
+        }
+      } else if (serverIds && serverIds.length > 0) {
+        // Try to find server and extract host from it
+        const server = servers.find((s: Server) => s.id === serverIds[0]);
+        if (server?.url) {
+          try {
+            const urlObj = new URL(server.url);
+            displayHost = urlObj.hostname;
+          } catch {
+            displayHost = server.host || server.name;
+          }
+        } else if (server) {
+          displayHost = server.host || server.name;
+        }
+      }
+      
+      return (
+        <span>
+          {displayHost} <span className="text-gray-500 dark:text-gray-400 text-xs">({threads} threads, {timeout}s timeout)</span> -{" "}
+          <span className="text-orange-600 dark:text-orange-400 drop-shadow-[0_0_1px_rgba(251,146,60,0.8)]">
+            URL Download
+          </span>
+        </span>
+      );
+    }
+
     const serversList = (serverIds || [])
       .map((id: string) => {
         if (id.startsWith("iperf3-")) {
@@ -863,9 +923,17 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
                                           Server:
                                         </span>{" "}
                                         <span className="truncate">
-                                          {getServerNames(schedule.serverIds)}
+                                          {getServerNames(schedule.serverIds, schedule)}
                                         </span>
                                       </p>
+                                      {schedule.options?.useUrlDownload && schedule.options.downloadUrl && (
+                                        <p className="text-gray-600 dark:text-gray-400 text-xs mt-2 flex items-start gap-1">
+                                          <span className="font-medium flex-shrink-0">URL:</span>
+                                          <span className="text-blue-600 dark:text-blue-400 truncate">
+                                            {schedule.options.downloadUrl}
+                                          </span>
+                                        </p>
+                                      )}
                                       {schedule.interval.startsWith("exact:") &&
                                         schedule.interval
                                           .substring(6)

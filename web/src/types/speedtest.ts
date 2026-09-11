@@ -9,8 +9,12 @@ export interface SpeedTestOptions {
   enableUpload?: boolean;
   useIperf?: boolean;
   useLibrespeed?: boolean;
+  useUrlDownload?: boolean;
   serverHost?: string;
   serverName?: string;
+  downloadUrl?: string;
+  downloadThreads?: number;
+  downloadTimeout?: number;
 }
 
 export interface SpeedTest {

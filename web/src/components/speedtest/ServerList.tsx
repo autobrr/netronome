@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import { SavedIperfServer, Server } from "@/types/types";
 import {
@@ -45,10 +45,16 @@ interface ServerListProps {
   onMultiSelectChange: (enabled: boolean) => void;
   onRunTest: () => Promise<void>;
   isLoading: boolean;
-  testType: "speedtest" | "iperf" | "librespeed";
-  onTestTypeChange: (testType: "speedtest" | "iperf" | "librespeed") => void;
+  testType: "speedtest" | "iperf" | "librespeed" | "url_download";
+  onTestTypeChange: (testType: "speedtest" | "iperf" | "librespeed" | "url_download") => void;
   isServersLoading?: boolean;
   isServersError?: boolean;
+  customUrl?: string;
+  onCustomUrlChange?: (url: string) => void;
+  downloadThreads?: 2 | 4 | 8;
+  onDownloadThreadsChange?: (threads: 2 | 4 | 8) => void;
+  downloadTimeout?: number;
+  onDownloadTimeoutChange?: (timeout: number) => void;
 }
 
 export const ServerList: React.FC<ServerListProps> = ({
@@ -63,6 +69,12 @@ export const ServerList: React.FC<ServerListProps> = ({
   onTestTypeChange,
   isServersLoading,
   isServersError,
+  customUrl: propCustomUrl,
+  onCustomUrlChange,
+  downloadThreads: propDownloadThreads,
+  onDownloadThreadsChange,
+  downloadTimeout: propDownloadTimeout,
+  onDownloadTimeoutChange,
 }) => {
   const getInitialDisplayCount = () => {
     if (typeof window !== "undefined") {
@@ -133,6 +145,58 @@ export const ServerList: React.FC<ServerListProps> = ({
 
   const handleServerSelect = (server: Server) => {
     onSelect(server);
+    // For URL download, selecting a built-in server is mutually exclusive
+    // with the custom URL input — clear it to avoid ambiguity.
+    if (testType === "url_download" && customUrl) {
+      handleCustomUrlChange("");
+    }
+  };
+
+  // URL Download state - sync with props
+  const [customUrl, setCustomUrl] = useState(propCustomUrl || "");
+  const [downloadThreads, setDownloadThreads] = useState<2 | 4 | 8>(propDownloadThreads || 4);
+  const [downloadTimeout, setDownloadTimeout] = useState<number | ''>(propDownloadTimeout || 30);
+  const [urlDownloadServers, setUrlDownloadServers] = useState<Server[]>([]);
+
+  // Sync local state with props
+  useEffect(() => {
+    if (propCustomUrl !== undefined) {
+      setCustomUrl(propCustomUrl);
+    }
+  }, [propCustomUrl]);
+
+  useEffect(() => {
+    if (propDownloadThreads !== undefined) {
+      setDownloadThreads(propDownloadThreads);
+    }
+  }, [propDownloadThreads]);
+
+  useEffect(() => {
+    if (propDownloadTimeout !== undefined && propDownloadTimeout !== 0) {
+      setDownloadTimeout(propDownloadTimeout);
+    }
+  }, [propDownloadTimeout]);
+
+  // Update parent when local state changes
+  const handleCustomUrlChange = (url: string) => {
+    setCustomUrl(url);
+    onCustomUrlChange?.(url);
+    // For URL download, custom URL is mutually exclusive with built-in
+    // server selection — deselect any selected preset when typing a URL.
+    if (testType === "url_download" && url.trim() && selectedServers.length > 0) {
+      selectedServers.forEach((server) => onSelect(server));
+    }
+  };
+
+  const handleDownloadThreadsChange = (threads: 2 | 4 | 8) => {
+    setDownloadThreads(threads);
+    onDownloadThreadsChange?.(threads);
+  };
+
+  const handleDownloadTimeoutChange = (timeout: number | '') => {
+    setDownloadTimeout(timeout);
+    // Pass 0 for empty values so backend uses default
+    onDownloadTimeoutChange?.(timeout === '' ? 0 : timeout);
   };
 
   const handleAddCustomServer = () => {
@@ -170,6 +234,7 @@ export const ServerList: React.FC<ServerListProps> = ({
       | "speedtest"
       | "iperf"
       | "librespeed"
+      | "url_download"
       | null;
     if (savedTestType && testType !== savedTestType) {
       onTestTypeChange(savedTestType);
@@ -178,7 +243,7 @@ export const ServerList: React.FC<ServerListProps> = ({
 
   // Handle test type change
   const handleTestTypeChange = (
-    newTestType: "speedtest" | "iperf" | "librespeed"
+    newTestType: "speedtest" | "iperf" | "librespeed" | "url_download"
   ) => {
     // Clear selected servers when toggling
     selectedServers.forEach((server) => onSelect(server));
@@ -260,6 +325,37 @@ export const ServerList: React.FC<ServerListProps> = ({
       });
     }
   }, [testType]); // Re-run when useIperf changes
+
+  // Fetch URL download servers when testType is url_download
+  // NOTE: must be declared before the useEffect below that references it,
+  // otherwise the dependency array touches a TDZ const during render.
+  const fetchUrlDownloadServers = useCallback(async () => {
+    try {
+      const response = await fetch(getApiUrl("/servers?testType=url_download"));
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || "Failed to fetch URL download servers"
+        );
+      }
+      const data = await response.json();
+      setUrlDownloadServers(data || []);
+    } catch (error) {
+      console.error("Failed to fetch URL download servers:", error);
+      throw error;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (testType === "url_download") {
+      fetchUrlDownloadServers().catch((error) => {
+        console.error("Failed to fetch URL download servers:", error);
+        showToast("Failed to load URL download servers", "error", {
+          description: error instanceof Error ? error.message : "Unknown error",
+        });
+      });
+    }
+  }, [testType, fetchUrlDownloadServers]);
 
   // Update filterCountry logic to handle select component values
   const filteredServersWithSelect = useMemo(() => {
@@ -369,19 +465,20 @@ export const ServerList: React.FC<ServerListProps> = ({
                       {/* Test Type Radio Group */}
                       <RadioGroup
                         value={testType}
-                        onValueChange={(value) => handleTestTypeChange(value as "speedtest" | "iperf" | "librespeed")}
+                        onValueChange={(value) => handleTestTypeChange(value as "speedtest" | "iperf" | "librespeed" | "url_download")}
                         className="flex items-center gap-2 sm:gap-4"
                       >
                         <RadioOption value="speedtest">Speedtest</RadioOption>
                         <RadioOption value="iperf">iperf3</RadioOption>
                         <RadioOption value="librespeed">Librespeed</RadioOption>
+                        <RadioOption value="url_download">URL Download</RadioOption>
                       </RadioGroup>
                     </div>
 
                     {/* Run Test Button */}
                     <Button
                       onClick={onRunTest}
-                      disabled={isLoading || selectedServers.length === 0}
+                      disabled={isLoading || (testType === 'url_download' ? (selectedServers.length === 0 && !customUrl.trim()) : selectedServers.length === 0)}
                       className="w-full sm:w-auto"
                     >
                       Run
@@ -411,6 +508,66 @@ export const ServerList: React.FC<ServerListProps> = ({
                             + Add
                           </button>
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {testType === "url_download" && (
+                    <div className="flex flex-col gap-4 mb-4">
+                      {/* Custom URL Input */}
+                      <div className="flex flex-col gap-2">
+                        <Label className="text-sm text-gray-700 dark:text-gray-300">
+                          Custom URL (optional)
+                        </Label>
+                        <Input
+                          type="text"
+                          placeholder="https://example.com/testfile.bin"
+                          value={customUrl}
+                          onChange={(e) => handleCustomUrlChange(e.target.value)}
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Enter a custom URL or select from built-in IDC servers below
+                        </p>
+                      </div>
+
+                      {/* Thread Count Selector */}
+                      <div className="flex flex-col gap-2">
+                        <Label className="text-sm text-gray-700 dark:text-gray-300">
+                          Concurrent Threads
+                        </Label>
+                        <div className="flex gap-2">
+                          {([2, 4, 8] as const).map((threads) => (
+                            <button
+                              key={threads}
+                              onClick={() => handleDownloadThreadsChange(threads)}
+                              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                                downloadThreads === threads
+                                  ? "bg-blue-500 text-white shadow-lg"
+                                  : "bg-gray-200/50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 hover:bg-gray-300/50 dark:hover:bg-gray-700/50"
+                              } border border-gray-300 dark:border-gray-900`}
+                            >
+                              {threads}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Timeout Selector */}
+                      <div className="flex flex-col gap-2">
+                        <Label className="text-sm text-gray-700 dark:text-gray-300">
+                          Timeout (seconds)
+                        </Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="300"
+                          value={downloadTimeout}
+                          onChange={(e) => handleDownloadTimeoutChange(e.target.value === '' ? '' : parseInt(e.target.value))}
+                          className="w-full"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Default: 30s. Test will save partial results if timeout is reached.
+                        </p>
                       </div>
                     </div>
                   )}
@@ -606,6 +763,44 @@ export const ServerList: React.FC<ServerListProps> = ({
                         </div>
                       )}
                     </>
+                  ) : testType === "url_download" ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {urlDownloadServers.map((server) => (
+                        <motion.div
+                          key={server.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <button
+                            onClick={() => handleServerSelect(server)}
+                            className={`w-full p-4 rounded-lg text-left transition-colors ${
+                              selectedServers.some((s) => s.id === server.id)
+                                ? "bg-blue-100/50 dark:bg-blue-500/10 border-blue-400/50 shadow-lg"
+                                : "bg-gray-100/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-900 hover:bg-gray-200/50 dark:hover:bg-gray-800 shadow-lg"
+                            } border`}
+                          >
+                            <div className="flex flex-col gap-1">
+                              <span className="text-blue-600 dark:text-blue-300 font-medium truncate">
+                                {server.sponsor}
+                              </span>
+                              <span className="text-gray-600 dark:text-gray-400 text-sm">
+                                {server.name}
+                                <span
+                                  className="block truncate text-xs text-gray-500 dark:text-gray-500"
+                                  title={server.host}
+                                >
+                                  {server.host}
+                                </span>
+                              </span>
+                              <span className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                                {server.country}
+                              </span>
+                            </div>
+                          </button>
+                        </motion.div>
+                      ))}
+                    </div>
                   ) : (
                     <>
                       {filteredServersWithSelect.length === 0 &&
@@ -704,6 +899,7 @@ export const ServerList: React.FC<ServerListProps> = ({
 
                   {/* Load More Button */}
                   {testType !== "iperf" &&
+                    testType !== "url_download" &&
                     filteredServersWithSelect.length > displayCount && (
                       <div className="flex justify-center mt-6">
                         <button
@@ -768,7 +964,7 @@ export const ServerList: React.FC<ServerListProps> = ({
 };
 
 const RadioOption: React.FC<{
-  value: "speedtest" | "iperf" | "librespeed";
+  value: "speedtest" | "iperf" | "librespeed" | "url_download";
   children: React.ReactNode;
 }> = ({ value, children }) => (
   <div className="flex items-center gap-2">
