@@ -44,6 +44,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { getApiUrl } from "@/utils/baseUrl";
 import { formatNextRun } from "@/utils/timeUtils";
 import { Button } from "@/components/ui/Button";
+import { resolveServerReferences } from "@/utils/speedtestSettings";
 
 interface ScheduleManagerProps {
   servers: Server[];
@@ -413,9 +414,17 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
     }
   };
 
-  const getServerNames = (serverIds: string[] | undefined) => {
-    const serversList = (serverIds || [])
-      .map((id: string) => {
+  const getServerNames = (
+    serverIds: string[] | undefined,
+    options: Schedule["options"],
+  ) => {
+    const isLibrespeedSchedule = options.useLibrespeed === true;
+    const serversList = resolveServerReferences(
+      serverIds,
+      servers,
+      (server) => Boolean(server.isLibrespeed) === isLibrespeedSchedule,
+    )
+      .map(({ id, server }) => {
         if (id.startsWith("iperf3-")) {
           const host = id.substring(7);
           const iperfServer = iperfServers.find(
@@ -465,7 +474,6 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
           );
         }
 
-        const server = servers.find((s: Server) => s.id === id);
         if (server) {
           if (server.isLibrespeed) {
             return (
@@ -486,9 +494,16 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
             </span>
           );
         }
-        return null;
-      })
-      .filter(Boolean);
+        const provider = isLibrespeedSchedule ? "librespeed" : "speedtest.net";
+        return (
+          <span
+            key={id}
+            title="This saved server is not in the active catalogue"
+          >
+            Saved server {id} - {provider}
+          </span>
+        );
+      });
 
     if (serversList.length === 1) {
       return serversList[0];
@@ -863,7 +878,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
                                           Server:
                                         </span>{" "}
                                         <span className="truncate">
-                                          {getServerNames(schedule.serverIds)}
+                                          {getServerNames(schedule.serverIds, schedule.options)}
                                         </span>
                                       </p>
                                       {schedule.interval.startsWith("exact:") &&

@@ -5,10 +5,20 @@
 
 import { getApiUrl } from "@/utils/baseUrl";
 import { SpeedTestOptions } from "@/types/speedtest";
+import type { SpeedtestServerQuery } from "@/utils/speedtestSettings";
 
-export async function getServers(testType: string) {
+/** Fetches the selected provider's servers, optionally using Speedtest.net discovery parameters. */
+export async function getServers(testType: string, query: SpeedtestServerQuery = {}) {
   try {
-    const response = await fetch(getApiUrl(`/servers?testType=${testType}`));
+    const params = new URLSearchParams({ testType });
+    if (query.global) {
+      params.set("global", "true");
+    }
+    if (query.latitude !== undefined && query.longitude !== undefined) {
+      params.set("latitude", query.latitude.toString());
+      params.set("longitude", query.longitude.toString());
+    }
+    const response = await fetch(getApiUrl(`/servers?${params.toString()}`));
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || "Failed to fetch servers");

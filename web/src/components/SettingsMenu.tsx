@@ -11,6 +11,7 @@ import {
   MapPinIcon,
   PresentationChartLineIcon,
   CircleStackIcon,
+  ServerStackIcon,
   SwatchIcon,
   ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
@@ -20,6 +21,7 @@ import { DistanceSettings } from "./settings/DistanceSettings";
 import { DashboardSettings } from "./settings/DashboardSettings";
 import { DataSettings } from "./settings/DataSettings";
 import { ThemeSettings } from "./settings/ThemeSettings";
+import { SpeedtestSettings } from "./settings/SpeedtestSettings";
 import { Button } from "@/components/ui/Button";
 import {
   Dialog,
@@ -61,6 +63,12 @@ export const settingsSections: SettingsSection[] = [
     label: "Distance Units",
     icon: <MapPinIcon className="w-4 h-4" />,
     component: DistanceSettings,
+  },
+  {
+    id: "speedtest",
+    label: "Speedtest.net",
+    icon: <ServerStackIcon className="w-4 h-4" />,
+    component: SpeedtestSettings,
   },
   {
     id: "dashboard",

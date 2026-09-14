@@ -20,12 +20,14 @@ func TestSpeedTest_Save(t *testing.T) {
 		ctx := context.Background()
 
 		serverHost := "speedtest.example.com"
+		serverCity := "Brisbane"
 		jitter := 2.5
 
 		speedTest := types.SpeedTestResult{
 			ServerName:    "Test Server",
 			ServerID:      "test-123",
 			ServerHost:    &serverHost,
+			ServerCity:    &serverCity,
 			TestType:      "iperf3",
 			DownloadSpeed: 100.5,
 			UploadSpeed:   50.25,
@@ -50,6 +52,8 @@ func TestSpeedTest_Save(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, results.Data, 1)
 		assert.NotZero(t, results.Data[0].CreatedAt)
+		require.NotNil(t, results.Data[0].ServerCity)
+		assert.Equal(t, serverCity, *results.Data[0].ServerCity)
 	})
 }
 

@@ -18,11 +18,13 @@ export interface Server {
   isPublic?: boolean;
 }
 
+/** A persisted speed measurement and its recorded server identity. */
 export interface SpeedTestResult {
   id: string;
   serverId: string;
   serverName: string;
   serverHost: string;
+  serverCity?: string | null;
   testType: "speedtest" | "iperf3" | "librespeed";
   downloadSpeed: number;
   uploadSpeed: number;

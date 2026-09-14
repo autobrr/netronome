@@ -19,6 +19,13 @@ import { showToast } from "@/components/common/Toast";
 import { getPublicTheme } from "@/api/license";
 import { applyPublicColorTheme } from "@/utils/colorTheme";
 import {
+  selectedServersForKey,
+  speedtestSelectionKey,
+  speedtestServerQuery,
+  useSpeedtestSettings,
+  type KeyedServerSelection,
+} from "@/utils/speedtestSettings";
+import {
   ChartBarIcon,
   PlayIcon,
   GlobeAltIcon,
@@ -33,6 +40,7 @@ import {
   TestOptions,
   PaginatedResponse,
   Schedule,
+  TestType,
 } from "@/types/types";
 import {
   useQuery,
@@ -58,6 +66,8 @@ interface MainProps {
 export default function Main({ isPublic = false }: MainProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const speedtestSettings = useSpeedtestSettings();
+  const speedtestQuery = speedtestServerQuery(speedtestSettings);
 
   // The public dashboard uses the server-configured public theme. Boot
   // deliberately skipped the localStorage theme on /public; on failure the
@@ -84,10 +94,14 @@ export default function Main({ isPublic = false }: MainProps) {
     useLibrespeed: false,
     serverIds: [],
   });
-  const [testType, setTestType] = useState<
-    "speedtest" | "iperf" | "librespeed"
-  >("speedtest");
-  const [selectedServers, setSelectedServers] = useState<Server[]>([]);
+  const [testType, setTestType] = useState<TestType>("speedtest");
+  const activeServerSelectionKey = testType === "speedtest"
+    ? speedtestSelectionKey(speedtestSettings)
+    : testType;
+  const [serverSelection, setServerSelection] = useState<KeyedServerSelection<Server>>(
+    () => ({ key: activeServerSelectionKey, servers: [] }),
+  );
+  const selectedServers = selectedServersForKey(serverSelection, activeServerSelectionKey);
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
     "idle"
@@ -143,11 +157,15 @@ export default function Main({ isPublic = false }: MainProps) {
   };
 
   // Queries
-  const { data: speedtestServers = [] } = useQuery({
-    queryKey: ["servers", "speedtest"],
-    queryFn: () => getServers("speedtest"),
+  const {
+    data: speedtestServers = [],
+    isLoading: isSpeedtestLoading,
+    isError: isSpeedtestError,
+  } = useQuery({
+    queryKey: ["servers", "speedtest", speedtestQuery],
+    queryFn: () => getServers("speedtest", speedtestQuery),
     enabled: !isPublic,
-  }) as { data: Server[] };
+  }) as { data: Server[]; isLoading: boolean; isError: boolean };
 
   const { data: librespeedServers = [], isLoading: isLibrespeedLoading, isError: isLibrespeedError } = useQuery({
     queryKey: ["servers", "librespeed"],
@@ -272,14 +290,18 @@ export default function Main({ isPublic = false }: MainProps) {
   });
 
   const handleServerSelect = (server: Server) => {
-    setSelectedServers((prev) => {
+    setServerSelection((current) => {
+      const prev = selectedServersForKey(current, activeServerSelectionKey);
       const isSelected = prev.some((s) => s.id === server.id);
+      let servers: Server[];
       if (!options.multiServer) {
-        return isSelected ? [] : [server];
+        servers = isSelected ? [] : [server];
+      } else {
+        servers = isSelected
+          ? prev.filter((s) => s.id !== server.id)
+          : [...prev, server];
       }
-      return isSelected
-        ? prev.filter((s) => s.id !== server.id)
-        : [...prev, server];
+      return { key: activeServerSelectionKey, servers };
     });
   };
 
@@ -600,8 +622,14 @@ export default function Main({ isPublic = false }: MainProps) {
                 onRunTest={runTest}
                 progress={progress}
                 allServers={allServers}
-                isServersLoading={testType === "librespeed" ? isLibrespeedLoading : false}
-                isServersError={testType === "librespeed" ? isLibrespeedError : false}
+                isServersLoading={
+                  testType === "speedtest" ? isSpeedtestLoading :
+                  testType === "librespeed" ? isLibrespeedLoading : false
+                }
+                isServersError={
+                  testType === "speedtest" ? isSpeedtestError :
+                  testType === "librespeed" ? isLibrespeedError : false
+                }
               />
             </motion.div>
           )}

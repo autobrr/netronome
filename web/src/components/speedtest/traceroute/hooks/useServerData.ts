@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Server, SavedIperfServer } from "@/types/types";
 import { getServers } from "@/api/speedtest";
 import { getApiUrl } from "@/utils/baseUrl";
+import { speedtestServerQuery, useSpeedtestSettings } from "@/utils/speedtestSettings";
 import {
   combineServers,
   getFilteredAndSortedServers,
@@ -22,11 +23,13 @@ export const useServerData = () => {
     DEFAULT_SERVER_DISPLAY_COUNT,
   );
   const [iperfServers, setIperfServers] = useState<SavedIperfServer[]>([]);
+  const speedtestSettings = useSpeedtestSettings();
+  const serverQuery = speedtestServerQuery(speedtestSettings);
 
   // Fetch speedtest servers
   const { data: speedtestServers = [] } = useQuery({
-    queryKey: ["servers", "speedtest"],
-    queryFn: () => getServers("speedtest"),
+    queryKey: ["servers", "speedtest", serverQuery],
+    queryFn: () => getServers("speedtest", serverQuery),
   }) as { data: Server[] };
 
   // Fetch librespeed servers

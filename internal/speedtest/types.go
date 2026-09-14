@@ -10,10 +10,14 @@ import (
 	"github.com/autobrr/netronome/internal/types"
 )
 
+// Result describes a completed test and the identity of the server that actually ran it.
 type Result struct {
 	ID            int64     `json:"id"`
 	Timestamp     time.Time `json:"timestamp"`
 	Server        string    `json:"server"`
+	ServerID      string    `json:"serverId,omitempty"`
+	ServerHost    string    `json:"serverHost,omitempty"`
+	ServerCity    string    `json:"serverCity,omitempty"`
 	DownloadSpeed float64   `json:"downloadSpeed"`
 	UploadSpeed   float64   `json:"uploadSpeed"`
 	Latency       string    `json:"latency"`
@@ -21,6 +25,19 @@ type Result struct {
 	Error         string    `json:"error,omitempty"`
 	Download      float64   `json:"-"`
 	Upload        float64   `json:"-"`
+}
+
+// ServerListOptions selects which Speedtest.net server catalogue to return.
+// Global and Location are mutually exclusive.
+type ServerListOptions struct {
+	Global   bool            // Global aggregates catalogues from known regions.
+	Location *ServerLocation // Location requests the catalogue nearest this origin.
+}
+
+// ServerLocation identifies the geographic origin used to find nearby servers.
+type ServerLocation struct {
+	Latitude  float64
+	Longitude float64
 }
 
 type ServerResponse struct {
@@ -58,13 +75,13 @@ type SpeedUpdate struct {
 type TestRunner interface {
 	// RunTest executes a speed test and returns the result
 	RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error)
-	
+
 	// GetServers returns available servers for this test type
 	GetServers() ([]ServerResponse, error)
-	
+
 	// GetTestType returns the test type identifier
 	GetTestType() string
-	
+
 	// SetProgressCallback sets the callback for progress updates
 	SetProgressCallback(callback func(types.SpeedUpdate))
 }
