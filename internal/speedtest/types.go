@@ -27,18 +27,24 @@ type Result struct {
 	Upload        float64   `json:"-"`
 }
 
-// ServerListOptions selects which Speedtest.net server catalogue to return.
-// Global and Location are mutually exclusive. Refresh bypasses a valid cached catalogue.
+// ServerListOptions selects the Speedtest.net source used to populate the retained catalogue.
+// Global and Location are mutually exclusive. Refresh always fetches from the selected source.
 type ServerListOptions struct {
 	Global   bool            // Global aggregates catalogues from known regions.
 	Location *ServerLocation // Location requests the catalogue nearest this origin.
-	Refresh  bool            // Refresh fetches and replaces the selected cached catalogue.
+	Refresh  bool            // Refresh fetches the selected source even while its cache is valid.
 }
 
 // ServerLocation identifies the geographic origin used to find nearby servers.
 type ServerLocation struct {
 	Latitude  float64
 	Longitude float64
+}
+
+// ServerCatalogueStatus reports whether the selected source has been durably fetched.
+type ServerCatalogueStatus struct {
+	Stored    bool       `json:"stored"`
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 }
 
 type ServerResponse struct {

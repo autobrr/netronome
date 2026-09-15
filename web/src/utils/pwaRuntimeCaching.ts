@@ -5,6 +5,6 @@
 
 /** Keeps server catalogue requests off PWA runtime caches so explicit refreshes cannot return stale data. */
 export const speedtestServersNetworkOnlyRoute = {
-  urlPattern: /\/api\/servers(?:\?|$)/,
+  urlPattern: /\/api\/servers(?:\/catalogue\/status)?(?:\?|$)/,
   handler: "NetworkOnly" as const,
 };

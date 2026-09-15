@@ -13,6 +13,10 @@ test("server catalogue requests bypass PWA runtime caches", () => {
     "https://netronome.example/api/servers?testType=speedtest&refresh=true",
     speedtestServersNetworkOnlyRoute.urlPattern,
   );
+  assert.match(
+    "https://netronome.example/api/servers/catalogue/status?global=true",
+    speedtestServersNetworkOnlyRoute.urlPattern,
+  );
   assert.doesNotMatch(
     "https://netronome.example/api/server-status",
     speedtestServersNetworkOnlyRoute.urlPattern,

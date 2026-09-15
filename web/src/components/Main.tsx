@@ -97,7 +97,7 @@ export default function Main({ isPublic = false }: MainProps) {
   });
   const [testType, setTestType] = useState<TestType>("speedtest");
   const activeServerSelectionKey = testType === "speedtest"
-    ? speedtestSelectionKey(speedtestSettings)
+    ? speedtestSelectionKey()
     : testType;
   const [serverSelection, setServerSelection] = useState<KeyedServerSelection<Server>>(
     () => ({ key: activeServerSelectionKey, servers: [] }),

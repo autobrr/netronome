@@ -5,15 +5,18 @@
 
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { MutationObserver, QueryClient } from "@tanstack/react-query";
+import { MutationObserver, QueryClient, QueryObserver } from "@tanstack/react-query";
 import {
   formatSpeedtestServerName,
+  formatSpeedtestServerStorageStatus,
   normalizeSpeedtestSettings,
   resolveServerReferences,
   selectedServersForKey,
   speedtestResultServerKey,
   speedtestSelectionKey,
+  speedtestServerCatalogueQueryKey,
   speedtestServerQueryKey,
+  speedtestServerStatusQueryKey,
   speedtestServerQuery,
 } from "./speedtestSettings.ts";
 
@@ -57,6 +60,98 @@ test("server queries reflect the selected discovery source", () => {
       showServerCity: false,
     }),
     { latitude: 1.5, longitude: 2.5 },
+  );
+});
+
+test("server status queries distinguish discovery sources and coordinates", () => {
+  assert.deepEqual(
+    speedtestServerStatusQueryKey({ source: "local", showServerCity: false }),
+    ["servers", "speedtest", "status", "local"],
+  );
+  assert.deepEqual(
+    speedtestServerStatusQueryKey({ source: "global", showServerCity: false }),
+    ["servers", "speedtest", "status", "global"],
+  );
+  assert.notDeepEqual(
+    speedtestServerStatusQueryKey({
+      source: "coordinates",
+      latitude: 1,
+      longitude: 2,
+      showServerCity: false,
+    }),
+    speedtestServerStatusQueryKey({
+      source: "coordinates",
+      latitude: 3,
+      longitude: 4,
+      showServerCity: false,
+    }),
+  );
+});
+
+test("coordinate changes load an origin-specific server view", async () => {
+  const queryClient = new QueryClient();
+  const calls: string[] = [];
+  const localQuery = {};
+  const coordinateQuery = { latitude: 1, longitude: 2 };
+  let resolveCoordinate!: () => void;
+  const coordinateLoaded = new Promise<void>((resolve) => {
+    resolveCoordinate = resolve;
+  });
+  const observer = new QueryObserver(queryClient, {
+    queryKey: speedtestServerQueryKey(localQuery),
+    queryFn: async () => {
+      calls.push("local");
+      return ["local"];
+    },
+  });
+  const unsubscribe = observer.subscribe((result) => {
+    if (result.data?.[0] === "coordinate") resolveCoordinate();
+  });
+
+  await observer.refetch();
+  observer.setOptions({
+    queryKey: speedtestServerQueryKey(coordinateQuery),
+    queryFn: async () => {
+      calls.push("coordinate");
+      return ["coordinate"];
+    },
+  });
+  await coordinateLoaded;
+
+  assert.deepEqual(calls, ["local", "coordinate"]);
+  assert.deepEqual(observer.getCurrentResult().data, ["coordinate"]);
+  unsubscribe();
+});
+
+test("draft-origin results do not overwrite another catalogue view", () => {
+  const queryClient = new QueryClient();
+  const localKey = speedtestServerQueryKey({});
+  const draftKey = speedtestServerQueryKey({ latitude: 1, longitude: 2 });
+
+  queryClient.setQueryData(localKey, ["local"]);
+  queryClient.setQueryData(draftKey, ["draft-coordinate"]);
+
+  assert.deepEqual(queryClient.getQueryData(localKey), ["local"]);
+  assert.deepEqual(queryClient.getQueryData(draftKey), ["draft-coordinate"]);
+  assert.deepEqual(speedtestServerCatalogueQueryKey(), ["servers", "speedtest", "catalogue"]);
+});
+
+test("server storage status keeps unavailable distinct from not stored", () => {
+  assert.equal(
+    formatSpeedtestServerStorageStatus("Global", {
+      stored: undefined,
+      isLoading: false,
+      isError: true,
+    }),
+    "Stored server status unavailable",
+  );
+  assert.equal(
+    formatSpeedtestServerStorageStatus("Global", {
+      stored: false,
+      isLoading: false,
+      isError: false,
+    }),
+    "No global servers stored yet",
   );
 });
 
@@ -137,13 +232,11 @@ test("cancelled refreshes do not republish prior mutation data", async () => {
   assert.equal(successfulRefreshes, 1);
 });
 
-test("changing catalogues invalidates the selection used by runs and schedules", () => {
-  const localKey = speedtestSelectionKey({ source: "local", showServerCity: false });
-  const globalKey = speedtestSelectionKey({ source: "global", showServerCity: false });
-  const selection = { key: localKey, servers: [{ id: "123" }] };
+test("changing discovery sources preserves the retained server selection", () => {
+  const selectionKey = speedtestSelectionKey();
+  const selection = { key: selectionKey, servers: [{ id: "123" }] };
 
-  assert.deepEqual(selectedServersForKey(selection, localKey), [{ id: "123" }]);
-  assert.deepEqual(selectedServersForKey(selection, globalKey), []);
+  assert.deepEqual(selectedServersForKey(selection, selectionKey), [{ id: "123" }]);
 });
 
 test("saved schedule server IDs survive when the active catalogue cannot resolve them", () => {

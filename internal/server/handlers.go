@@ -153,6 +153,28 @@ func (s *Server) handleGetServers(c *gin.Context) {
 	c.JSON(http.StatusOK, servers)
 }
 
+func (s *Server) handleGetServerCatalogueStatus(c *gin.Context) {
+	options, err := parseServerListOptions(
+		c.Query("global"),
+		c.Query("latitude"),
+		c.Query("longitude"),
+		"",
+	)
+	if err != nil {
+		c.Status(http.StatusBadRequest)
+		_ = c.Error(err)
+		return
+	}
+
+	status, err := s.speedtest.GetSpeedtestServerCatalogueStatus(c.Request.Context(), options)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		_ = c.Error(fmt.Errorf("failed to get server catalogue status: %w", err))
+		return
+	}
+	c.JSON(http.StatusOK, status)
+}
+
 func parseServerListOptions(global, latitude, longitude, refresh string) (speedtest.ServerListOptions, error) {
 	var options speedtest.ServerListOptions
 	if global != "" {

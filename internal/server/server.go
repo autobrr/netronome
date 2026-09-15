@@ -276,6 +276,7 @@ func (s *Server) RegisterRoutes() {
 			protected.PUT("/settings/theme", licenseHandler.UpdateThemeSettings)
 
 			protected.GET("/servers", s.handleGetServers)
+			protected.GET("/servers/catalogue/status", s.handleGetServerCatalogueStatus)
 			protected.POST("/speedtest", s.handleSpeedTest)
 			protected.GET("/speedtest/status", s.handleSpeedTestStatus)
 			protected.GET("/speedtest/history", s.handleSpeedTestHistory)

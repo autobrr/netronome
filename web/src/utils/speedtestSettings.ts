@@ -37,9 +37,30 @@ export interface SpeedtestServerQuery {
   refresh?: boolean;
 }
 
-/** Identifies the Speedtest.net catalogue shared by its ordinary consumers. */
+/** Identifies all origin-specific views of the retained Speedtest.net catalogue. */
+export const speedtestServerCatalogueQueryKey = () => ["servers", "speedtest", "catalogue"] as const;
+
+/** Identifies the retained Speedtest.net catalogue as ordered from one discovery origin. */
 export const speedtestServerQueryKey = (query: SpeedtestServerQuery) =>
-  ["servers", "speedtest", query] as const;
+  [...speedtestServerCatalogueQueryKey(), query] as const;
+
+/** Identifies durable fetch status for one Speedtest.net discovery source. */
+export const speedtestServerStatusQueryKey = (settings: SpeedtestSettings) =>
+  settings.source === "coordinates"
+    ? ["servers", "speedtest", "status", settings.source, settings.latitude, settings.longitude] as const
+    : ["servers", "speedtest", "status", settings.source] as const;
+
+/** Formats the selected source's durable storage state without treating errors as absence. */
+export const formatSpeedtestServerStorageStatus = (
+  sourceLabel: string,
+  status: { stored?: boolean; isLoading: boolean; isError: boolean },
+): string => {
+  if (status.isLoading) return "Checking stored server status…";
+  if (status.isError) return "Stored server status unavailable";
+  return status.stored
+    ? `${sourceLabel} servers are stored`
+    : `No ${sourceLabel.toLowerCase()} servers stored yet`;
+};
 
 /** A server selection tied to the catalogue from which it was chosen. */
 export interface KeyedServerSelection<T> {
@@ -145,13 +166,8 @@ export const speedtestServerQuery = (settings: SpeedtestSettings): SpeedtestServ
   return {};
 };
 
-/** Returns a stable key for the Speedtest.net catalogue represented by the settings. */
-export const speedtestSelectionKey = (settings: SpeedtestSettings): string => {
-  if (settings.source === "coordinates") {
-    return `speedtest:coordinates:${settings.latitude}:${settings.longitude}`;
-  }
-  return `speedtest:${settings.source}`;
-};
+/** Returns the selection key shared by every retained Speedtest.net server. */
+export const speedtestSelectionKey = (): string => "speedtest";
 
 /** Returns selected servers only while their originating catalogue is active. */
 export const selectedServersForKey = <T>(

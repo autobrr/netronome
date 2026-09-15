@@ -12,7 +12,7 @@ import {
   MapPinIcon,
   ServerStackIcon,
 } from "@heroicons/react/24/outline";
-import { getServers } from "@/api/speedtest";
+import { getServers, getSpeedtestServerCatalogueStatus } from "@/api/speedtest";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,10 +20,13 @@ import { Switch } from "@/components/ui/switch";
 import { showToast } from "@/components/common/Toast";
 import {
   formatSpeedtestServerName,
+  formatSpeedtestServerStorageStatus,
   getSpeedtestSettings,
   normalizeSpeedtestSettings,
   saveSpeedtestSettings,
+  speedtestServerCatalogueQueryKey,
   speedtestServerQueryKey,
+  speedtestServerStatusQueryKey,
   speedtestServerQuery,
   type SpeedtestServerQuery,
   type SpeedtestServerSource,
@@ -35,9 +38,9 @@ const SOURCE_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  { value: "local", label: "Local", description: "Use servers near your detected location." },
-  { value: "global", label: "Global", description: "Build a worldwide catalogue from known regions." },
-  { value: "coordinates", label: "Coordinates", description: "Find servers near a latitude and longitude." },
+  { value: "local", label: "Local", description: "Fetch servers near your detected location." },
+  { value: "global", label: "Global", description: "Fetch servers from known regions worldwide." },
+  { value: "coordinates", label: "Coordinates", description: "Fetch servers near a latitude and longitude." },
 ];
 
 /** Configures Speedtest.net discovery, manually refreshes its catalogue, and controls history labels. */
@@ -66,11 +69,21 @@ export const SpeedtestSettings = () => {
   const normalizedSettings = normalizeSpeedtestSettings(settings);
   const serverQuery = speedtestServerQuery(normalizedSettings);
   const catalogueQueryKey = speedtestServerQueryKey(serverQuery);
+  const statusQueryKey = speedtestServerStatusQueryKey(normalizedSettings);
   const sourceLabel = SOURCE_OPTIONS.find((option) => option.value === settings.source)?.label ?? "Selected";
-  const { data: fetchedServers, dataUpdatedAt } = useQuery({
+  const { data: fetchedServers } = useQuery({
     queryKey: catalogueQueryKey,
     queryFn: ({ signal }) => getServers("speedtest", serverQuery, signal),
     enabled: false,
+  });
+  const {
+    data: catalogueStatus,
+    isError: isStatusError,
+    isPending: isStatusLoading,
+  } = useQuery({
+    queryKey: statusQueryKey,
+    queryFn: ({ signal }) => getSpeedtestServerCatalogueStatus(serverQuery, signal),
+    enabled: coordinatesValid,
   });
   const {
     error: fetchError,
@@ -83,11 +96,17 @@ export const SpeedtestSettings = () => {
       signal: AbortSignal;
       sourceLabel: string;
     }) => getServers("speedtest", { ...query, refresh: true }, signal),
-    onSuccess: (servers, { query, signal, sourceLabel }) => {
+    onSuccess: async (servers, { query, signal, sourceLabel }) => {
       if (signal.aborted) return;
       queryClient.setQueryData(speedtestServerQueryKey(query), servers);
-      showToast(`Fetched ${servers.length} Speedtest.net servers`, "success", {
-        description: `${sourceLabel} catalogue refreshed`,
+      await queryClient.invalidateQueries({
+        queryKey: speedtestServerCatalogueQueryKey(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["servers", "speedtest", "status"],
+      });
+      showToast("Server catalogue updated", "success", {
+        description: `${sourceLabel}: ${servers.length} retained servers available`,
       });
     },
   });
@@ -112,8 +131,6 @@ export const SpeedtestSettings = () => {
   };
 
   const refreshServers = async () => {
-    if (hasChanges && !persistSettings()) return;
-
     await queryClient.cancelQueries({ queryKey: catalogueQueryKey, exact: true });
     const controller = new AbortController();
     refreshAbortController.current = controller;
@@ -128,12 +145,8 @@ export const SpeedtestSettings = () => {
     }
   };
 
-  const lastUpdated = dataUpdatedAt > 0
-    ? new Date(dataUpdatedAt).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      })
+  const lastUpdated = catalogueStatus?.updatedAt
+    ? new Date(catalogueStatus.updatedAt).toLocaleString()
     : null;
 
   return (
@@ -145,12 +158,12 @@ export const SpeedtestSettings = () => {
             Speedtest.net Settings
           </h3>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Choose where servers are discovered and how saved results are labelled.
+            Save your preferred discovery source, then fetch or update its retained servers separately.
           </p>
         </div>
         {hasChanges && (
           <div className="flex items-center gap-2">
-            <Button onClick={saveSettings} disabled={!coordinatesValid}>
+            <Button onClick={saveSettings} disabled={!coordinatesValid || isFetching}>
               <CheckIcon className="h-4 w-4" />
               Save Changes
             </Button>
@@ -250,7 +263,7 @@ export const SpeedtestSettings = () => {
 
             {settings.source === "global" && (
               <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-700 dark:bg-blue-950/30 dark:text-blue-400">
-                The first worldwide fetch can take longer. Results are cached by the server for 30 minutes.
+                The first worldwide fetch can take longer. Newly discovered servers are retained indefinitely, including across Netronome restarts.
               </p>
             )}
 
@@ -264,18 +277,26 @@ export const SpeedtestSettings = () => {
                   <p className="font-medium text-gray-900 dark:text-white">
                     {isFetching
                       ? `Fetching ${sourceLabel.toLowerCase()} servers…`
-                      : fetchedServers
-                        ? `${fetchedServers.length} servers available`
-                        : "Server catalogue not loaded"}
+                      : !coordinatesValid
+                        ? "Enter valid coordinates to check this source"
+                        : formatSpeedtestServerStorageStatus(sourceLabel, {
+                            stored: catalogueStatus?.stored,
+                            isLoading: isStatusLoading,
+                            isError: isStatusError,
+                          })}
                   </p>
                   <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                     {isFetching
                       ? settings.source === "global"
                         ? "Contacting server regions worldwide. This can take a minute."
                         : "Requesting a fresh catalogue from Speedtest.net."
-                      : lastUpdated
-                        ? `Last loaded at ${lastUpdated}. Fetch again to bypass the 30-minute server cache.`
-                        : "Fetch now to verify and load the selected catalogue."}
+                      : isStatusError
+                        ? "Stored status is unavailable. You can still fetch this source."
+                        : catalogueStatus?.stored
+                          ? `${lastUpdated ? `Last updated ${lastUpdated}. ` : ""}${fetchedServers ? `${fetchedServers.length} servers are retained in total. ` : ""}Fetch again to add newly available servers.`
+                          : coordinatesValid
+                            ? "Fetch this source once to add its servers to the retained catalogue."
+                            : "Coordinates identify the exact source whose stored status will be checked."}
                   </p>
                 </div>
                 <Button
@@ -285,7 +306,7 @@ export const SpeedtestSettings = () => {
                   isLoading={isFetching}
                 >
                   {!isFetching && <ArrowPathIcon className="h-4 w-4" />}
-                  {hasChanges ? "Save & Fetch Servers" : "Fetch Fresh Servers"}
+                  {catalogueStatus?.stored ? "Update Stored Servers" : "Fetch Servers"}
                 </Button>
               </div>
 

@@ -8,6 +8,22 @@ import { SpeedTestOptions } from "@/types/speedtest";
 import type { Server } from "@/types/types";
 import type { SpeedtestServerQuery } from "@/utils/speedtestSettings";
 
+/** Durable fetch metadata for one Speedtest.net discovery source. */
+export interface SpeedtestServerCatalogueStatus {
+  stored: boolean;
+  updatedAt?: string;
+}
+
+const addSpeedtestServerQuery = (params: URLSearchParams, query: SpeedtestServerQuery) => {
+  if (query.global) {
+    params.set("global", "true");
+  }
+  if (query.latitude !== undefined && query.longitude !== undefined) {
+    params.set("latitude", query.latitude.toString());
+    params.set("longitude", query.longitude.toString());
+  }
+};
+
 /** Fetches the selected provider's servers and supports abortable, cache-bypassing Speedtest.net discovery. */
 export async function getServers(
   testType: string,
@@ -16,13 +32,7 @@ export async function getServers(
 ): Promise<Server[]> {
   try {
     const params = new URLSearchParams({ testType });
-    if (query.global) {
-      params.set("global", "true");
-    }
-    if (query.latitude !== undefined && query.longitude !== undefined) {
-      params.set("latitude", query.latitude.toString());
-      params.set("longitude", query.longitude.toString());
-    }
+    addSpeedtestServerQuery(params, query);
     if (query.refresh) {
       params.set("refresh", "true");
     }
@@ -36,6 +46,35 @@ export async function getServers(
     console.error("Error fetching servers:", error);
     throw error;
   }
+}
+
+/** Reads whether the selected source has been durably fetched without starting discovery. */
+export async function getSpeedtestServerCatalogueStatus(
+  query: SpeedtestServerQuery,
+  signal?: AbortSignal,
+): Promise<SpeedtestServerCatalogueStatus> {
+  const params = new URLSearchParams();
+  addSpeedtestServerQuery(params, query);
+  const response = await fetch(
+    getApiUrl(`/servers/catalogue/status?${params.toString()}`),
+    { signal },
+  );
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to get server catalogue status");
+  }
+
+  const data: unknown = await response.json();
+  if (typeof data !== "object" || data === null || !("stored" in data) || typeof data.stored !== "boolean") {
+    throw new Error("Invalid server catalogue status response");
+  }
+  if ("updatedAt" in data && data.updatedAt !== undefined && typeof data.updatedAt !== "string") {
+    throw new Error("Invalid server catalogue status response");
+  }
+  return {
+    stored: data.stored,
+    updatedAt: "updatedAt" in data ? data.updatedAt : undefined,
+  };
 }
 
 export async function getHistory(
