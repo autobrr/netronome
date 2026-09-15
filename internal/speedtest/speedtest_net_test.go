@@ -5,6 +5,7 @@ package speedtest
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -29,6 +30,7 @@ type memoryServerCatalogueStore struct {
 	setErr          error
 	setStarted      chan struct{}
 	releaseSet      chan struct{}
+	lastGetDeadline time.Time
 	lastSetDeadline time.Time
 }
 
@@ -38,6 +40,7 @@ func (s *memoryServerCatalogueStore) GetAppSetting(ctx context.Context, key stri
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.lastGetDeadline, _ = ctx.Deadline()
 	if s.getErr != nil {
 		return "", s.getErr
 	}
@@ -98,6 +101,12 @@ func (s *memoryServerCatalogueStore) setDeadline() time.Time {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.lastSetDeadline
+}
+
+func (s *memoryServerCatalogueStore) getDeadline() time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lastGetDeadline
 }
 
 func TestServerResponsesFallsBackToUnpingableServers(t *testing.T) {
@@ -266,6 +275,67 @@ func TestServerCataloguePersistsAcrossRunnerRestarts(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.False(t, differentCoordinateStatus.Stored)
+}
+
+func TestServerCatalogueStartupLoadHasDeadline(t *testing.T) {
+	store := &memoryServerCatalogueStore{}
+	startedAt := time.Now()
+	NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
+
+	assert.WithinDuration(t, startedAt.Add(serverCatalogueStoreTimeout), store.getDeadline(), time.Second)
+}
+
+func TestServerCatalogueBoundsPersistedCoordinateSources(t *testing.T) {
+	store := &memoryServerCatalogueStore{}
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), nil, nil, "local"))
+
+	for i := range 40 {
+		sourceKey := fmt.Sprintf("%s%d,%d", serverCatalogueCoordinatePrefix, i, i)
+		require.NoError(t, runner.updateServerCatalogue(t.Context(), nil, nil, sourceKey))
+	}
+
+	var stored persistedServerCatalogue
+	require.NoError(t, json.Unmarshal([]byte(store.value(serverCatalogueSettingKey)), &stored))
+	coordinateSources := 0
+	for sourceKey := range stored.Sources {
+		if strings.HasPrefix(sourceKey, serverCatalogueCoordinatePrefix) {
+			coordinateSources++
+		}
+	}
+	assert.Equal(t, maxCoordinateCatalogueEntries, coordinateSources)
+	assert.Contains(t, stored.Sources, "local")
+	assert.NotContains(t, stored.Sources, serverCatalogueCoordinatePrefix+"0,0")
+	assert.Contains(t, stored.Sources, serverCatalogueCoordinatePrefix+"39,39")
+
+	futureSources := make(map[string]time.Time, maxCoordinateCatalogueEntries)
+	for i := range maxCoordinateCatalogueEntries {
+		futureSources[fmt.Sprintf("%s%d,%d", serverCatalogueCoordinatePrefix, i, i)] =
+			time.Now().Add(time.Duration(i+1) * time.Hour)
+	}
+	futureCatalogue, err := json.Marshal(persistedServerCatalogue{
+		Servers: []ServerResponse{{ID: "retained"}},
+		Sources: futureSources,
+	})
+	require.NoError(t, err)
+	futureStore := &memoryServerCatalogueStore{values: map[string]string{
+		serverCatalogueSettingKey: string(futureCatalogue),
+	}}
+	futureRunner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, futureStore)
+	currentSource := serverCatalogueCoordinatePrefix + "-27.4698,153.0251"
+	require.NoError(t, futureRunner.updateServerCatalogue(t.Context(), nil, nil, currentSource))
+
+	stored = persistedServerCatalogue{}
+	require.NoError(t, json.Unmarshal([]byte(futureStore.value(serverCatalogueSettingKey)), &stored))
+	assert.Contains(t, stored.Sources, currentSource)
+	coordinateSources = 0
+	for sourceKey := range stored.Sources {
+		if strings.HasPrefix(sourceKey, serverCatalogueCoordinatePrefix) {
+			coordinateSources++
+		}
+	}
+	assert.Equal(t, maxCoordinateCatalogueEntries, coordinateSources)
+	assert.Equal(t, []ServerResponse{{ID: "retained"}}, stored.Servers)
 }
 
 func TestServerCatalogueRetriesTransientStartupLoadFailure(t *testing.T) {

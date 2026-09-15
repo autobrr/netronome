@@ -29,9 +29,11 @@ import (
 
 const (
 	// serverCatalogueFetchTimeout bounds each upstream server discovery request.
-	serverCatalogueFetchTimeout = 30 * time.Second
-	serverCatalogueStoreTimeout = 30 * time.Second
-	serverCatalogueSettingKey   = "speedtest_retained_servers"
+	serverCatalogueFetchTimeout     = 30 * time.Second
+	serverCatalogueStoreTimeout     = 30 * time.Second
+	serverCatalogueSettingKey       = "speedtest_retained_servers"
+	serverCatalogueCoordinatePrefix = "location:"
+	maxCoordinateCatalogueEntries   = 32
 )
 
 // serverCatalogueStore reads and atomically replaces the durable catalogue value.
@@ -94,7 +96,10 @@ func NewSpeedtestNetRunner(cfg config.SpeedTestConfig, store serverCatalogueStor
 			runner.globalLocations[name] = ServerLocation{Latitude: location.Lat, Longitude: location.Lon}
 		}
 	}
-	if err := runner.loadPersistedServers(context.Background()); err != nil {
+	loadCtx, cancel := context.WithTimeout(context.Background(), serverCatalogueStoreTimeout)
+	err := runner.loadPersistedServers(loadCtx)
+	cancel()
+	if err != nil {
 		runner.catalogueLoadErr = err
 		log.Error().Err(err).Msg("Failed to load retained speedtest servers")
 	}
@@ -109,6 +114,8 @@ func (r *SpeedtestNetRunner) SetProgressCallback(callback func(types.SpeedUpdate
 	r.progressCallback = callback
 }
 
+// RunTest executes a Speedtest.net test against a requested server or the nearest available server.
+// Requested IDs omitted from the public list are looked up directly before the test is rejected.
 func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
 	log.Debug().
 		Bool("isScheduled", opts.IsScheduled).
@@ -155,6 +162,9 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 	if selectedServer == nil {
 		if len(opts.ServerIDs) > 0 {
 			return nil, fmt.Errorf("requested server(s) %v not found in public list or by direct lookup", opts.ServerIDs)
+		}
+		if len(serverList) == 0 {
+			return nil, fmt.Errorf("no speedtest servers available")
 		}
 		slices.SortFunc(serverList, func(a, b *st.Server) int {
 			return cmp.Compare(a.Distance, b.Distance)
@@ -425,7 +435,7 @@ func serverCatalogueSourceKey(options ServerListOptions) string {
 		return "global"
 	}
 	if options.Location != nil {
-		return "location:" + strconv.FormatFloat(options.Location.Latitude, 'f', -1, 64) + "," +
+		return serverCatalogueCoordinatePrefix + strconv.FormatFloat(options.Location.Latitude, 'f', -1, 64) + "," +
 			strconv.FormatFloat(options.Location.Longitude, 'f', -1, 64)
 	}
 	return "local"
@@ -706,13 +716,12 @@ func (r *SpeedtestNetRunner) storeServerCache(key string, servers []ServerRespon
 		}
 	}
 
-	const maxCoordinateCacheEntries = 32
-	if strings.HasPrefix(key, "location:") {
+	if strings.HasPrefix(key, serverCatalogueCoordinatePrefix) {
 		coordinateEntries := 0
 		oldestKey := ""
 		var oldestExpiry time.Time
 		for cacheKey, entry := range r.serverCache {
-			if cacheKey == key || !strings.HasPrefix(cacheKey, "location:") {
+			if cacheKey == key || !strings.HasPrefix(cacheKey, serverCatalogueCoordinatePrefix) {
 				continue
 			}
 			coordinateEntries++
@@ -721,7 +730,7 @@ func (r *SpeedtestNetRunner) storeServerCache(key string, servers []ServerRespon
 				oldestExpiry = entry.expiresAt
 			}
 		}
-		if coordinateEntries >= maxCoordinateCacheEntries {
+		if coordinateEntries >= maxCoordinateCatalogueEntries {
 			delete(r.serverCache, oldestKey)
 		}
 	}
@@ -871,6 +880,28 @@ func (r *SpeedtestNetRunner) stageServerCatalogueLocked(
 	}
 	if sourceKey != "" {
 		sources[sourceKey] = time.Now().UTC()
+	}
+	coordinateSources := make([]string, 0)
+	for key := range sources {
+		if key != sourceKey && strings.HasPrefix(key, serverCatalogueCoordinatePrefix) {
+			coordinateSources = append(coordinateSources, key)
+		}
+	}
+	slices.SortFunc(coordinateSources, func(a, b string) int {
+		if byUpdated := sources[a].Compare(sources[b]); byUpdated != 0 {
+			return byUpdated
+		}
+		return cmp.Compare(a, b)
+	})
+	// Source timestamps drive status display; retained servers are never pruned here.
+	coordinateEntries := len(coordinateSources)
+	if strings.HasPrefix(sourceKey, serverCatalogueCoordinatePrefix) {
+		coordinateEntries++
+	}
+	if overflow := coordinateEntries - maxCoordinateCatalogueEntries; overflow > 0 {
+		for _, key := range coordinateSources[:overflow] {
+			delete(sources, key)
+		}
 	}
 
 	r.pendingCatalogue = &persistedServerCatalogue{

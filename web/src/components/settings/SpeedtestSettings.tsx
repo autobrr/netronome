@@ -148,6 +148,7 @@ export const SpeedtestSettings = () => {
   const lastUpdated = catalogueStatus?.updatedAt
     ? new Date(catalogueStatus.updatedAt).toLocaleString()
     : null;
+  const sourceStored = coordinatesValid && catalogueStatus?.stored === true;
 
   return (
     <div className="space-y-6">
@@ -290,13 +291,13 @@ export const SpeedtestSettings = () => {
                       ? settings.source === "global"
                         ? "Contacting server regions worldwide. This can take a minute."
                         : "Requesting a fresh catalogue from Speedtest.net."
-                      : isStatusError
+                      : !coordinatesValid
+                        ? "Coordinates identify the exact source whose stored status will be checked."
+                        : isStatusError
                         ? "Stored status is unavailable. You can still fetch this source."
-                        : catalogueStatus?.stored
+                        : sourceStored
                           ? `${lastUpdated ? `Last updated ${lastUpdated}. ` : ""}${fetchedServers ? `${fetchedServers.length} servers are retained in total. ` : ""}Fetch again to add newly available servers.`
-                          : coordinatesValid
-                            ? "Fetch this source once to add its servers to the retained catalogue."
-                            : "Coordinates identify the exact source whose stored status will be checked."}
+                          : "Fetch this source once to add its servers to the retained catalogue."}
                   </p>
                 </div>
                 <Button
@@ -306,7 +307,7 @@ export const SpeedtestSettings = () => {
                   isLoading={isFetching}
                 >
                   {!isFetching && <ArrowPathIcon className="h-4 w-4" />}
-                  {catalogueStatus?.stored ? "Update Stored Servers" : "Fetch Servers"}
+                  {sourceStored ? "Update Stored Servers" : "Fetch Servers"}
                 </Button>
               </div>
 
