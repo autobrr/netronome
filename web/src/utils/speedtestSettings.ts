@@ -33,7 +33,13 @@ export interface SpeedtestServerQuery {
   global?: boolean;
   latitude?: number;
   longitude?: number;
+  /** Bypasses a valid server-side catalogue cache when true. */
+  refresh?: boolean;
 }
+
+/** Identifies the Speedtest.net catalogue shared by its ordinary consumers. */
+export const speedtestServerQueryKey = (query: SpeedtestServerQuery) =>
+  ["servers", "speedtest", query] as const;
 
 /** A server selection tied to the catalogue from which it was chosen. */
 export interface KeyedServerSelection<T> {

@@ -8,7 +8,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Server, SavedIperfServer } from "@/types/types";
 import { getServers } from "@/api/speedtest";
 import { getApiUrl } from "@/utils/baseUrl";
-import { speedtestServerQuery, useSpeedtestSettings } from "@/utils/speedtestSettings";
+import {
+  speedtestServerQueryKey,
+  speedtestServerQuery,
+  useSpeedtestSettings,
+} from "@/utils/speedtestSettings";
 import {
   combineServers,
   getFilteredAndSortedServers,
@@ -28,8 +32,8 @@ export const useServerData = () => {
 
   // Fetch speedtest servers
   const { data: speedtestServers = [] } = useQuery({
-    queryKey: ["servers", "speedtest", serverQuery],
-    queryFn: () => getServers("speedtest", serverQuery),
+    queryKey: speedtestServerQueryKey(serverQuery),
+    queryFn: ({ signal }) => getServers("speedtest", serverQuery, signal),
   }) as { data: Server[] };
 
   // Fetch librespeed servers

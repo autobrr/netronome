@@ -63,6 +63,28 @@ func TestServerCacheReturnsCopies(t *testing.T) {
 	assert.Equal(t, "1", second[0].ID)
 }
 
+func TestServerCacheRefreshReplacesValidEntry(t *testing.T) {
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{})
+	runner.cacheDuration = time.Minute
+	runner.storeServerCache("local", []ServerResponse{{ID: "cached"}}, &ServerLocation{})
+
+	var fetchCount atomic.Int32
+	runner.fetchServers = func(_ context.Context, _ *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
+		fetchCount.Add(1)
+		return []ServerResponse{{ID: "fresh"}}, &ServerLocation{}, nil
+	}
+
+	servers, err := runner.GetServersWithOptions(t.Context(), ServerListOptions{Refresh: true})
+	require.NoError(t, err)
+	assert.Equal(t, []ServerResponse{{ID: "fresh"}}, servers)
+	assert.Equal(t, int32(1), fetchCount.Load())
+
+	servers, err = runner.GetServersWithOptions(t.Context(), ServerListOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, []ServerResponse{{ID: "fresh"}}, servers)
+	assert.Equal(t, int32(1), fetchCount.Load())
+}
+
 func TestServerCacheCoalescesConcurrentMissesByKey(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{})
@@ -82,7 +104,7 @@ func TestServerCacheCoalescesConcurrentMissesByKey(t *testing.T) {
 		var wg sync.WaitGroup
 		for range 2 {
 			wg.Go(func() {
-				servers, err := runner.getServersForLocation(t.Context(), "local", nil)
+				servers, err := runner.getServersForLocation(t.Context(), "local", nil, false)
 				results <- fetchResult{servers: servers, err: err}
 			})
 		}
@@ -119,6 +141,7 @@ func TestServerCacheFetchesDifferentKeysIndependently(t *testing.T) {
 					t.Context(),
 					fmt.Sprintf("location:%d", i),
 					location,
+					false,
 				)
 				results <- err
 			})
@@ -155,12 +178,12 @@ func TestServerCacheCallerCancellationDoesNotAbortSharedFetch(t *testing.T) {
 		waiterResult := make(chan error, 1)
 		var wg sync.WaitGroup
 		wg.Go(func() {
-			_, err := runner.getServersForLocation(leaderCtx, "local", nil)
+			_, err := runner.getServersForLocation(leaderCtx, "local", nil, false)
 			leaderResult <- err
 		})
 		sharedDone := <-fetchContextDone
 		wg.Go(func() {
-			_, err := runner.getServersForLocation(t.Context(), "local", nil)
+			_, err := runner.getServersForLocation(t.Context(), "local", nil, false)
 			waiterResult <- err
 		})
 
@@ -193,7 +216,7 @@ func TestGlobalServersRejectsCompleteRegionalFailure(t *testing.T) {
 		return nil, nil, errors.New("regional fetch failed")
 	}
 
-	servers, err := runner.getGlobalServers(context.Background())
+	servers, err := runner.getGlobalServers(context.Background(), false)
 	require.Error(t, err)
 	assert.Nil(t, servers)
 	_, cached := runner.loadServerCache("global")
@@ -216,11 +239,69 @@ func TestGlobalServersDoesNotCachePartialResults(t *testing.T) {
 		return nil, nil, errors.New("regional fetch failed")
 	}
 
-	servers, err := runner.getGlobalServers(context.Background())
+	servers, err := runner.getGlobalServers(context.Background(), false)
 	require.NoError(t, err)
 	assert.Len(t, servers, 2)
 	_, cached := runner.loadServerCache("global")
 	assert.False(t, cached)
+}
+
+func TestGlobalServersRefreshReplacesGlobalAndLocalCaches(t *testing.T) {
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{})
+	runner.cacheDuration = time.Minute
+	runner.globalLocations = map[string]ServerLocation{
+		"regional": {Latitude: 1, Longitude: 1},
+	}
+	runner.storeServerCache("global", []ServerResponse{{ID: "cached-global"}}, nil)
+	runner.storeServerCache("local", []ServerResponse{{ID: "cached-local"}}, &ServerLocation{})
+
+	var fetchCount atomic.Int32
+	runner.fetchServers = func(_ context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
+		fetchCount.Add(1)
+		if location == nil {
+			return []ServerResponse{{ID: "fresh-local"}}, &ServerLocation{}, nil
+		}
+		return []ServerResponse{{ID: "fresh-regional", Lat: location.Latitude, Lon: location.Longitude}}, nil, nil
+	}
+
+	servers, err := runner.GetServersWithOptions(t.Context(), ServerListOptions{Global: true, Refresh: true})
+	require.NoError(t, err)
+	require.Len(t, servers, 2)
+	assert.Equal(t, "fresh-local", servers[0].ID)
+	assert.Equal(t, "fresh-regional", servers[1].ID)
+	assert.Equal(t, int32(2), fetchCount.Load())
+
+	cached, ok := runner.loadServerCache("global")
+	require.True(t, ok)
+	assert.Equal(t, servers, cached)
+}
+
+func TestGlobalServersRefreshPreservesCacheOnPartialFailure(t *testing.T) {
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{})
+	runner.cacheDuration = time.Minute
+	runner.globalLocations = map[string]ServerLocation{
+		"success": {Latitude: 1, Longitude: 1},
+		"failure": {Latitude: 2, Longitude: 2},
+	}
+	previous := []ServerResponse{{ID: "cached-global"}}
+	runner.storeServerCache("global", previous, nil)
+	runner.fetchServers = func(_ context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
+		if location == nil {
+			return []ServerResponse{{ID: "fresh-local"}}, &ServerLocation{}, nil
+		}
+		if location.Latitude == 1 {
+			return []ServerResponse{{ID: "fresh-regional"}}, nil, nil
+		}
+		return nil, nil, errors.New("regional fetch failed")
+	}
+
+	servers, err := runner.GetServersWithOptions(t.Context(), ServerListOptions{Global: true, Refresh: true})
+	require.ErrorContains(t, err, "refresh global speedtest servers")
+	assert.Nil(t, servers)
+
+	cached, ok := runner.loadServerCache("global")
+	require.True(t, ok)
+	assert.Equal(t, previous, cached)
 }
 
 func TestGlobalServersWaitHonorsContext(t *testing.T) {
@@ -230,7 +311,7 @@ func TestGlobalServersWaitHonorsContext(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
 	defer cancel()
-	_, err := runner.getGlobalServers(ctx)
+	_, err := runner.getGlobalServers(ctx, false)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 

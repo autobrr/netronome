@@ -28,10 +28,11 @@ type Result struct {
 }
 
 // ServerListOptions selects which Speedtest.net server catalogue to return.
-// Global and Location are mutually exclusive.
+// Global and Location are mutually exclusive. Refresh bypasses a valid cached catalogue.
 type ServerListOptions struct {
 	Global   bool            // Global aggregates catalogues from known regions.
 	Location *ServerLocation // Location requests the catalogue nearest this origin.
+	Refresh  bool            // Refresh fetches and replaces the selected cached catalogue.
 }
 
 // ServerLocation identifies the geographic origin used to find nearby servers.

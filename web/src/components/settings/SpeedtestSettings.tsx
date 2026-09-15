@@ -3,13 +3,16 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowPathIcon,
   CheckIcon,
   GlobeAltIcon,
   MapPinIcon,
   ServerStackIcon,
 } from "@heroicons/react/24/outline";
+import { getServers } from "@/api/speedtest";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,7 +21,11 @@ import { showToast } from "@/components/common/Toast";
 import {
   formatSpeedtestServerName,
   getSpeedtestSettings,
+  normalizeSpeedtestSettings,
   saveSpeedtestSettings,
+  speedtestServerQueryKey,
+  speedtestServerQuery,
+  type SpeedtestServerQuery,
   type SpeedtestServerSource,
   type SpeedtestSettingsDraft,
 } from "@/utils/speedtestSettings";
@@ -33,8 +40,10 @@ const SOURCE_OPTIONS: Array<{
   { value: "coordinates", label: "Coordinates", description: "Find servers near a latitude and longitude." },
 ];
 
-/** Configures Speedtest.net server discovery and historical city labels. */
+/** Configures Speedtest.net discovery, manually refreshes its catalogue, and controls history labels. */
 export const SpeedtestSettings = () => {
+  const queryClient = useQueryClient();
+  const refreshAbortController = useRef<AbortController | null>(null);
   const [settings, setSettings] = useState<SpeedtestSettingsDraft>(getSpeedtestSettings);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -54,17 +63,78 @@ export const SpeedtestSettings = () => {
       settings.longitude >= -180 &&
       settings.longitude <= 180);
 
-  const saveSettings = () => {
+  const normalizedSettings = normalizeSpeedtestSettings(settings);
+  const serverQuery = speedtestServerQuery(normalizedSettings);
+  const catalogueQueryKey = speedtestServerQueryKey(serverQuery);
+  const sourceLabel = SOURCE_OPTIONS.find((option) => option.value === settings.source)?.label ?? "Selected";
+  const { data: fetchedServers, dataUpdatedAt } = useQuery({
+    queryKey: catalogueQueryKey,
+    queryFn: ({ signal }) => getServers("speedtest", serverQuery, signal),
+    enabled: false,
+  });
+  const {
+    error: fetchError,
+    isError: isFetchError,
+    isPending: isFetching,
+    mutateAsync: refreshServerCatalogue,
+  } = useMutation({
+    mutationFn: ({ query, signal }: {
+      query: SpeedtestServerQuery;
+      signal: AbortSignal;
+      sourceLabel: string;
+    }) => getServers("speedtest", { ...query, refresh: true }, signal),
+    onSuccess: (servers, { query, signal, sourceLabel }) => {
+      if (signal.aborted) return;
+      queryClient.setQueryData(speedtestServerQueryKey(query), servers);
+      showToast(`Fetched ${servers.length} Speedtest.net servers`, "success", {
+        description: `${sourceLabel} catalogue refreshed`,
+      });
+    },
+  });
+
+  useEffect(() => () => refreshAbortController.current?.abort(), []);
+
+  const persistSettings = () => {
     if (!saveSpeedtestSettings(settings)) {
       showToast("Failed to save speedtest settings", "error");
-      return;
+      return false;
     }
     setSettings(getSpeedtestSettings());
     setHasChanges(false);
+    return true;
+  };
+
+  const saveSettings = () => {
+    if (!persistSettings()) return;
     showToast("Speedtest settings saved", "success", {
-      description: "Server lists and history labels have been refreshed",
+      description: "Discovery and history preferences are now active",
     });
   };
+
+  const refreshServers = async () => {
+    if (hasChanges && !persistSettings()) return;
+
+    await queryClient.cancelQueries({ queryKey: catalogueQueryKey, exact: true });
+    const controller = new AbortController();
+    refreshAbortController.current = controller;
+    try {
+      await refreshServerCatalogue({ query: serverQuery, signal: controller.signal, sourceLabel });
+    } catch {
+      // Mutation state keeps request failures visible beside the fetch control.
+    } finally {
+      if (refreshAbortController.current === controller) {
+        refreshAbortController.current = null;
+      }
+    }
+  };
+
+  const lastUpdated = dataUpdatedAt > 0
+    ? new Date(dataUpdatedAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : null;
 
   return (
     <div className="space-y-6">
@@ -113,7 +183,8 @@ export const SpeedtestSettings = () => {
                   type="button"
                   aria-pressed={settings.source === option.value}
                   onClick={() => updateSettings({ source: option.value })}
-                  className={`rounded-lg border p-4 text-left transition-colors ${
+                  disabled={isFetching}
+                  className={`rounded-lg border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                     settings.source === option.value
                       ? "border-blue-400/50 bg-blue-500/10"
                       : "border-gray-300 bg-gray-200/50 hover:bg-gray-300/50 dark:border-gray-800 dark:bg-gray-800/50 dark:hover:bg-gray-800"
@@ -140,6 +211,7 @@ export const SpeedtestSettings = () => {
                     max={90}
                     step="any"
                     value={settings.latitude ?? ""}
+                    disabled={isFetching}
                     onChange={(event) =>
                       updateSettings({
                         latitude: event.target.value === "" ? undefined : Number(event.target.value),
@@ -159,6 +231,7 @@ export const SpeedtestSettings = () => {
                     max={180}
                     step="any"
                     value={settings.longitude ?? ""}
+                    disabled={isFetching}
                     onChange={(event) =>
                       updateSettings({
                         longitude: event.target.value === "" ? undefined : Number(event.target.value),
@@ -180,6 +253,58 @@ export const SpeedtestSettings = () => {
                 The first worldwide fetch can take longer. Results are cached by the server for 30 minutes.
               </p>
             )}
+
+            <div
+              className="rounded-lg border border-gray-300 bg-gray-100/60 p-3 dark:border-gray-800 dark:bg-gray-900/40"
+              aria-busy={isFetching}
+              aria-live="polite"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {isFetching
+                      ? `Fetching ${sourceLabel.toLowerCase()} servers…`
+                      : fetchedServers
+                        ? `${fetchedServers.length} servers available`
+                        : "Server catalogue not loaded"}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                    {isFetching
+                      ? settings.source === "global"
+                        ? "Contacting server regions worldwide. This can take a minute."
+                        : "Requesting a fresh catalogue from Speedtest.net."
+                      : lastUpdated
+                        ? `Last loaded at ${lastUpdated}. Fetch again to bypass the 30-minute server cache.`
+                        : "Fetch now to verify and load the selected catalogue."}
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={refreshServers}
+                  disabled={!coordinatesValid}
+                  isLoading={isFetching}
+                >
+                  {!isFetching && <ArrowPathIcon className="h-4 w-4" />}
+                  {hasChanges ? "Save & Fetch Servers" : "Fetch Fresh Servers"}
+                </Button>
+              </div>
+
+              {isFetching && (
+                <div
+                  className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-300 dark:bg-gray-700"
+                  role="progressbar"
+                  aria-label="Fetching Speedtest.net servers"
+                >
+                  <div className="h-full w-1/2 animate-pulse rounded-full bg-blue-500" />
+                </div>
+              )}
+
+              {isFetchError && !isFetching && (
+                <p className="mt-3 text-sm text-red-600 dark:text-red-400" role="alert">
+                  {fetchError instanceof Error ? fetchError.message : "Failed to fetch servers"}
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
 

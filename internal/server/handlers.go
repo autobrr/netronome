@@ -136,6 +136,7 @@ func (s *Server) handleGetServers(c *gin.Context) {
 		c.Query("global"),
 		c.Query("latitude"),
 		c.Query("longitude"),
+		c.Query("refresh"),
 	)
 	if err != nil {
 		c.Status(http.StatusBadRequest)
@@ -152,7 +153,7 @@ func (s *Server) handleGetServers(c *gin.Context) {
 	c.JSON(http.StatusOK, servers)
 }
 
-func parseServerListOptions(global, latitude, longitude string) (speedtest.ServerListOptions, error) {
+func parseServerListOptions(global, latitude, longitude, refresh string) (speedtest.ServerListOptions, error) {
 	var options speedtest.ServerListOptions
 	if global != "" {
 		value, err := strconv.ParseBool(global)
@@ -160,6 +161,13 @@ func parseServerListOptions(global, latitude, longitude string) (speedtest.Serve
 			return options, fmt.Errorf("invalid global value %q: %w", global, err)
 		}
 		options.Global = value
+	}
+	if refresh != "" {
+		value, err := strconv.ParseBool(refresh)
+		if err != nil {
+			return options, fmt.Errorf("invalid refresh value %q: %w", refresh, err)
+		}
+		options.Refresh = value
 	}
 
 	if latitude == "" && longitude == "" {

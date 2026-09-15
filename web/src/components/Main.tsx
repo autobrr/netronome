@@ -21,6 +21,7 @@ import { applyPublicColorTheme } from "@/utils/colorTheme";
 import {
   selectedServersForKey,
   speedtestSelectionKey,
+  speedtestServerQueryKey,
   speedtestServerQuery,
   useSpeedtestSettings,
   type KeyedServerSelection,
@@ -162,8 +163,8 @@ export default function Main({ isPublic = false }: MainProps) {
     isLoading: isSpeedtestLoading,
     isError: isSpeedtestError,
   } = useQuery({
-    queryKey: ["servers", "speedtest", speedtestQuery],
-    queryFn: () => getServers("speedtest", speedtestQuery),
+    queryKey: speedtestServerQueryKey(speedtestQuery),
+    queryFn: ({ signal }) => getServers("speedtest", speedtestQuery, signal),
     enabled: !isPublic,
   }) as { data: Server[]; isLoading: boolean; isError: boolean };
 

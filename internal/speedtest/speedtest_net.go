@@ -25,6 +25,7 @@ import (
 	"github.com/autobrr/netronome/internal/types"
 )
 
+// serverCatalogueFetchTimeout bounds each upstream server discovery request.
 const serverCatalogueFetchTimeout = 30 * time.Second
 
 // SpeedtestNetRunner executes Speedtest.net tests and coalesces cached catalogue discovery.
@@ -330,31 +331,36 @@ func (r *SpeedtestNetRunner) GetServers() ([]ServerResponse, error) {
 }
 
 // GetServersWithOptions returns the local, global, or coordinate-based Speedtest.net catalogue.
-// Concurrent misses for one local or coordinate catalogue share a fetch while each waiter observes its own context.
+// Refresh bypasses a valid cache entry. Concurrent fetches for one local or coordinate catalogue
+// share work while each waiter observes its own context.
 func (r *SpeedtestNetRunner) GetServersWithOptions(ctx context.Context, options ServerListOptions) ([]ServerResponse, error) {
 	if options.Global && options.Location != nil {
 		return nil, fmt.Errorf("global and coordinate server searches are mutually exclusive")
 	}
 	if options.Global {
-		return r.getGlobalServers(ctx)
+		return r.getGlobalServers(ctx, options.Refresh)
 	}
 	if options.Location != nil {
 		key := "location:" + strconv.FormatFloat(options.Location.Latitude, 'f', -1, 64) + "," +
 			strconv.FormatFloat(options.Location.Longitude, 'f', -1, 64)
-		return r.getServersForLocation(ctx, key, options.Location)
+		return r.getServersForLocation(ctx, key, options.Location, options.Refresh)
 	}
-	return r.getServersForLocation(ctx, "local", nil)
+	return r.getServersForLocation(ctx, "local", nil, options.Refresh)
 }
 
-// getServersForLocation returns a copied catalogue and coalesces concurrent cache misses by key.
-func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key string, location *ServerLocation) ([]ServerResponse, error) {
-	if servers, ok := r.loadServerCache(key); ok {
-		return servers, nil
+// getServersForLocation returns a copied catalogue and coalesces concurrent fetches by key.
+func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key string, location *ServerLocation, refresh bool) ([]ServerResponse, error) {
+	if !refresh {
+		if servers, ok := r.loadServerCache(key); ok {
+			return servers, nil
+		}
 	}
 
 	result := r.serverFetches.DoChan(key, func() (any, error) {
-		if servers, ok := r.loadServerCache(key); ok {
-			return servers, nil
+		if !refresh {
+			if servers, ok := r.loadServerCache(key); ok {
+				return servers, nil
+			}
 		}
 
 		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), serverCatalogueFetchTimeout)
@@ -383,12 +389,14 @@ func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key stri
 	}
 }
 
-func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context) ([]ServerResponse, error) {
+func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool) ([]ServerResponse, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if servers, ok := r.loadServerCache("global"); ok {
-		return servers, nil
+	if !refresh {
+		if servers, ok := r.loadServerCache("global"); ok {
+			return servers, nil
+		}
 	}
 
 	select {
@@ -400,11 +408,13 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context) ([]ServerResp
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if servers, ok := r.loadServerCache("global"); ok {
-		return servers, nil
+	if !refresh {
+		if servers, ok := r.loadServerCache("global"); ok {
+			return servers, nil
+		}
 	}
 
-	localServers, err := r.getServersForLocation(ctx, "local", nil)
+	localServers, err := r.getServersForLocation(ctx, "local", nil, refresh)
 	if err != nil {
 		return nil, fmt.Errorf("fetch local speedtest servers: %w", err)
 	}
@@ -434,7 +444,9 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context) ([]ServerResp
 				return
 			}
 
-			servers, _, fetchErr := r.fetchServers(ctx, &coordinates)
+			fetchCtx, cancel := context.WithTimeout(ctx, serverCatalogueFetchTimeout)
+			servers, _, fetchErr := r.fetchServers(fetchCtx, &coordinates)
+			cancel()
 			resultMu.Lock()
 			defer resultMu.Unlock()
 			if fetchErr != nil {
@@ -451,7 +463,11 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context) ([]ServerResp
 		return nil, err
 	}
 	if len(failures) > 0 {
-		log.Warn().Err(errors.Join(failures...)).Msg("Some global speedtest locations could not be fetched")
+		fetchErr := errors.Join(failures...)
+		log.Warn().Err(fetchErr).Msg("Some global speedtest locations could not be fetched")
+		if refresh {
+			return nil, fmt.Errorf("refresh global speedtest servers: %w", fetchErr)
+		}
 	}
 	if successfulLocations == 0 {
 		if err := errors.Join(failures...); err != nil {

@@ -5,6 +5,7 @@
 
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
+import { MutationObserver, QueryClient } from "@tanstack/react-query";
 import {
   formatSpeedtestServerName,
   normalizeSpeedtestSettings,
@@ -12,6 +13,7 @@ import {
   selectedServersForKey,
   speedtestResultServerKey,
   speedtestSelectionKey,
+  speedtestServerQueryKey,
   speedtestServerQuery,
 } from "./speedtestSettings.ts";
 
@@ -56,6 +58,83 @@ test("server queries reflect the selected discovery source", () => {
     }),
     { latitude: 1.5, longitude: 2.5 },
   );
+});
+
+test("refresh requests do not deduplicate onto ordinary catalogue loads", async () => {
+  const queryClient = new QueryClient();
+  const calls: string[] = [];
+  let markNormalStarted!: () => void;
+  let releaseNormal!: () => void;
+  const normalStarted = new Promise<void>((resolve) => {
+    markNormalStarted = resolve;
+  });
+  const normalBlocked = new Promise<void>((resolve) => {
+    releaseNormal = resolve;
+  });
+
+  const normalRequest = queryClient.fetchQuery({
+    queryKey: speedtestServerQueryKey({}),
+    queryFn: async () => {
+      calls.push("normal");
+      markNormalStarted();
+      await normalBlocked;
+      return ["cached"];
+    },
+  });
+  await normalStarted;
+
+  const refreshMutation = new MutationObserver(queryClient, {
+    mutationFn: async () => {
+      calls.push("refresh");
+      return ["fresh"];
+    },
+  });
+  const refreshRequest = refreshMutation.mutate();
+  releaseNormal();
+
+  const [, refreshed] = await Promise.all([normalRequest, refreshRequest]);
+  assert.deepEqual(calls, ["normal", "refresh"]);
+  assert.deepEqual(refreshed, ["fresh"]);
+});
+
+test("cancelled refreshes do not republish prior mutation data", async () => {
+  const queryClient = new QueryClient();
+  const catalogueQueryKey = speedtestServerQueryKey({});
+  let successfulRefreshes = 0;
+  const refreshMutation = new MutationObserver<
+    string[],
+    Error,
+    { signal: AbortSignal; result?: string[] }
+  >(queryClient, {
+    mutationFn: async ({ signal, result }) => {
+      if (result) return result;
+      await new Promise<void>((_resolve, reject) => {
+        if (signal.aborted) {
+          reject(new Error("refresh aborted"));
+          return;
+        }
+        signal.addEventListener("abort", () => reject(new Error("refresh aborted")), {
+          once: true,
+        });
+      });
+      return [];
+    },
+    onSuccess: (servers) => {
+      successfulRefreshes++;
+      queryClient.setQueryData(catalogueQueryKey, servers);
+    },
+  });
+
+  await refreshMutation.mutate({ signal: new AbortController().signal, result: ["old"] });
+  queryClient.setQueryData(catalogueQueryKey, ["current"]);
+
+  const controller = new AbortController();
+  const cancelledRefresh = refreshMutation.mutate({ signal: controller.signal });
+  controller.abort();
+
+  await assert.rejects(cancelledRefresh, /refresh aborted/);
+  assert.deepEqual(queryClient.getQueryData(catalogueQueryKey), ["current"]);
+  assert.equal(successfulRefreshes, 1);
 });
 
 test("changing catalogues invalidates the selection used by runs and schedules", () => {
