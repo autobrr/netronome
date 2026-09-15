@@ -8,7 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	st "github.com/showwin/speedtest-go/speedtest"
@@ -58,6 +61,121 @@ func TestServerCacheReturnsCopies(t *testing.T) {
 	second, ok := runner.loadServerCache("test")
 	require.True(t, ok)
 	assert.Equal(t, "1", second[0].ID)
+}
+
+func TestServerCacheCoalescesConcurrentMissesByKey(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{})
+		var fetchCount atomic.Int32
+		release := make(chan struct{})
+		runner.fetchServers = func(_ context.Context, _ *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
+			fetchCount.Add(1)
+			<-release
+			return []ServerResponse{{ID: "1"}}, &ServerLocation{}, nil
+		}
+
+		type fetchResult struct {
+			servers []ServerResponse
+			err     error
+		}
+		results := make(chan fetchResult, 2)
+		var wg sync.WaitGroup
+		for range 2 {
+			wg.Go(func() {
+				servers, err := runner.getServersForLocation(t.Context(), "local", nil)
+				results <- fetchResult{servers: servers, err: err}
+			})
+		}
+
+		synctest.Wait()
+		assert.Equal(t, int32(1), fetchCount.Load())
+		close(release)
+		wg.Wait()
+		close(results)
+		for result := range results {
+			require.NoError(t, result.err)
+			assert.Equal(t, []ServerResponse{{ID: "1"}}, result.servers)
+		}
+	})
+}
+
+func TestServerCacheFetchesDifferentKeysIndependently(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{})
+		var fetchCount atomic.Int32
+		release := make(chan struct{})
+		runner.fetchServers = func(_ context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
+			fetchCount.Add(1)
+			<-release
+			return []ServerResponse{{ID: fmt.Sprint(location.Latitude)}}, nil, nil
+		}
+
+		results := make(chan error, 2)
+		var wg sync.WaitGroup
+		for i := 1; i <= 2; i++ {
+			location := &ServerLocation{Latitude: float64(i)}
+			wg.Go(func() {
+				_, err := runner.getServersForLocation(
+					t.Context(),
+					fmt.Sprintf("location:%d", i),
+					location,
+				)
+				results <- err
+			})
+		}
+
+		synctest.Wait()
+		assert.Equal(t, int32(2), fetchCount.Load())
+		close(release)
+		wg.Wait()
+		close(results)
+		for err := range results {
+			require.NoError(t, err)
+		}
+	})
+}
+
+func TestServerCacheCallerCancellationDoesNotAbortSharedFetch(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{})
+		fetchStarted := make(chan struct{})
+		releaseFetch := make(chan struct{})
+		var fetchCtx context.Context
+		runner.fetchServers = func(ctx context.Context, _ *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
+			fetchCtx = ctx
+			close(fetchStarted)
+			select {
+			case <-releaseFetch:
+				return []ServerResponse{{ID: "1"}}, &ServerLocation{}, nil
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			}
+		}
+
+		leaderCtx, cancelLeader := context.WithCancel(t.Context())
+		leaderResult := make(chan error, 1)
+		waiterResult := make(chan error, 1)
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			_, err := runner.getServersForLocation(leaderCtx, "local", nil)
+			leaderResult <- err
+		})
+		<-fetchStarted
+		wg.Go(func() {
+			_, err := runner.getServersForLocation(t.Context(), "local", nil)
+			waiterResult <- err
+		})
+
+		synctest.Wait()
+		cancelLeader()
+		synctest.Wait()
+		require.ErrorIs(t, <-leaderResult, context.Canceled)
+		require.NoError(t, fetchCtx.Err())
+
+		close(releaseFetch)
+		wg.Wait()
+		require.NoError(t, <-waiterResult)
+	})
 }
 
 func TestGlobalServersRejectsCompleteRegionalFailure(t *testing.T) {

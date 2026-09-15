@@ -94,11 +94,35 @@ test("history labels and keys preserve distinct server identities", () => {
   assert.equal(formatSpeedtestServerName("Example", "Brisbane", true), "Example (Brisbane)");
   assert.equal(formatSpeedtestServerName("Example", "Brisbane", false), "Example");
   assert.equal(
-    speedtestResultServerKey({ serverId: "123", serverHost: "host", serverName: "Example" }),
-    "123",
+    speedtestResultServerKey({
+      testType: "speedtest",
+      serverId: "123",
+      serverHost: "host",
+      serverName: "Example",
+    }),
+    "speedtest:123",
   );
   assert.equal(
-    speedtestResultServerKey({ serverId: "", serverHost: "host", serverName: "Example" }),
-    "host",
+    speedtestResultServerKey({
+      testType: "speedtest",
+      serverId: "",
+      serverHost: "host",
+      serverName: "Example",
+    }),
+    "speedtest:host",
+  );
+  assert.notEqual(
+    speedtestResultServerKey({
+      testType: "speedtest",
+      serverId: "42",
+      serverHost: "shared",
+      serverName: "Shared",
+    }),
+    speedtestResultServerKey({
+      testType: "librespeed",
+      serverId: "42",
+      serverHost: "shared",
+      serverName: "Shared",
+    }),
   );
 });

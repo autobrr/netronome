@@ -69,7 +69,6 @@ interface SpeedHistoryChartProps {
   // Multiple server display mode
   multipleServerDisplayMode?: "overlay" | "separate";
   onMultipleServerDisplayModeChange?: (mode: "overlay" | "separate") => void;
-  selectableServerKeys?: ReadonlySet<string>;
 }
 
 interface VisibleMetrics {
@@ -149,7 +148,6 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   // Multiple server display mode props
   multipleServerDisplayMode: propMultipleServerDisplayMode,
   onMultipleServerDisplayModeChange,
-  selectableServerKeys,
 }) => {
   const isMobile = useIsMobile();
   const speedtestSettings = useSpeedtestSettings();
@@ -271,7 +269,6 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
     filteredData.forEach(result => {
       if (
         result.serverKey &&
-        (!selectableServerKeys || selectableServerKeys.has(result.serverKey)) &&
         !serverMap.has(result.serverKey)
       ) {
         serverMap.set(result.serverKey, {
@@ -283,7 +280,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
     });
 
     return Array.from(serverMap.values());
-  }, [filteredData, selectableServerKeys]);
+  }, [filteredData]);
 
   // Apply server filtering
   const allResults = useMemo(() => {

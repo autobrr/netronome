@@ -177,7 +177,7 @@ export const formatSpeedtestServerName = (
   return showServerCity && city ? `${serverName} (${city})` : serverName;
 };
 
-/** Returns the stable identity used to filter and group historical server results. */
+/** Returns the provider-qualified identity used to filter and group historical server results. */
 export const speedtestResultServerKey = (
-  result: Pick<SpeedTestResult, "serverId" | "serverHost" | "serverName">,
-): string => result.serverId || result.serverHost || result.serverName;
+  result: Pick<SpeedTestResult, "testType" | "serverId" | "serverHost" | "serverName">,
+): string => `${result.testType}:${result.serverId || result.serverHost || result.serverName}`;

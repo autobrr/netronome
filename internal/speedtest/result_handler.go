@@ -64,6 +64,7 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 	return nil
 }
 
+// resultForStorage maps a completed run to persistence fields, retaining legacy name-based ID fallbacks.
 func resultForStorage(result *Result, testType string, opts *types.TestOptions, createdAt time.Time) types.SpeedTestResult {
 	stored := types.SpeedTestResult{
 		ServerName:    result.Server,
@@ -84,7 +85,11 @@ func resultForStorage(result *Result, testType string, opts *types.TestOptions, 
 		stored.ServerID = fmt.Sprintf("iperf3-%s", opts.ServerHost)
 	case "librespeed":
 		stored.ServerHost = &result.Server
-		stored.ServerID = fmt.Sprintf("librespeed-%s", result.Server)
+		serverID := result.ServerID
+		if serverID == "" {
+			serverID = result.Server
+		}
+		stored.ServerID = fmt.Sprintf("librespeed-%s", serverID)
 	case "speedtest":
 		stored.ServerID = result.ServerID
 		if stored.ServerID == "" {

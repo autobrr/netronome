@@ -42,3 +42,24 @@ func TestResultForStoragePreservesLegacySpeedtestFallback(t *testing.T) {
 	assert.Nil(t, got.ServerHost)
 	assert.Nil(t, got.ServerCity)
 }
+
+func TestResultForStorageKeepsLibrespeedServerIdentity(t *testing.T) {
+	got := resultForStorage(
+		&Result{Server: "Example LibreSpeed", ServerID: "42"},
+		"librespeed",
+		&types.TestOptions{},
+		time.Time{},
+	)
+	assert.Equal(t, "librespeed-42", got.ServerID)
+	assert.Equal(t, "Example LibreSpeed", got.ServerName)
+}
+
+func TestResultForStoragePreservesLegacyLibrespeedFallback(t *testing.T) {
+	got := resultForStorage(
+		&Result{Server: "Example LibreSpeed"},
+		"librespeed",
+		&types.TestOptions{},
+		time.Time{},
+	)
+	assert.Equal(t, "librespeed-Example LibreSpeed", got.ServerID)
+}

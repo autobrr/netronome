@@ -136,7 +136,6 @@ interface DraggableSpeedHistoryChartProps {
   // Multiple server display mode props
   multipleServerDisplayMode: "overlay" | "separate";
   onMultipleServerDisplayModeChange: (mode: "overlay" | "separate") => void;
-  selectableServerKeys: ReadonlySet<string>;
 }
 
 const DraggableSpeedHistoryChart: React.FC<DraggableSpeedHistoryChartProps> = ({
@@ -231,12 +230,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   useEffect(() => {
     setDisplayCount(recentSpeedtestsRows);
   }, [recentSpeedtestsRows]);
-
-  // Apply server filtering to tests (same logic as in SpeedHistoryChart)
-  const selectableServerKeys = useMemo(
-    () => new Set(tests.map(speedtestResultServerKey)),
-    [tests],
-  );
 
   const filteredDisplayTests = useMemo(() => {
     if (serverFilterMode === "single" && selectedSingleServer !== "all") {
@@ -461,7 +454,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                         onSelectedMultipleServersChange={setSelectedMultipleServers}
                         multipleServerDisplayMode={multipleServerDisplayMode}
                         onMultipleServerDisplayModeChange={setMultipleServerDisplayMode}
-                        selectableServerKeys={selectableServerKeys}
                       />
                     </SortableItem>
                   );

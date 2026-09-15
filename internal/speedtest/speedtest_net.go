@@ -19,12 +19,15 @@ import (
 
 	"github.com/rs/zerolog/log"
 	st "github.com/showwin/speedtest-go/speedtest"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/types"
 )
 
-// SpeedtestNetRunner executes Speedtest.net tests and caches discovered server catalogues.
+const serverCatalogueFetchTimeout = 30 * time.Second
+
+// SpeedtestNetRunner executes Speedtest.net tests and coalesces cached catalogue discovery.
 type SpeedtestNetRunner struct {
 	client           *st.Speedtest
 	config           config.SpeedTestConfig
@@ -33,6 +36,7 @@ type SpeedtestNetRunner struct {
 	serverCache      map[string]serverCacheEntry
 	userLocation     *ServerLocation
 	globalFetch      chan struct{}
+	serverFetches    singleflight.Group
 	cacheDuration    time.Duration
 	fetchServers     serverFetcher
 	globalLocations  map[string]ServerLocation
@@ -326,6 +330,7 @@ func (r *SpeedtestNetRunner) GetServers() ([]ServerResponse, error) {
 }
 
 // GetServersWithOptions returns the local, global, or coordinate-based Speedtest.net catalogue.
+// Concurrent misses for one local or coordinate catalogue share a fetch while each waiter observes its own context.
 func (r *SpeedtestNetRunner) GetServersWithOptions(ctx context.Context, options ServerListOptions) ([]ServerResponse, error) {
 	if options.Global && options.Location != nil {
 		return nil, fmt.Errorf("global and coordinate server searches are mutually exclusive")
@@ -341,22 +346,41 @@ func (r *SpeedtestNetRunner) GetServersWithOptions(ctx context.Context, options 
 	return r.getServersForLocation(ctx, "local", nil)
 }
 
+// getServersForLocation returns a copied catalogue and coalesces concurrent cache misses by key.
 func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key string, location *ServerLocation) ([]ServerResponse, error) {
 	if servers, ok := r.loadServerCache(key); ok {
 		return servers, nil
 	}
 
-	servers, userLocation, err := r.fetchServers(ctx, location)
-	if err != nil {
-		return nil, err
-	}
-	r.storeServerCache(key, servers, userLocation)
+	result := r.serverFetches.DoChan(key, func() (any, error) {
+		if servers, ok := r.loadServerCache(key); ok {
+			return servers, nil
+		}
 
-	log.Debug().
-		Str("cache_key", key).
-		Int("server_count", len(servers)).
-		Msg("Retrieved and cached speedtest servers")
-	return slices.Clone(servers), nil
+		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), serverCatalogueFetchTimeout)
+		defer cancel()
+		servers, userLocation, err := r.fetchServers(fetchCtx, location)
+		if err != nil {
+			return nil, err
+		}
+		r.storeServerCache(key, servers, userLocation)
+
+		log.Debug().
+			Str("cache_key", key).
+			Int("server_count", len(servers)).
+			Msg("Retrieved and cached speedtest servers")
+		return servers, nil
+	})
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case fetched := <-result:
+		if fetched.Err != nil {
+			return nil, fetched.Err
+		}
+		return slices.Clone(fetched.Val.([]ServerResponse)), nil
+	}
 }
 
 func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context) ([]ServerResponse, error) {
