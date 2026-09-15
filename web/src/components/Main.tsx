@@ -19,12 +19,9 @@ import { showToast } from "@/components/common/Toast";
 import { getPublicTheme } from "@/api/license";
 import { applyPublicColorTheme } from "@/utils/colorTheme";
 import {
-  selectedServersForKey,
-  speedtestSelectionKey,
   speedtestServerQueryKey,
   speedtestServerQuery,
   useSpeedtestSettings,
-  type KeyedServerSelection,
 } from "@/utils/speedtestSettings";
 import {
   ChartBarIcon,
@@ -64,6 +61,7 @@ interface MainProps {
   isPublic?: boolean;
 }
 
+/** Coordinates dashboard data, server selection, and test execution for private and public views. */
 export default function Main({ isPublic = false }: MainProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -97,12 +95,14 @@ export default function Main({ isPublic = false }: MainProps) {
   });
   const [testType, setTestType] = useState<TestType>("speedtest");
   const activeServerSelectionKey = testType === "speedtest"
-    ? speedtestSelectionKey()
+    ? "speedtest"
     : testType;
-  const [serverSelection, setServerSelection] = useState<KeyedServerSelection<Server>>(
+  const [serverSelection, setServerSelection] = useState<{ key: string; servers: Server[] }>(
     () => ({ key: activeServerSelectionKey, servers: [] }),
   );
-  const selectedServers = selectedServersForKey(serverSelection, activeServerSelectionKey);
+  const selectedServers = serverSelection.key === activeServerSelectionKey
+    ? serverSelection.servers
+    : [];
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
     "idle"
@@ -292,7 +292,7 @@ export default function Main({ isPublic = false }: MainProps) {
 
   const handleServerSelect = (server: Server) => {
     setServerSelection((current) => {
-      const prev = selectedServersForKey(current, activeServerSelectionKey);
+      const prev = current.key === activeServerSelectionKey ? current.servers : [];
       const isSelected = prev.some((s) => s.id === server.id);
       let servers: Server[];
       if (!options.multiServer) {

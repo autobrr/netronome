@@ -62,18 +62,6 @@ export const formatSpeedtestServerStorageStatus = (
     : `No ${sourceLabel.toLowerCase()} servers stored yet`;
 };
 
-/** A server selection tied to the catalogue from which it was chosen. */
-export interface KeyedServerSelection<T> {
-  key: string;
-  servers: T[];
-}
-
-/** A persisted server ID paired with current catalogue data when available. */
-export interface ServerReference<T> {
-  id: string;
-  server?: T;
-}
-
 const SETTINGS_KEY = "netronome-speedtest-settings";
 const SETTINGS_EVENT = "speedtestSettingsChanged";
 const DEFAULT_SETTINGS: SpeedtestSettings = {
@@ -164,29 +152,6 @@ export const speedtestServerQuery = (settings: SpeedtestSettings): SpeedtestServ
     return { latitude: settings.latitude, longitude: settings.longitude };
   }
   return {};
-};
-
-/** Returns the selection key shared by every retained Speedtest.net server. */
-export const speedtestSelectionKey = (): string => "speedtest";
-
-/** Returns selected servers only while their originating catalogue is active. */
-export const selectedServersForKey = <T>(
-  selection: KeyedServerSelection<T>,
-  activeKey: string,
-): T[] => selection.key === activeKey ? selection.servers : [];
-
-/** Preserves saved server IDs even when the active catalogue cannot resolve their details. */
-export const resolveServerReferences = <T extends { id: string }>(
-  serverIds: string[] | undefined,
-  availableServers: T[],
-  matchesProvider: (server: T) => boolean = () => true,
-): Array<ServerReference<T>> => {
-  return (serverIds ?? []).map((id) => {
-    const server = availableServers.find(
-      (candidate) => candidate.id === id && matchesProvider(candidate),
-    );
-    return server ? { id, server } : { id };
-  });
 };
 
 /** Formats a result's provider name with its recorded city when enabled and available. */

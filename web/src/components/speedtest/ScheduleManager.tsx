@@ -44,7 +44,6 @@ import { motion, AnimatePresence } from "motion/react";
 import { getApiUrl } from "@/utils/baseUrl";
 import { formatNextRun } from "@/utils/timeUtils";
 import { Button } from "@/components/ui/Button";
-import { resolveServerReferences } from "@/utils/speedtestSettings";
 
 interface ScheduleManagerProps {
   servers: Server[];
@@ -183,6 +182,7 @@ const formatExactTimeFromUTC = (time: string): string => {
   return formatTimeWithSettings(candidate);
 };
 
+/** Creates, displays, and removes schedules using the currently available test servers. */
 export default function ScheduleManager({ servers, selectedServers, testType }: ScheduleManagerProps) {
   const queryClient = useQueryClient();
   const [iperfServers, setIperfServers] = useState<SavedIperfServer[]>([]);
@@ -260,24 +260,27 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
   }, []);
 
   useEffect(() => {
-    fetchIperfServers();
+    let active = true;
+    void fetch(getApiUrl("/iperf/servers"))
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.message || `HTTP error! status: ${response.status}`
+          );
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (active) setIperfServers(data || []);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch iperf servers:", error);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
-
-  const fetchIperfServers = async () => {
-    try {
-      const response = await fetch(getApiUrl("/iperf/servers"));
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
-        );
-      }
-      const data = await response.json();
-      setIperfServers(data || []);
-    } catch (error) {
-      console.error("Failed to fetch iperf servers:", error);
-    }
-  };
 
   const requiresServerSelection = testType === "iperf" || testType === "librespeed";
   const isMissingServer = requiresServerSelection && selectedServers.length === 0;
@@ -419,11 +422,15 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
     options: Schedule["options"],
   ) => {
     const isLibrespeedSchedule = options.useLibrespeed === true;
-    const serversList = resolveServerReferences(
-      serverIds,
-      servers,
-      (server) => Boolean(server.isLibrespeed) === isLibrespeedSchedule,
-    )
+    const serversList = (serverIds ?? [])
+      .map((id) => {
+        const server = servers.find(
+          (candidate) =>
+            candidate.id === id &&
+            Boolean(candidate.isLibrespeed) === isLibrespeedSchedule,
+        );
+        return server ? { id, server } : { id };
+      })
       .map(({ id, server }) => {
         if (id.startsWith("iperf3-")) {
           const host = id.substring(7);

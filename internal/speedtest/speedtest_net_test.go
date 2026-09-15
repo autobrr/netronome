@@ -136,10 +136,15 @@ func serverIDs(servers []ServerResponse) []string {
 	return ids
 }
 
+func seedServerCatalogue(t *testing.T, runner *SpeedtestNetRunner, servers []ServerResponse, location *ServerLocation) {
+	t.Helper()
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), servers, location, ""))
+}
+
 func TestServerCacheReturnsCopies(t *testing.T) {
 	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
 	runner.cacheDuration = time.Minute
-	runner.storeServerCache("test", []ServerResponse{{ID: "1"}}, nil)
+	runner.storeServerCache("test", []ServerResponse{{ID: "1"}})
 
 	first, ok := runner.loadServerCache("test")
 	require.True(t, ok)
@@ -154,8 +159,8 @@ func TestServerCacheRefreshRetainsValidEntry(t *testing.T) {
 	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
 	runner.cacheDuration = time.Minute
 	cachedServers := []ServerResponse{{ID: "cached"}}
-	runner.retainServers(cachedServers)
-	runner.storeServerCache("local", cachedServers, &ServerLocation{})
+	seedServerCatalogue(t, runner, cachedServers, &ServerLocation{})
+	runner.storeServerCache("local", cachedServers)
 
 	var fetchCount atomic.Int32
 	runner.fetchServers = func(_ context.Context, _ *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
@@ -339,7 +344,7 @@ func TestServerCataloguePersistenceFailureIsReturned(t *testing.T) {
 	servers, err := runner.GetServersWithOptions(t.Context(), ServerListOptions{Refresh: true})
 	require.ErrorContains(t, err, "write retained speedtest servers")
 	assert.Nil(t, servers)
-	assert.NotEqual(t, runner.catalogueVersion.Load(), runner.storedVersion.Load())
+	assert.NotNil(t, runner.pendingCatalogue)
 
 	servers, err = runner.GetServersWithOptions(t.Context(), ServerListOptions{})
 	require.ErrorContains(t, err, "write retained speedtest servers")
@@ -349,7 +354,7 @@ func TestServerCataloguePersistenceFailureIsReturned(t *testing.T) {
 	servers, err = runner.GetServersWithOptions(t.Context(), ServerListOptions{})
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"durable", "pending"}, serverIDs(servers))
-	assert.Equal(t, runner.catalogueVersion.Load(), runner.storedVersion.Load())
+	assert.Nil(t, runner.pendingCatalogue)
 
 	restarted := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
 	assert.ElementsMatch(t, []string{"durable", "pending"}, serverIDs(restarted.loadRetainedServers(nil)))
@@ -372,7 +377,7 @@ func TestServerCatalogueDoesNotExposePendingFirstWrite(t *testing.T) {
 		refreshDone <- err
 	}()
 	<-store.setStarted
-	assert.Empty(t, runner.loadAvailableServers(nil))
+	assert.Empty(t, runner.loadRetainedServers(nil))
 	close(store.releaseSet)
 	require.ErrorContains(t, <-refreshDone, "write retained speedtest servers")
 
@@ -384,15 +389,15 @@ func TestServerCatalogueDoesNotExposePendingFirstWrite(t *testing.T) {
 func TestServerCatalogueSurvivesSourceCacheExpiry(t *testing.T) {
 	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
 	oldServers := []ServerResponse{{ID: "old"}}
-	runner.retainServers(oldServers)
-	runner.storeServerCache("old", oldServers, nil)
+	seedServerCatalogue(t, runner, oldServers, nil)
+	runner.storeServerCache("old", oldServers)
 	runner.cacheMu.Lock()
 	runner.serverCache["old"] = serverCacheEntry{expiresAt: time.Now().Add(-time.Minute)}
 	runner.cacheMu.Unlock()
 
 	newServers := []ServerResponse{{ID: "new"}}
-	runner.retainServers(newServers)
-	runner.storeServerCache("new", newServers, nil)
+	seedServerCatalogue(t, runner, newServers, nil)
+	runner.storeServerCache("new", newServers)
 
 	_, cached := runner.loadServerCache("old")
 	assert.False(t, cached)
@@ -568,10 +573,10 @@ func TestGlobalServersRefreshRetainsPreviousGlobalAndLocalServers(t *testing.T) 
 	}
 	cachedGlobal := []ServerResponse{{ID: "cached-global"}}
 	cachedLocal := []ServerResponse{{ID: "cached-local"}}
-	runner.retainServers(cachedGlobal)
-	runner.retainServers(cachedLocal)
-	runner.storeServerCache("global", cachedGlobal, nil)
-	runner.storeServerCache("local", cachedLocal, &ServerLocation{})
+	seedServerCatalogue(t, runner, cachedGlobal, nil)
+	seedServerCatalogue(t, runner, cachedLocal, &ServerLocation{})
+	runner.storeServerCache("global", cachedGlobal)
+	runner.storeServerCache("local", cachedLocal)
 
 	var fetchCount atomic.Int32
 	runner.fetchServers = func(_ context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
@@ -642,10 +647,16 @@ func TestGlobalServerCacheDoesNotOverwriteNewerRetainedMetadata(t *testing.T) {
 		<-duplicateFetched
 		<-slowStarted
 		synctest.Wait()
-		runner.cacheMu.RLock()
-		retainedSponsor := runner.retainedServers["shared"].Sponsor
-		runner.cacheMu.RUnlock()
-		require.Equal(t, "global-old", retainedSponsor)
+		runner.persistMu.Lock()
+		var stagedSponsor string
+		for _, server := range runner.pendingCatalogue.Servers {
+			if server.ID == "shared" {
+				stagedSponsor = server.Sponsor
+				break
+			}
+		}
+		runner.persistMu.Unlock()
+		require.Equal(t, "global-old", stagedSponsor)
 
 		_, err := runner.GetServersWithOptions(t.Context(), ServerListOptions{
 			Location: &ServerLocation{Latitude: 3, Longitude: 3},
@@ -685,8 +696,8 @@ func TestGlobalServersRefreshPreservesCacheOnPartialFailure(t *testing.T) {
 		"failure": {Latitude: 2, Longitude: 2},
 	}
 	previous := []ServerResponse{{ID: "cached-global"}}
-	runner.retainServers(previous)
-	runner.storeServerCache("global", previous, nil)
+	seedServerCatalogue(t, runner, previous, nil)
+	runner.storeServerCache("global", previous)
 	runner.fetchServers = func(_ context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
 		if location == nil {
 			return []ServerResponse{{ID: "fresh-local"}}, &ServerLocation{}, nil
@@ -766,7 +777,7 @@ func TestGlobalServersWaitHonorsContext(t *testing.T) {
 func TestServerCacheBoundsCoordinateEntriesAndSweepsExpiredEntries(t *testing.T) {
 	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
 	runner.cacheDuration = time.Minute
-	runner.storeServerCache("local", []ServerResponse{{ID: "local"}}, nil)
+	runner.storeServerCache("local", []ServerResponse{{ID: "local"}})
 
 	runner.cacheMu.Lock()
 	runner.serverCache["location:expired"] = serverCacheEntry{
@@ -776,7 +787,7 @@ func TestServerCacheBoundsCoordinateEntriesAndSweepsExpiredEntries(t *testing.T)
 	runner.cacheMu.Unlock()
 
 	for i := range 40 {
-		runner.storeServerCache(fmt.Sprintf("location:%d", i), []ServerResponse{{ID: fmt.Sprint(i)}}, nil)
+		runner.storeServerCache(fmt.Sprintf("location:%d", i), []ServerResponse{{ID: fmt.Sprint(i)}})
 	}
 
 	runner.cacheMu.RLock()

@@ -105,7 +105,7 @@ func (r *LibrespeedRunner) SetProgressCallback(callback func(types.SpeedUpdate))
 	r.progressCallback = callback
 }
 
-// RunTest executes librespeed-cli and records the requested server's stable ID when available.
+// RunTest executes librespeed-cli and returns the requested stable ID and reported server URL when available.
 func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
 	log.Debug().Bool("isPublicServer", opts.IsPublicServer).Msg("starting librespeed test")
 
@@ -145,17 +145,11 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 
 	log.Info().Interface("result", librespeedResult).Msg("librespeed test complete")
 
-	result := &Result{
-		Timestamp:     librespeedResult.Timestamp,
-		Server:        librespeedResult.Server.Name,
-		DownloadSpeed: librespeedResult.Download,
-		UploadSpeed:   librespeedResult.Upload,
-		Latency:       fmt.Sprintf("%.2f", librespeedResult.Ping),
-		Jitter:        librespeedResult.Jitter,
-	}
+	serverID := ""
 	if len(opts.ServerIDs) > 0 {
-		result.ServerID = opts.ServerIDs[0]
+		serverID = opts.ServerIDs[0]
 	}
+	result := resultFromLibrespeed(librespeedResult, serverID)
 
 	// Final completion update
 	if r.progressCallback != nil {
@@ -171,6 +165,19 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 	}
 
 	return result, nil
+}
+
+func resultFromLibrespeed(result LibrespeedResult, serverID string) *Result {
+	return &Result{
+		Timestamp:     result.Timestamp,
+		Server:        result.Server.Name,
+		ServerID:      serverID,
+		ServerHost:    result.Server.URL,
+		DownloadSpeed: result.Download,
+		UploadSpeed:   result.Upload,
+		Latency:       fmt.Sprintf("%.2f", result.Ping),
+		Jitter:        result.Jitter,
+	}
 }
 
 func (r *LibrespeedRunner) buildArgs(opts *types.TestOptions) []string {

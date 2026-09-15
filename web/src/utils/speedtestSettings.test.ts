@@ -10,10 +10,7 @@ import {
   formatSpeedtestServerName,
   formatSpeedtestServerStorageStatus,
   normalizeSpeedtestSettings,
-  resolveServerReferences,
-  selectedServersForKey,
   speedtestResultServerKey,
-  speedtestSelectionKey,
   speedtestServerCatalogueQueryKey,
   speedtestServerQueryKey,
   speedtestServerStatusQueryKey,
@@ -230,36 +227,6 @@ test("cancelled refreshes do not republish prior mutation data", async () => {
   await assert.rejects(cancelledRefresh, /refresh aborted/);
   assert.deepEqual(queryClient.getQueryData(catalogueQueryKey), ["current"]);
   assert.equal(successfulRefreshes, 1);
-});
-
-test("changing discovery sources preserves the retained server selection", () => {
-  const selectionKey = speedtestSelectionKey();
-  const selection = { key: selectionKey, servers: [{ id: "123" }] };
-
-  assert.deepEqual(selectedServersForKey(selection, selectionKey), [{ id: "123" }]);
-});
-
-test("saved schedule server IDs survive when the active catalogue cannot resolve them", () => {
-  assert.deepEqual(
-    resolveServerReferences(["global-123"], [{ id: "local-456", name: "Local" }]),
-    [{ id: "global-123" }],
-  );
-});
-
-test("schedule server resolution keeps colliding provider IDs distinct", () => {
-  const collidingServers = [
-    { id: "42", name: "Speedtest", isLibrespeed: false },
-    { id: "42", name: "LibreSpeed", isLibrespeed: true },
-  ];
-
-  assert.deepEqual(
-    resolveServerReferences(["42"], collidingServers, (server) => !server.isLibrespeed),
-    [{ id: "42", server: collidingServers[0] }],
-  );
-  assert.deepEqual(
-    resolveServerReferences(["42"], collidingServers, (server) => server.isLibrespeed),
-    [{ id: "42", server: collidingServers[1] }],
-  );
 });
 
 test("history labels and keys preserve distinct server identities", () => {

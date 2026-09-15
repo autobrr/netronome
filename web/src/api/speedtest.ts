@@ -68,12 +68,13 @@ export async function getSpeedtestServerCatalogueStatus(
   if (typeof data !== "object" || data === null || !("stored" in data) || typeof data.stored !== "boolean") {
     throw new Error("Invalid server catalogue status response");
   }
-  if ("updatedAt" in data && data.updatedAt !== undefined && typeof data.updatedAt !== "string") {
+  const updatedAt = "updatedAt" in data ? data.updatedAt : undefined;
+  if (updatedAt !== undefined && typeof updatedAt !== "string") {
     throw new Error("Invalid server catalogue status response");
   }
   return {
     stored: data.stored,
-    updatedAt: "updatedAt" in data ? data.updatedAt : undefined,
+    updatedAt,
   };
 }
 

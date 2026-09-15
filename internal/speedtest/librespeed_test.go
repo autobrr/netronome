@@ -5,12 +5,32 @@ package speedtest
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/types"
 )
+
+func TestResultFromLibrespeedMapsServerIdentity(t *testing.T) {
+	timestamp := time.Date(2026, time.September, 15, 1, 2, 3, 0, time.UTC)
+	result := resultFromLibrespeed(LibrespeedResult{
+		Timestamp: timestamp,
+		Server: LibrespeedServerInfo{
+			Name: "Example LibreSpeed",
+			URL:  "https://speed.example.com/",
+		},
+	}, "42")
+
+	assert.Equal(t, timestamp, result.Timestamp)
+	assert.Equal(t, "Example LibreSpeed", result.Server)
+	assert.Equal(t, "42", result.ServerID)
+	assert.Equal(t, "https://speed.example.com/", result.ServerHost)
+
+	withoutHost := resultFromLibrespeed(LibrespeedResult{}, "")
+	assert.Empty(t, withoutHost.ServerHost)
+}
 
 func TestBuildArgsUsesServerJSONForPublicServers(t *testing.T) {
 	runner := NewLibrespeedRunner(config.LibrespeedConfig{
