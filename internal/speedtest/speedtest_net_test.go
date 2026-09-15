@@ -138,12 +138,10 @@ func TestServerCacheFetchesDifferentKeysIndependently(t *testing.T) {
 func TestServerCacheCallerCancellationDoesNotAbortSharedFetch(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{})
-		fetchStarted := make(chan struct{})
+		fetchContextDone := make(chan (<-chan struct{}), 1)
 		releaseFetch := make(chan struct{})
-		var fetchCtx context.Context
 		runner.fetchServers = func(ctx context.Context, _ *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
-			fetchCtx = ctx
-			close(fetchStarted)
+			fetchContextDone <- ctx.Done()
 			select {
 			case <-releaseFetch:
 				return []ServerResponse{{ID: "1"}}, &ServerLocation{}, nil
@@ -160,7 +158,7 @@ func TestServerCacheCallerCancellationDoesNotAbortSharedFetch(t *testing.T) {
 			_, err := runner.getServersForLocation(leaderCtx, "local", nil)
 			leaderResult <- err
 		})
-		<-fetchStarted
+		sharedDone := <-fetchContextDone
 		wg.Go(func() {
 			_, err := runner.getServersForLocation(t.Context(), "local", nil)
 			waiterResult <- err
@@ -170,7 +168,11 @@ func TestServerCacheCallerCancellationDoesNotAbortSharedFetch(t *testing.T) {
 		cancelLeader()
 		synctest.Wait()
 		require.ErrorIs(t, <-leaderResult, context.Canceled)
-		require.NoError(t, fetchCtx.Err())
+		select {
+		case <-sharedDone:
+			t.Fatal("shared fetch context canceled with first caller")
+		default:
+		}
 
 		close(releaseFetch)
 		wg.Wait()
