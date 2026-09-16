@@ -147,7 +147,7 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 
 	serverID := ""
 	if len(opts.ServerIDs) > 0 {
-		serverID = opts.ServerIDs[0]
+		serverID = librespeedServerIdentity(opts.ServerIDs[0], opts.IsPublicServer)
 	}
 	result := resultFromLibrespeed(librespeedResult, serverID)
 
@@ -165,6 +165,16 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 	}
 
 	return result, nil
+}
+
+func librespeedServerIdentity(serverID string, isPublic bool) string {
+	if serverID == "" {
+		return ""
+	}
+	if isPublic {
+		return "public-" + serverID
+	}
+	return "custom-" + serverID
 }
 
 func resultFromLibrespeed(result LibrespeedResult, serverID string) *Result {

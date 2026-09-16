@@ -32,6 +32,12 @@ func TestResultFromLibrespeedMapsServerIdentity(t *testing.T) {
 	assert.Empty(t, withoutHost.ServerHost)
 }
 
+func TestLibrespeedServerIdentityIncludesCatalogueSource(t *testing.T) {
+	assert.Equal(t, "public-42", librespeedServerIdentity("42", true))
+	assert.Equal(t, "custom-42", librespeedServerIdentity("42", false))
+	assert.Empty(t, librespeedServerIdentity("", true))
+}
+
 func TestBuildArgsUsesServerJSONForPublicServers(t *testing.T) {
 	runner := NewLibrespeedRunner(config.LibrespeedConfig{
 		ServersPath: "/tmp/local-servers.json",

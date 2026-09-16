@@ -5,6 +5,9 @@ package speedtest
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"slices"
 	"time"
 
 	"github.com/autobrr/netronome/internal/types"
@@ -45,6 +48,43 @@ type ServerLocation struct {
 type ServerCatalogueStatus struct {
 	Stored    bool       `json:"stored"`
 	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+}
+
+// PartialServerCatalogueError reports failed discovery sources after successful servers were retained.
+type PartialServerCatalogueError struct {
+	successfulLocations int
+	totalLocations      int
+	failures            []error
+}
+
+func newPartialServerCatalogueError(successfulLocations, totalLocations int, failures []error) *PartialServerCatalogueError {
+	return &PartialServerCatalogueError{
+		successfulLocations: successfulLocations,
+		totalLocations:      totalLocations,
+		failures:            slices.Clone(failures),
+	}
+}
+
+func (e *PartialServerCatalogueError) Error() string {
+	return fmt.Sprintf(
+		"global speedtest catalogue updated from %d of %d regional locations: %v",
+		e.successfulLocations,
+		e.totalLocations,
+		errors.Join(e.failures...),
+	)
+}
+
+func (e *PartialServerCatalogueError) Unwrap() error {
+	return errors.Join(e.failures...)
+}
+
+// WarningMessages returns source-specific failures suitable for an API response.
+func (e *PartialServerCatalogueError) WarningMessages() []string {
+	warnings := make([]string, 0, len(e.failures))
+	for _, failure := range e.failures {
+		warnings = append(warnings, failure.Error())
+	}
+	return warnings
 }
 
 type ServerResponse struct {

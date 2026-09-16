@@ -47,17 +47,36 @@ func TestResultForStorageKeepsLibrespeedServerIdentity(t *testing.T) {
 	got := resultForStorage(
 		&Result{
 			Server:     "Example LibreSpeed",
-			ServerID:   "42",
+			ServerID:   "public-42",
 			ServerHost: "https://speed.example.com/",
 		},
 		"librespeed",
 		&types.TestOptions{},
 		time.Time{},
 	)
-	assert.Equal(t, "librespeed-42", got.ServerID)
+	assert.Equal(t, "librespeed-public-42", got.ServerID)
 	assert.Equal(t, "Example LibreSpeed", got.ServerName)
 	require.NotNil(t, got.ServerHost)
 	assert.Equal(t, "https://speed.example.com/", *got.ServerHost)
+}
+
+func TestResultForStorageDistinguishesLibrespeedCatalogues(t *testing.T) {
+	publicResult := resultForStorage(
+		&Result{Server: "Public", ServerID: librespeedServerIdentity("42", true)},
+		"librespeed",
+		&types.TestOptions{},
+		time.Time{},
+	)
+	customResult := resultForStorage(
+		&Result{Server: "Custom", ServerID: librespeedServerIdentity("42", false)},
+		"librespeed",
+		&types.TestOptions{},
+		time.Time{},
+	)
+
+	assert.Equal(t, "librespeed-public-42", publicResult.ServerID)
+	assert.Equal(t, "librespeed-custom-42", customResult.ServerID)
+	assert.NotEqual(t, publicResult.ServerID, customResult.ServerID)
 }
 
 func TestResultForStoragePreservesLegacyLibrespeedFallback(t *testing.T) {

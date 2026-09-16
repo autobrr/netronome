@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import { Server, SavedIperfServer } from "@/types/types";
+import type { Server, SavedIperfServer } from "@/types/types";
 
 /**
  * Server type options for filtering
@@ -46,6 +46,16 @@ export const combineServers = (
 ): Server[] => {
   const iperfServerList = convertIperfServersToServerFormat(iperfServers);
   return [...speedtestServers, ...librespeedServers, ...iperfServerList];
+};
+
+/** Keeps traceroute selections scoped to their owning server catalogue. */
+export const getTracerouteServerSelectionKey = (
+  server: Pick<Server, "isIperf" | "isLibrespeed"> | null,
+  speedtestSelectionKey: string,
+): string => {
+  if (server?.isIperf) return "iperf";
+  if (server?.isLibrespeed) return "librespeed";
+  return speedtestSelectionKey;
 };
 
 /**

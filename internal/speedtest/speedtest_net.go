@@ -49,7 +49,7 @@ type SpeedtestNetRunner struct {
 	progressCallback func(types.SpeedUpdate)
 	cacheMu          sync.RWMutex
 	persistMu        sync.Mutex
-	serverCache      map[string]serverCacheEntry
+	serverCache      map[string]time.Time
 	retainedServers  map[string]ServerResponse
 	catalogueSources map[string]time.Time
 	catalogueStore   serverCatalogueStore
@@ -65,11 +65,6 @@ type SpeedtestNetRunner struct {
 
 type serverFetcher func(context.Context, *ServerLocation) ([]ServerResponse, *ServerLocation, error)
 
-type serverCacheEntry struct {
-	servers   []ServerResponse
-	expiresAt time.Time
-}
-
 type persistedServerCatalogue struct {
 	Servers      []ServerResponse     `json:"servers"`
 	UserLocation *ServerLocation      `json:"userLocation,omitempty"`
@@ -82,7 +77,7 @@ func NewSpeedtestNetRunner(cfg config.SpeedTestConfig, store serverCatalogueStor
 	runner := &SpeedtestNetRunner{
 		client:           st.New(),
 		config:           cfg,
-		serverCache:      make(map[string]serverCacheEntry),
+		serverCache:      make(map[string]time.Time),
 		retainedServers:  make(map[string]ServerResponse),
 		catalogueSources: make(map[string]time.Time),
 		catalogueStore:   store,
@@ -444,14 +439,14 @@ func serverCatalogueSourceKey(options ServerListOptions) string {
 // getServersForLocation returns a copied catalogue and coalesces concurrent fetches by key.
 func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key string, location *ServerLocation, refresh bool) ([]ServerResponse, error) {
 	if !refresh {
-		if _, ok := r.loadServerCache(key); ok {
+		if r.serverCacheValid(key) {
 			return r.loadRetainedServers(location), nil
 		}
 	}
 
 	result := r.serverFetches.DoChan(key, func() (any, error) {
 		if !refresh {
-			if _, ok := r.loadServerCache(key); ok {
+			if r.serverCacheValid(key) {
 				return r.loadRetainedServers(location), nil
 			}
 		}
@@ -468,7 +463,7 @@ func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key stri
 		if err != nil {
 			return nil, err
 		}
-		r.storeServerCache(key, servers)
+		r.markServerCache(key)
 		retained := r.loadRetainedServers(location)
 
 		log.Debug().
@@ -494,7 +489,7 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool)
 		return nil, err
 	}
 	if !refresh {
-		if _, ok := r.loadServerCache("global"); ok {
+		if r.serverCacheValid("global") {
 			return r.loadRetainedServers(nil), nil
 		}
 	}
@@ -509,7 +504,7 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool)
 		return nil, err
 	}
 	if !refresh {
-		if _, ok := r.loadServerCache("global"); ok {
+		if r.serverCacheValid("global") {
 			return r.loadRetainedServers(nil), nil
 		}
 	}
@@ -565,8 +560,12 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool)
 
 	var persistErr error
 	if successfulLocations > 0 {
+		sourceKey := ""
+		if len(failures) == 0 {
+			sourceKey = "global"
+		}
 		persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), serverCatalogueStoreTimeout)
-		persistErr = r.updateServerCatalogue(persistCtx, nil, nil, "global")
+		persistErr = r.updateServerCatalogue(persistCtx, nil, nil, sourceKey)
 		cancel()
 	}
 	if ctxErr := ctx.Err(); ctxErr != nil {
@@ -574,10 +573,6 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool)
 	}
 	if persistErr != nil {
 		return nil, persistErr
-	}
-	if len(failures) > 0 {
-		fetchErr := errors.Join(failures...)
-		log.Warn().Err(fetchErr).Msg("Some global speedtest locations could not be fetched")
 	}
 	if successfulLocations == 0 {
 		if err := errors.Join(failures...); err != nil {
@@ -594,9 +589,14 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool)
 		return nil, fmt.Errorf("no speedtest servers found")
 	}
 	if len(failures) == 0 {
-		r.storeServerCache("global", servers)
+		r.markServerCache("global")
 	}
 	retained := r.loadRetainedServers(&userLocation)
+	if len(failures) > 0 {
+		partialErr := newPartialServerCatalogueError(successfulLocations, len(locationNames), failures)
+		log.Warn().Err(partialErr).Msg("Some global speedtest locations could not be fetched")
+		return retained, partialErr
+	}
 
 	log.Info().
 		Int("server_count", len(retained)).
@@ -696,22 +696,19 @@ func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
 	return earthRadiusKM * 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 }
 
-func (r *SpeedtestNetRunner) loadServerCache(key string) ([]ServerResponse, bool) {
+func (r *SpeedtestNetRunner) serverCacheValid(key string) bool {
 	r.cacheMu.RLock()
-	entry, ok := r.serverCache[key]
+	expiresAt, ok := r.serverCache[key]
 	r.cacheMu.RUnlock()
-	if !ok || time.Now().After(entry.expiresAt) {
-		return nil, false
-	}
-	return slices.Clone(entry.servers), true
+	return ok && !time.Now().After(expiresAt)
 }
 
-func (r *SpeedtestNetRunner) storeServerCache(key string, servers []ServerResponse) {
+func (r *SpeedtestNetRunner) markServerCache(key string) {
 	r.cacheMu.Lock()
 	defer r.cacheMu.Unlock()
 	now := time.Now()
-	for cacheKey, entry := range r.serverCache {
-		if !now.Before(entry.expiresAt) {
+	for cacheKey, expiresAt := range r.serverCache {
+		if !now.Before(expiresAt) {
 			delete(r.serverCache, cacheKey)
 		}
 	}
@@ -720,14 +717,14 @@ func (r *SpeedtestNetRunner) storeServerCache(key string, servers []ServerRespon
 		coordinateEntries := 0
 		oldestKey := ""
 		var oldestExpiry time.Time
-		for cacheKey, entry := range r.serverCache {
+		for cacheKey, expiresAt := range r.serverCache {
 			if cacheKey == key || !strings.HasPrefix(cacheKey, serverCatalogueCoordinatePrefix) {
 				continue
 			}
 			coordinateEntries++
-			if oldestKey == "" || entry.expiresAt.Before(oldestExpiry) {
+			if oldestKey == "" || expiresAt.Before(oldestExpiry) {
 				oldestKey = cacheKey
-				oldestExpiry = entry.expiresAt
+				oldestExpiry = expiresAt
 			}
 		}
 		if coordinateEntries >= maxCoordinateCatalogueEntries {
@@ -735,10 +732,7 @@ func (r *SpeedtestNetRunner) storeServerCache(key string, servers []ServerRespon
 		}
 	}
 
-	r.serverCache[key] = serverCacheEntry{
-		servers:   slices.Clone(servers),
-		expiresAt: now.Add(r.cacheDuration),
-	}
+	r.serverCache[key] = now.Add(r.cacheDuration)
 }
 
 func (r *SpeedtestNetRunner) ensureCatalogueLoaded(ctx context.Context) error {

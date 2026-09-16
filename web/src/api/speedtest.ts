@@ -7,6 +7,12 @@ import { getApiUrl } from "@/utils/baseUrl";
 import { SpeedTestOptions } from "@/types/speedtest";
 import type { Server } from "@/types/types";
 import type { SpeedtestServerQuery } from "@/utils/speedtestSettings";
+import {
+  parseServerCatalogueResponse,
+  type SpeedtestServerCatalogueResult,
+} from "./serverCatalogueResponse";
+
+export type { SpeedtestServerCatalogueResult } from "./serverCatalogueResponse";
 
 /** Durable fetch metadata for one Speedtest.net discovery source. */
 export interface SpeedtestServerCatalogueStatus {
@@ -24,12 +30,11 @@ const addSpeedtestServerQuery = (params: URLSearchParams, query: SpeedtestServer
   }
 };
 
-/** Fetches the selected provider's servers and supports abortable, cache-bypassing Speedtest.net discovery. */
-export async function getServers(
+const requestServers = async (
   testType: string,
   query: SpeedtestServerQuery = {},
   signal?: AbortSignal,
-): Promise<Server[]> {
+): Promise<SpeedtestServerCatalogueResult> => {
   try {
     const params = new URLSearchParams({ testType });
     addSpeedtestServerQuery(params, query);
@@ -41,11 +46,29 @@ export async function getServers(
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || "Failed to fetch servers");
     }
-    return await response.json() as Server[];
+    const data: unknown = await response.json();
+    return parseServerCatalogueResponse(data);
   } catch (error) {
     console.error("Error fetching servers:", error);
     throw error;
   }
+};
+
+/** Fetches the selected provider's servers and supports abortable Speedtest.net discovery. */
+export async function getServers(
+  testType: string,
+  query: SpeedtestServerQuery = {},
+  signal?: AbortSignal,
+): Promise<Server[]> {
+  return (await requestServers(testType, query, signal)).servers;
+}
+
+/** Refreshes Speedtest.net discovery while preserving source-level partial failure details. */
+export async function refreshSpeedtestServerCatalogue(
+  query: SpeedtestServerQuery,
+  signal?: AbortSignal,
+): Promise<SpeedtestServerCatalogueResult> {
+  return requestServers("speedtest", { ...query, refresh: true }, signal);
 }
 
 /** Reads whether the selected source has been durably fetched without starting discovery. */

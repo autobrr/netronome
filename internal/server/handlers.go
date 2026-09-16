@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -146,6 +147,13 @@ func (s *Server) handleGetServers(c *gin.Context) {
 
 	servers, err := s.speedtest.GetServers(c.Request.Context(), testType, options)
 	if err != nil {
+		if partialErr, ok := errors.AsType[*speedtest.PartialServerCatalogueError](err); ok {
+			c.JSON(http.StatusOK, gin.H{
+				"servers":  servers,
+				"warnings": partialErr.WarningMessages(),
+			})
+			return
+		}
 		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to get servers: %w", err))
 		return

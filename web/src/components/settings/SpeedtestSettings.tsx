@@ -12,7 +12,11 @@ import {
   MapPinIcon,
   ServerStackIcon,
 } from "@heroicons/react/24/outline";
-import { getServers, getSpeedtestServerCatalogueStatus } from "@/api/speedtest";
+import {
+  getServers,
+  getSpeedtestServerCatalogueStatus,
+  refreshSpeedtestServerCatalogue,
+} from "@/api/speedtest";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -93,6 +97,7 @@ export const SpeedtestSettings = () => {
     enabled: coordinatesValid,
   });
   const {
+    data: refreshResult,
     error: fetchError,
     isError: isFetchError,
     isPending: isFetching,
@@ -103,8 +108,8 @@ export const SpeedtestSettings = () => {
       query: SpeedtestServerQuery;
       signal: AbortSignal;
       sourceLabel: string;
-    }) => getServers("speedtest", { ...query, refresh: true }, signal),
-    onSuccess: async (servers, { query, signal, sourceLabel }) => {
+    }) => refreshSpeedtestServerCatalogue(query, signal),
+    onSuccess: async ({ servers, warnings }, { query, signal, sourceLabel }) => {
       if (signal.aborted) return;
       queryClient.setQueryData(speedtestServerQueryKey(query), servers);
       await queryClient.invalidateQueries({
@@ -113,9 +118,15 @@ export const SpeedtestSettings = () => {
       await queryClient.invalidateQueries({
         queryKey: ["servers", "speedtest", "status"],
       });
-      showToast("Server catalogue updated", "success", {
-        description: `${sourceLabel}: ${servers.length} retained servers available`,
-      });
+      if (warnings.length > 0) {
+        showToast("Server catalogue partially updated", "warning", {
+          description: `${sourceLabel}: ${servers.length} retained servers available; ${warnings.length} source${warnings.length === 1 ? "" : "s"} failed`,
+        });
+      } else {
+        showToast("Server catalogue updated", "success", {
+          description: `${sourceLabel}: ${servers.length} retained servers available`,
+        });
+      }
     },
   });
 
@@ -332,6 +343,12 @@ export const SpeedtestSettings = () => {
               {isFetchError && !isFetching && (
                 <p className="mt-3 text-sm text-red-600 dark:text-red-400" role="alert">
                   {fetchError instanceof Error ? fetchError.message : "Failed to fetch servers"}
+                </p>
+              )}
+
+              {refreshResult && refreshResult.warnings.length > 0 && !isFetching && (
+                <p className="mt-3 text-sm text-amber-600 dark:text-amber-400" role="status">
+                  Some locations could not be refreshed: {refreshResult.warnings.join("; ")}
                 </p>
               )}
             </div>
