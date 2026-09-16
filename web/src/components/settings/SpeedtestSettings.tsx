@@ -51,6 +51,13 @@ export const SpeedtestSettings = () => {
   const [hasChanges, setHasChanges] = useState(false);
 
   const updateSettings = (change: Partial<SpeedtestSettingsDraft>) => {
+    const sourceChanged = change.source !== undefined && change.source !== settings.source;
+    const coordinatesChanged = settings.source === "coordinates" &&
+      (("latitude" in change && change.latitude !== settings.latitude) ||
+        ("longitude" in change && change.longitude !== settings.longitude));
+    if (sourceChanged || coordinatesChanged) {
+      resetRefreshServerCatalogue();
+    }
     setSettings((current) => ({ ...current, ...change }));
     setHasChanges(true);
   };
@@ -90,6 +97,7 @@ export const SpeedtestSettings = () => {
     isError: isFetchError,
     isPending: isFetching,
     mutateAsync: refreshServerCatalogue,
+    reset: resetRefreshServerCatalogue,
   } = useMutation({
     mutationFn: ({ query, signal }: {
       query: SpeedtestServerQuery;
