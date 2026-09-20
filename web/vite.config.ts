@@ -3,12 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
-
-/** Keeps server catalogue requests off PWA runtime caches so explicit refreshes cannot return stale data. */
-export const speedtestServersNetworkOnlyRoute = {
-  urlPattern: /\/api\/servers(?:\/catalogue\/status)?(?:\?|$)/,
-  handler: 'NetworkOnly' as const
-}
+import { speedtestServersNetworkOnlyRoute } from './src/utils/pwaRuntimeCaching'
 
 // Get API details from Netronome env vars
 const apiHost = process.env.NETRONOME__HOST || '127.0.0.1'

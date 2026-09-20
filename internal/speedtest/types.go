@@ -119,8 +119,3 @@ type ResultHandler interface {
 	SaveResult(ctx context.Context, result *Result, testType string, opts *types.TestOptions) error
 	SendNotification(result *types.SpeedTestResult)
 }
-
-// ProgressBroadcaster handles real-time progress updates
-type ProgressBroadcaster interface {
-	BroadcastUpdate(update types.SpeedUpdate)
-}

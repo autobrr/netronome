@@ -241,11 +241,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     return tests;
   }, [tests, serverFilterMode, selectedSingleServer, selectedMultipleServers]);
 
-  const hasActiveServerFilter =
-    (serverFilterMode === "single" && selectedSingleServer !== "all") ||
-    (serverFilterMode === "multiple" && selectedMultipleServers.size > 0);
-  const summaryLatestTest =
-    filteredDisplayTests[0] ?? (hasActiveServerFilter ? null : latestTest);
+  const summaryLatestTest = filteredDisplayTests[0] ?? latestTest;
 
   const calculateAverage = (field: keyof SpeedTestResult): string => {
     if (filteredDisplayTests.length === 0) return "N/A";

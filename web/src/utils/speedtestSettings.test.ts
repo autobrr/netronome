@@ -17,7 +17,6 @@ import {
   speedtestServerSelectionKey,
   speedtestServerStatusQueryKey,
   speedtestServerQuery,
-  summarizeSpeedtestHistory,
 } from "./speedtestSettings.ts";
 
 test("coordinate settings require finite in-range coordinates", () => {
@@ -154,25 +153,6 @@ test("history labels and keys preserve distinct server identities", () => {
       serverName: "Shared",
     }),
   );
-});
-
-test("dashboard summaries stay within the selected time range", () => {
-  const olderResult = {
-    id: "1",
-    serverId: "42",
-    serverName: "Older",
-    serverHost: "older.example.com",
-    testType: "speedtest" as const,
-    downloadSpeed: 100,
-    uploadSpeed: 50,
-    latency: "10ms",
-    createdAt: "2026-09-01T00:00:00Z",
-  };
-
-  assert.deepEqual(summarizeSpeedtestHistory([], [olderResult]), {
-    hasAnyTests: true,
-    latestTest: null,
-  });
 });
 
 test("schedule lookup respects the saved LibreSpeed catalogue source", () => {

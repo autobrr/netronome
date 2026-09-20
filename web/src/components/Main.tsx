@@ -22,7 +22,6 @@ import {
   speedtestServerQueryKey,
   speedtestServerQuery,
   speedtestServerSelectionKey,
-  summarizeSpeedtestHistory,
   useSpeedtestSettings,
 } from "@/utils/speedtestSettings";
 import {
@@ -228,6 +227,7 @@ export default function Main({ isPublic = false }: MainProps) {
     },
     initialPageParam: 1,
     staleTime: 0,
+    placeholderData: (previousData) => previousData,
   });
 
   const history = useMemo(() => {
@@ -250,7 +250,8 @@ export default function Main({ isPublic = false }: MainProps) {
 
   const allTimeHistory = allTimeHistoryData?.data ?? [];
 
-  const { hasAnyTests, latestTest } = summarizeSpeedtestHistory(history, allTimeHistory);
+  const hasAnyTests = allTimeHistory.length > 0;
+  const latestTest = history[0] ?? allTimeHistory[0] ?? null;
 
   const { data: schedules = [] } = useQuery({
     queryKey: ["schedules"],

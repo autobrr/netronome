@@ -175,15 +175,6 @@ export const speedtestResultServerKey = (
   result: Pick<SpeedTestResult, "testType" | "serverId" | "serverHost" | "serverName">,
 ): string => `${result.testType}:${result.serverId || result.serverHost || result.serverName}`;
 
-/** Keeps all-time existence separate from the latest result in the selected time range. */
-export const summarizeSpeedtestHistory = (
-  currentRange: SpeedTestResult[],
-  allTime: SpeedTestResult[],
-): { hasAnyTests: boolean; latestTest: SpeedTestResult | null } => ({
-  hasAnyTests: allTime.length > 0,
-  latestTest: currentRange[0] ?? null,
-});
-
 /** Finds a saved schedule's server without crossing provider or LibreSpeed source boundaries. */
 export const findScheduleServer = (
   servers: Server[],

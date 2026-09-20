@@ -5,7 +5,7 @@
 
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { speedtestServersNetworkOnlyRoute } from "../../vite.config.ts";
+import { speedtestServersNetworkOnlyRoute } from "./pwaRuntimeCaching.ts";
 
 test("server catalogue requests bypass PWA runtime caches", () => {
   assert.equal(speedtestServersNetworkOnlyRoute.handler, "NetworkOnly");
