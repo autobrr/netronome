@@ -167,6 +167,7 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 	return result, nil
 }
 
+// librespeedServerIdentity qualifies CLI-local IDs by their public or custom catalogue.
 func librespeedServerIdentity(serverID string, isPublic bool) string {
 	if serverID == "" {
 		return ""
@@ -177,6 +178,7 @@ func librespeedServerIdentity(serverID string, isPublic bool) string {
 	return "custom-" + serverID
 }
 
+// resultFromLibrespeed maps CLI output and the selected stable identity into a provider result.
 func resultFromLibrespeed(result LibrespeedResult, serverID string) *Result {
 	return &Result{
 		Timestamp:     result.Timestamp,

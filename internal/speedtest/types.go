@@ -65,6 +65,7 @@ func newPartialServerCatalogueError(successfulLocations, totalLocations int, fai
 	}
 }
 
+// Error summarizes how many regional discoveries succeeded and includes their failures.
 func (e *PartialServerCatalogueError) Error() string {
 	return fmt.Sprintf(
 		"global speedtest catalogue updated from %d of %d regional locations: %v",
@@ -74,6 +75,7 @@ func (e *PartialServerCatalogueError) Error() string {
 	)
 }
 
+// Unwrap joins the regional discovery failures for errors.Is and errors.As matching.
 func (e *PartialServerCatalogueError) Unwrap() error {
 	return errors.Join(e.failures...)
 }
@@ -87,6 +89,7 @@ func (e *PartialServerCatalogueError) WarningMessages() []string {
 	return warnings
 }
 
+// ServerResponse describes a selectable speed test server returned by the server-list API.
 type ServerResponse struct {
 	ID           string  `json:"id"`
 	Name         string  `json:"name"`
@@ -102,12 +105,14 @@ type ServerResponse struct {
 	IsPublic     bool    `json:"isPublic"`
 }
 
+// ProgressUpdate describes provider progress before it is broadcast to clients.
 type ProgressUpdate struct {
 	ServerName   string  `json:"serverName"`
 	TestType     string  `json:"testType"`
 	CurrentSpeed float64 `json:"currentSpeed"`
 }
 
+// SpeedUpdate describes a real-time speed test progress event.
 type SpeedUpdate struct {
 	Type        string  `json:"type"`
 	ServerName  string  `json:"serverName"`
@@ -116,21 +121,6 @@ type SpeedUpdate struct {
 	IsComplete  bool    `json:"isComplete"`
 	Latency     string  `json:"latency,omitempty"`
 	IsScheduled bool    `json:"isScheduled"`
-}
-
-// TestRunner interface for different speed test implementations
-type TestRunner interface {
-	// RunTest executes a speed test and returns the result
-	RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error)
-
-	// GetServers returns available servers for this test type
-	GetServers() ([]ServerResponse, error)
-
-	// GetTestType returns the test type identifier
-	GetTestType() string
-
-	// SetProgressCallback sets the callback for progress updates
-	SetProgressCallback(callback func(types.SpeedUpdate))
 }
 
 // ResultHandler handles database saves and notifications

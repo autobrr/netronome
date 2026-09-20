@@ -20,6 +20,7 @@ type DefaultResultHandler struct {
 	notifier *notifications.Notifier
 }
 
+// NewResultHandler creates a result handler backed by the database and optional notifier.
 func NewResultHandler(db database.Service, notifier *notifications.Notifier) *DefaultResultHandler {
 	return &DefaultResultHandler{
 		db:       db,
@@ -27,6 +28,7 @@ func NewResultHandler(db database.Service, notifier *notifications.Notifier) *De
 	}
 }
 
+// SaveResult persists a completed test with a detached deadline and then sends its notification.
 func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, testType string, opts *types.TestOptions) error {
 	log.Debug().
 		Str("test_type", testType).
@@ -108,6 +110,7 @@ func resultForStorage(result *Result, testType string, opts *types.TestOptions, 
 	return stored
 }
 
+// SendNotification publishes a completed result when notifications are configured.
 func (h *DefaultResultHandler) SendNotification(result *types.SpeedTestResult) {
 	if h.notifier != nil {
 		// Convert types.SpeedTestResult to notifications.SpeedTestResult

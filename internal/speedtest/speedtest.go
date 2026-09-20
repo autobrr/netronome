@@ -167,6 +167,7 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 	return result, nil
 }
 
+// GetServers returns selectable servers for a provider, applying discovery options to Speedtest.net.
 func (s *service) GetServers(ctx context.Context, testType string, options ServerListOptions) ([]ServerResponse, error) {
 	switch testType {
 	case "librespeed":
@@ -178,6 +179,7 @@ func (s *service) GetServers(ctx context.Context, testType string, options Serve
 	}
 }
 
+// GetSpeedtestServerCatalogueStatus returns durable source metadata without starting discovery.
 func (s *service) GetSpeedtestServerCatalogueStatus(ctx context.Context, options ServerListOptions) (ServerCatalogueStatus, error) {
 	return s.speedtestNetRunner.GetServerCatalogueStatus(ctx, options)
 }

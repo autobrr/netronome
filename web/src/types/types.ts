@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+/** A selectable endpoint from Speedtest.net, LibreSpeed, or the saved iperf3 list. */
 export interface Server {
   id: string;
   name: string;

@@ -52,7 +52,7 @@ import { extractHostname } from "./traceroute/utils/tracerouteUtils";
 import { getTracerouteServerSelectionKey } from "./traceroute/utils/serverUtils";
 import {
   speedtestServerQuery,
-  speedtestServerQueryKey,
+  speedtestServerSelectionKey,
   useSpeedtestSettings,
 } from "@/utils/speedtestSettings";
 
@@ -63,11 +63,12 @@ import {
   TAB_MODE_STORAGE_KEY,
 } from "./traceroute/constants/tracerouteConstants";
 
+/** Provides traceroute execution and packet-loss monitoring with source-scoped server selection. */
 export const TracerouteTab: React.FC = () => {
   const queryClient = useQueryClient();
   const speedtestSettings = useSpeedtestSettings();
-  const speedtestSelectionKey = JSON.stringify(
-    speedtestServerQueryKey(speedtestServerQuery(speedtestSettings)),
+  const speedtestSelectionKey = speedtestServerSelectionKey(
+    speedtestServerQuery(speedtestSettings),
   );
 
   // Tab mode state with localStorage persistence

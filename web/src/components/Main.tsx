@@ -21,6 +21,7 @@ import { applyPublicColorTheme } from "@/utils/colorTheme";
 import {
   speedtestServerQueryKey,
   speedtestServerQuery,
+  speedtestServerSelectionKey,
   useSpeedtestSettings,
 } from "@/utils/speedtestSettings";
 import {
@@ -48,6 +49,7 @@ import {
 } from "@tanstack/react-query";
 import {
   getServers,
+  getSpeedtestServerCatalogue,
   getHistory,
   getSchedules,
   runSpeedTest,
@@ -95,7 +97,7 @@ export default function Main({ isPublic = false }: MainProps) {
   });
   const [testType, setTestType] = useState<TestType>("speedtest");
   const activeServerSelectionKey = testType === "speedtest"
-    ? JSON.stringify(speedtestServerQueryKey(speedtestQuery))
+    ? speedtestServerSelectionKey(speedtestQuery)
     : testType;
   const [serverSelection, setServerSelection] = useState<{ key: string; servers: Server[] }>(
     () => ({ key: activeServerSelectionKey, servers: [] }),
@@ -159,14 +161,27 @@ export default function Main({ isPublic = false }: MainProps) {
 
   // Queries
   const {
-    data: speedtestServers = [],
+    data: speedtestCatalogue,
+    dataUpdatedAt: speedtestCatalogueUpdatedAt,
     isLoading: isSpeedtestLoading,
     isError: isSpeedtestError,
   } = useQuery({
     queryKey: speedtestServerQueryKey(speedtestQuery),
-    queryFn: ({ signal }) => getServers("speedtest", speedtestQuery, signal),
+    queryFn: ({ signal }) => getSpeedtestServerCatalogue(speedtestQuery, signal),
     enabled: !isPublic,
-  }) as { data: Server[]; isLoading: boolean; isError: boolean };
+  });
+  const speedtestServers = useMemo(
+    () => speedtestCatalogue?.servers ?? [],
+    [speedtestCatalogue?.servers]
+  );
+  const speedtestCatalogueWarning = speedtestCatalogue?.warnings.join("; ") ?? "";
+
+  useEffect(() => {
+    if (!speedtestCatalogueWarning) return;
+    showToast("Server catalogue partially updated", "warning", {
+      description: speedtestCatalogueWarning,
+    });
+  }, [speedtestCatalogueUpdatedAt, speedtestCatalogueWarning]);
 
   const { data: librespeedServers = [], isLoading: isLibrespeedLoading, isError: isLibrespeedError } = useQuery({
     queryKey: ["servers", "librespeed"],

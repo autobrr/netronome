@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from "react";
-import type { SpeedTestResult } from "../types/types.ts";
+import type { Schedule, Server, SpeedTestResult } from "../types/types.ts";
 
 /** Selects the geographic source used to build the Speedtest.net server list. */
 export type SpeedtestServerSource = "local" | "global" | "coordinates";
@@ -44,6 +44,10 @@ export const speedtestServerCatalogueQueryKey = () => ["servers", "speedtest", "
 export const speedtestServerQueryKey = (query: SpeedtestServerQuery) =>
   [...speedtestServerCatalogueQueryKey(), query] as const;
 
+/** Returns the serialized query identity used to scope Speedtest.net selections. */
+export const speedtestServerSelectionKey = (query: SpeedtestServerQuery): string =>
+  JSON.stringify(speedtestServerQueryKey(query));
+
 /** Identifies durable fetch status for one Speedtest.net discovery source. */
 export const speedtestServerStatusQueryKey = (settings: SpeedtestSettings) =>
   settings.source === "coordinates"
@@ -69,10 +73,12 @@ const DEFAULT_SETTINGS: SpeedtestSettings = {
   showServerCity: false,
 };
 
-const isLatitude = (value: unknown): value is number =>
+/** Reports whether a value is a finite latitude accepted by server discovery. */
+export const isLatitude = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value >= -90 && value <= 90;
 
-const isLongitude = (value: unknown): value is number =>
+/** Reports whether a value is a finite longitude accepted by server discovery. */
+export const isLongitude = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value >= -180 && value <= 180;
 
 /** Normalizes untrusted persisted settings, falling back to local discovery when coordinates are invalid. */
@@ -168,3 +174,17 @@ export const formatSpeedtestServerName = (
 export const speedtestResultServerKey = (
   result: Pick<SpeedTestResult, "testType" | "serverId" | "serverHost" | "serverName">,
 ): string => `${result.testType}:${result.serverId || result.serverHost || result.serverName}`;
+
+/** Finds a saved schedule's server without crossing provider or LibreSpeed source boundaries. */
+export const findScheduleServer = (
+  servers: Server[],
+  serverID: string,
+  options: Schedule["options"],
+): Server | undefined => {
+  const expectsLibrespeed = options.useLibrespeed === true;
+  return servers.find((server) =>
+    server.id === serverID &&
+    Boolean(server.isLibrespeed) === expectsLibrespeed &&
+    (!expectsLibrespeed || Boolean(server.isPublic) === (options.isPublicServer === true))
+  );
+};

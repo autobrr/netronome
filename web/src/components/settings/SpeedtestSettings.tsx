@@ -13,9 +13,8 @@ import {
   ServerStackIcon,
 } from "@heroicons/react/24/outline";
 import {
-  getServers,
+  getSpeedtestServerCatalogue,
   getSpeedtestServerCatalogueStatus,
-  refreshSpeedtestServerCatalogue,
 } from "@/api/speedtest";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +25,8 @@ import {
   formatSpeedtestServerName,
   formatSpeedtestServerStorageStatus,
   getSpeedtestSettings,
+  isLatitude,
+  isLongitude,
   normalizeSpeedtestSettings,
   saveSpeedtestSettings,
   speedtestServerCatalogueQueryKey,
@@ -68,14 +69,7 @@ export const SpeedtestSettings = () => {
 
   const coordinatesValid =
     settings.source !== "coordinates" ||
-    (typeof settings.latitude === "number" &&
-      Number.isFinite(settings.latitude) &&
-      settings.latitude >= -90 &&
-      settings.latitude <= 90 &&
-      typeof settings.longitude === "number" &&
-      Number.isFinite(settings.longitude) &&
-      settings.longitude >= -180 &&
-      settings.longitude <= 180);
+    (isLatitude(settings.latitude) && isLongitude(settings.longitude));
 
   const normalizedSettings = normalizeSpeedtestSettings(settings);
   const serverQuery = speedtestServerQuery(normalizedSettings);
@@ -84,7 +78,7 @@ export const SpeedtestSettings = () => {
   const sourceLabel = SOURCE_OPTIONS.find((option) => option.value === settings.source)?.label ?? "Selected";
   const { data: fetchedServers } = useQuery({
     queryKey: catalogueQueryKey,
-    queryFn: ({ signal }) => getServers("speedtest", serverQuery, signal),
+    queryFn: ({ signal }) => getSpeedtestServerCatalogue(serverQuery, signal),
     enabled: false,
   });
   const {
@@ -108,10 +102,10 @@ export const SpeedtestSettings = () => {
       query: SpeedtestServerQuery;
       signal: AbortSignal;
       sourceLabel: string;
-    }) => refreshSpeedtestServerCatalogue(query, signal),
+    }) => getSpeedtestServerCatalogue({ ...query, refresh: true }, signal),
     onSuccess: async ({ servers, warnings }, { query, signal, sourceLabel }) => {
       if (signal.aborted) return;
-      queryClient.setQueryData(speedtestServerQueryKey(query), servers);
+      queryClient.setQueryData(speedtestServerQueryKey(query), { servers, warnings: [] });
       await queryClient.invalidateQueries({
         queryKey: speedtestServerCatalogueQueryKey(),
       });
@@ -315,7 +309,7 @@ export const SpeedtestSettings = () => {
                         : isStatusError
                         ? "Stored status is unavailable. You can still fetch this source."
                         : sourceStored
-                          ? `${lastUpdated ? `Last updated ${lastUpdated}. ` : ""}${fetchedServers ? `${fetchedServers.length} servers are retained in total. ` : ""}Fetch again to add newly available servers.`
+                          ? `${lastUpdated ? `Last updated ${lastUpdated}. ` : ""}${fetchedServers ? `${fetchedServers.servers.length} servers are retained in total. ` : ""}Fetch again to add newly available servers.`
                           : "Fetch this source once to add its servers to the retained catalogue."}
                   </p>
                 </div>

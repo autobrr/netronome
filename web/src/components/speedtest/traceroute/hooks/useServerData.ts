@@ -6,7 +6,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Server, SavedIperfServer } from "@/types/types";
-import { getServers } from "@/api/speedtest";
+import { getServers, getSpeedtestServerCatalogue } from "@/api/speedtest";
 import { getApiUrl } from "@/utils/baseUrl";
 import {
   speedtestServerQueryKey,
@@ -20,6 +20,7 @@ import {
 } from "../utils/serverUtils";
 import { DEFAULT_SERVER_DISPLAY_COUNT } from "../constants/tracerouteConstants";
 
+/** Loads all traceroute server providers and derives the searchable, paginated view. */
 export const useServerData = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
@@ -31,10 +32,14 @@ export const useServerData = () => {
   const serverQuery = speedtestServerQuery(speedtestSettings);
 
   // Fetch speedtest servers
-  const { data: speedtestServers = [] } = useQuery({
+  const { data: speedtestCatalogue } = useQuery({
     queryKey: speedtestServerQueryKey(serverQuery),
-    queryFn: ({ signal }) => getServers("speedtest", serverQuery, signal),
-  }) as { data: Server[] };
+    queryFn: ({ signal }) => getSpeedtestServerCatalogue(serverQuery, signal),
+  });
+  const speedtestServers = useMemo(
+    () => speedtestCatalogue?.servers ?? [],
+    [speedtestCatalogue?.servers],
+  );
 
   // Fetch librespeed servers
   const { data: librespeedServers = [] } = useQuery({

@@ -54,7 +54,7 @@ const requestServers = async (
   }
 };
 
-/** Fetches the selected provider's servers and supports abortable Speedtest.net discovery. */
+/** Fetches a provider's servers and returns only the server list. */
 export async function getServers(
   testType: string,
   query: SpeedtestServerQuery = {},
@@ -63,12 +63,12 @@ export async function getServers(
   return (await requestServers(testType, query, signal)).servers;
 }
 
-/** Refreshes Speedtest.net discovery while preserving source-level partial failure details. */
-export async function refreshSpeedtestServerCatalogue(
+/** Fetches Speedtest.net servers together with any partial-discovery warnings. */
+export async function getSpeedtestServerCatalogue(
   query: SpeedtestServerQuery,
   signal?: AbortSignal,
 ): Promise<SpeedtestServerCatalogueResult> {
-  return requestServers("speedtest", { ...query, refresh: true }, signal);
+  return requestServers("speedtest", query, signal);
 }
 
 /** Reads whether the selected source has been durably fetched without starting discovery. */
@@ -101,6 +101,7 @@ export async function getSpeedtestServerCatalogueStatus(
   };
 }
 
+/** Fetches one page of private speed test history for a time range. */
 export async function getHistory(
   timeRange: string,
   page: number,
@@ -123,6 +124,7 @@ export async function getHistory(
   }
 }
 
+/** Fetches the instance's configured speed test schedules. */
 export async function getSchedules() {
   try {
     const response = await fetch(getApiUrl("/schedules"));
@@ -137,6 +139,7 @@ export async function getSchedules() {
   }
 }
 
+/** Starts a speed test with the selected provider and server options. */
 export async function runSpeedTest(options: SpeedTestOptions) {
   try {
     const response = await fetch(getApiUrl("/speedtest"), {
@@ -157,6 +160,7 @@ export async function runSpeedTest(options: SpeedTestOptions) {
   }
 }
 
+/** Fetches one page of history exposed by the public dashboard. */
 export async function getPublicHistory(
   timeRange: string,
   page: number,
@@ -179,6 +183,7 @@ export async function getPublicHistory(
   }
 }
 
+/** Reads the currently running speed test's status without using a cached response. */
 export async function getSpeedTestStatus() {
   try {
     const response = await fetch(getApiUrl("/speedtest/status"), {
@@ -198,6 +203,7 @@ export async function getSpeedTestStatus() {
   }
 }
 
+/** Starts a traceroute for a host and returns its initial response. */
 export async function runTraceroute(host: string) {
   try {
     const response = await fetch(
@@ -214,6 +220,7 @@ export async function runTraceroute(host: string) {
   }
 }
 
+/** Reads the current traceroute execution status. */
 export async function getTracerouteStatus() {
   try {
     const response = await fetch(getApiUrl("/traceroute/status"));

@@ -68,6 +68,74 @@ func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResul
 	return &result, nil
 }
 
+type speedTestResultIdentity struct {
+	testType   string
+	serverName string
+	serverID   string
+	serverHost *string
+}
+
+func (i speedTestResultIdentity) nameKey() string {
+	return i.testType + "\x00" + i.serverName
+}
+
+func (i speedTestResultIdentity) isLegacy() bool {
+	switch i.testType {
+	case "speedtest":
+		return i.serverHost == nil && i.serverID == i.serverName
+	case "librespeed":
+		return i.serverID == "librespeed-"+i.serverName
+	default:
+		return false
+	}
+}
+
+// speedTestResultAliases resolves legacy name-based IDs only when all stored history agrees on one stable ID.
+func (s *service) speedTestResultAliases(ctx context.Context) (map[string]string, error) {
+	rows, err := s.sqlBuilder.
+		Select("test_type", "server_name", "server_id", "server_host").
+		Distinct().
+		From("speed_tests").
+		Where("test_type IN (?, ?)", "speedtest", "librespeed").
+		RunWith(s.db).
+		QueryContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query speed test server identities: %w", err)
+	}
+	defer rows.Close()
+
+	stableIDsByName := make(map[string]map[string]struct{})
+	for rows.Next() {
+		var identity speedTestResultIdentity
+		if err := rows.Scan(&identity.testType, &identity.serverName, &identity.serverID, &identity.serverHost); err != nil {
+			return nil, fmt.Errorf("failed to scan speed test server identity: %w", err)
+		}
+		if identity.serverName == "" || identity.serverID == "" || identity.isLegacy() {
+			continue
+		}
+		stableIDs := stableIDsByName[identity.nameKey()]
+		if stableIDs == nil {
+			stableIDs = make(map[string]struct{})
+			stableIDsByName[identity.nameKey()] = stableIDs
+		}
+		stableIDs[identity.serverID] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate speed test server identities: %w", err)
+	}
+
+	aliases := make(map[string]string)
+	for nameKey, stableIDs := range stableIDsByName {
+		if len(stableIDs) != 1 {
+			continue
+		}
+		for stableID := range stableIDs {
+			aliases[nameKey] = stableID
+		}
+	}
+	return aliases, nil
+}
+
 func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, limit int) (*types.PaginatedSpeedTests, error) {
 	baseQuery := s.sqlBuilder.Select().From("speed_tests")
 
@@ -107,6 +175,10 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 	err := countQuery.RunWith(s.db).QueryRowContext(ctx).Scan(&total)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get total count: %w", err)
+	}
+	aliases, err := s.speedTestResultAliases(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	// Get paginated results
@@ -156,6 +228,17 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 		}
 
 		result.CreatedAt = result.CreatedAt.UTC()
+		identity := speedTestResultIdentity{
+			testType:   result.TestType,
+			serverName: result.ServerName,
+			serverID:   result.ServerID,
+			serverHost: result.ServerHost,
+		}
+		if identity.isLegacy() {
+			if stableID, ok := aliases[identity.nameKey()]; ok {
+				result.ServerID = stableID
+			}
+		}
 		results = append(results, result)
 	}
 

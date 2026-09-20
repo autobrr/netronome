@@ -34,6 +34,19 @@ jitter, the packet loss. A test can enable any combination.
 options. The scheduler runs the test on the server instance. An agent cannot hold
 a schedule. See issue #98.
 
+**Server catalogue** — the durable set of Speedtest.net servers discovered by
+the server instance. Catalogue reads order the same retained set from the active
+source; changing the source does not delete servers.
+
+**Retained servers** — speed test servers kept in the server catalogue after a
+successful discovery write. They remain available across source changes and
+instance restarts.
+
+**Source** — the origin used for Speedtest.net discovery: `local` uses the
+instance's detected location, `global` queries known regions, and `coordinates`
+uses an explicit latitude and longitude. Each source has its own last-updated
+status.
+
 ## Monitors
 
 The word **monitor** has two meanings in this codebase. Do not mix them.

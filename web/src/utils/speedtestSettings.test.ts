@@ -5,19 +5,25 @@
 
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { MutationObserver, QueryClient, QueryObserver } from "@tanstack/react-query";
 import {
+  findScheduleServer,
   formatSpeedtestServerName,
   formatSpeedtestServerStorageStatus,
+  isLatitude,
+  isLongitude,
   normalizeSpeedtestSettings,
   speedtestResultServerKey,
-  speedtestServerCatalogueQueryKey,
   speedtestServerQueryKey,
+  speedtestServerSelectionKey,
   speedtestServerStatusQueryKey,
   speedtestServerQuery,
 } from "./speedtestSettings.ts";
 
 test("coordinate settings require finite in-range coordinates", () => {
+  assert.equal(isLatitude(-90), true);
+  assert.equal(isLatitude(91), false);
+  assert.equal(isLongitude(180), true);
+  assert.equal(isLongitude(Number.NaN), false);
   assert.deepEqual(
     normalizeSpeedtestSettings({
       source: "coordinates",
@@ -58,6 +64,14 @@ test("server queries reflect the selected discovery source", () => {
     }),
     { latitude: 1.5, longitude: 2.5 },
   );
+  assert.equal(
+    speedtestServerSelectionKey({ global: true }),
+    JSON.stringify(speedtestServerQueryKey({ global: true })),
+  );
+  assert.notDeepEqual(
+    speedtestServerQueryKey({}),
+    speedtestServerQueryKey({ latitude: 1, longitude: 2 }),
+  );
 });
 
 test("server status queries distinguish discovery sources and coordinates", () => {
@@ -85,54 +99,6 @@ test("server status queries distinguish discovery sources and coordinates", () =
   );
 });
 
-test("coordinate changes load an origin-specific server view", async () => {
-  const queryClient = new QueryClient();
-  const calls: string[] = [];
-  const localQuery = {};
-  const coordinateQuery = { latitude: 1, longitude: 2 };
-  let resolveCoordinate!: () => void;
-  const coordinateLoaded = new Promise<void>((resolve) => {
-    resolveCoordinate = resolve;
-  });
-  const observer = new QueryObserver(queryClient, {
-    queryKey: speedtestServerQueryKey(localQuery),
-    queryFn: async () => {
-      calls.push("local");
-      return ["local"];
-    },
-  });
-  const unsubscribe = observer.subscribe((result) => {
-    if (result.data?.[0] === "coordinate") resolveCoordinate();
-  });
-
-  await observer.refetch();
-  observer.setOptions({
-    queryKey: speedtestServerQueryKey(coordinateQuery),
-    queryFn: async () => {
-      calls.push("coordinate");
-      return ["coordinate"];
-    },
-  });
-  await coordinateLoaded;
-
-  assert.deepEqual(calls, ["local", "coordinate"]);
-  assert.deepEqual(observer.getCurrentResult().data, ["coordinate"]);
-  unsubscribe();
-});
-
-test("draft-origin results do not overwrite another catalogue view", () => {
-  const queryClient = new QueryClient();
-  const localKey = speedtestServerQueryKey({});
-  const draftKey = speedtestServerQueryKey({ latitude: 1, longitude: 2 });
-
-  queryClient.setQueryData(localKey, ["local"]);
-  queryClient.setQueryData(draftKey, ["draft-coordinate"]);
-
-  assert.deepEqual(queryClient.getQueryData(localKey), ["local"]);
-  assert.deepEqual(queryClient.getQueryData(draftKey), ["draft-coordinate"]);
-  assert.deepEqual(speedtestServerCatalogueQueryKey(), ["servers", "speedtest", "catalogue"]);
-});
-
 test("server storage status keeps unavailable distinct from not stored", () => {
   assert.equal(
     formatSpeedtestServerStorageStatus("Global", {
@@ -150,83 +116,6 @@ test("server storage status keeps unavailable distinct from not stored", () => {
     }),
     "No global servers stored yet",
   );
-});
-
-test("refresh requests do not deduplicate onto ordinary catalogue loads", async () => {
-  const queryClient = new QueryClient();
-  const calls: string[] = [];
-  let markNormalStarted!: () => void;
-  let releaseNormal!: () => void;
-  const normalStarted = new Promise<void>((resolve) => {
-    markNormalStarted = resolve;
-  });
-  const normalBlocked = new Promise<void>((resolve) => {
-    releaseNormal = resolve;
-  });
-
-  const normalRequest = queryClient.fetchQuery({
-    queryKey: speedtestServerQueryKey({}),
-    queryFn: async () => {
-      calls.push("normal");
-      markNormalStarted();
-      await normalBlocked;
-      return ["cached"];
-    },
-  });
-  await normalStarted;
-
-  const refreshMutation = new MutationObserver(queryClient, {
-    mutationFn: async () => {
-      calls.push("refresh");
-      return ["fresh"];
-    },
-  });
-  const refreshRequest = refreshMutation.mutate();
-  releaseNormal();
-
-  const [, refreshed] = await Promise.all([normalRequest, refreshRequest]);
-  assert.deepEqual(calls, ["normal", "refresh"]);
-  assert.deepEqual(refreshed, ["fresh"]);
-});
-
-test("cancelled refreshes do not republish prior mutation data", async () => {
-  const queryClient = new QueryClient();
-  const catalogueQueryKey = speedtestServerQueryKey({});
-  let successfulRefreshes = 0;
-  const refreshMutation = new MutationObserver<
-    string[],
-    Error,
-    { signal: AbortSignal; result?: string[] }
-  >(queryClient, {
-    mutationFn: async ({ signal, result }) => {
-      if (result) return result;
-      await new Promise<void>((_resolve, reject) => {
-        if (signal.aborted) {
-          reject(new Error("refresh aborted"));
-          return;
-        }
-        signal.addEventListener("abort", () => reject(new Error("refresh aborted")), {
-          once: true,
-        });
-      });
-      return [];
-    },
-    onSuccess: (servers) => {
-      successfulRefreshes++;
-      queryClient.setQueryData(catalogueQueryKey, servers);
-    },
-  });
-
-  await refreshMutation.mutate({ signal: new AbortController().signal, result: ["old"] });
-  queryClient.setQueryData(catalogueQueryKey, ["current"]);
-
-  const controller = new AbortController();
-  const cancelledRefresh = refreshMutation.mutate({ signal: controller.signal });
-  controller.abort();
-
-  await assert.rejects(cancelledRefresh, /refresh aborted/);
-  assert.deepEqual(queryClient.getQueryData(catalogueQueryKey), ["current"]);
-  assert.equal(successfulRefreshes, 1);
 });
 
 test("history labels and keys preserve distinct server identities", () => {
@@ -263,5 +152,40 @@ test("history labels and keys preserve distinct server identities", () => {
       serverHost: "shared",
       serverName: "Shared",
     }),
+  );
+});
+
+test("schedule lookup respects the saved LibreSpeed catalogue source", () => {
+  const baseServer = {
+    id: "1",
+    name: "",
+    host: "",
+    location: "",
+    distance: 0,
+    country: "",
+    sponsor: "",
+    latitude: 0,
+    longitude: 0,
+    isIperf: false,
+    isLibrespeed: true,
+  };
+  const servers = [
+    { ...baseServer, name: "Custom", isPublic: false },
+    { ...baseServer, name: "Public", isPublic: true },
+  ];
+  const options = {
+    enableDownload: true,
+    enableUpload: true,
+    serverIds: ["1"],
+    useIperf: false,
+    useLibrespeed: true,
+    serverHost: undefined,
+    isPublicServer: true,
+  };
+
+  assert.equal(findScheduleServer(servers, "1", options)?.name, "Public");
+  assert.equal(
+    findScheduleServer(servers, "1", { ...options, isPublicServer: false })?.name,
+    "Custom",
   );
 });

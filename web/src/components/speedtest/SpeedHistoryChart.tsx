@@ -15,7 +15,6 @@ import {
 } from "recharts";
 import { SpeedTestResult, TimeRange, PaginatedResponse } from "@/types/types";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import type { DraggableSyntheticListeners } from "@dnd-kit/core";
 import { getHistory, getPublicHistory } from "@/api/speedtest";
 import { motion, AnimatePresence } from "motion/react";
 import { formatters } from "@/utils/timeSettings";
@@ -57,7 +56,7 @@ interface SpeedHistoryChartProps {
   hasCurrentRangeTests?: boolean;
   showDragHandle?: boolean;
   dragHandleRef?: (node: HTMLElement | null) => void;
-  dragHandleListeners?: DraggableSyntheticListeners;
+  dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
   dragHandleClassName?: string;
   // Server filtering props
   serverFilterMode?: "all" | "single" | "multiple";
@@ -455,7 +454,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   fontWeight: "medium",
                 }}
                 itemStyle={{ color: "var(--tooltip-text)" }}
-                formatter={(value, name) => {
+                formatter={(value: number | string, name: string) => {
                   if (typeof value === "number") {
                     if (name === "Download" || name === "Upload") {
                       return [`${value.toFixed(1)} Mbps`, name];
@@ -463,10 +462,10 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                       return [`${value.toFixed(1)} ms`, name];
                     }
                   }
-                  return [value ?? "", name];
+                  return [value, name];
                 }}
-                labelFormatter={(timestamp) => {
-                  return new Date(String(timestamp)).toLocaleString();
+                labelFormatter={(timestamp: number) => {
+                  return new Date(timestamp).toLocaleString();
                 }}
               />
 
@@ -708,10 +707,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
             }}
             // Allow tooltip to work on touch devices
             trigger={isMobile ? "click" : "hover"}
-            formatter={(value, name) => {
-              if (typeof value !== "number") {
-                return [value ?? "", name];
-              }
+            formatter={(value: number, name: string) => {
               if (name === "Download" || name === "Upload") {
                 return [`${value.toFixed(isMobile ? 1 : 2)} Mbps`, name];
               }
@@ -727,7 +723,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
                 const formattedDate =
                   data.timestamp ||
-                  formatters.chartTooltip(String(label ?? ""), timeRange);
+                  formatters.chartTooltip(label, timeRange);
 
                 return (
                   <>

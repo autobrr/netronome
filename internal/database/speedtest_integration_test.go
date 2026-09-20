@@ -57,6 +57,42 @@ func TestSpeedTest_Save(t *testing.T) {
 	})
 }
 
+func TestSpeedTest_GetAliasesOnlyUnambiguousLegacyServerIdentities(t *testing.T) {
+	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
+		baseTime := time.Date(2026, time.September, 20, 0, 0, 0, 0, time.UTC)
+		results := []types.SpeedTestResult{
+			{ServerName: "Unique", ServerID: "101", ServerHost: new("unique.example.com"), TestType: "speedtest", CreatedAt: baseTime.Add(time.Minute)},
+			{ServerName: "Unique", ServerID: "Unique", TestType: "speedtest", CreatedAt: baseTime.Add(2 * time.Minute)},
+			{ServerName: "Shared", ServerID: "201", ServerHost: new("first.example.com"), TestType: "speedtest", CreatedAt: baseTime.Add(3 * time.Minute)},
+			{ServerName: "Shared", ServerID: "202", ServerHost: new("second.example.com"), TestType: "speedtest", CreatedAt: baseTime.Add(4 * time.Minute)},
+			{ServerName: "Libre", ServerID: "librespeed-public-42", ServerHost: new("https://libre.example.com"), TestType: "librespeed", CreatedAt: baseTime.Add(5 * time.Minute)},
+			{ServerName: "Libre", ServerID: "librespeed-Libre", ServerHost: new("Libre"), TestType: "librespeed", CreatedAt: baseTime.Add(6 * time.Minute)},
+			{ServerName: "Shared", ServerID: "Shared", TestType: "speedtest", CreatedAt: baseTime.Add(7 * time.Minute)},
+		}
+		ids := make(map[string]int64, len(results))
+		for _, result := range results {
+			saved, err := td.Service.SaveSpeedTest(t.Context(), result)
+			require.NoError(t, err)
+			ids[result.TestType+":"+result.ServerID] = saved.ID
+		}
+
+		page, err := td.Service.GetSpeedTests(t.Context(), "all", 1, 1)
+		require.NoError(t, err)
+		require.Len(t, page.Data, 1)
+		assert.Equal(t, "Shared", page.Data[0].ServerID, "aliases must use identities outside the requested page")
+
+		all, err := td.Service.GetSpeedTests(t.Context(), "all", 1, len(results))
+		require.NoError(t, err)
+		byID := make(map[int64]types.SpeedTestResult, len(all.Data))
+		for _, result := range all.Data {
+			byID[result.ID] = result
+		}
+		assert.Equal(t, "101", byID[ids["speedtest:Unique"]].ServerID)
+		assert.Equal(t, "Shared", byID[ids["speedtest:Shared"]].ServerID)
+		assert.Equal(t, "librespeed-public-42", byID[ids["librespeed:librespeed-Libre"]].ServerID)
+	})
+}
+
 func TestSpeedTest_GetWithPagination(t *testing.T) {
 	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
 		ctx := context.Background()

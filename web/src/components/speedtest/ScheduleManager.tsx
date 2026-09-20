@@ -44,6 +44,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { getApiUrl } from "@/utils/baseUrl";
 import { formatNextRun } from "@/utils/timeUtils";
 import { Button } from "@/components/ui/Button";
+import { findScheduleServer } from "@/utils/speedtestSettings";
 
 interface ScheduleManagerProps {
   servers: Server[];
@@ -260,27 +261,24 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
   }, []);
 
   useEffect(() => {
-    let active = true;
-    void fetch(getApiUrl("/iperf/servers"))
-      .then(async (response) => {
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(
-            errorData.message || `HTTP error! status: ${response.status}`
-          );
-        }
-        return response.json();
-      })
-      .then((data) => {
-        if (active) setIperfServers(data || []);
-      })
-      .catch((error) => {
-        console.error("Failed to fetch iperf servers:", error);
-      });
-    return () => {
-      active = false;
-    };
+    fetchIperfServers();
   }, []);
+
+  const fetchIperfServers = async () => {
+    try {
+      const response = await fetch(getApiUrl("/iperf/servers"));
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
+      }
+      const data = await response.json();
+      setIperfServers(data || []);
+    } catch (error) {
+      console.error("Failed to fetch iperf servers:", error);
+    }
+  };
 
   const requiresServerSelection = testType === "iperf" || testType === "librespeed";
   const isMissingServer = requiresServerSelection && selectedServers.length === 0;
@@ -424,14 +422,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
     const isLibrespeedSchedule = options.useLibrespeed === true;
     const serversList = (serverIds ?? [])
       .map((id) => {
-        const server = servers.find(
-          (candidate) =>
-            candidate.id === id &&
-            Boolean(candidate.isLibrespeed) === isLibrespeedSchedule,
-        );
-        return server ? { id, server } : { id };
-      })
-      .map(({ id, server }) => {
+        const server = findScheduleServer(servers, id, options);
         if (id.startsWith("iperf3-")) {
           const host = id.substring(7);
           const iperfServer = iperfServers.find(

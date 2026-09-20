@@ -43,7 +43,6 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
-  type DraggableSyntheticListeners,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -74,7 +73,7 @@ interface DashboardTabProps {
 
 interface DragHandleProps {
   dragHandleRef?: (node: HTMLElement | null) => void;
-  dragHandleListeners?: DraggableSyntheticListeners;
+  dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
   dragHandleClassName?: string;
 }
 
@@ -109,7 +108,7 @@ const SortableItem: React.FC<SortableItemProps> = ({
     <div ref={setNodeRef} style={style} {...attributes}>
       {React.cloneElement(children as React.ReactElement<DragHandleProps>, {
         dragHandleRef: setActivatorNodeRef,
-        dragHandleListeners: listeners,
+        dragHandleListeners: listeners as any,
         dragHandleClassName,
       })}
     </div>
@@ -124,7 +123,7 @@ interface DraggableSpeedHistoryChartProps {
   hasAnyTests?: boolean;
   hasCurrentRangeTests?: boolean;
   dragHandleRef?: (node: HTMLElement | null) => void;
-  dragHandleListeners?: DraggableSyntheticListeners;
+  dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
   dragHandleClassName?: string;
   // Server filtering props
   serverFilterMode: "all" | "single" | "multiple";
@@ -231,6 +230,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     setDisplayCount(recentSpeedtestsRows);
   }, [recentSpeedtestsRows]);
 
+  const displayedTests = tests.slice(0, displayCount);
+
   const filteredDisplayTests = useMemo(() => {
     if (serverFilterMode === "single" && selectedSingleServer !== "all") {
       return tests.filter(test => speedtestResultServerKey(test) === selectedSingleServer);
@@ -240,17 +241,12 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     return tests;
   }, [tests, serverFilterMode, selectedSingleServer, selectedMultipleServers]);
 
-  const displayedTests = filteredDisplayTests.slice(0, displayCount);
-
-  const latestDisplayedTest = useMemo(() => {
-    if (filteredDisplayTests.length > 0) {
-      return filteredDisplayTests[0];
-    }
-    return serverFilterMode === "all" ? latestTest : null;
-  }, [filteredDisplayTests, latestTest, serverFilterMode]);
+  const filteredLatestTestComputed = useMemo(() => {
+    return filteredDisplayTests.length > 0 ? filteredDisplayTests[0] : null;
+  }, [filteredDisplayTests]);
 
   const calculateAverage = (field: keyof SpeedTestResult): string => {
-    const dataToUse = serverFilterMode === "all" ? tests : filteredDisplayTests;
+    const dataToUse = filteredDisplayTests.length > 0 ? filteredDisplayTests : tests;
     if (dataToUse.length === 0) return "N/A";
 
     const validValues = dataToUse
@@ -334,7 +330,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       )}
 
       {/* Latest Results */}
-      {hasAnyTests && latestDisplayedTest && (
+      {hasAnyTests && latestTest && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -353,8 +349,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <div className="flex justify-between ml-1 items-center text-gray-600 dark:text-gray-400 text-sm mb-4">
             <div>
               Last test run:{" "}
-              {latestDisplayedTest.createdAt
-                ? formatDateTimeWithSettings(latestDisplayedTest.createdAt, settings)
+              {latestTest?.createdAt
+                ? formatDateTimeWithSettings(latestTest.createdAt, settings)
                 : "N/A"}
             </div>
           </div>
@@ -362,32 +358,32 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <MetricCard
               icon={<IoIosPulse className="w-5 h-5 text-amber-500" />}
               title="Latency"
-              value={parseFloat(latestDisplayedTest.latency).toFixed(2)}
+              value={parseFloat((filteredLatestTestComputed || latestTest)!.latency).toFixed(2)}
               unit="ms"
               average={calculateAverage("latency")}
             />
             <MetricCard
               icon={<FaArrowDown className="w-5 h-5 text-blue-500" />}
               title="Download"
-              value={latestDisplayedTest.downloadSpeed.toFixed(2)}
+              value={(filteredLatestTestComputed || latestTest)!.downloadSpeed.toFixed(2)}
               unit="Mbps"
               average={calculateAverage("downloadSpeed")}
             />
             <MetricCard
               icon={<FaArrowUp className="w-5 h-5 text-emerald-500" />}
               title="Upload"
-              value={latestDisplayedTest.uploadSpeed.toFixed(2)}
+              value={(filteredLatestTestComputed || latestTest)!.uploadSpeed.toFixed(2)}
               unit="Mbps"
               average={calculateAverage("uploadSpeed")}
             />
             <MetricCard
               icon={<FaWaveSquare className="w-5 h-5 text-purple-400" />}
               title="Jitter"
-              value={latestDisplayedTest.jitter?.toFixed(2) ?? "N/A"}
+              value={(filteredLatestTestComputed || latestTest)!.jitter?.toFixed(2) ?? "N/A"}
               unit="ms"
               average={
-                latestDisplayedTest.jitter !== null &&
-                latestDisplayedTest.jitter !== undefined
+                (filteredLatestTestComputed || latestTest)!.jitter !== null &&
+                (filteredLatestTestComputed || latestTest)!.jitter !== undefined
                   ? calculateAverage("jitter")
                   : undefined
               }
@@ -461,7 +457,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   return (
                     <SortableItem key="recent" id="recent">
                       <DraggableRecentSpeedtests
-                        tests={filteredDisplayTests}
+                        tests={tests}
                         displayedTests={displayedTests}
                         displayCount={displayCount}
                         defaultDisplayCount={recentSpeedtestsRows}
@@ -496,7 +492,7 @@ interface DraggableRecentSpeedtestsProps {
   columns: ColumnDef<SpeedTestResult>[];
   mobileColumns: ColumnDef<SpeedTestResult>[];
   dragHandleRef?: (node: HTMLElement | null) => void;
-  dragHandleListeners?: DraggableSyntheticListeners;
+  dragHandleListeners?: Record<string, (...args: unknown[]) => unknown>;
   dragHandleClassName?: string;
 }
 
