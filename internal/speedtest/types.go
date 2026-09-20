@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/autobrr/netronome/internal/types"
@@ -55,14 +54,6 @@ type PartialServerCatalogueError struct {
 	successfulLocations int
 	totalLocations      int
 	failures            []error
-}
-
-func newPartialServerCatalogueError(successfulLocations, totalLocations int, failures []error) *PartialServerCatalogueError {
-	return &PartialServerCatalogueError{
-		successfulLocations: successfulLocations,
-		totalLocations:      totalLocations,
-		failures:            slices.Clone(failures),
-	}
 }
 
 // Error summarizes how many regional discoveries succeeded and includes their failures.

@@ -101,10 +101,6 @@ func NewSpeedtestNetRunner(cfg config.SpeedTestConfig, store serverCatalogueStor
 	return runner
 }
 
-func (r *SpeedtestNetRunner) GetTestType() string {
-	return "speedtest"
-}
-
 func (r *SpeedtestNetRunner) SetProgressCallback(callback func(types.SpeedUpdate)) {
 	r.progressCallback = callback
 }
@@ -568,7 +564,11 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool)
 
 	retained := r.loadRetainedServers(&userLocation)
 	if len(failures) > 0 {
-		partialErr := newPartialServerCatalogueError(successfulLocations, len(locationNames), failures)
+		partialErr := &PartialServerCatalogueError{
+			successfulLocations: successfulLocations,
+			totalLocations:      len(locationNames),
+			failures:            failures,
+		}
 		log.Warn().Err(partialErr).Msg("Some global speedtest locations could not be fetched")
 		return retained, partialErr
 	}
@@ -647,19 +647,16 @@ func serverResponses(serverList st.Servers) []ServerResponse {
 	return response
 }
 
-// mergeServerLists keeps the latest server per stable ID and orders the result from origin.
-func mergeServerLists(origin ServerLocation, servers []ServerResponse) []ServerResponse {
-	unique := make(map[string]ServerResponse, len(servers))
-	for _, server := range servers {
-		server.Distance = haversineDistance(origin.Latitude, origin.Longitude, server.Lat, server.Lon)
-		unique[server.ID] = server
+// sortServersFromOrigin recalculates distance and orders servers nearest-first.
+func sortServersFromOrigin(origin ServerLocation, servers []ServerResponse) []ServerResponse {
+	for i := range servers {
+		servers[i].Distance = haversineDistance(origin.Latitude, origin.Longitude, servers[i].Lat, servers[i].Lon)
 	}
 
-	merged := slices.Collect(maps.Values(unique))
-	slices.SortFunc(merged, func(a, b ServerResponse) int {
+	slices.SortFunc(servers, func(a, b ServerResponse) int {
 		return cmp.Compare(a.Distance, b.Distance)
 	})
-	return merged
+	return servers
 }
 
 // haversineDistance returns the great-circle distance in kilometres between two coordinates.
@@ -903,7 +900,7 @@ func (r *SpeedtestNetRunner) loadRetainedServers(origin *ServerLocation) []Serve
 	r.cacheMu.RUnlock()
 
 	if origin != nil {
-		return mergeServerLists(*origin, servers)
+		return sortServersFromOrigin(*origin, servers)
 	}
 	slices.SortFunc(servers, func(a, b ServerResponse) int {
 		return cmp.Compare(a.Distance, b.Distance)

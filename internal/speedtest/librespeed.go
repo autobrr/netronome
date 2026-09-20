@@ -97,10 +97,6 @@ func NewLibrespeedRunner(cfg config.LibrespeedConfig) *LibrespeedRunner {
 	}
 }
 
-func (r *LibrespeedRunner) GetTestType() string {
-	return "librespeed"
-}
-
 func (r *LibrespeedRunner) SetProgressCallback(callback func(types.SpeedUpdate)) {
 	r.progressCallback = callback
 }

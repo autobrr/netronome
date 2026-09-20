@@ -121,18 +121,16 @@ func TestServerResponsesFallsBackToUnpingableServers(t *testing.T) {
 	assert.Equal(t, "Brisbane", got[0].Name)
 }
 
-func TestMergeServerListsDeduplicatesAndSortsFromUser(t *testing.T) {
+func TestSortServersFromOrigin(t *testing.T) {
 	origin := ServerLocation{Latitude: 0, Longitude: 0}
 	servers := []ServerResponse{
 		{ID: "far", Lat: 0, Lon: 2},
-		{ID: "near", Lat: 0, Lon: 1, Sponsor: "first"},
-		{ID: "near", Lat: 0, Lon: 1, Sponsor: "latest"},
+		{ID: "near", Lat: 0, Lon: 1},
 	}
 
-	got := mergeServerLists(origin, servers)
+	got := sortServersFromOrigin(origin, servers)
 	require.Len(t, got, 2)
 	assert.Equal(t, "near", got[0].ID)
-	assert.Equal(t, "latest", got[0].Sponsor)
 	assert.InDelta(t, 111.2, got[0].Distance, 0.2)
 	assert.Greater(t, got[1].Distance, got[0].Distance)
 }

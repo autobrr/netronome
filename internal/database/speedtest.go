@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/types"
 )
@@ -75,28 +77,42 @@ type speedTestResultIdentity struct {
 	serverHost *string
 }
 
-func (i speedTestResultIdentity) nameKey() string {
-	return i.testType + "\x00" + i.serverName
+type speedTestResultName struct {
+	testType   string
+	serverName string
 }
 
+func (i speedTestResultIdentity) nameKey() speedTestResultName {
+	return speedTestResultName{testType: i.testType, serverName: i.serverName}
+}
+
+// isLegacy reports whether an identity has the storage shape used before stable server IDs.
 func (i speedTestResultIdentity) isLegacy() bool {
 	switch i.testType {
 	case "speedtest":
 		return i.serverHost == nil && i.serverID == i.serverName
 	case "librespeed":
-		return i.serverID == "librespeed-"+i.serverName
+		return i.serverHost != nil && *i.serverHost == i.serverName && i.serverID == "librespeed-"+i.serverName
 	default:
 		return false
 	}
 }
 
-// speedTestResultAliases resolves legacy name-based IDs only when all stored history agrees on one stable ID.
-func (s *service) speedTestResultAliases(ctx context.Context) (map[string]string, error) {
+// speedTestResultAliases resolves requested legacy names only when all stored history agrees on one stable ID.
+func (s *service) speedTestResultAliases(ctx context.Context, legacyNames map[speedTestResultName]struct{}) (map[speedTestResultName]string, error) {
+	nameConditions := make(sq.Or, 0, len(legacyNames))
+	for name := range legacyNames {
+		nameConditions = append(nameConditions, sq.And{
+			sq.Eq{"test_type": name.testType},
+			sq.Eq{"server_name": name.serverName},
+		})
+	}
+
 	rows, err := s.sqlBuilder.
 		Select("test_type", "server_name", "server_id", "server_host").
 		Distinct().
 		From("speed_tests").
-		Where("test_type IN (?, ?)", "speedtest", "librespeed").
+		Where(nameConditions).
 		RunWith(s.db).
 		QueryContext(ctx)
 	if err != nil {
@@ -104,7 +120,7 @@ func (s *service) speedTestResultAliases(ctx context.Context) (map[string]string
 	}
 	defer rows.Close()
 
-	stableIDsByName := make(map[string]map[string]struct{})
+	stableIDsByName := make(map[speedTestResultName]map[string]struct{})
 	for rows.Next() {
 		var identity speedTestResultIdentity
 		if err := rows.Scan(&identity.testType, &identity.serverName, &identity.serverID, &identity.serverHost); err != nil {
@@ -124,7 +140,7 @@ func (s *service) speedTestResultAliases(ctx context.Context) (map[string]string
 		return nil, fmt.Errorf("failed to iterate speed test server identities: %w", err)
 	}
 
-	aliases := make(map[string]string)
+	aliases := make(map[speedTestResultName]string)
 	for nameKey, stableIDs := range stableIDsByName {
 		if len(stableIDs) != 1 {
 			continue
@@ -176,11 +192,6 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 	if err != nil {
 		return nil, fmt.Errorf("failed to get total count: %w", err)
 	}
-	aliases, err := s.speedTestResultAliases(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	// Get paginated results
 	dataQuery := baseQuery.Columns(
 		"id",
@@ -207,6 +218,7 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 	defer rows.Close()
 
 	results := make([]types.SpeedTestResult, 0)
+	legacyNames := make(map[speedTestResultName]struct{})
 	for rows.Next() {
 		var result types.SpeedTestResult
 		err := rows.Scan(
@@ -235,15 +247,33 @@ func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, lim
 			serverHost: result.ServerHost,
 		}
 		if identity.isLegacy() {
-			if stableID, ok := aliases[identity.nameKey()]; ok {
-				result.ServerID = stableID
-			}
+			legacyNames[identity.nameKey()] = struct{}{}
 		}
 		results = append(results, result)
 	}
 
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating speed test results: %w", err)
+	}
+
+	if len(legacyNames) > 0 {
+		aliases, err := s.speedTestResultAliases(ctx, legacyNames)
+		if err != nil {
+			return nil, err
+		}
+		for i := range results {
+			identity := speedTestResultIdentity{
+				testType:   results[i].TestType,
+				serverName: results[i].ServerName,
+				serverID:   results[i].ServerID,
+				serverHost: results[i].ServerHost,
+			}
+			if identity.isLegacy() {
+				if stableID, ok := aliases[identity.nameKey()]; ok {
+					results[i].ServerID = stableID
+				}
+			}
+		}
 	}
 
 	return &types.PaginatedSpeedTests{

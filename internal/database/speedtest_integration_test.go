@@ -61,6 +61,8 @@ func TestSpeedTest_GetAliasesOnlyUnambiguousLegacyServerIdentities(t *testing.T)
 	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
 		baseTime := time.Date(2026, time.September, 20, 0, 0, 0, 0, time.UTC)
 		results := []types.SpeedTestResult{
+			{ServerName: "custom-42", ServerID: "librespeed-custom-42", ServerHost: new("https://first.example.com"), TestType: "librespeed", CreatedAt: baseTime.Add(-2 * time.Minute)},
+			{ServerName: "custom-42", ServerID: "librespeed-custom-43", ServerHost: new("https://second.example.com"), TestType: "librespeed", CreatedAt: baseTime.Add(-time.Minute)},
 			{ServerName: "Unique", ServerID: "101", ServerHost: new("unique.example.com"), TestType: "speedtest", CreatedAt: baseTime.Add(time.Minute)},
 			{ServerName: "Unique", ServerID: "Unique", TestType: "speedtest", CreatedAt: baseTime.Add(2 * time.Minute)},
 			{ServerName: "Shared", ServerID: "201", ServerHost: new("first.example.com"), TestType: "speedtest", CreatedAt: baseTime.Add(3 * time.Minute)},
@@ -90,6 +92,8 @@ func TestSpeedTest_GetAliasesOnlyUnambiguousLegacyServerIdentities(t *testing.T)
 		assert.Equal(t, "101", byID[ids["speedtest:Unique"]].ServerID)
 		assert.Equal(t, "Shared", byID[ids["speedtest:Shared"]].ServerID)
 		assert.Equal(t, "librespeed-public-42", byID[ids["librespeed:librespeed-Libre"]].ServerID)
+		assert.Equal(t, "librespeed-custom-42", byID[ids["librespeed:librespeed-custom-42"]].ServerID)
+		assert.Equal(t, "librespeed-custom-43", byID[ids["librespeed:librespeed-custom-43"]].ServerID)
 	})
 }
 

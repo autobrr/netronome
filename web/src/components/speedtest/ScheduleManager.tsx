@@ -261,24 +261,33 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
   }, []);
 
   useEffect(() => {
-    fetchIperfServers();
-  }, []);
+    let active = true;
 
-  const fetchIperfServers = async () => {
-    try {
-      const response = await fetch(getApiUrl("/iperf/servers"));
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
-        );
+    const fetchIperfServers = async () => {
+      try {
+        const response = await fetch(getApiUrl("/iperf/servers"));
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.message || `HTTP error! status: ${response.status}`
+          );
+        }
+        const data = await response.json();
+        if (active) {
+          setIperfServers(data || []);
+        }
+      } catch (error) {
+        if (active) {
+          console.error("Failed to fetch iperf servers:", error);
+        }
       }
-      const data = await response.json();
-      setIperfServers(data || []);
-    } catch (error) {
-      console.error("Failed to fetch iperf servers:", error);
-    }
-  };
+    };
+
+    fetchIperfServers();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const requiresServerSelection = testType === "iperf" || testType === "librespeed";
   const isMissingServer = requiresServerSelection && selectedServers.length === 0;

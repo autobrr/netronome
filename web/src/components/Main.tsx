@@ -22,6 +22,7 @@ import {
   speedtestServerQueryKey,
   speedtestServerQuery,
   speedtestServerSelectionKey,
+  summarizeSpeedtestHistory,
   useSpeedtestSettings,
 } from "@/utils/speedtestSettings";
 import {
@@ -227,7 +228,6 @@ export default function Main({ isPublic = false }: MainProps) {
     },
     initialPageParam: 1,
     staleTime: 0,
-    placeholderData: (previousData) => previousData,
   });
 
   const history = useMemo(() => {
@@ -238,37 +238,19 @@ export default function Main({ isPublic = false }: MainProps) {
   }, [historyData]);
 
   // Query to get all-time history for latest run display and existence check
-  const { data: allTimeHistoryData } = useInfiniteQuery({
+  const { data: allTimeHistoryData } = useQuery({
     queryKey: ["history", "all", isPublic],
-    queryFn: async ({ pageParam = 1 }) => {
+    queryFn: async () => {
       const historyFn = isPublic ? getPublicHistory : getHistory;
-      const response = await historyFn("all", pageParam, 20); // Get more results for latest run display
+      const response = await historyFn("all", 1, 1);
       return response as PaginatedResponse<SpeedTestResult>;
     },
-    getNextPageParam: () => undefined, // Only fetch first page
-    initialPageParam: 1,
     staleTime: 60000, // Cache for 1 minute
   });
 
-  const allTimeHistory = useMemo(() => {
-    if (!allTimeHistoryData?.pages) return [];
-    return allTimeHistoryData.pages.flatMap(
-      (page) => page?.data ?? []
-    ) as SpeedTestResult[];
-  }, [allTimeHistoryData]);
+  const allTimeHistory = allTimeHistoryData?.data ?? [];
 
-  const hasAnyTests = useMemo(() => {
-    return allTimeHistory.length > 0;
-  }, [allTimeHistory]);
-
-  // Use current time range history if available, otherwise fall back to all-time history for latest run
-  const latestTest = useMemo(() => {
-    return history && history.length > 0
-      ? history[0]
-      : allTimeHistory.length > 0
-      ? allTimeHistory[0]
-      : null;
-  }, [history, allTimeHistory]);
+  const { hasAnyTests, latestTest } = summarizeSpeedtestHistory(history, allTimeHistory);
 
   const { data: schedules = [] } = useQuery({
     queryKey: ["schedules"],

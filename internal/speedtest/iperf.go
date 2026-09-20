@@ -67,10 +67,6 @@ func NewIperfRunner(cfg config.IperfConfig) *IperfRunner {
 	}
 }
 
-func (r *IperfRunner) GetTestType() string {
-	return "iperf3"
-}
-
 func (r *IperfRunner) SetProgressCallback(callback func(types.SpeedUpdate)) {
 	r.progressCallback = callback
 }
