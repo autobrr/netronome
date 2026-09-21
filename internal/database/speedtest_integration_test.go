@@ -5,9 +5,6 @@ package database
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"sync"
 	"testing"
 	"time"
 
@@ -138,105 +135,6 @@ func TestSpeedtestServerCatalogueRollsBackFailedSourceUpdate(t *testing.T) {
 		require.NoError(t, sourceErr)
 		assert.False(t, found)
 	})
-}
-
-func TestSpeedtestServerCatalogueBoundsCoordinateSourceState(t *testing.T) {
-	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
-		baseTime := time.Date(2026, time.September, 21, 0, 0, 0, 0, time.UTC)
-		require.NoError(t, td.Service.SaveSpeedtestServerCatalogue(t.Context(), nil, &SpeedtestServerSource{
-			Key:       "local",
-			UpdatedAt: baseTime,
-		}))
-		for i := range 40 {
-			require.NoError(t, td.Service.SaveSpeedtestServerCatalogue(t.Context(), nil, &SpeedtestServerSource{
-				Key:       fmt.Sprintf("location:%d,%d", i, i),
-				UpdatedAt: baseTime.Add(time.Duration(i+1) * time.Minute),
-			}))
-		}
-
-		var coordinateSources int
-		err := td.DB.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM speedtest_server_sources WHERE source_key LIKE 'location:%'`).
-			Scan(&coordinateSources)
-		require.NoError(t, err)
-		assert.Equal(t, maxSpeedtestCoordinateSources, coordinateSources)
-		_, oldestFound, err := td.Service.GetSpeedtestServerSource(t.Context(), "location:0,0")
-		require.NoError(t, err)
-		assert.False(t, oldestFound)
-		_, newestFound, err := td.Service.GetSpeedtestServerSource(t.Context(), "location:39,39")
-		require.NoError(t, err)
-		assert.True(t, newestFound)
-		currentKey := "location:-27.4698,153.0251"
-		require.NoError(t, td.Service.SaveSpeedtestServerCatalogue(t.Context(), nil, &SpeedtestServerSource{
-			Key:       currentKey,
-			UpdatedAt: baseTime.Add(-time.Hour),
-		}))
-		_, currentFound, err := td.Service.GetSpeedtestServerSource(t.Context(), currentKey)
-		require.NoError(t, err)
-		assert.True(t, currentFound, "the source just fetched must survive pruning despite future timestamps")
-		err = td.DB.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM speedtest_server_sources WHERE source_key LIKE 'location:%'`).
-			Scan(&coordinateSources)
-		require.NoError(t, err)
-		assert.Equal(t, maxSpeedtestCoordinateSources, coordinateSources)
-		_, localFound, err := td.Service.GetSpeedtestServerSource(t.Context(), "local")
-		require.NoError(t, err)
-		assert.True(t, localFound)
-	})
-}
-
-func TestSpeedtestServerCatalogueSerializesConcurrentCoordinatePruning(t *testing.T) {
-	if os.Getenv("SKIP_POSTGRES_TESTS") != "" {
-		t.Skip("PostgreSQL tests skipped (SKIP_POSTGRES_TESTS is set)")
-	}
-
-	td := SetupTestDatabase(t, config.Postgres)
-	defer td.Close()
-	baseTime := time.Date(2026, time.September, 21, 0, 0, 0, 0, time.UTC)
-	for i := range maxSpeedtestCoordinateSources - 1 {
-		require.NoError(t, td.Service.SaveSpeedtestServerCatalogue(t.Context(), nil, &SpeedtestServerSource{
-			Key:       fmt.Sprintf("location:old-%d", i),
-			UpdatedAt: baseTime.Add(time.Duration(i) * time.Minute),
-		}))
-	}
-
-	const concurrentWrites = 16
-	start := make(chan struct{})
-	errs := make(chan error, concurrentWrites)
-	var writes sync.WaitGroup
-	for i := range concurrentWrites {
-		writes.Go(func() {
-			<-start
-			observedAt := baseTime.Add(time.Duration(maxSpeedtestCoordinateSources+i) * time.Minute)
-			servers := []SpeedtestServer{
-				{ID: "shared-a", ObservedAt: observedAt},
-				{ID: "shared-b", ObservedAt: observedAt},
-			}
-			if i%2 != 0 {
-				servers[0], servers[1] = servers[1], servers[0]
-			}
-			errs <- td.Service.SaveSpeedtestServerCatalogue(t.Context(), servers, &SpeedtestServerSource{
-				Key:       fmt.Sprintf("location:new-%d", i),
-				UpdatedAt: observedAt,
-			})
-		})
-	}
-	close(start)
-	writes.Wait()
-	close(errs)
-	for err := range errs {
-		require.NoError(t, err)
-	}
-
-	var coordinateSources int
-	require.NoError(t, td.DB.QueryRowContext(
-		t.Context(),
-		`SELECT COUNT(*) FROM speedtest_server_sources WHERE source_key LIKE 'location:%'`,
-	).Scan(&coordinateSources))
-	assert.Equal(t, maxSpeedtestCoordinateSources, coordinateSources)
-	for i := range concurrentWrites {
-		_, found, err := td.Service.GetSpeedtestServerSource(t.Context(), fmt.Sprintf("location:new-%d", i))
-		require.NoError(t, err)
-		assert.True(t, found)
-	}
 }
 
 func TestSpeedTest_GetAliasesOnlyUnambiguousLegacyServerIdentities(t *testing.T) {

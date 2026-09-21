@@ -33,7 +33,12 @@ const (
 	serverCatalogueFetchTimeout     = 30 * time.Second
 	serverCatalogueStoreTimeout     = 30 * time.Second
 	serverCatalogueCoordinatePrefix = "location:"
+	sourceKeyLocal                  = "local"
+	sourceKeyGlobal                 = "global"
 	speedtestServerListURL          = "https://www.speedtest.net/api/js/servers"
+	// nearestServerLimit is how many retained servers the local and coordinate
+	// views show, nearest first. The global view shows every retained server.
+	nearestServerLimit = 10
 )
 
 // serverCatalogueStore owns durable Speedtest.net servers and discovery-source status.
@@ -56,7 +61,6 @@ type SpeedtestNetRunner struct {
 	globalFetch      chan struct{}
 	serverFetches    singleflight.Group
 	lastObservation  atomic.Int64
-	cacheDuration    time.Duration
 	fetchServers     serverFetcher
 	globalLocations  map[string]ServerLocation
 }
@@ -71,7 +75,6 @@ func NewSpeedtestNetRunner(cfg config.SpeedTestConfig, store serverCatalogueStor
 		config:          cfg,
 		catalogueStore:  store,
 		globalFetch:     make(chan struct{}, 1),
-		cacheDuration:   30 * time.Minute,
 		fetchServers:    fetchSpeedtestServers,
 		globalLocations: make(map[string]ServerLocation, len(st.Locations)),
 	}
@@ -351,23 +354,28 @@ func (r *SpeedtestNetRunner) GetServersWithOptions(ctx context.Context, options 
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	key := serverCatalogueSourceKey(options)
 	if !options.Refresh {
-		servers, err := r.loadRetainedServers(ctx, options.Location)
+		stored, err := r.catalogueSourceStored(ctx, key)
 		if err != nil {
 			return nil, err
 		}
-		if len(servers) > 0 {
-			return servers, nil
+		if stored {
+			return r.loadRetainedServers(ctx, options.Location, viewLimit(options))
 		}
 	}
 	if options.Global {
 		return r.getGlobalServers(ctx, options.Refresh)
 	}
-	if options.Location != nil {
-		key := serverCatalogueSourceKey(options)
-		return r.getServersForLocation(ctx, key, options.Location, options.Refresh)
+	return r.getServersForLocation(ctx, key, options.Location, options.Refresh)
+}
+
+// viewLimit returns how many retained servers a source shows. Zero means all.
+func viewLimit(options ServerListOptions) int {
+	if options.Global {
+		return 0
 	}
-	return r.getServersForLocation(ctx, "local", nil, options.Refresh)
+	return nearestServerLimit
 }
 
 // GetServerCatalogueStatus returns durable fetch metadata without contacting Speedtest.net.
@@ -394,43 +402,18 @@ func (r *SpeedtestNetRunner) GetServerCatalogueStatus(ctx context.Context, optio
 // serverCatalogueSourceKey returns the durable identity for one discovery origin.
 func serverCatalogueSourceKey(options ServerListOptions) string {
 	if options.Global {
-		return "global"
+		return sourceKeyGlobal
 	}
 	if options.Location != nil {
 		return serverCatalogueCoordinatePrefix + strconv.FormatFloat(options.Location.Latitude, 'f', -1, 64) + "," +
 			strconv.FormatFloat(options.Location.Longitude, 'f', -1, 64)
 	}
-	return "local"
+	return sourceKeyLocal
 }
 
-// getServersForLocation returns a copied catalogue and coalesces concurrent fetches by key.
+// getServersForLocation fetches one local or coordinate source, coalescing concurrent fetches by key.
 func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key string, location *ServerLocation, refresh bool) ([]ServerResponse, error) {
-	if !refresh {
-		fresh, err := r.catalogueSourceFresh(ctx, key)
-		if err != nil {
-			return nil, err
-		}
-		if fresh {
-			return r.loadRetainedServers(ctx, location)
-		}
-	}
-
 	result := r.serverFetches.DoChan(key, func() (any, error) {
-		if !refresh {
-			readCtx, readCancel := context.WithTimeout(context.WithoutCancel(ctx), serverCatalogueStoreTimeout)
-			fresh, err := r.catalogueSourceFresh(readCtx, key)
-			if err != nil {
-				readCancel()
-				return nil, err
-			}
-			if fresh {
-				retained, err := r.loadRetainedServers(readCtx, location)
-				readCancel()
-				return retained, err
-			}
-			readCancel()
-		}
-
 		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), serverCatalogueFetchTimeout)
 		defer cancel()
 		servers, userLocation, err := r.fetchServers(fetchCtx, location)
@@ -443,7 +426,7 @@ func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key stri
 		if err != nil {
 			return nil, err
 		}
-		retained, err := r.loadRetainedServers(persistCtx, location)
+		retained, err := r.loadRetainedServers(persistCtx, location, nearestServerLimit)
 		if err != nil {
 			return nil, err
 		}
@@ -468,19 +451,6 @@ func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key stri
 
 // getGlobalServers retains successful regional results and reports any failed regions to the caller.
 func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool) ([]ServerResponse, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	if !refresh {
-		fresh, err := r.catalogueSourceFresh(ctx, "global")
-		if err != nil {
-			return nil, err
-		}
-		if fresh {
-			return r.loadRetainedServers(ctx, nil)
-		}
-	}
-
 	select {
 	case r.globalFetch <- struct{}{}:
 		defer func() { <-r.globalFetch }()
@@ -490,17 +460,18 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	// A caller that waited on the channel may find the fetch already done.
 	if !refresh {
-		fresh, err := r.catalogueSourceFresh(ctx, "global")
+		stored, err := r.catalogueSourceStored(ctx, sourceKeyGlobal)
 		if err != nil {
 			return nil, err
 		}
-		if fresh {
-			return r.loadRetainedServers(ctx, nil)
+		if stored {
+			return r.loadRetainedServers(ctx, nil, 0)
 		}
 	}
 
-	_, localErr := r.getServersForLocation(ctx, "local", nil, refresh)
+	_, localErr := r.getServersForLocation(ctx, sourceKeyLocal, nil, refresh)
 	userLocation, ok, err := r.loadUserLocation(ctx)
 	if err != nil {
 		return nil, err
@@ -556,7 +527,7 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool)
 	if successfulLocations > 0 {
 		sourceKey := ""
 		if successfulLocations == len(locationNames) {
-			sourceKey = "global"
+			sourceKey = sourceKeyGlobal
 		}
 		persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), serverCatalogueStoreTimeout)
 		persistErr = r.updateServerCatalogue(persistCtx, discovered, nil, sourceKey, observedAt)
@@ -575,7 +546,7 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool)
 		return nil, errors.New("no global speedtest locations configured")
 	}
 
-	retained, err := r.loadRetainedServers(ctx, &userLocation)
+	retained, err := r.loadRetainedServers(ctx, &userLocation, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -704,16 +675,16 @@ func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
 	return earthRadiusKM * 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 }
 
-// catalogueSourceFresh reports whether a source was durably refreshed within the cache duration.
-func (r *SpeedtestNetRunner) catalogueSourceFresh(ctx context.Context, key string) (bool, error) {
+// catalogueSourceStored reports whether a source has completed a fetch at any time.
+func (r *SpeedtestNetRunner) catalogueSourceStored(ctx context.Context, key string) (bool, error) {
 	if r.catalogueStore == nil {
 		return false, errors.New("speedtest server catalogue store is unavailable")
 	}
-	source, ok, err := r.catalogueStore.GetSpeedtestServerSource(ctx, key)
+	_, ok, err := r.catalogueStore.GetSpeedtestServerSource(ctx, key)
 	if err != nil {
 		return false, fmt.Errorf("read speedtest server source %q: %w", key, err)
 	}
-	return ok && !time.Now().After(source.UpdatedAt.Add(r.cacheDuration)), nil
+	return ok, nil
 }
 
 // nextCatalogueObservation returns a process-local monotonic UTC timestamp for refresh ordering.
@@ -771,8 +742,9 @@ func (r *SpeedtestNetRunner) updateServerCatalogue(
 	return nil
 }
 
-// loadRetainedServers returns the durable server catalogue sorted from origin.
-func (r *SpeedtestNetRunner) loadRetainedServers(ctx context.Context, origin *ServerLocation) ([]ServerResponse, error) {
+// loadRetainedServers returns the retained servers sorted from origin. A limit
+// above zero keeps only the nearest servers when an origin is known.
+func (r *SpeedtestNetRunner) loadRetainedServers(ctx context.Context, origin *ServerLocation, limit int) ([]ServerResponse, error) {
 	if r.catalogueStore == nil {
 		return nil, errors.New("speedtest server catalogue store is unavailable")
 	}
@@ -804,7 +776,11 @@ func (r *SpeedtestNetRunner) loadRetainedServers(ctx context.Context, origin *Se
 	}
 
 	if origin != nil {
-		return sortServersFromOrigin(*origin, servers), nil
+		servers = sortServersFromOrigin(*origin, servers)
+		if limit > 0 {
+			servers = servers[:min(limit, len(servers))]
+		}
+		return servers, nil
 	}
 	slices.SortFunc(servers, func(a, b ServerResponse) int {
 		return cmp.Compare(a.ID, b.ID)
@@ -817,7 +793,7 @@ func (r *SpeedtestNetRunner) loadUserLocation(ctx context.Context) (ServerLocati
 	if r.catalogueStore == nil {
 		return ServerLocation{}, false, errors.New("speedtest server catalogue store is unavailable")
 	}
-	source, ok, err := r.catalogueStore.GetSpeedtestServerSource(ctx, "local")
+	source, ok, err := r.catalogueStore.GetSpeedtestServerSource(ctx, sourceKeyLocal)
 	if err != nil {
 		return ServerLocation{}, false, fmt.Errorf("read local speedtest server source: %w", err)
 	}

@@ -95,7 +95,7 @@ export default function Main({ isPublic = false }: MainProps) {
     serverIds: [],
   });
   const [testType, setTestType] = useState<TestType>("speedtest");
-  const [selectedServers, setSelectedServers] = useState<Server[]>([]);
+  const [chosenServers, setChosenServers] = useState<Server[]>([]);
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
     "idle"
@@ -191,6 +191,12 @@ export default function Main({ isPublic = false }: MainProps) {
     return speedtestServers;
   }, [testType, speedtestServers, librespeedServers]);
 
+  // A chosen Speedtest.net server that left the list, for example after a source change, is no longer selected.
+  const selectedServers =
+    testType !== "speedtest" || servers.length === 0
+      ? chosenServers
+      : chosenServers.filter((selected) => servers.some((server) => server.id === selected.id));
+
   const { data: dashboardSettings } = useQuery({
     queryKey: ["dashboard-settings"],
     queryFn: settingsApi.getDashboardSettings,
@@ -280,7 +286,7 @@ export default function Main({ isPublic = false }: MainProps) {
   });
 
   const handleServerSelect = (server: Server) => {
-    setSelectedServers((prev) => {
+    setChosenServers((prev) => {
       const isSelected = prev.some((s) => s.id === server.id);
       if (!options.multiServer) {
         return isSelected ? [] : [server];

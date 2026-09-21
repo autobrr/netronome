@@ -192,6 +192,10 @@ type PaginatedPacketLossResults struct {
 	Limit int                       `json:"limit"`
 }
 
+// LibrespeedServerIDPrefix starts every stored LibreSpeed server ID. Rows
+// written by older releases use it too, so the value is fixed.
+const LibrespeedServerIDPrefix = "librespeed-"
+
 // DNS protocols a DNS monitor can use.
 const (
 	DNSProtocolUDP = "udp"

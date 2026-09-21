@@ -43,12 +43,12 @@ const SOURCE_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  { value: "local", label: "Local", description: "Add servers near your detected location to the retained pool." },
-  { value: "global", label: "Global", description: "Add servers from known regions worldwide to the retained pool." },
-  { value: "coordinates", label: "Coordinates", description: "Add servers near a latitude and longitude to the retained pool." },
+  { value: "local", label: "Local", description: "Show the 10 servers nearest your detected location." },
+  { value: "global", label: "Global", description: "Show every retained server, fetched from regions worldwide." },
+  { value: "coordinates", label: "Coordinates", description: "Show the 10 servers nearest a latitude and longitude." },
 ];
 
-/** Configures how servers are added to the retained pool and how history labels are displayed. */
+/** Configures which Speedtest.net servers are shown and how history labels are displayed. */
 export const SpeedtestSettings = () => {
   const queryClient = useQueryClient();
   const refreshAbortController = useRef<AbortController | null>(null);
@@ -167,7 +167,7 @@ export const SpeedtestSettings = () => {
             Speedtest.net Settings
           </h3>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Choose where to discover servers to add to the shared retained pool. All retained servers remain selectable on the Speed Test page.
+            Choose which servers the Speed Test page shows. Every fetch adds servers to the retained catalogue. Local and Coordinates show the nearest 10. Global shows all of them.
           </p>
         </div>
         {hasChanges && (

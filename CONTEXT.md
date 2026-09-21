@@ -35,8 +35,10 @@ options. The scheduler runs the test on the server instance. An agent cannot hol
 a schedule. See issue #98.
 
 **Server catalogue** — the durable set of Speedtest.net servers discovered by
-the server instance. Catalogue reads order the same retained set from the active
-source; changing the source does not delete servers.
+the server instance. A catalogue read shows a view of it for the active source:
+`local` and `coordinates` show the nearest ten servers from their origin,
+`global` shows every retained server. Changing the source does not delete
+servers. A source that was never fetched is fetched on its first read.
 
 **Retained servers** — speed test servers kept in the server catalogue after a
 successful discovery write. They remain available across source changes and

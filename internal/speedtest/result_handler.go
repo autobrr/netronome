@@ -90,7 +90,7 @@ func resultForStorage(result *Result, testType string, opts *types.TestOptions, 
 		if serverID == "" {
 			serverID = result.Server
 		}
-		stored.ServerID = "librespeed-" + serverID
+		stored.ServerID = types.LibrespeedServerIDPrefix + serverID
 		if result.ServerHost != "" {
 			stored.ServerHost = &result.ServerHost
 		}

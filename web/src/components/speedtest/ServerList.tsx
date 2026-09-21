@@ -618,7 +618,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                                 </h3>
                                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
                                   {testType === "speedtest"
-                                    ? "Loading the shared retained Speedtest.net server pool."
+                                    ? "Loading Speedtest.net servers."
                                     : "Fetching public servers from LibreSpeed.org."}
                                 </p>
                               </>

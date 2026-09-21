@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -18,8 +17,6 @@ import (
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/types"
 )
-
-const maxSpeedtestCoordinateSources = 32
 
 // SpeedtestServer is retained Speedtest.net discovery metadata. ObservedAt orders
 // competing refreshes so an older request cannot overwrite newer server details.
@@ -164,12 +161,6 @@ func (s *service) SaveSpeedtestServerCatalogue(
 	}
 
 	if source != nil {
-		if s.config.Type == config.Postgres && strings.HasPrefix(source.Key, "location:") {
-			if _, err := tx.ExecContext(ctx, "LOCK TABLE speedtest_server_sources IN SHARE ROW EXCLUSIVE MODE"); err != nil {
-				return fmt.Errorf("failed to lock speedtest coordinate sources: %w", err)
-			}
-		}
-
 		query := s.sqlBuilder.
 			Insert("speedtest_server_sources").
 			Columns("source_key", "updated_at", "latitude", "longitude").
@@ -181,23 +172,6 @@ func (s *service) SaveSpeedtestServerCatalogue(
 			WHERE speedtest_server_sources.updated_at < EXCLUDED.updated_at`)
 		if _, err := query.RunWith(tx).ExecContext(ctx); err != nil {
 			return fmt.Errorf("failed to upsert speedtest server source %q: %w", source.Key, err)
-		}
-
-		if strings.HasPrefix(source.Key, "location:") {
-			pruneCoordinateSources := s.sqlBuilder.
-				Delete("speedtest_server_sources").
-				Where("source_key LIKE ?", "location:%").
-				Where(sq.NotEq{"source_key": source.Key}).
-				Where(sq.Expr(`source_key NOT IN (
-					SELECT source_key
-					FROM speedtest_server_sources
-					WHERE source_key LIKE ? AND source_key <> ?
-					ORDER BY updated_at DESC, source_key DESC
-					LIMIT ?
-				)`, "location:%", source.Key, maxSpeedtestCoordinateSources-1))
-			if _, err := pruneCoordinateSources.RunWith(tx).ExecContext(ctx); err != nil {
-				return fmt.Errorf("failed to prune speedtest coordinate sources: %w", err)
-			}
 		}
 	}
 
@@ -285,7 +259,7 @@ func (i speedTestResultIdentity) isLegacy() bool {
 	case "speedtest":
 		return i.serverHost == nil && i.serverID == i.serverName
 	case "librespeed":
-		return i.serverHost != nil && *i.serverHost == i.serverName && i.serverID == "librespeed-"+i.serverName
+		return i.serverHost != nil && *i.serverHost == i.serverName && i.serverID == types.LibrespeedServerIDPrefix+i.serverName
 	default:
 		return false
 	}
