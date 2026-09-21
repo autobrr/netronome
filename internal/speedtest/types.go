@@ -34,7 +34,7 @@ type Result struct {
 type ServerListOptions struct {
 	Global   bool            // Global aggregates catalogues from known regions.
 	Location *ServerLocation // Location requests the catalogue nearest this origin.
-	Refresh  bool            // Refresh fetches the selected source even while its cache is valid.
+	Refresh  bool            // Refresh fetches the selected source even when it is already stored.
 }
 
 // ServerLocation identifies the geographic origin used to find nearby servers.

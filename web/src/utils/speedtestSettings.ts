@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import type { Schedule, Server, SpeedTestResult } from "../types/types.ts";
 
-/** Selects the geographic source used to add servers to the shared retained pool. */
+/** Selects the geographic source used to add servers to the server catalogue. */
 export type SpeedtestServerSource = "local" | "global" | "coordinates";
 
 /** Browser-persisted Speedtest.net server discovery and display preferences. */
@@ -33,7 +33,7 @@ export interface SpeedtestServerQuery {
   global?: boolean;
   latitude?: number;
   longitude?: number;
-  /** Bypasses a valid server-side catalogue cache when true. */
+  /** Fetches the source again even when it is already stored. */
   refresh?: boolean;
 }
 
@@ -50,7 +50,7 @@ export const speedtestServerStatusQueryKey = (settings: SpeedtestSettings) =>
     ? ["servers", "speedtest", "status", settings.source, settings.latitude, settings.longitude] as const
     : ["servers", "speedtest", "status", settings.source] as const;
 
-/** Formats the selected source's durable discovery state without partitioning the retained pool. */
+/** Formats the selected source's stored state. */
 export const formatSpeedtestServerStorageStatus = (
   sourceLabel: string,
   status: { stored?: boolean; isLoading: boolean; isError: boolean },

@@ -232,6 +232,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   const displayedTests = tests.slice(0, displayCount);
 
+  const isServerFilterActive =
+    (serverFilterMode === "single" && selectedSingleServer !== "all") ||
+    (serverFilterMode === "multiple" && selectedMultipleServers.size > 0);
+
   const filteredDisplayTests = useMemo(() => {
     if (serverFilterMode === "single" && selectedSingleServer !== "all") {
       return tests.filter(test => speedtestResultServerKey(test) === selectedSingleServer);
@@ -241,7 +245,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     return tests;
   }, [tests, serverFilterMode, selectedSingleServer, selectedMultipleServers]);
 
-  const summaryLatestTest = filteredDisplayTests[0] ?? latestTest;
+  // Latest values follow the server filter. No match shows nothing, not the unfiltered latest test.
+  const summaryLatestTest = isServerFilterActive ? filteredDisplayTests[0] ?? null : latestTest;
 
   const calculateAverage = (field: keyof SpeedTestResult): string => {
     if (filteredDisplayTests.length === 0) return "N/A";

@@ -390,7 +390,7 @@ func TestServerCataloguePersistenceFailureDoesNotBlockCommittedReads(t *testing.
 	assert.Equal(t, []string{"durable"}, serverIDs(stored))
 }
 
-func TestServerCatalogueSurvivesSourceCacheExpiry(t *testing.T) {
+func TestServerCatalogueSurvivesSourceRefresh(t *testing.T) {
 	store := &memoryServerCatalogueStore{}
 	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
 	oldServers := []ServerResponse{{ID: "old"}}
@@ -405,7 +405,7 @@ func TestServerCatalogueSurvivesSourceCacheExpiry(t *testing.T) {
 	assert.ElementsMatch(t, []string{"old", "new"}, serverIDs(servers))
 }
 
-func TestServerCacheCoalescesConcurrentMissesByKey(t *testing.T) {
+func TestServerCatalogueCoalescesConcurrentFetchesByKey(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 		var fetchCount atomic.Int32
@@ -441,7 +441,7 @@ func TestServerCacheCoalescesConcurrentMissesByKey(t *testing.T) {
 	})
 }
 
-func TestServerCacheFetchesDifferentKeysIndependently(t *testing.T) {
+func TestServerCatalogueFetchesDifferentKeysIndependently(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 		var fetchCount atomic.Int32
@@ -478,7 +478,7 @@ func TestServerCacheFetchesDifferentKeysIndependently(t *testing.T) {
 	})
 }
 
-func TestServerCacheCallerCancellationDoesNotAbortSharedFetch(t *testing.T) {
+func TestServerCatalogueCallerCancellationDoesNotAbortSharedFetch(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 		fetchContextDone := make(chan (<-chan struct{}), 1)
@@ -651,7 +651,7 @@ func TestGlobalServersRefreshRetainsPreviousGlobalAndLocalServers(t *testing.T) 
 	assert.True(t, status.Stored)
 }
 
-func TestGlobalServerCacheDoesNotOverwriteNewerRetainedMetadata(t *testing.T) {
+func TestGlobalServersDoNotOverwriteNewerRetainedMetadata(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		store := &memoryServerCatalogueStore{}
 		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
@@ -730,7 +730,7 @@ func TestGlobalServerCacheDoesNotOverwriteNewerRetainedMetadata(t *testing.T) {
 	})
 }
 
-func TestGlobalServersRefreshPreservesCacheOnPartialFailure(t *testing.T) {
+func TestGlobalServersRefreshPreservesRetainedOnPartialFailure(t *testing.T) {
 	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 	runner.globalLocations = map[string]ServerLocation{
 		"success": {Latitude: 1, Longitude: 1},
@@ -811,6 +811,9 @@ func TestGlobalServersPersistsCompletedRegionsAfterCancellation(t *testing.T) {
 	retained, retainedErr := restarted.loadRetainedServers(t.Context(), nil, 0)
 	require.NoError(t, retainedErr)
 	assert.ElementsMatch(t, []string{"local", "regional"}, serverIDs(retained))
+	stored, storedErr := restarted.catalogueSourceStored(t.Context(), sourceKeyGlobal)
+	require.NoError(t, storedErr)
+	assert.False(t, stored, "a cancelled global fetch must not count as fetched")
 }
 
 func TestGlobalServersWaitHonorsContext(t *testing.T) {

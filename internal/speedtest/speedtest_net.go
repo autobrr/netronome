@@ -67,7 +67,7 @@ type SpeedtestNetRunner struct {
 
 type serverFetcher func(context.Context, *ServerLocation) ([]ServerResponse, *ServerLocation, error)
 
-// NewSpeedtestNetRunner creates a runner with 30-minute source caching backed by store.
+// NewSpeedtestNetRunner creates a runner whose server catalogue is backed by store.
 // Catalogue operations return an error when store is nil.
 func NewSpeedtestNetRunner(cfg config.SpeedTestConfig, store serverCatalogueStore) *SpeedtestNetRunner {
 	runner := &SpeedtestNetRunner{
@@ -439,7 +439,7 @@ func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key stri
 		}
 
 		log.Debug().
-			Str("cache_key", key).
+			Str("source_key", key).
 			Int("server_count", len(retained)).
 			Msg("Retrieved and retained speedtest servers")
 		return retained, nil
@@ -534,8 +534,14 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool)
 	if successfulLocations > 0 {
 		// A partial result still marks the source as fetched. Otherwise every
 		// later read would fetch the world again until all regions succeed.
+		// A cancelled fetch keeps its completed regions but stays unfetched,
+		// so the next read finishes the job instead of reporting success.
+		sourceKey := sourceKeyGlobal
+		if ctx.Err() != nil {
+			sourceKey = ""
+		}
 		persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), serverCatalogueStoreTimeout)
-		persistErr = r.updateServerCatalogue(persistCtx, discovered, nil, sourceKeyGlobal, observedAt)
+		persistErr = r.updateServerCatalogue(persistCtx, discovered, nil, sourceKey, observedAt)
 		cancel()
 	}
 	if ctxErr := ctx.Err(); ctxErr != nil {

@@ -507,7 +507,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
             key={id}
             title={isLibrespeedSchedule
               ? "This saved server is not in the active LibreSpeed catalogue"
-              : "This saved server is not in the retained Speedtest.net server pool"}
+              : "This saved server is not in the current Speedtest.net server list"}
           >
             Saved server {id} - {provider}
           </span>
