@@ -84,13 +84,13 @@ func resultForStorage(result *Result, testType string, opts *types.TestOptions, 
 	switch testType {
 	case "iperf3":
 		stored.ServerHost = &opts.ServerHost
-		stored.ServerID = fmt.Sprintf("iperf3-%s", opts.ServerHost)
+		stored.ServerID = "iperf3-" + opts.ServerHost
 	case "librespeed":
 		serverID := result.ServerID
 		if serverID == "" {
 			serverID = result.Server
 		}
-		stored.ServerID = fmt.Sprintf("librespeed-%s", serverID)
+		stored.ServerID = "librespeed-" + serverID
 		if result.ServerHost != "" {
 			stored.ServerHost = &result.ServerHost
 		}

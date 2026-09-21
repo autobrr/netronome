@@ -14,7 +14,6 @@ import {
   normalizeSpeedtestSettings,
   speedtestResultServerKey,
   speedtestServerQueryKey,
-  speedtestServerSelectionKey,
   speedtestServerStatusQueryKey,
   speedtestServerQuery,
 } from "./speedtestSettings.ts";
@@ -64,10 +63,6 @@ test("server queries reflect the selected discovery source", () => {
     }),
     { latitude: 1.5, longitude: 2.5 },
   );
-  assert.equal(
-    speedtestServerSelectionKey({ global: true }),
-    JSON.stringify(speedtestServerQueryKey({ global: true })),
-  );
   assert.notDeepEqual(
     speedtestServerQueryKey({}),
     speedtestServerQueryKey({ latitude: 1, longitude: 2 }),
@@ -99,14 +94,30 @@ test("server status queries distinguish discovery sources and coordinates", () =
   );
 });
 
-test("server storage status keeps unavailable distinct from not stored", () => {
+test("server discovery status distinguishes every state", () => {
+  assert.equal(
+    formatSpeedtestServerStorageStatus("Global", {
+      stored: undefined,
+      isLoading: true,
+      isError: false,
+    }),
+    "Checking discovery status…",
+  );
   assert.equal(
     formatSpeedtestServerStorageStatus("Global", {
       stored: undefined,
       isLoading: false,
       isError: true,
     }),
-    "Stored server status unavailable",
+    "Discovery status unavailable",
+  );
+  assert.equal(
+    formatSpeedtestServerStorageStatus("Global", {
+      stored: true,
+      isLoading: false,
+      isError: false,
+    }),
+    "Global discovery completed",
   );
   assert.equal(
     formatSpeedtestServerStorageStatus("Global", {
@@ -114,7 +125,7 @@ test("server storage status keeps unavailable distinct from not stored", () => {
       isLoading: false,
       isError: false,
     }),
-    "No global servers stored yet",
+    "No completed global discovery yet",
   );
 });
 

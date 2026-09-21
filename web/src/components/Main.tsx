@@ -21,7 +21,6 @@ import { applyPublicColorTheme } from "@/utils/colorTheme";
 import {
   speedtestServerQueryKey,
   speedtestServerQuery,
-  speedtestServerSelectionKey,
   useSpeedtestSettings,
 } from "@/utils/speedtestSettings";
 import {
@@ -96,15 +95,7 @@ export default function Main({ isPublic = false }: MainProps) {
     serverIds: [],
   });
   const [testType, setTestType] = useState<TestType>("speedtest");
-  const activeServerSelectionKey = testType === "speedtest"
-    ? speedtestServerSelectionKey(speedtestQuery)
-    : testType;
-  const [serverSelection, setServerSelection] = useState<{ key: string; servers: Server[] }>(
-    () => ({ key: activeServerSelectionKey, servers: [] }),
-  );
-  const selectedServers = serverSelection.key === activeServerSelectionKey
-    ? serverSelection.servers
-    : [];
+  const [selectedServers, setSelectedServers] = useState<Server[]>([]);
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
     "idle"
@@ -289,18 +280,14 @@ export default function Main({ isPublic = false }: MainProps) {
   });
 
   const handleServerSelect = (server: Server) => {
-    setServerSelection((current) => {
-      const prev = current.key === activeServerSelectionKey ? current.servers : [];
+    setSelectedServers((prev) => {
       const isSelected = prev.some((s) => s.id === server.id);
-      let servers: Server[];
       if (!options.multiServer) {
-        servers = isSelected ? [] : [server];
-      } else {
-        servers = isSelected
-          ? prev.filter((s) => s.id !== server.id)
-          : [...prev, server];
+        return isSelected ? [] : [server];
       }
-      return { key: activeServerSelectionKey, servers };
+      return isSelected
+        ? prev.filter((s) => s.id !== server.id)
+        : [...prev, server];
     });
   };
 

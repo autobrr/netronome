@@ -43,12 +43,12 @@ const SOURCE_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  { value: "local", label: "Local", description: "Fetch servers near your detected location." },
-  { value: "global", label: "Global", description: "Fetch servers from known regions worldwide." },
-  { value: "coordinates", label: "Coordinates", description: "Fetch servers near a latitude and longitude." },
+  { value: "local", label: "Local", description: "Add servers near your detected location to the retained pool." },
+  { value: "global", label: "Global", description: "Add servers from known regions worldwide to the retained pool." },
+  { value: "coordinates", label: "Coordinates", description: "Add servers near a latitude and longitude to the retained pool." },
 ];
 
-/** Configures Speedtest.net discovery, manually refreshes its catalogue, and controls history labels. */
+/** Configures how servers are added to the retained pool and how history labels are displayed. */
 export const SpeedtestSettings = () => {
   const queryClient = useQueryClient();
   const refreshAbortController = useRef<AbortController | null>(null);
@@ -126,18 +126,13 @@ export const SpeedtestSettings = () => {
 
   useEffect(() => () => refreshAbortController.current?.abort(), []);
 
-  const persistSettings = () => {
+  const saveSettings = () => {
     if (!saveSpeedtestSettings(settings)) {
       showToast("Failed to save speedtest settings", "error");
-      return false;
+      return;
     }
     setSettings(getSpeedtestSettings());
     setHasChanges(false);
-    return true;
-  };
-
-  const saveSettings = () => {
-    if (!persistSettings()) return;
     showToast("Speedtest settings saved", "success", {
       description: "Discovery and history preferences are now active",
     });
@@ -172,7 +167,7 @@ export const SpeedtestSettings = () => {
             Speedtest.net Settings
           </h3>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Save your preferred discovery source, then fetch or update its retained servers separately.
+            Choose where to discover servers to add to the shared retained pool. All retained servers remain selectable on the Speed Test page.
           </p>
         </div>
         {hasChanges && (
@@ -305,9 +300,9 @@ export const SpeedtestSettings = () => {
                         ? "Contacting server regions worldwide. This can take a minute."
                         : "Requesting a fresh catalogue from Speedtest.net."
                       : !coordinatesValid
-                        ? "Coordinates identify the exact source whose stored status will be checked."
+                        ? "Coordinates identify the exact source whose discovery completion status will be checked."
                         : isStatusError
-                        ? "Stored status is unavailable. You can still fetch this source."
+                        ? "Discovery status is unavailable. You can still fetch this source."
                         : sourceStored
                           ? `${lastUpdated ? `Last updated ${lastUpdated}. ` : ""}${fetchedServers ? `${fetchedServers.servers.length} servers are retained in total. ` : ""}Fetch again to add newly available servers.`
                           : "Fetch this source once to add its servers to the retained catalogue."}
@@ -320,7 +315,7 @@ export const SpeedtestSettings = () => {
                   isLoading={isFetching}
                 >
                   {!isFetching && <ArrowPathIcon className="h-4 w-4" />}
-                  {sourceStored ? "Update Stored Servers" : "Fetch Servers"}
+                  {sourceStored ? "Fetch Again" : "Fetch Servers"}
                 </Button>
               </div>
 

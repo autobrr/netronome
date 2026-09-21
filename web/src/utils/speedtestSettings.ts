@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import type { Schedule, Server, SpeedTestResult } from "../types/types.ts";
 
-/** Selects the geographic source used to build the Speedtest.net server list. */
+/** Selects the geographic source used to add servers to the shared retained pool. */
 export type SpeedtestServerSource = "local" | "global" | "coordinates";
 
 /** Browser-persisted Speedtest.net server discovery and display preferences. */
@@ -44,26 +44,22 @@ export const speedtestServerCatalogueQueryKey = () => ["servers", "speedtest", "
 export const speedtestServerQueryKey = (query: SpeedtestServerQuery) =>
   [...speedtestServerCatalogueQueryKey(), query] as const;
 
-/** Returns the serialized query identity used to scope Speedtest.net selections. */
-export const speedtestServerSelectionKey = (query: SpeedtestServerQuery): string =>
-  JSON.stringify(speedtestServerQueryKey(query));
-
 /** Identifies durable fetch status for one Speedtest.net discovery source. */
 export const speedtestServerStatusQueryKey = (settings: SpeedtestSettings) =>
   settings.source === "coordinates"
     ? ["servers", "speedtest", "status", settings.source, settings.latitude, settings.longitude] as const
     : ["servers", "speedtest", "status", settings.source] as const;
 
-/** Formats the selected source's durable storage state without treating errors as absence. */
+/** Formats the selected source's durable discovery state without partitioning the retained pool. */
 export const formatSpeedtestServerStorageStatus = (
   sourceLabel: string,
   status: { stored?: boolean; isLoading: boolean; isError: boolean },
 ): string => {
-  if (status.isLoading) return "Checking stored server status…";
-  if (status.isError) return "Stored server status unavailable";
+  if (status.isLoading) return "Checking discovery status…";
+  if (status.isError) return "Discovery status unavailable";
   return status.stored
-    ? `${sourceLabel} servers are stored`
-    : `No ${sourceLabel.toLowerCase()} servers stored yet`;
+    ? `${sourceLabel} discovery completed`
+    : `No completed ${sourceLabel.toLowerCase()} discovery yet`;
 };
 
 const SETTINGS_KEY = "netronome-speedtest-settings";

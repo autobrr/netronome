@@ -96,24 +96,6 @@ type ServerResponse struct {
 	IsPublic     bool    `json:"isPublic"`
 }
 
-// ProgressUpdate describes provider progress before it is broadcast to clients.
-type ProgressUpdate struct {
-	ServerName   string  `json:"serverName"`
-	TestType     string  `json:"testType"`
-	CurrentSpeed float64 `json:"currentSpeed"`
-}
-
-// SpeedUpdate describes a real-time speed test progress event.
-type SpeedUpdate struct {
-	Type        string  `json:"type"`
-	ServerName  string  `json:"serverName"`
-	Speed       float64 `json:"speed"`
-	Progress    float64 `json:"progress"`
-	IsComplete  bool    `json:"isComplete"`
-	Latency     string  `json:"latency,omitempty"`
-	IsScheduled bool    `json:"isScheduled"`
-}
-
 // ResultHandler handles database saves and notifications
 type ResultHandler interface {
 	SaveResult(ctx context.Context, result *Result, testType string, opts *types.TestOptions) error

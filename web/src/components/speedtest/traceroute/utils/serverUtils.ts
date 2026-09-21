@@ -42,16 +42,6 @@ export const combineServers = (
   return [...speedtestServers, ...librespeedServers, ...iperfServerList];
 };
 
-/** Keeps traceroute selections scoped to their owning server catalogue. */
-export const getTracerouteServerSelectionKey = (
-  server: Pick<Server, "isIperf" | "isLibrespeed"> | null,
-  speedtestSelectionKey: string,
-): string => {
-  if (server?.isIperf) return "iperf";
-  if (server?.isLibrespeed) return "librespeed";
-  return speedtestSelectionKey;
-};
-
 /** Filters servers by provider and a case-insensitive display-field search. */
 export const filterServers = (
   servers: Server[],

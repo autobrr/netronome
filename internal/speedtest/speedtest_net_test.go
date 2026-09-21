@@ -5,10 +5,10 @@ package speedtest
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -24,101 +24,138 @@ import (
 )
 
 type memoryServerCatalogueStore struct {
-	mu              sync.Mutex
-	values          map[string]string
-	getErr          error
-	setErr          error
-	setStarted      chan struct{}
-	releaseSet      chan struct{}
-	lastGetDeadline time.Time
-	lastSetDeadline time.Time
+	mu               sync.Mutex
+	servers          map[string]database.SpeedtestServer
+	sources          map[string]database.SpeedtestServerSource
+	saveErr          error
+	lastSaveDeadline time.Time
 }
 
-func (s *memoryServerCatalogueStore) GetAppSetting(ctx context.Context, key string) (string, error) {
+func (s *memoryServerCatalogueStore) ListSpeedtestServers(ctx context.Context) ([]database.SpeedtestServer, error) {
 	if err := ctx.Err(); err != nil {
-		return "", err
+		return nil, err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.lastGetDeadline, _ = ctx.Deadline()
-	if s.getErr != nil {
-		return "", s.getErr
+	servers := make([]database.SpeedtestServer, 0, len(s.servers))
+	for _, server := range s.servers {
+		servers = append(servers, server)
 	}
-	value, ok := s.values[key]
-	if !ok {
-		return "", database.ErrNotFound
-	}
-	return value, nil
+	return servers, nil
 }
 
-func (s *memoryServerCatalogueStore) SetAppSetting(ctx context.Context, key, value string) error {
+func (s *memoryServerCatalogueStore) GetSpeedtestServerSource(
+	ctx context.Context,
+	key string,
+) (database.SpeedtestServerSource, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return database.SpeedtestServerSource{}, false, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	source, ok := s.sources[key]
+	return source, ok, nil
+}
+
+func (s *memoryServerCatalogueStore) SaveSpeedtestServerCatalogue(
+	ctx context.Context,
+	servers []database.SpeedtestServer,
+	source *database.SpeedtestServerSource,
+) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if s.setStarted != nil {
-		select {
-		case s.setStarted <- struct{}{}:
-		default:
-		}
-		select {
-		case <-s.releaseSet:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.lastSetDeadline, _ = ctx.Deadline()
-	if s.setErr != nil {
-		return s.setErr
+	s.lastSaveDeadline, _ = ctx.Deadline()
+	if s.saveErr != nil {
+		return s.saveErr
 	}
-	if s.values == nil {
-		s.values = make(map[string]string)
+	if s.servers == nil {
+		s.servers = make(map[string]database.SpeedtestServer)
 	}
-	s.values[key] = value
+	if s.sources == nil {
+		s.sources = make(map[string]database.SpeedtestServerSource)
+	}
+	for _, server := range servers {
+		current, ok := s.servers[server.ID]
+		if !ok || server.ObservedAt.After(current.ObservedAt) {
+			s.servers[server.ID] = server
+		}
+	}
+	if source != nil {
+		current, ok := s.sources[source.Key]
+		if !ok || source.UpdatedAt.After(current.UpdatedAt) {
+			s.sources[source.Key] = *source
+		}
+	}
 	return nil
 }
 
 func (s *memoryServerCatalogueStore) setError(err error) {
 	s.mu.Lock()
-	s.setErr = err
+	s.saveErr = err
 	s.mu.Unlock()
 }
 
-func (s *memoryServerCatalogueStore) setGetError(err error) {
-	s.mu.Lock()
-	s.getErr = err
-	s.mu.Unlock()
-}
-
-func (s *memoryServerCatalogueStore) value(key string) string {
+func (s *memoryServerCatalogueStore) setSourceUpdatedAt(key string, updatedAt time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.values[key]
+	source := s.sources[key]
+	source.UpdatedAt = updatedAt
+	s.sources[key] = source
 }
 
 func (s *memoryServerCatalogueStore) setDeadline() time.Time {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.lastSetDeadline
+	return s.lastSaveDeadline
 }
 
-func (s *memoryServerCatalogueStore) getDeadline() time.Time {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.lastGetDeadline
-}
+func TestFetchSpeedtestServerListPreservesDiscoveryMetadataWithoutProbes(t *testing.T) {
+	var requestCount atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		requestCount.Add(1)
+		assert.Equal(t, http.MethodGet, request.Method)
+		assert.Equal(t, st.DefaultUserAgent, request.Header.Get("User-Agent"))
+		assert.Equal(t, "-27.4698", request.URL.Query().Get("lat"))
+		assert.Equal(t, "153.0251", request.URL.Query().Get("lon"))
+		w.Header().Set("Content-Type", "application/json")
+		_, err := w.Write([]byte(`[
+			{"id":"2","name":"Sydney","sponsor":"Example Two","host":"unresolved.invalid:8080","url":"http://unresolved.invalid:8080/speedtest/upload.php","country":"Australia","lat":"-33.8688","lon":"151.2093","distance":10},
+			{"id":"1","name":"Brisbane","sponsor":"Example One","host":"unresolved.invalid:8080","url":"http://unresolved.invalid:8080/speedtest/upload.php","country":"Australia","lat":"-27.4698","lon":"153.0251","distance":5}
+		]`))
+		assert.NoError(t, err)
+	}))
+	t.Cleanup(server.Close)
 
-func TestServerResponsesFallsBackToUnpingableServers(t *testing.T) {
-	servers := st.Servers{
-		&st.Server{ID: "2", Name: "Sydney", Sponsor: "Example", Lat: "-33.8688", Lon: "151.2093", Distance: 10, Latency: st.PingTimeout},
-		&st.Server{ID: "1", Name: "Brisbane", Sponsor: "Example", Lat: "-27.4698", Lon: "153.0251", Distance: 5, Latency: st.PingTimeout},
-	}
+	servers, err := fetchSpeedtestServerList(t.Context(), server.URL, &ServerLocation{
+		Latitude:  -27.4698,
+		Longitude: 153.0251,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), requestCount.Load())
 
 	got := serverResponses(servers)
 	require.Len(t, got, 2)
-	assert.Equal(t, "1", got[0].ID)
-	assert.Equal(t, "Brisbane", got[0].Name)
+	assert.Equal(t, "1", got[1].ID)
+	assert.Equal(t, "Brisbane", got[1].Name)
+	assert.Equal(t, "Example One", got[1].Sponsor)
+	assert.Equal(t, "unresolved.invalid:8080", got[1].Host)
+	assert.Equal(t, "http://unresolved.invalid:8080/speedtest/upload.php", got[1].URL)
+	assert.Equal(t, "Australia", got[1].Country)
+	assert.InDelta(t, -27.4698, got[1].Lat, 1e-9)
+	assert.InDelta(t, 153.0251, got[1].Lon, 1e-9)
+}
+
+func TestFetchSpeedtestServerListRejectsUnsuccessfulResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "try again later", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := fetchSpeedtestServerList(t.Context(), server.URL, nil)
+	require.ErrorContains(t, err, "status 503 Service Unavailable")
 }
 
 func TestSortServersFromOrigin(t *testing.T) {
@@ -144,23 +181,27 @@ func serverIDs(servers []ServerResponse) []string {
 }
 
 func TestCatalogueSourceFreshTracksPersistedTimestamp(t *testing.T) {
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
+	store := &memoryServerCatalogueStore{}
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
 	runner.cacheDuration = time.Minute
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), nil, nil, "test"))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), nil, nil, "test", runner.nextCatalogueObservation()))
 
-	assert.True(t, runner.catalogueSourceFresh("test"))
+	fresh, err := runner.catalogueSourceFresh(t.Context(), "test")
+	require.NoError(t, err)
+	assert.True(t, fresh)
 
-	runner.cacheMu.Lock()
-	runner.catalogueSources["test"] = time.Now().Add(-2 * time.Minute)
-	runner.cacheMu.Unlock()
-	assert.False(t, runner.catalogueSourceFresh("test"))
+	store.setSourceUpdatedAt("test", time.Now().Add(-2*time.Minute))
+	fresh, err = runner.catalogueSourceFresh(t.Context(), "test")
+	require.NoError(t, err)
+	assert.False(t, fresh)
 }
 
 func TestCatalogueSourceRefreshRetainsValidEntry(t *testing.T) {
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
+	store := &memoryServerCatalogueStore{}
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
 	runner.cacheDuration = time.Minute
 	cachedServers := []ServerResponse{{ID: "cached"}}
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), cachedServers, &ServerLocation{}, "local"))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), cachedServers, &ServerLocation{}, "local", runner.nextCatalogueObservation()))
 
 	var fetchCount atomic.Int32
 	runner.fetchServers = func(_ context.Context, _ *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
@@ -172,7 +213,9 @@ func TestCatalogueSourceRefreshRetainsValidEntry(t *testing.T) {
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []ServerResponse{{ID: "cached"}, {ID: "fresh"}}, servers)
 	assert.Equal(t, int32(1), fetchCount.Load())
-	assert.True(t, runner.catalogueSourceFresh("local"))
+	fresh, err := runner.catalogueSourceFresh(t.Context(), "local")
+	require.NoError(t, err)
+	assert.True(t, fresh)
 
 	servers, err = runner.GetServersWithOptions(t.Context(), ServerListOptions{})
 	require.NoError(t, err)
@@ -181,7 +224,7 @@ func TestCatalogueSourceRefreshRetainsValidEntry(t *testing.T) {
 }
 
 func TestServerCatalogueRetainsServersAcrossSources(t *testing.T) {
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 	runner.fetchServers = func(_ context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
 		if location == nil {
 			return []ServerResponse{{ID: "local", Sponsor: "original"}}, &ServerLocation{}, nil
@@ -195,6 +238,7 @@ func TestServerCatalogueRetainsServersAcrossSources(t *testing.T) {
 
 	servers, err = runner.GetServersWithOptions(t.Context(), ServerListOptions{
 		Location: &ServerLocation{Latitude: 1, Longitude: 1},
+		Refresh:  true,
 	})
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"local", "coordinate"}, serverIDs(servers))
@@ -265,112 +309,6 @@ func TestServerCataloguePersistsAcrossRunnerRestarts(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, differentCoordinateStatus.Stored)
 }
-
-func TestServerCatalogueStartupLoadHasDeadline(t *testing.T) {
-	store := &memoryServerCatalogueStore{}
-	startedAt := time.Now()
-	NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
-
-	assert.WithinDuration(t, startedAt.Add(serverCatalogueStoreTimeout), store.getDeadline(), time.Second)
-}
-
-func TestServerCatalogueBoundsPersistedCoordinateSources(t *testing.T) {
-	store := &memoryServerCatalogueStore{}
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), nil, nil, "local"))
-
-	for i := range 40 {
-		sourceKey := fmt.Sprintf("%s%d,%d", serverCatalogueCoordinatePrefix, i, i)
-		require.NoError(t, runner.updateServerCatalogue(t.Context(), nil, nil, sourceKey))
-	}
-
-	var stored persistedServerCatalogue
-	require.NoError(t, json.Unmarshal([]byte(store.value(serverCatalogueSettingKey)), &stored))
-	coordinateSources := 0
-	for sourceKey := range stored.Sources {
-		if strings.HasPrefix(sourceKey, serverCatalogueCoordinatePrefix) {
-			coordinateSources++
-		}
-	}
-	assert.Equal(t, maxCoordinateCatalogueEntries, coordinateSources)
-	assert.Contains(t, stored.Sources, "local")
-	assert.NotContains(t, stored.Sources, serverCatalogueCoordinatePrefix+"0,0")
-	assert.Contains(t, stored.Sources, serverCatalogueCoordinatePrefix+"39,39")
-
-	futureSources := make(map[string]time.Time, maxCoordinateCatalogueEntries)
-	for i := range maxCoordinateCatalogueEntries {
-		futureSources[fmt.Sprintf("%s%d,%d", serverCatalogueCoordinatePrefix, i, i)] =
-			time.Now().Add(time.Duration(i+1) * time.Hour)
-	}
-	futureCatalogue, err := json.Marshal(persistedServerCatalogue{
-		Servers: []ServerResponse{{ID: "retained"}},
-		Sources: futureSources,
-	})
-	require.NoError(t, err)
-	futureStore := &memoryServerCatalogueStore{values: map[string]string{
-		serverCatalogueSettingKey: string(futureCatalogue),
-	}}
-	futureRunner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, futureStore)
-	currentSource := serverCatalogueCoordinatePrefix + "-27.4698,153.0251"
-	require.NoError(t, futureRunner.updateServerCatalogue(t.Context(), nil, nil, currentSource))
-
-	stored = persistedServerCatalogue{}
-	require.NoError(t, json.Unmarshal([]byte(futureStore.value(serverCatalogueSettingKey)), &stored))
-	assert.Contains(t, stored.Sources, currentSource)
-	coordinateSources = 0
-	for sourceKey := range stored.Sources {
-		if strings.HasPrefix(sourceKey, serverCatalogueCoordinatePrefix) {
-			coordinateSources++
-		}
-	}
-	assert.Equal(t, maxCoordinateCatalogueEntries, coordinateSources)
-	assert.Equal(t, []ServerResponse{{ID: "retained"}}, stored.Servers)
-}
-
-func TestServerCatalogueRetriesTransientStartupLoadFailure(t *testing.T) {
-	store := &memoryServerCatalogueStore{}
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
-	runner.fetchServers = func(_ context.Context, _ *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
-		return []ServerResponse{{ID: "durable"}}, &ServerLocation{}, nil
-	}
-	_, err := runner.GetServersWithOptions(t.Context(), ServerListOptions{Refresh: true})
-	require.NoError(t, err)
-	storedValue := store.value(serverCatalogueSettingKey)
-
-	store.setGetError(errors.New("database unavailable"))
-	restarted := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
-	restarted.fetchServers = func(_ context.Context, _ *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
-		t.Fatal("a failed startup load must prevent upstream discovery")
-		return nil, nil, nil
-	}
-	_, err = restarted.GetServerCatalogueStatus(t.Context(), ServerListOptions{})
-	require.ErrorContains(t, err, "read retained speedtest servers")
-	assert.Equal(t, storedValue, store.value(serverCatalogueSettingKey))
-
-	store.setGetError(nil)
-	status, err := restarted.GetServerCatalogueStatus(t.Context(), ServerListOptions{})
-	require.NoError(t, err)
-	assert.True(t, status.Stored)
-}
-
-func TestServerCatalogueMalformedStartupValueIsNotOverwritten(t *testing.T) {
-	const malformed = `{not-json`
-	store := &memoryServerCatalogueStore{values: map[string]string{
-		serverCatalogueSettingKey: malformed,
-	}}
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
-	var fetchCount atomic.Int32
-	runner.fetchServers = func(_ context.Context, _ *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
-		fetchCount.Add(1)
-		return []ServerResponse{{ID: "fresh"}}, &ServerLocation{}, nil
-	}
-
-	_, err := runner.GetServersWithOptions(t.Context(), ServerListOptions{Refresh: true})
-	require.ErrorContains(t, err, "decode retained speedtest servers")
-	assert.Zero(t, fetchCount.Load())
-	assert.Equal(t, malformed, store.value(serverCatalogueSettingKey))
-}
-
 func TestServerCataloguePersistenceGetsIndependentDeadline(t *testing.T) {
 	store := &memoryServerCatalogueStore{}
 	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
@@ -403,73 +341,40 @@ func TestServerCataloguePersistenceFailureDoesNotBlockCommittedReads(t *testing.
 	servers, err := runner.GetServersWithOptions(t.Context(), ServerListOptions{Refresh: true})
 	require.ErrorContains(t, err, "write retained speedtest servers")
 	assert.Nil(t, servers)
-	assert.True(t, runner.hasPendingWrite.Load())
-
-	store.setStarted = make(chan struct{}, 1)
-	store.releaseSet = make(chan struct{})
+	store.setError(nil)
 	servers, err = runner.GetServersWithOptions(t.Context(), ServerListOptions{})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"durable"}, serverIDs(servers))
-	<-store.setStarted
 
 	status, err := runner.GetServerCatalogueStatus(t.Context(), ServerListOptions{})
 	require.NoError(t, err)
 	assert.True(t, status.Stored)
-
-	store.setError(nil)
-	close(store.releaseSet)
-	require.NoError(t, runner.retryPendingCatalogue(t.Context()))
-	assert.False(t, runner.hasPendingWrite.Load())
-	assert.ElementsMatch(t, []string{"durable", "pending"}, serverIDs(runner.loadRetainedServers(nil)))
-
-	restarted := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
-	assert.ElementsMatch(t, []string{"durable", "pending"}, serverIDs(restarted.loadRetainedServers(nil)))
-}
-
-func TestServerCatalogueDoesNotExposePendingFirstWrite(t *testing.T) {
-	store := &memoryServerCatalogueStore{
-		setErr:     errors.New("database unavailable"),
-		setStarted: make(chan struct{}, 1),
-		releaseSet: make(chan struct{}),
-	}
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
-	runner.fetchServers = func(_ context.Context, _ *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
-		return []ServerResponse{{ID: "pending"}}, &ServerLocation{}, nil
-	}
-
-	refreshDone := make(chan error, 1)
-	go func() {
-		_, err := runner.GetServersWithOptions(t.Context(), ServerListOptions{Refresh: true})
-		refreshDone <- err
-	}()
-	<-store.setStarted
-	assert.Empty(t, runner.loadRetainedServers(nil))
-	close(store.releaseSet)
-	require.ErrorContains(t, <-refreshDone, "write retained speedtest servers")
-
-	servers, err := runner.GetServersWithOptions(t.Context(), ServerListOptions{})
-	require.ErrorContains(t, err, "no committed speedtest servers")
-	assert.Nil(t, servers)
+	stored, err := runner.loadRetainedServers(t.Context(), nil)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"durable"}, serverIDs(stored))
 }
 
 func TestServerCatalogueSurvivesSourceCacheExpiry(t *testing.T) {
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
+	store := &memoryServerCatalogueStore{}
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
 	oldServers := []ServerResponse{{ID: "old"}}
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), oldServers, nil, "old"))
-	runner.cacheMu.Lock()
-	runner.catalogueSources["old"] = time.Now().Add(-time.Hour)
-	runner.cacheMu.Unlock()
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), oldServers, nil, "old", runner.nextCatalogueObservation()))
+	store.setSourceUpdatedAt("old", time.Now().Add(-time.Hour))
 
 	newServers := []ServerResponse{{ID: "new"}}
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), newServers, nil, "new"))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), newServers, nil, "new", runner.nextCatalogueObservation()))
 
-	assert.False(t, runner.catalogueSourceFresh("old"))
-	assert.ElementsMatch(t, []string{"old", "new"}, serverIDs(runner.loadRetainedServers(nil)))
+	fresh, err := runner.catalogueSourceFresh(t.Context(), "old")
+	require.NoError(t, err)
+	assert.False(t, fresh)
+	servers, err := runner.loadRetainedServers(t.Context(), nil)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"old", "new"}, serverIDs(servers))
 }
 
 func TestServerCacheCoalescesConcurrentMissesByKey(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
+		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 		var fetchCount atomic.Int32
 		release := make(chan struct{})
 		runner.fetchServers = func(_ context.Context, _ *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
@@ -505,7 +410,7 @@ func TestServerCacheCoalescesConcurrentMissesByKey(t *testing.T) {
 
 func TestServerCacheFetchesDifferentKeysIndependently(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
+		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 		var fetchCount atomic.Int32
 		release := make(chan struct{})
 		runner.fetchServers = func(_ context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
@@ -542,7 +447,7 @@ func TestServerCacheFetchesDifferentKeysIndependently(t *testing.T) {
 
 func TestServerCacheCallerCancellationDoesNotAbortSharedFetch(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
+		runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 		fetchContextDone := make(chan (<-chan struct{}), 1)
 		releaseFetch := make(chan struct{})
 		runner.fetchServers = func(ctx context.Context, _ *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
@@ -586,7 +491,7 @@ func TestServerCacheCallerCancellationDoesNotAbortSharedFetch(t *testing.T) {
 }
 
 func TestGlobalServersRejectsCompleteRegionalFailure(t *testing.T) {
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 	runner.globalLocations = map[string]ServerLocation{
 		"one": {Latitude: 1, Longitude: 1},
 		"two": {Latitude: 2, Longitude: 2},
@@ -601,11 +506,13 @@ func TestGlobalServersRejectsCompleteRegionalFailure(t *testing.T) {
 	servers, err := runner.getGlobalServers(t.Context(), false)
 	require.Error(t, err)
 	assert.Nil(t, servers)
-	assert.False(t, runner.catalogueSourceFresh("global"))
+	fresh, freshErr := runner.catalogueSourceFresh(t.Context(), "global")
+	require.NoError(t, freshErr)
+	assert.False(t, fresh)
 }
 
 func TestGlobalServersReportsPartialFailureAndRetainsSuccessfulResults(t *testing.T) {
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 	runner.globalLocations = map[string]ServerLocation{
 		"success": {Latitude: 1, Longitude: 1},
 		"failure": {Latitude: 2, Longitude: 2},
@@ -627,22 +534,56 @@ func TestGlobalServersReportsPartialFailureAndRetainsSuccessfulResults(t *testin
 	require.True(t, ok)
 	assert.Equal(t, []string{"fetch servers near failure: regional fetch failed"}, partialErr.WarningMessages())
 	assert.Len(t, servers, 2)
-	assert.False(t, runner.catalogueSourceFresh("global"))
+	fresh, freshErr := runner.catalogueSourceFresh(t.Context(), "global")
+	require.NoError(t, freshErr)
+	assert.False(t, fresh)
 	status, statusErr := runner.GetServerCatalogueStatus(t.Context(), ServerListOptions{Global: true})
 	require.NoError(t, statusErr)
 	assert.False(t, status.Stored)
 }
 
+func TestGlobalServersUsesStoredLocationWhenLocalRefreshFails(t *testing.T) {
+	store := &memoryServerCatalogueStore{}
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
+	runner.globalLocations = map[string]ServerLocation{
+		"regional": {Latitude: 1, Longitude: 1},
+	}
+	require.NoError(t, runner.updateServerCatalogue(
+		t.Context(),
+		[]ServerResponse{{ID: "cached-local"}},
+		&ServerLocation{Latitude: -27.4698, Longitude: 153.0251},
+		"local",
+		runner.nextCatalogueObservation(),
+	))
+
+	runner.fetchServers = func(_ context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
+		if location == nil {
+			return nil, nil, errors.New("local discovery failed")
+		}
+		return []ServerResponse{{ID: "fresh-regional", Lat: location.Latitude, Lon: location.Longitude}}, nil, nil
+	}
+
+	servers, err := runner.GetServersWithOptions(t.Context(), ServerListOptions{Global: true, Refresh: true})
+	require.ErrorContains(t, err, "fetch local speedtest servers: local discovery failed")
+	partialErr, ok := errors.AsType[*PartialServerCatalogueError](err)
+	require.True(t, ok)
+	assert.Equal(t, []string{"fetch local speedtest servers: local discovery failed"}, partialErr.WarningMessages())
+	assert.ElementsMatch(t, []string{"cached-local", "fresh-regional"}, serverIDs(servers))
+	status, statusErr := runner.GetServerCatalogueStatus(t.Context(), ServerListOptions{Global: true})
+	require.NoError(t, statusErr)
+	assert.True(t, status.Stored)
+}
+
 func TestGlobalServersRefreshRetainsPreviousGlobalAndLocalServers(t *testing.T) {
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 	runner.cacheDuration = time.Minute
 	runner.globalLocations = map[string]ServerLocation{
 		"regional": {Latitude: 1, Longitude: 1},
 	}
 	cachedGlobal := []ServerResponse{{ID: "cached-global"}}
 	cachedLocal := []ServerResponse{{ID: "cached-local"}}
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), cachedGlobal, nil, "global"))
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), cachedLocal, &ServerLocation{}, "local"))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), cachedGlobal, nil, "global", runner.nextCatalogueObservation()))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), cachedLocal, &ServerLocation{}, "local", runner.nextCatalogueObservation()))
 
 	var fetchCount atomic.Int32
 	runner.fetchServers = func(_ context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
@@ -659,7 +600,9 @@ func TestGlobalServersRefreshRetainsPreviousGlobalAndLocalServers(t *testing.T) 
 	assert.ElementsMatch(t, []string{"cached-global", "cached-local", "fresh-local", "fresh-regional"}, serverIDs(servers))
 	assert.Equal(t, int32(2), fetchCount.Load())
 
-	assert.True(t, runner.catalogueSourceFresh("global"))
+	fresh, freshErr := runner.catalogueSourceFresh(t.Context(), "global")
+	require.NoError(t, freshErr)
+	assert.True(t, fresh)
 	status, err := runner.GetServerCatalogueStatus(t.Context(), ServerListOptions{Global: true})
 	require.NoError(t, err)
 	assert.True(t, status.Stored)
@@ -711,16 +654,6 @@ func TestGlobalServerCacheDoesNotOverwriteNewerRetainedMetadata(t *testing.T) {
 		<-duplicateFetched
 		<-slowStarted
 		synctest.Wait()
-		runner.persistMu.Lock()
-		var stagedSponsor string
-		for _, server := range runner.pendingCatalogue.Servers {
-			if server.ID == "shared" {
-				stagedSponsor = server.Sponsor
-				break
-			}
-		}
-		runner.persistMu.Unlock()
-		require.Equal(t, "global-old", stagedSponsor)
 
 		_, err := runner.GetServersWithOptions(t.Context(), ServerListOptions{
 			Location: &ServerLocation{Latitude: 3, Longitude: 3},
@@ -742,7 +675,9 @@ func TestGlobalServerCacheDoesNotOverwriteNewerRetainedMetadata(t *testing.T) {
 		assert.Equal(t, "coordinate-new", shared.Sponsor)
 
 		restarted := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
-		for _, server := range restarted.loadRetainedServers(nil) {
+		persisted, err := restarted.loadRetainedServers(t.Context(), nil)
+		require.NoError(t, err)
+		for _, server := range persisted {
 			if server.ID == "shared" {
 				assert.Equal(t, "coordinate-new", server.Sponsor)
 				return
@@ -753,14 +688,14 @@ func TestGlobalServerCacheDoesNotOverwriteNewerRetainedMetadata(t *testing.T) {
 }
 
 func TestGlobalServersRefreshPreservesCacheOnPartialFailure(t *testing.T) {
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 	runner.cacheDuration = time.Minute
 	runner.globalLocations = map[string]ServerLocation{
 		"success": {Latitude: 1, Longitude: 1},
 		"failure": {Latitude: 2, Longitude: 2},
 	}
 	previous := []ServerResponse{{ID: "cached-global"}}
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), previous, nil, "global"))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), previous, nil, "global", runner.nextCatalogueObservation()))
 	statusBefore, err := runner.GetServerCatalogueStatus(t.Context(), ServerListOptions{Global: true})
 	require.NoError(t, err)
 	require.NotNil(t, statusBefore.UpdatedAt)
@@ -778,8 +713,12 @@ func TestGlobalServersRefreshPreservesCacheOnPartialFailure(t *testing.T) {
 	require.ErrorContains(t, err, "updated from 1 of 2 regional locations")
 	assert.ElementsMatch(t, []string{"cached-global", "fresh-local", "fresh-regional"}, serverIDs(servers))
 
-	assert.True(t, runner.catalogueSourceFresh("global"))
-	assert.ElementsMatch(t, []string{"cached-global", "fresh-local", "fresh-regional"}, serverIDs(runner.loadRetainedServers(nil)))
+	fresh, freshErr := runner.catalogueSourceFresh(t.Context(), "global")
+	require.NoError(t, freshErr)
+	assert.True(t, fresh)
+	retained, retainedErr := runner.loadRetainedServers(t.Context(), nil)
+	require.NoError(t, retainedErr)
+	assert.ElementsMatch(t, []string{"cached-global", "fresh-local", "fresh-regional"}, serverIDs(retained))
 	statusAfter, statusErr := runner.GetServerCatalogueStatus(t.Context(), ServerListOptions{Global: true})
 	require.NoError(t, statusErr)
 	assert.Equal(t, statusBefore.UpdatedAt, statusAfter.UpdatedAt)
@@ -827,11 +766,13 @@ func TestGlobalServersPersistsCompletedRegionsAfterCancellation(t *testing.T) {
 	assert.Nil(t, result.servers)
 
 	restarted := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
-	assert.ElementsMatch(t, []string{"local", "regional"}, serverIDs(restarted.loadRetainedServers(nil)))
+	retained, retainedErr := restarted.loadRetainedServers(t.Context(), nil)
+	require.NoError(t, retainedErr)
+	assert.ElementsMatch(t, []string{"local", "regional"}, serverIDs(retained))
 }
 
 func TestGlobalServersWaitHonorsContext(t *testing.T) {
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, nil)
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 	runner.globalFetch <- struct{}{}
 	defer func() { <-runner.globalFetch }()
 

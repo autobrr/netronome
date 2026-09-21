@@ -618,7 +618,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                                 </h3>
                                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
                                   {testType === "speedtest"
-                                    ? "Fetching the selected Speedtest.net server catalogue."
+                                    ? "Loading the shared retained Speedtest.net server pool."
                                     : "Fetching public servers from LibreSpeed.org."}
                                 </p>
                               </>
@@ -629,7 +629,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                                 </h3>
                                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
                                   {testType === "speedtest"
-                                    ? "Could not fetch Speedtest.net servers. Check your network connection or choose another catalogue in Settings > Speedtest.net."
+                                    ? "Could not load Speedtest.net servers. Check your network connection or fetch a discovery source in Settings > Speedtest.net."
                                     : "Could not fetch LibreSpeed servers. Check your network connection or add custom servers via librespeed-servers.json."}
                                 </p>
                               </>
@@ -640,7 +640,7 @@ export const ServerList: React.FC<ServerListProps> = ({
                                 </h3>
                                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
                                   {testType === "speedtest"
-                                    ? "No servers matched your search. Try another catalogue in Settings > Speedtest.net or add a server by ID."
+                                    ? "No retained servers matched your search. Try adjusting your filters, fetch another discovery source in Settings > Speedtest.net, or add a server by ID."
                                     : "No servers matched your search. Try adjusting your filters or add custom servers via librespeed-servers.json."}
                                 </p>
                               </>

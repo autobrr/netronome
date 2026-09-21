@@ -55,12 +55,8 @@ const requestServers = async (
 };
 
 /** Fetches a provider's servers and returns only the server list. */
-export async function getServers(
-  testType: string,
-  query: SpeedtestServerQuery = {},
-  signal?: AbortSignal,
-): Promise<Server[]> {
-  return (await requestServers(testType, query, signal)).servers;
+export async function getServers(testType: string): Promise<Server[]> {
+  return (await requestServers(testType)).servers;
 }
 
 /** Fetches Speedtest.net servers together with any partial-discovery warnings. */

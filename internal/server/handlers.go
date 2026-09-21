@@ -204,19 +204,19 @@ func parseServerListOptions(global, latitude, longitude, refresh string) (speedt
 		return options, nil
 	}
 	if latitude == "" || longitude == "" {
-		return options, fmt.Errorf("latitude and longitude must be provided together")
+		return options, errors.New("latitude and longitude must be provided together")
 	}
 	if options.Global {
-		return options, fmt.Errorf("global and coordinate server searches are mutually exclusive")
+		return options, errors.New("global and coordinate server searches are mutually exclusive")
 	}
 
 	lat, err := strconv.ParseFloat(latitude, 64)
 	if err != nil || math.IsNaN(lat) || math.IsInf(lat, 0) || lat < -90 || lat > 90 {
-		return options, fmt.Errorf("latitude must be a finite number between -90 and 90")
+		return options, errors.New("latitude must be a finite number between -90 and 90")
 	}
 	lon, err := strconv.ParseFloat(longitude, 64)
 	if err != nil || math.IsNaN(lon) || math.IsInf(lon, 0) || lon < -180 || lon > 180 {
-		return options, fmt.Errorf("longitude must be a finite number between -180 and 180")
+		return options, errors.New("longitude must be a finite number between -180 and 180")
 	}
 
 	options.Location = &speedtest.ServerLocation{Latitude: lat, Longitude: lon}
@@ -316,7 +316,7 @@ func (s *Server) handleTraceroute(c *gin.Context) {
 	host := c.Query("host")
 	if host == "" {
 		c.Status(http.StatusBadRequest)
-		_ = c.Error(fmt.Errorf("host parameter is required"))
+		_ = c.Error(errors.New("host parameter is required"))
 		return
 	}
 

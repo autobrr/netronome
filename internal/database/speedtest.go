@@ -4,8 +4,13 @@
 package database
 
 import (
+	"cmp"
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -13,6 +18,194 @@ import (
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/types"
 )
+
+const maxSpeedtestCoordinateSources = 32
+
+// SpeedtestServer is retained Speedtest.net discovery metadata. ObservedAt orders
+// competing refreshes so an older request cannot overwrite newer server details.
+type SpeedtestServer struct {
+	ID         string
+	Name       string
+	Host       string
+	Country    string
+	Sponsor    string
+	URL        string
+	Latitude   float64
+	Longitude  float64
+	ObservedAt time.Time
+}
+
+// SpeedtestServerSource records the last completed discovery for one source.
+// Latitude and Longitude are populated together for the detected local origin.
+type SpeedtestServerSource struct {
+	Key       string
+	UpdatedAt time.Time
+	Latitude  *float64
+	Longitude *float64
+}
+
+// ListSpeedtestServers returns every retained Speedtest.net server ordered by ID.
+func (s *service) ListSpeedtestServers(ctx context.Context) ([]SpeedtestServer, error) {
+	rows, err := s.sqlBuilder.
+		Select("id", "name", "host", "country", "sponsor", "url", "latitude", "longitude", "observed_at").
+		From("speedtest_servers").
+		OrderBy("id").
+		RunWith(s.db).
+		QueryContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query speedtest servers: %w", err)
+	}
+	defer rows.Close()
+
+	servers := make([]SpeedtestServer, 0)
+	for rows.Next() {
+		var server SpeedtestServer
+		if err := rows.Scan(
+			&server.ID,
+			&server.Name,
+			&server.Host,
+			&server.Country,
+			&server.Sponsor,
+			&server.URL,
+			&server.Latitude,
+			&server.Longitude,
+			&server.ObservedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan speedtest server: %w", err)
+		}
+		server.ObservedAt = server.ObservedAt.UTC()
+		servers = append(servers, server)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate speedtest servers: %w", err)
+	}
+	return servers, nil
+}
+
+// GetSpeedtestServerSource returns durable discovery metadata for key. The bool is
+// false when the source has never completed successfully.
+func (s *service) GetSpeedtestServerSource(ctx context.Context, key string) (SpeedtestServerSource, bool, error) {
+	query := s.sqlBuilder.
+		Select("source_key", "updated_at", "latitude", "longitude").
+		From("speedtest_server_sources").
+		Where(sq.Eq{"source_key": key})
+
+	var source SpeedtestServerSource
+	var latitude, longitude sql.NullFloat64
+	err := query.RunWith(s.db).QueryRowContext(ctx).Scan(
+		&source.Key,
+		&source.UpdatedAt,
+		&latitude,
+		&longitude,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return SpeedtestServerSource{}, false, nil
+	}
+	if err != nil {
+		return SpeedtestServerSource{}, false, fmt.Errorf("failed to query speedtest server source %q: %w", key, err)
+	}
+
+	source.UpdatedAt = source.UpdatedAt.UTC()
+	if latitude.Valid && longitude.Valid {
+		source.Latitude = new(latitude.Float64)
+		source.Longitude = new(longitude.Float64)
+	}
+	return source, true, nil
+}
+
+// SaveSpeedtestServerCatalogue atomically retains discovered servers and, when
+// source is non-nil, records that the source refresh completed successfully.
+// Older observations never replace newer rows; any error rolls back the batch.
+func (s *service) SaveSpeedtestServerCatalogue(
+	ctx context.Context,
+	servers []SpeedtestServer,
+	source *SpeedtestServerSource,
+) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin speedtest catalogue transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	orderedServers := slices.Clone(servers)
+	slices.SortFunc(orderedServers, func(a, b SpeedtestServer) int {
+		return cmp.Compare(a.ID, b.ID)
+	})
+	for _, server := range orderedServers {
+		query := s.sqlBuilder.
+			Insert("speedtest_servers").
+			Columns("id", "name", "host", "country", "sponsor", "url", "latitude", "longitude", "observed_at").
+			Values(
+				server.ID,
+				server.Name,
+				server.Host,
+				server.Country,
+				server.Sponsor,
+				server.URL,
+				server.Latitude,
+				server.Longitude,
+				server.ObservedAt.UTC(),
+			).
+			Suffix(`ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name,
+				host = EXCLUDED.host,
+				country = EXCLUDED.country,
+				sponsor = EXCLUDED.sponsor,
+				url = EXCLUDED.url,
+				latitude = EXCLUDED.latitude,
+				longitude = EXCLUDED.longitude,
+				observed_at = EXCLUDED.observed_at
+			WHERE speedtest_servers.observed_at < EXCLUDED.observed_at`)
+		if _, err := query.RunWith(tx).ExecContext(ctx); err != nil {
+			return fmt.Errorf("failed to upsert speedtest server %q: %w", server.ID, err)
+		}
+	}
+
+	if source != nil {
+		if s.config.Type == config.Postgres && strings.HasPrefix(source.Key, "location:") {
+			if _, err := tx.ExecContext(ctx, "LOCK TABLE speedtest_server_sources IN SHARE ROW EXCLUSIVE MODE"); err != nil {
+				return fmt.Errorf("failed to lock speedtest coordinate sources: %w", err)
+			}
+		}
+
+		query := s.sqlBuilder.
+			Insert("speedtest_server_sources").
+			Columns("source_key", "updated_at", "latitude", "longitude").
+			Values(source.Key, source.UpdatedAt.UTC(), source.Latitude, source.Longitude).
+			Suffix(`ON CONFLICT (source_key) DO UPDATE SET
+				updated_at = EXCLUDED.updated_at,
+				latitude = EXCLUDED.latitude,
+				longitude = EXCLUDED.longitude
+			WHERE speedtest_server_sources.updated_at < EXCLUDED.updated_at`)
+		if _, err := query.RunWith(tx).ExecContext(ctx); err != nil {
+			return fmt.Errorf("failed to upsert speedtest server source %q: %w", source.Key, err)
+		}
+
+		if strings.HasPrefix(source.Key, "location:") {
+			pruneCoordinateSources := s.sqlBuilder.
+				Delete("speedtest_server_sources").
+				Where("source_key LIKE ?", "location:%").
+				Where(sq.NotEq{"source_key": source.Key}).
+				Where(sq.Expr(`source_key NOT IN (
+					SELECT source_key
+					FROM speedtest_server_sources
+					WHERE source_key LIKE ? AND source_key <> ?
+					ORDER BY updated_at DESC, source_key DESC
+					LIMIT ?
+				)`, "location:%", source.Key, maxSpeedtestCoordinateSources-1))
+			if _, err := pruneCoordinateSources.RunWith(tx).ExecContext(ctx); err != nil {
+				return fmt.Errorf("failed to prune speedtest coordinate sources: %w", err)
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit speedtest catalogue: %w", err)
+	}
+	return nil
+}
 
 func (s *service) SaveSpeedTest(ctx context.Context, result types.SpeedTestResult) (*types.SpeedTestResult, error) {
 	data := map[string]interface{}{

@@ -49,12 +49,6 @@ import { useTracerouteStatus } from "./traceroute/hooks/useTracerouteStatus";
 
 // Import traceroute utilities
 import { extractHostname } from "./traceroute/utils/tracerouteUtils";
-import { getTracerouteServerSelectionKey } from "./traceroute/utils/serverUtils";
-import {
-  speedtestServerQuery,
-  speedtestServerSelectionKey,
-  useSpeedtestSettings,
-} from "@/utils/speedtestSettings";
 
 // Import constants
 import {
@@ -63,13 +57,9 @@ import {
   TAB_MODE_STORAGE_KEY,
 } from "./traceroute/constants/tracerouteConstants";
 
-/** Provides traceroute execution and packet-loss monitoring with source-scoped server selection. */
+/** Provides traceroute execution and packet-loss monitoring with server selection. */
 export const TracerouteTab: React.FC = () => {
   const queryClient = useQueryClient();
-  const speedtestSettings = useSpeedtestSettings();
-  const speedtestSelectionKey = speedtestServerSelectionKey(
-    speedtestServerQuery(speedtestSettings),
-  );
 
   // Tab mode state with localStorage persistence
   const [mode, setMode] = useState<TabMode>(() => {
@@ -81,27 +71,10 @@ export const TracerouteTab: React.FC = () => {
 
   // Traceroute state
   const [host, setHost] = useState("");
-  const [serverSelection, setServerSelection] = useState<{
-    key: string;
-    server: Server | null;
-  }>(() => ({ key: speedtestSelectionKey, server: null }));
-  const selectionIsCurrent = serverSelection.server === null ||
-    serverSelection.key === getTracerouteServerSelectionKey(
-      serverSelection.server,
-      speedtestSelectionKey,
-    );
-  const selectedServer = selectionIsCurrent ? serverSelection.server : null;
-  const tracerouteHost = selectionIsCurrent ? host : "";
+  const [selectedServer, setSelectedServer] = useState<Server | null>(null);
   const [tracerouteStatus, setTracerouteStatus] =
     useState<TracerouteUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const handleServerSelect = (server: Server | null) => {
-    setServerSelection({
-      key: getTracerouteServerSelectionKey(server, speedtestSelectionKey),
-      server,
-    });
-  };
 
   // Packet Loss Monitor state
   const [selectedMonitor, setSelectedMonitor] =
@@ -278,9 +251,9 @@ export const TracerouteTab: React.FC = () => {
 
   // Event handlers
   const handleRunTraceroute = () => {
-    const targetHost = selectedServer ? selectedServer.host : tracerouteHost.trim();
+    const targetHost = selectedServer ? selectedServer.host : host.trim();
     if (!targetHost) return;
-    runTraceroute(tracerouteHost, selectedServer?.host);
+    runTraceroute(host, selectedServer?.host);
   };
 
   const handleCreateMonitorFromTraceroute = () => {
@@ -426,10 +399,10 @@ export const TracerouteTab: React.FC = () => {
         <div className="flex flex-col md:flex-row gap-6 md:items-start">
           {/* Left Column - Server Selection */}
           <TracerouteServerSelector
-            host={tracerouteHost}
+            host={host}
             selectedServer={selectedServer}
             onHostChange={setHost}
-            onServerSelect={handleServerSelect}
+            onServerSelect={setSelectedServer}
             onRunTraceroute={handleRunTraceroute}
             isRunning={isRunning}
           />
@@ -467,7 +440,7 @@ export const TracerouteTab: React.FC = () => {
                 mode="traceroute"
                 onHostSelect={(hostname) => {
                   setHost(hostname);
-                  handleServerSelect(null);
+                  setSelectedServer(null);
                 }}
                 onSwitchToMonitors={() => setMode("monitors")}
               />
