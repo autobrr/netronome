@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+/** A selectable endpoint from Speedtest.net, LibreSpeed, or the saved iperf3 list. */
 export interface Server {
   id: string;
   name: string;
@@ -18,11 +19,13 @@ export interface Server {
   isPublic?: boolean;
 }
 
+/** A persisted speed measurement and its recorded server identity. */
 export interface SpeedTestResult {
   id: string;
   serverId: string;
   serverName: string;
   serverHost: string;
+  serverCity?: string | null;
   testType: "speedtest" | "iperf3" | "librespeed";
   downloadSpeed: number;
   uploadSpeed: number;

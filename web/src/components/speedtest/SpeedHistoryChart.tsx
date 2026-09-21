@@ -42,6 +42,11 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import {
+  formatSpeedtestServerName,
+  speedtestResultServerKey,
+  useSpeedtestSettings,
+} from "@/utils/speedtestSettings";
 
 interface SpeedHistoryChartProps {
   timeRange: TimeRange;
@@ -70,6 +75,19 @@ interface VisibleMetrics {
   upload: boolean;
   latency: boolean;
   jitter: boolean;
+}
+
+interface ChartResult {
+  rawTimestamp: string;
+  timestamp: string;
+  download: number;
+  upload: number;
+  latency: number;
+  jitter: number;
+  serverKey: string;
+  serverLabel: string;
+  serverHost: string;
+  testType: string;
 }
 
 const timeRangeOptions: { value: TimeRange; label: string }[] = [
@@ -108,6 +126,7 @@ const useIsMobile = () => {
   return isMobile;
 };
 
+/** Renders paginated speed history grouped and filtered by stable server identity. */
 export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   timeRange = "1w",
   onTimeRangeChange,
@@ -130,6 +149,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   onMultipleServerDisplayModeChange,
 }) => {
   const isMobile = useIsMobile();
+  const speedtestSettings = useSpeedtestSettings();
 
   const [visibleMetrics, setVisibleMetrics] = useState<VisibleMetrics>(() => {
     const saved = localStorage.getItem("speedtest-visible-metrics");
@@ -222,7 +242,12 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
         upload: Number(item.uploadSpeed) || 0,
         latency: Number(parseFloat(typeof item.latency === 'string' ? item.latency.replace("ms", "") : item.latency) || 0),
         jitter: Number(item.jitter) || 0,
-        serverName: item.serverName || "Unknown Server",
+        serverKey: speedtestResultServerKey(item),
+        serverLabel: formatSpeedtestServerName(
+          item.serverName || "Unknown Server",
+          item.serverCity,
+          speedtestSettings.showServerCity,
+        ),
         serverHost: item.serverHost || item.serverName || "Unknown Server",
         testType: item.testType || "speedtest",
       }))
@@ -233,19 +258,22 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
           !isNaN(item.latency) &&
           !isNaN(item.jitter)
       );
-  }, [data]);
+  }, [data, speedtestSettings.showServerCity, timeRange]);
 
   // Extract available servers from results
   const availableServers = useMemo(() => {
     if (!filteredData || filteredData.length === 0) return [];
 
-    const serverMap = new Map();
+    const serverMap = new Map<string, { id: string; name: string; host: string }>();
     filteredData.forEach(result => {
-      if (result.serverName && !serverMap.has(result.serverName)) {
-        serverMap.set(result.serverName, {
-          id: result.serverName,
-          name: result.serverName,
-          host: result.serverHost || result.serverName
+      if (
+        result.serverKey &&
+        !serverMap.has(result.serverKey)
+      ) {
+        serverMap.set(result.serverKey, {
+          id: result.serverKey,
+          name: result.serverLabel,
+          host: result.serverHost
         });
       }
     });
@@ -256,17 +284,17 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   // Apply server filtering
   const allResults = useMemo(() => {
     if (serverFilterMode === "single" && selectedSingleServer !== "all") {
-      const filtered = filteredData.filter(result => result.serverName === selectedSingleServer);
+      const filtered = filteredData.filter(result => result.serverKey === selectedSingleServer);
       return filtered;
     } else if (serverFilterMode === "multiple" && selectedMultipleServers.size > 0) {
       const filtered = filteredData.filter(result =>
-        selectedMultipleServers.has(result.serverName) || selectedMultipleServers.has(result.serverHost)
+        selectedMultipleServers.has(result.serverKey)
       );
       return filtered;
     }
 
     return filteredData;
-  }, [filteredData, serverFilterMode, selectedSingleServer, selectedMultipleServers, availableServers]);
+  }, [filteredData, serverFilterMode, selectedSingleServer, selectedMultipleServers]);
 
   // Server filter handlers
   const handleServerDropdownChange = (value: string) => {
@@ -314,12 +342,14 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   };
 
   // Function to render individual server charts for separate mode
-  const renderServerChart = (serverName: string, serverData: any[]) => {
+  const renderServerChart = (serverKey: string, serverData: ChartResult[]) => {
+    const serverLabel = serverData[0]?.serverLabel ?? serverKey;
+    const gradientKey = serverKey.replace(/[^a-zA-Z0-9]/g, '_');
     return (
-      <div key={`server-${serverName}`} className="mb-6">
+      <div key={`server-${serverKey}`} className="mb-6">
         <div className="mb-2">
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {serverName} ({serverData.length} data points)
+            {serverLabel} ({serverData.length} data points)
           </h4>
         </div>
         <div className="h-80 bg-gray-50/95 dark:bg-gray-850/95 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
@@ -333,19 +363,19 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
               }
             >
               <defs>
-                <linearGradient id={`downloadGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')}`} x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={`downloadGradient-${gradientKey}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="var(--chart-download, #60a5fa)" stopOpacity={0} />
                 </linearGradient>
-                <linearGradient id={`uploadGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')}`} x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={`uploadGradient-${gradientKey}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="var(--chart-upload, #34d399)" stopOpacity={0} />
                 </linearGradient>
-                <linearGradient id={`latencyGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')}`} x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={`latencyGradient-${gradientKey}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="var(--chart-latency, #fbbf24)" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="var(--chart-latency, #fbbf24)" stopOpacity={0} />
                 </linearGradient>
-                <linearGradient id={`jitterGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')}`} x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={`jitterGradient-${gradientKey}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="var(--chart-jitter, #c084fc)" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="var(--chart-jitter, #c084fc)" stopOpacity={0} />
                 </linearGradient>
@@ -441,7 +471,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
               {visibleMetrics.download && (
                 <Area
-                  key={`download-${serverName}`}
+                  key={`download-${serverKey}`}
                   yAxisId="speed"
                   type="monotone"
                   dataKey="download"
@@ -450,7 +480,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   strokeWidth={3}
                   dot={false}
                   activeDot={{ r: 6 }}
-                  fill={`url(#downloadGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')})`}
+                  fill={`url(#downloadGradient-${gradientKey})`}
                   animationDuration={1750}
                   animationBegin={0}
                   isAnimationActive={true}
@@ -459,7 +489,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
               {visibleMetrics.upload && (
                 <Area
-                  key={`upload-${serverName}`}
+                  key={`upload-${serverKey}`}
                   yAxisId="speed"
                   type="monotone"
                   dataKey="upload"
@@ -468,7 +498,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   strokeWidth={3}
                   dot={false}
                   activeDot={{ r: 6 }}
-                  fill={`url(#uploadGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')})`}
+                  fill={`url(#uploadGradient-${gradientKey})`}
                   animationDuration={1750}
                   animationBegin={150}
                   isAnimationActive={true}
@@ -477,7 +507,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
               {visibleMetrics.latency && (
                 <Area
-                  key={`latency-${serverName}`}
+                  key={`latency-${serverKey}`}
                   yAxisId="latency"
                   type="monotone"
                   dataKey="latency"
@@ -486,7 +516,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 6 }}
-                  fill={`url(#latencyGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')})`}
+                  fill={`url(#latencyGradient-${gradientKey})`}
                   animationDuration={1750}
                   animationBegin={300}
                   isAnimationActive={true}
@@ -495,7 +525,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
 
               {visibleMetrics.jitter && (
                 <Area
-                  key={`jitter-${serverName}`}
+                  key={`jitter-${serverKey}`}
                   yAxisId="latency"
                   type="monotone"
                   dataKey="jitter"
@@ -504,7 +534,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 6 }}
-                  fill={`url(#jitterGradient-${serverName.replace(/[^a-zA-Z0-9]/g, '_')})`}
+                  fill={`url(#jitterGradient-${gradientKey})`}
                   strokeDasharray="5 5"
                   animationDuration={1750}
                   animationBegin={0}
@@ -522,11 +552,11 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
   const renderChartsBasedOnMode = () => {
     if (serverFilterMode === "multiple" && selectedMultipleServers.size > 1 && multipleServerDisplayMode === "separate") {
       // Group processed data by server for separate charts
-      const serverGroups: { [key: string]: any[] } = {};
+      const serverGroups: Record<string, ChartResult[]> = {};
 
       // allResults is already filtered for selected multiple servers
       allResults.forEach(result => {
-        const serverKey = result.serverName || result.serverHost || "Unknown";
+        const serverKey = result.serverKey;
         if (!serverGroups[serverKey]) {
           serverGroups[serverKey] = [];
         }
@@ -708,7 +738,7 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                     >
                       {shouldRedact
                         ? "redacted host"
-                        : data.serverHost || data.serverName}
+                        : data.serverLabel}
                       {data.testType && (
                         <span
                           style={{

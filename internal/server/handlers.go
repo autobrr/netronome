@@ -5,7 +5,9 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -14,9 +16,9 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/notifications"
+	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
 )
-
 
 func (s *Server) handleSpeedTest(c *gin.Context) {
 	var opts types.TestOptions
@@ -46,29 +48,29 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 		if s.notifier != nil {
 			// Create a failed result for notification
 			failedResult := &notifications.SpeedTestResult{
-				ServerName: "Unknown", // Default server name for failed tests
-				Provider: "speedtest", // Default provider
-				Failed: true,
+				ServerName: "Unknown",   // Default server name for failed tests
+				Provider:   "speedtest", // Default provider
+				Failed:     true,
 			}
-			
+
 			// Try to set server name from options
 			if len(opts.ServerIDs) > 0 {
 				failedResult.ServerName = opts.ServerIDs[0]
 			}
-			
+
 			// Determine provider from test type
 			if opts.UseIperf {
 				failedResult.Provider = "iperf"
 			} else if opts.UseLibrespeed {
 				failedResult.Provider = "librespeed"
 			}
-			
+
 			notifyErr := s.notifier.SendSpeedTestNotification(failedResult)
 			if notifyErr != nil {
 				log.Error().Err(notifyErr).Msg("Failed to send speedtest failure notification")
 			}
 		}
-		
+
 		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to run speed test: %w", err))
 		return
@@ -131,14 +133,94 @@ func (s *Server) handlePublicSpeedTestHistory(c *gin.Context) {
 
 func (s *Server) handleGetServers(c *gin.Context) {
 	testType := c.DefaultQuery("testType", "speedtest")
-
-	servers, err := s.speedtest.GetServers(testType)
+	options, err := parseServerListOptions(
+		c.Query("global"),
+		c.Query("latitude"),
+		c.Query("longitude"),
+		c.Query("refresh"),
+	)
 	if err != nil {
+		c.Status(http.StatusBadRequest)
+		_ = c.Error(err)
+		return
+	}
+
+	servers, err := s.speedtest.GetServers(c.Request.Context(), testType, options)
+	if err != nil {
+		if partialErr, ok := errors.AsType[*speedtest.PartialServerCatalogueError](err); ok {
+			c.JSON(http.StatusOK, gin.H{
+				"servers":  servers,
+				"warnings": partialErr.WarningMessages(),
+			})
+			return
+		}
 		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to get servers: %w", err))
 		return
 	}
 	c.JSON(http.StatusOK, servers)
+}
+
+func (s *Server) handleGetServerCatalogueStatus(c *gin.Context) {
+	options, err := parseServerListOptions(
+		c.Query("global"),
+		c.Query("latitude"),
+		c.Query("longitude"),
+		"",
+	)
+	if err != nil {
+		c.Status(http.StatusBadRequest)
+		_ = c.Error(err)
+		return
+	}
+
+	status, err := s.speedtest.GetSpeedtestServerCatalogueStatus(c.Request.Context(), options)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		_ = c.Error(fmt.Errorf("failed to get server catalogue status: %w", err))
+		return
+	}
+	c.JSON(http.StatusOK, status)
+}
+
+func parseServerListOptions(global, latitude, longitude, refresh string) (speedtest.ServerListOptions, error) {
+	var options speedtest.ServerListOptions
+	if global != "" {
+		value, err := strconv.ParseBool(global)
+		if err != nil {
+			return options, fmt.Errorf("invalid global value %q: %w", global, err)
+		}
+		options.Global = value
+	}
+	if refresh != "" {
+		value, err := strconv.ParseBool(refresh)
+		if err != nil {
+			return options, fmt.Errorf("invalid refresh value %q: %w", refresh, err)
+		}
+		options.Refresh = value
+	}
+
+	if latitude == "" && longitude == "" {
+		return options, nil
+	}
+	if latitude == "" || longitude == "" {
+		return options, errors.New("latitude and longitude must be provided together")
+	}
+	if options.Global {
+		return options, errors.New("global and coordinate server searches are mutually exclusive")
+	}
+
+	lat, err := strconv.ParseFloat(latitude, 64)
+	if err != nil || math.IsNaN(lat) || math.IsInf(lat, 0) || lat < -90 || lat > 90 {
+		return options, errors.New("latitude must be a finite number between -90 and 90")
+	}
+	lon, err := strconv.ParseFloat(longitude, 64)
+	if err != nil || math.IsNaN(lon) || math.IsInf(lon, 0) || lon < -180 || lon > 180 {
+		return options, errors.New("longitude must be a finite number between -180 and 180")
+	}
+
+	options.Location = &speedtest.ServerLocation{Latitude: lat, Longitude: lon}
+	return options, nil
 }
 
 func (s *Server) handleSpeedTestStatus(c *gin.Context) {
@@ -234,7 +316,7 @@ func (s *Server) handleTraceroute(c *gin.Context) {
 	host := c.Query("host")
 	if host == "" {
 		c.Status(http.StatusBadRequest)
-		_ = c.Error(fmt.Errorf("host parameter is required"))
+		_ = c.Error(errors.New("host parameter is required"))
 		return
 	}
 
@@ -257,7 +339,7 @@ func (s *Server) handleTraceroute(c *gin.Context) {
 		s.mu.Lock()
 		s.lastTracerouteUpdate.IsComplete = true
 		s.mu.Unlock()
-		
+
 		c.Status(http.StatusInternalServerError)
 		_ = c.Error(fmt.Errorf("failed to run traceroute: %w", err))
 		return

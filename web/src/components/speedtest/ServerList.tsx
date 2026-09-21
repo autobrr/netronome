@@ -608,17 +608,18 @@ export const ServerList: React.FC<ServerListProps> = ({
                     </>
                   ) : (
                     <>
-                      {filteredServersWithSelect.length === 0 &&
-                      testType === "librespeed" ? (
+                      {filteredServersWithSelect.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 px-4">
                           <div className="text-center max-w-md">
                             {isServersLoading ? (
                               <>
                                 <h3 className="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">
-                                  Loading LibreSpeed servers...
+                                  Loading servers...
                                 </h3>
                                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-                                  Fetching public servers from LibreSpeed.org.
+                                  {testType === "speedtest"
+                                    ? "Loading Speedtest.net servers."
+                                    : "Fetching public servers from LibreSpeed.org."}
                                 </p>
                               </>
                             ) : isServersError ? (
@@ -627,16 +628,20 @@ export const ServerList: React.FC<ServerListProps> = ({
                                   Failed to load servers
                                 </h3>
                                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-                                  Could not fetch LibreSpeed servers. Check your network connection or add custom servers via librespeed-servers.json.
+                                  {testType === "speedtest"
+                                    ? "Could not load Speedtest.net servers. Check your network connection or fetch a discovery source in Settings > Speedtest.net."
+                                    : "Could not fetch LibreSpeed servers. Check your network connection or add custom servers via librespeed-servers.json."}
                                 </p>
                               </>
                             ) : (
                               <>
                                 <h3 className="text-lg font-medium text-gray-900 dark:text-gray-300 mb-2">
-                                  No LibreSpeed servers found
+                                  No {testType === "speedtest" ? "Speedtest.net" : "LibreSpeed"} servers found
                                 </h3>
                                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-                                  No servers matched your search. Try adjusting your filters or add custom servers via librespeed-servers.json.
+                                  {testType === "speedtest"
+                                    ? "No retained servers matched your search. Try adjusting your filters, fetch another discovery source in Settings > Speedtest.net, or add a server by ID."
+                                    : "No servers matched your search. Try adjusting your filters or add custom servers via librespeed-servers.json."}
                                 </p>
                               </>
                             )}

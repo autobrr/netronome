@@ -19,6 +19,11 @@ import { showToast } from "@/components/common/Toast";
 import { getPublicTheme } from "@/api/license";
 import { applyPublicColorTheme } from "@/utils/colorTheme";
 import {
+  speedtestServerQueryKey,
+  speedtestServerQuery,
+  useSpeedtestSettings,
+} from "@/utils/speedtestSettings";
+import {
   ChartBarIcon,
   PlayIcon,
   GlobeAltIcon,
@@ -33,6 +38,7 @@ import {
   TestOptions,
   PaginatedResponse,
   Schedule,
+  TestType,
 } from "@/types/types";
 import {
   useQuery,
@@ -42,6 +48,7 @@ import {
 } from "@tanstack/react-query";
 import {
   getServers,
+  getSpeedtestServerCatalogue,
   getHistory,
   getSchedules,
   runSpeedTest,
@@ -55,9 +62,12 @@ interface MainProps {
   isPublic?: boolean;
 }
 
+/** Coordinates dashboard data, server selection, and test execution for private and public views. */
 export default function Main({ isPublic = false }: MainProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const speedtestSettings = useSpeedtestSettings();
+  const speedtestQuery = speedtestServerQuery(speedtestSettings);
 
   // The public dashboard uses the server-configured public theme. Boot
   // deliberately skipped the localStorage theme on /public; on failure the
@@ -84,10 +94,8 @@ export default function Main({ isPublic = false }: MainProps) {
     useLibrespeed: false,
     serverIds: [],
   });
-  const [testType, setTestType] = useState<
-    "speedtest" | "iperf" | "librespeed"
-  >("speedtest");
-  const [selectedServers, setSelectedServers] = useState<Server[]>([]);
+  const [testType, setTestType] = useState<TestType>("speedtest");
+  const [chosenServers, setChosenServers] = useState<Server[]>([]);
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
     "idle"
@@ -143,11 +151,28 @@ export default function Main({ isPublic = false }: MainProps) {
   };
 
   // Queries
-  const { data: speedtestServers = [] } = useQuery({
-    queryKey: ["servers", "speedtest"],
-    queryFn: () => getServers("speedtest"),
+  const {
+    data: speedtestCatalogue,
+    dataUpdatedAt: speedtestCatalogueUpdatedAt,
+    isLoading: isSpeedtestLoading,
+    isError: isSpeedtestError,
+  } = useQuery({
+    queryKey: speedtestServerQueryKey(speedtestQuery),
+    queryFn: ({ signal }) => getSpeedtestServerCatalogue(speedtestQuery, signal),
     enabled: !isPublic,
-  }) as { data: Server[] };
+  });
+  const speedtestServers = useMemo(
+    () => speedtestCatalogue?.servers ?? [],
+    [speedtestCatalogue?.servers]
+  );
+  const speedtestCatalogueWarning = speedtestCatalogue?.warnings.join("; ") ?? "";
+
+  useEffect(() => {
+    if (!speedtestCatalogueWarning) return;
+    showToast("Server catalogue partially updated", "warning", {
+      description: speedtestCatalogueWarning,
+    });
+  }, [speedtestCatalogueUpdatedAt, speedtestCatalogueWarning]);
 
   const { data: librespeedServers = [], isLoading: isLibrespeedLoading, isError: isLibrespeedError } = useQuery({
     queryKey: ["servers", "librespeed"],
@@ -165,6 +190,12 @@ export default function Main({ isPublic = false }: MainProps) {
     if (testType === "iperf") return []; // or fetch iperf servers if they are separate
     return speedtestServers;
   }, [testType, speedtestServers, librespeedServers]);
+
+  // A chosen Speedtest.net server that left the list, for example after a source change, is no longer selected.
+  const selectedServers =
+    testType !== "speedtest" || servers.length === 0
+      ? chosenServers
+      : chosenServers.filter((selected) => servers.some((server) => server.id === selected.id));
 
   const { data: dashboardSettings } = useQuery({
     queryKey: ["dashboard-settings"],
@@ -204,37 +235,20 @@ export default function Main({ isPublic = false }: MainProps) {
   }, [historyData]);
 
   // Query to get all-time history for latest run display and existence check
-  const { data: allTimeHistoryData } = useInfiniteQuery({
+  const { data: allTimeHistoryData } = useQuery({
     queryKey: ["history", "all", isPublic],
-    queryFn: async ({ pageParam = 1 }) => {
+    queryFn: async () => {
       const historyFn = isPublic ? getPublicHistory : getHistory;
-      const response = await historyFn("all", pageParam, 20); // Get more results for latest run display
+      const response = await historyFn("all", 1, 1);
       return response as PaginatedResponse<SpeedTestResult>;
     },
-    getNextPageParam: () => undefined, // Only fetch first page
-    initialPageParam: 1,
     staleTime: 60000, // Cache for 1 minute
   });
 
-  const allTimeHistory = useMemo(() => {
-    if (!allTimeHistoryData?.pages) return [];
-    return allTimeHistoryData.pages.flatMap(
-      (page) => page?.data ?? []
-    ) as SpeedTestResult[];
-  }, [allTimeHistoryData]);
+  const allTimeHistory = allTimeHistoryData?.data ?? [];
 
-  const hasAnyTests = useMemo(() => {
-    return allTimeHistory.length > 0;
-  }, [allTimeHistory]);
-
-  // Use current time range history if available, otherwise fall back to all-time history for latest run
-  const latestTest = useMemo(() => {
-    return history && history.length > 0
-      ? history[0]
-      : allTimeHistory.length > 0
-      ? allTimeHistory[0]
-      : null;
-  }, [history, allTimeHistory]);
+  const hasAnyTests = allTimeHistory.length > 0;
+  const latestTest = history[0] ?? allTimeHistory[0] ?? null;
 
   const { data: schedules = [] } = useQuery({
     queryKey: ["schedules"],
@@ -272,7 +286,7 @@ export default function Main({ isPublic = false }: MainProps) {
   });
 
   const handleServerSelect = (server: Server) => {
-    setSelectedServers((prev) => {
+    setChosenServers((prev) => {
       const isSelected = prev.some((s) => s.id === server.id);
       if (!options.multiServer) {
         return isSelected ? [] : [server];
@@ -600,8 +614,14 @@ export default function Main({ isPublic = false }: MainProps) {
                 onRunTest={runTest}
                 progress={progress}
                 allServers={allServers}
-                isServersLoading={testType === "librespeed" ? isLibrespeedLoading : false}
-                isServersError={testType === "librespeed" ? isLibrespeedError : false}
+                isServersLoading={
+                  testType === "speedtest" ? isSpeedtestLoading :
+                  testType === "librespeed" ? isLibrespeedLoading : false
+                }
+                isServersError={
+                  testType === "speedtest" ? isSpeedtestError :
+                  testType === "librespeed" ? isLibrespeedError : false
+                }
               />
             </motion.div>
           )}

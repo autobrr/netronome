@@ -20,12 +20,14 @@ func TestSpeedTest_Save(t *testing.T) {
 		ctx := context.Background()
 
 		serverHost := "speedtest.example.com"
+		serverCity := "Brisbane"
 		jitter := 2.5
 
 		speedTest := types.SpeedTestResult{
 			ServerName:    "Test Server",
 			ServerID:      "test-123",
 			ServerHost:    &serverHost,
+			ServerCity:    &serverCity,
 			TestType:      "iperf3",
 			DownloadSpeed: 100.5,
 			UploadSpeed:   50.25,
@@ -50,6 +52,128 @@ func TestSpeedTest_Save(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, results.Data, 1)
 		assert.NotZero(t, results.Data[0].CreatedAt)
+		require.NotNil(t, results.Data[0].ServerCity)
+		assert.Equal(t, serverCity, *results.Data[0].ServerCity)
+	})
+}
+
+func TestSpeedtestServerCataloguePersistsNewestMetadataAndSourceState(t *testing.T) {
+	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
+		older := time.Date(2026, time.September, 21, 0, 0, 0, 0, time.UTC)
+		newer := older.Add(time.Minute)
+		latitude := -27.4698
+		longitude := 153.0251
+
+		require.NoError(t, td.Service.SaveSpeedtestServerCatalogue(t.Context(), []SpeedtestServer{{
+			ID:         "123",
+			Name:       "Brisbane",
+			Host:       "speed.example:8080",
+			Country:    "Australia",
+			Sponsor:    "new sponsor",
+			URL:        "https://speed.example/upload",
+			Latitude:   latitude,
+			Longitude:  longitude,
+			ObservedAt: newer,
+		}}, &SpeedtestServerSource{
+			Key:       "local",
+			UpdatedAt: newer,
+			Latitude:  &latitude,
+			Longitude: &longitude,
+		}))
+
+		require.NoError(t, td.Service.SaveSpeedtestServerCatalogue(t.Context(), []SpeedtestServer{{
+			ID:         "123",
+			Name:       "Brisbane",
+			Host:       "stale.example:8080",
+			Country:    "Australia",
+			Sponsor:    "stale sponsor",
+			URL:        "https://stale.example/upload",
+			Latitude:   latitude,
+			Longitude:  longitude,
+			ObservedAt: older,
+		}}, &SpeedtestServerSource{
+			Key:       "local",
+			UpdatedAt: older,
+		}))
+
+		servers, err := td.Service.ListSpeedtestServers(t.Context())
+		require.NoError(t, err)
+		require.Len(t, servers, 1)
+		assert.Equal(t, "new sponsor", servers[0].Sponsor)
+		assert.Equal(t, "speed.example:8080", servers[0].Host)
+		assert.Equal(t, newer, servers[0].ObservedAt)
+
+		source, found, err := td.Service.GetSpeedtestServerSource(t.Context(), "local")
+		require.NoError(t, err)
+		require.True(t, found)
+		assert.Equal(t, newer, source.UpdatedAt)
+		require.NotNil(t, source.Latitude)
+		require.NotNil(t, source.Longitude)
+		assert.InDelta(t, latitude, *source.Latitude, 1e-9)
+		assert.InDelta(t, longitude, *source.Longitude, 1e-9)
+	})
+}
+
+func TestSpeedtestServerCatalogueRollsBackFailedSourceUpdate(t *testing.T) {
+	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
+		observedAt := time.Date(2026, time.September, 21, 0, 0, 0, 0, time.UTC)
+		latitude := -27.4698
+		err := td.Service.SaveSpeedtestServerCatalogue(t.Context(), []SpeedtestServer{{
+			ID:         "rollback",
+			ObservedAt: observedAt,
+		}}, &SpeedtestServerSource{
+			Key:       "local",
+			UpdatedAt: observedAt,
+			Latitude:  &latitude,
+		})
+		require.Error(t, err)
+
+		servers, listErr := td.Service.ListSpeedtestServers(t.Context())
+		require.NoError(t, listErr)
+		assert.Empty(t, servers)
+		_, found, sourceErr := td.Service.GetSpeedtestServerSource(t.Context(), "local")
+		require.NoError(t, sourceErr)
+		assert.False(t, found)
+	})
+}
+
+func TestSpeedTest_GetAliasesOnlyUnambiguousLegacyServerIdentities(t *testing.T) {
+	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
+		baseTime := time.Date(2026, time.September, 20, 0, 0, 0, 0, time.UTC)
+		results := []types.SpeedTestResult{
+			{ServerName: "custom-42", ServerID: "librespeed-custom-42", ServerHost: new("https://first.example.com"), TestType: "librespeed", CreatedAt: baseTime.Add(-2 * time.Minute)},
+			{ServerName: "custom-42", ServerID: "librespeed-custom-43", ServerHost: new("https://second.example.com"), TestType: "librespeed", CreatedAt: baseTime.Add(-time.Minute)},
+			{ServerName: "Unique", ServerID: "101", ServerHost: new("unique.example.com"), TestType: "speedtest", CreatedAt: baseTime.Add(time.Minute)},
+			{ServerName: "Unique", ServerID: "Unique", TestType: "speedtest", CreatedAt: baseTime.Add(2 * time.Minute)},
+			{ServerName: "Shared", ServerID: "201", ServerHost: new("first.example.com"), TestType: "speedtest", CreatedAt: baseTime.Add(3 * time.Minute)},
+			{ServerName: "Shared", ServerID: "202", ServerHost: new("second.example.com"), TestType: "speedtest", CreatedAt: baseTime.Add(4 * time.Minute)},
+			{ServerName: "Libre", ServerID: "librespeed-public-42", ServerHost: new("https://libre.example.com"), TestType: "librespeed", CreatedAt: baseTime.Add(5 * time.Minute)},
+			{ServerName: "Libre", ServerID: "librespeed-Libre", ServerHost: new("Libre"), TestType: "librespeed", CreatedAt: baseTime.Add(6 * time.Minute)},
+			{ServerName: "Shared", ServerID: "Shared", TestType: "speedtest", CreatedAt: baseTime.Add(7 * time.Minute)},
+		}
+		ids := make(map[string]int64, len(results))
+		for _, result := range results {
+			saved, err := td.Service.SaveSpeedTest(t.Context(), result)
+			require.NoError(t, err)
+			ids[result.TestType+":"+result.ServerID] = saved.ID
+		}
+
+		page, err := td.Service.GetSpeedTests(t.Context(), "all", 1, 1)
+		require.NoError(t, err)
+		require.Len(t, page.Data, 1)
+		assert.Equal(t, "Shared", page.Data[0].ServerID, "aliases must use identities outside the requested page")
+
+		all, err := td.Service.GetSpeedTests(t.Context(), "all", 1, len(results))
+		require.NoError(t, err)
+		byID := make(map[int64]types.SpeedTestResult, len(all.Data))
+		for _, result := range all.Data {
+			byID[result.ID] = result
+		}
+		assert.Equal(t, "101", byID[ids["speedtest:Unique"]].ServerID)
+		assert.Equal(t, "Shared", byID[ids["speedtest:Shared"]].ServerID)
+		assert.Equal(t, "librespeed-public-42", byID[ids["librespeed:librespeed-Libre"]].ServerID)
+		assert.Equal(t, "librespeed-custom-42", byID[ids["librespeed:librespeed-custom-42"]].ServerID)
+		assert.Equal(t, "librespeed-custom-43", byID[ids["librespeed:librespeed-custom-43"]].ServerID)
 	})
 }
 

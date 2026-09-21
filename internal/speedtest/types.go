@@ -5,15 +5,21 @@ package speedtest
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/autobrr/netronome/internal/types"
 )
 
+// Result describes a completed test and the identity of the server that actually ran it.
 type Result struct {
 	ID            int64     `json:"id"`
 	Timestamp     time.Time `json:"timestamp"`
 	Server        string    `json:"server"`
+	ServerID      string    `json:"serverId,omitempty"`
+	ServerHost    string    `json:"serverHost,omitempty"`
+	ServerCity    string    `json:"serverCity,omitempty"`
 	DownloadSpeed float64   `json:"downloadSpeed"`
 	UploadSpeed   float64   `json:"uploadSpeed"`
 	Latency       string    `json:"latency"`
@@ -23,6 +29,58 @@ type Result struct {
 	Upload        float64   `json:"-"`
 }
 
+// ServerListOptions selects the Speedtest.net source used to populate the retained catalogue.
+// Global and Location are mutually exclusive. Refresh always fetches from the selected source.
+type ServerListOptions struct {
+	Global   bool            // Global aggregates catalogues from known regions.
+	Location *ServerLocation // Location requests the catalogue nearest this origin.
+	Refresh  bool            // Refresh fetches the selected source even when it is already stored.
+}
+
+// ServerLocation identifies the geographic origin used to find nearby servers.
+type ServerLocation struct {
+	Latitude  float64
+	Longitude float64
+}
+
+// ServerCatalogueStatus reports whether the selected source has been durably fetched.
+type ServerCatalogueStatus struct {
+	Stored    bool       `json:"stored"`
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+}
+
+// PartialServerCatalogueError reports failed discovery sources after successful servers were retained.
+type PartialServerCatalogueError struct {
+	successfulLocations int
+	totalLocations      int
+	failures            []error
+}
+
+// Error summarizes how many regional discoveries succeeded and includes their failures.
+func (e *PartialServerCatalogueError) Error() string {
+	return fmt.Sprintf(
+		"global speedtest catalogue updated from %d of %d regional locations: %v",
+		e.successfulLocations,
+		e.totalLocations,
+		errors.Join(e.failures...),
+	)
+}
+
+// Unwrap joins the regional discovery failures for errors.Is and errors.As matching.
+func (e *PartialServerCatalogueError) Unwrap() error {
+	return errors.Join(e.failures...)
+}
+
+// WarningMessages returns source-specific failures suitable for an API response.
+func (e *PartialServerCatalogueError) WarningMessages() []string {
+	warnings := make([]string, 0, len(e.failures))
+	for _, failure := range e.failures {
+		warnings = append(warnings, failure.Error())
+	}
+	return warnings
+}
+
+// ServerResponse describes a selectable speed test server returned by the server-list API.
 type ServerResponse struct {
 	ID           string  `json:"id"`
 	Name         string  `json:"name"`
@@ -38,44 +96,8 @@ type ServerResponse struct {
 	IsPublic     bool    `json:"isPublic"`
 }
 
-type ProgressUpdate struct {
-	ServerName   string  `json:"serverName"`
-	TestType     string  `json:"testType"`
-	CurrentSpeed float64 `json:"currentSpeed"`
-}
-
-type SpeedUpdate struct {
-	Type        string  `json:"type"`
-	ServerName  string  `json:"serverName"`
-	Speed       float64 `json:"speed"`
-	Progress    float64 `json:"progress"`
-	IsComplete  bool    `json:"isComplete"`
-	Latency     string  `json:"latency,omitempty"`
-	IsScheduled bool    `json:"isScheduled"`
-}
-
-// TestRunner interface for different speed test implementations
-type TestRunner interface {
-	// RunTest executes a speed test and returns the result
-	RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error)
-	
-	// GetServers returns available servers for this test type
-	GetServers() ([]ServerResponse, error)
-	
-	// GetTestType returns the test type identifier
-	GetTestType() string
-	
-	// SetProgressCallback sets the callback for progress updates
-	SetProgressCallback(callback func(types.SpeedUpdate))
-}
-
 // ResultHandler handles database saves and notifications
 type ResultHandler interface {
 	SaveResult(ctx context.Context, result *Result, testType string, opts *types.TestOptions) error
 	SendNotification(result *types.SpeedTestResult)
-}
-
-// ProgressBroadcaster handles real-time progress updates
-type ProgressBroadcaster interface {
-	BroadcastUpdate(update types.SpeedUpdate)
 }

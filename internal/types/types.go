@@ -44,11 +44,13 @@ type Schedule struct {
 	CreatedAt time.Time   `json:"createdAt"`
 }
 
+// SpeedTestResult is a persisted speed measurement and its recorded server identity.
 type SpeedTestResult struct {
 	ID            int64     `json:"id"`
 	ServerName    string    `json:"serverName"`
 	ServerID      string    `json:"serverId"`
 	ServerHost    *string   `json:"serverHost,omitempty"`
+	ServerCity    *string   `json:"serverCity,omitempty"`
 	TestType      string    `json:"testType"`
 	DownloadSpeed float64   `json:"downloadSpeed"`
 	UploadSpeed   float64   `json:"uploadSpeed"`
@@ -189,6 +191,10 @@ type PaginatedPacketLossResults struct {
 	Page  int                       `json:"page"`
 	Limit int                       `json:"limit"`
 }
+
+// LibrespeedServerIDPrefix starts every stored LibreSpeed server ID. Rows
+// written by older releases use it too, so the value is fixed.
+const LibrespeedServerIDPrefix = "librespeed-"
 
 // DNS protocols a DNS monitor can use.
 const (
