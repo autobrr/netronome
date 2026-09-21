@@ -148,6 +148,13 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		selectedServer = serverList[0]
 	}
 
+	// The by-ID lookup at Speedtest.net returns no host, so fill it from the retained catalogue.
+	if retained, ok := r.retainedServer(ctx, selectedServer.ID); ok {
+		selectedServer.Host = cmp.Or(selectedServer.Host, retained.Host)
+		selectedServer.Name = cmp.Or(selectedServer.Name, retained.Name)
+		selectedServer.Country = cmp.Or(selectedServer.Country, retained.Country)
+	}
+
 	log.Info().
 		Str("server_ids", fmt.Sprintf("%v", opts.ServerIDs)).
 		Str("server_name", selectedServer.Name).
@@ -525,12 +532,10 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool)
 
 	var persistErr error
 	if successfulLocations > 0 {
-		sourceKey := ""
-		if successfulLocations == len(locationNames) {
-			sourceKey = sourceKeyGlobal
-		}
+		// A partial result still marks the source as fetched. Otherwise every
+		// later read would fetch the world again until all regions succeed.
 		persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), serverCatalogueStoreTimeout)
-		persistErr = r.updateServerCatalogue(persistCtx, discovered, nil, sourceKey, observedAt)
+		persistErr = r.updateServerCatalogue(persistCtx, discovered, nil, sourceKeyGlobal, observedAt)
 		cancel()
 	}
 	if ctxErr := ctx.Err(); ctxErr != nil {
@@ -786,6 +791,24 @@ func (r *SpeedtestNetRunner) loadRetainedServers(ctx context.Context, origin *Se
 		return cmp.Compare(a.ID, b.ID)
 	})
 	return servers, nil
+}
+
+// retainedServer finds one retained server by ID.
+func (r *SpeedtestNetRunner) retainedServer(ctx context.Context, id string) (database.SpeedtestServer, bool) {
+	if r.catalogueStore == nil {
+		return database.SpeedtestServer{}, false
+	}
+	servers, err := r.catalogueStore.ListSpeedtestServers(ctx)
+	if err != nil {
+		log.Debug().Err(err).Str("server_id", id).Msg("Could not read retained speedtest servers")
+		return database.SpeedtestServer{}, false
+	}
+	// ponytail: linear scan over the retained pool, a store lookup if it grows past a few thousand rows
+	i := slices.IndexFunc(servers, func(server database.SpeedtestServer) bool { return server.ID == id })
+	if i < 0 {
+		return database.SpeedtestServer{}, false
+	}
+	return servers[i], true
 }
 
 // loadUserLocation returns the last durably detected local origin.

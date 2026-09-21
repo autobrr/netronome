@@ -569,10 +569,21 @@ func TestGlobalServersReportsPartialFailureAndRetainsSuccessfulResults(t *testin
 	assert.Len(t, servers, 2)
 	stored, storedErr := runner.catalogueSourceStored(t.Context(), "global")
 	require.NoError(t, storedErr)
-	assert.False(t, stored)
+	assert.True(t, stored)
 	status, statusErr := runner.GetServerCatalogueStatus(t.Context(), ServerListOptions{Global: true})
 	require.NoError(t, statusErr)
-	assert.False(t, status.Stored)
+	assert.True(t, status.Stored)
+}
+
+func TestRetainedServerFindsByID(t *testing.T) {
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), []ServerResponse{{ID: "42", Host: "host:8080", Name: "Tokyo"}}, nil, sourceKeyGlobal, runner.nextCatalogueObservation()))
+
+	server, ok := runner.retainedServer(t.Context(), "42")
+	require.True(t, ok)
+	assert.Equal(t, "host:8080", server.Host)
+	_, ok = runner.retainedServer(t.Context(), "43")
+	assert.False(t, ok)
 }
 
 func TestGlobalServersUsesStoredLocationWhenLocalRefreshFails(t *testing.T) {
@@ -752,7 +763,7 @@ func TestGlobalServersRefreshPreservesCacheOnPartialFailure(t *testing.T) {
 	assert.ElementsMatch(t, []string{"cached-global", "fresh-local", "fresh-regional"}, serverIDs(retained))
 	statusAfter, statusErr := runner.GetServerCatalogueStatus(t.Context(), ServerListOptions{Global: true})
 	require.NoError(t, statusErr)
-	assert.Equal(t, statusBefore.UpdatedAt, statusAfter.UpdatedAt)
+	assert.True(t, statusAfter.UpdatedAt.After(*statusBefore.UpdatedAt))
 }
 
 func TestGlobalServersPersistsCompletedRegionsAfterCancellation(t *testing.T) {
