@@ -36,18 +36,18 @@ Get Netronome running in under 5 minutes:
 
 Download prebuilt binaries from the [Releases page](https://github.com/autobrr/netronome/releases/latest).
 
-### Option 2: One-liner Installation
+### Option 2: Download with curl
+
+Use this on Linux, macOS, or FreeBSD with `curl` and `tar` installed.
+The extraction step uses `sudo` to write to `/usr/local/bin`. If you run as root, omit `sudo`.
 
 ```bash
-# Download latest release
-wget $(curl -s https://api.github.com/repos/autobrr/netronome/releases/latest | grep download | grep linux_x86_64 | cut -d\" -f4)
-tar -C /usr/local/bin -xzf netronome*.tar.gz
-
-# Generate default config
-netronome generate-config
-
-# Start the server
-netronome serve
+arch=$(uname -m | sed 's/^aarch64$/arm64/; s/^amd64$/x86_64/; s/^armv[67]l$/arm/')
+url=$(curl -fsSL https://api.github.com/repos/autobrr/netronome/releases/latest | grep -i "browser_download_url.*_$(uname -s)_${arch}\.tar\.gz\"" | cut -d'"' -f4)
+curl -fL "$url" -o netronome.tar.gz &&
+  sudo tar -C /usr/local/bin -xzf netronome.tar.gz &&
+  netronome generate-config &&
+  netronome serve
 ```
 
 Open `http://localhost:7575` in your browser and create your account through the registration page. For Docker users, see the [Docker Installation](#docker-installation) section.
@@ -183,10 +183,7 @@ Notes:
 
 1. **Download and Install**
 
-   ```bash
-   wget $(curl -s https://api.github.com/repos/autobrr/netronome/releases/latest | grep download | grep linux_x86_64 | cut -d\" -f4)
-   tar -C /usr/local/bin -xzf netronome*.tar.gz
-   ```
+   Use the [quick-start download commands](#option-2-download-with-curl).
 
 2. **Create Systemd Service** (Recommended)
 

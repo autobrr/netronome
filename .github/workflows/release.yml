@@ -96,6 +96,10 @@ jobs:
         working-directory: web
         run: pnpm tsc --noEmit
 
+      - name: Test frontend
+        working-directory: web
+        run: pnpm test
+
       - name: Fetch premium themes
         run: |
           if [ -n "${{ secrets.THEMES_REPO_TOKEN }}" ]; then

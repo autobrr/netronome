@@ -21,7 +21,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-community/pro-bing v0.9.1
 	github.com/rs/zerolog v1.35.1
-	github.com/shirou/gopsutil/v4 v4.26.7
+	github.com/shirou/gopsutil/v4 v4.26.8
 	github.com/showwin/speedtest-go v1.8.2
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1

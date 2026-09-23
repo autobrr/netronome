@@ -49,6 +49,12 @@ agent as the server stores it, not a monitor in the packet loss sense.
 **Bandwidth** — the interface counters that an agent reads with `vnstat`. This is
 the traffic that the machine passes. It is not a speed test.
 
+**Agent client** — the module in `internal/monitor` through which the server
+fetches from the HTTP endpoints of an agent. It owns the base URL rule, the API
+key header, the shared HTTP client, and the timeouts. The proxy handlers are its
+callers, and the poller becomes a caller later. The live-data SSE stream is not
+part of it.
+
 **DNS monitor** (`DNSMonitor`) — a resolver, an interval, a query, and a protocol
 (UDP, TCP, or DoT). The server sends the query to the resolver and records the
 response time and the response code. A check fails on a timeout or an error

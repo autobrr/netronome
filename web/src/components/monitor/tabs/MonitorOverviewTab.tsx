@@ -18,9 +18,10 @@ import {
   FireIcon,
 } from "@heroicons/react/24/outline";
 import { FaLinux, FaApple } from "react-icons/fa";
-import { MonitorAgent, MonitorStatus } from "@/api/monitor";
+import { MonitorAgent, MonitorStatus, TemperatureStats } from "@/api/monitor";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { formatBytes } from "@/utils/formatBytes";
+import { temperatureLevel } from "@/utils/temperature";
 import { parseMonitorUsagePeriods } from "@/utils/monitorDataParser";
 import { MonitorOfflineBanner } from "../MonitorOfflineBanner";
 
@@ -199,18 +200,14 @@ const ResourceProgressBar: React.FC<ResourceProgressBarProps> = ({
 
 // Temperature alert component
 interface TemperatureAlertProps {
-  temperatures?: Array<{
-    sensor_key: string;
-    label?: string;
-    temperature: number;
-  }>;
+  temperatures?: TemperatureStats[];
 }
 
 const TemperatureAlert: React.FC<TemperatureAlertProps> = ({ temperatures }) => {
   if (!temperatures || temperatures.length === 0) return null;
 
-  const hotSensors = temperatures.filter((t) => t.temperature > 80);
-  const warmSensors = temperatures.filter((t) => t.temperature > 60 && t.temperature <= 80);
+  const hotSensors = temperatures.filter((t) => temperatureLevel(t) === "hot");
+  const warmSensors = temperatures.filter((t) => temperatureLevel(t) === "warm");
 
   if (hotSensors.length === 0 && warmSensors.length === 0) return null;
 
@@ -252,7 +249,7 @@ const TemperatureAlert: React.FC<TemperatureAlertProps> = ({ temperatures }) => 
               <span
                 key={`${sensor.sensor_key}-${idx}`}
                 className={`text-xs sm:text-sm ${
-                  sensor.temperature > 80
+                  temperatureLevel(sensor) === "hot"
                     ? "text-red-700 dark:text-red-300"
                     : "text-amber-700 dark:text-amber-300"
                 }`}
