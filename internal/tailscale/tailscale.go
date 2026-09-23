@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -60,7 +61,7 @@ func ListenOnTailscale(hostClient *Client, port int) (net.Listener, error) {
 	}
 
 	// Listen on the first Tailscale IP
-	addr := fmt.Sprintf("%s:%d", status.Self.TailscaleIPs[0], port)
+	addr := net.JoinHostPort(status.Self.TailscaleIPs[0].String(), strconv.Itoa(port))
 	return net.Listen("tcp", addr)
 }
 

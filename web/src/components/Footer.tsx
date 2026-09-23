@@ -28,7 +28,7 @@ export const Footer = () => {
                 alignItems: "center",
               }}
             >
-              <FaDiscord className="h-4 w-4" />
+              <FaDiscord className="h-4 w-4" aria-hidden="true" />
             </a>
           </TooltipTrigger>
           <TooltipContent>
@@ -48,7 +48,7 @@ export const Footer = () => {
                 alignItems: "center",
               }}
             >
-              <SiReadme className="h-4 w-4" />
+              <SiReadme className="h-4 w-4" aria-hidden="true" />
             </a>
           </TooltipTrigger>
           <TooltipContent>

@@ -34,7 +34,7 @@ const devicePatterns: DevicePattern[] = [
       /\b(laptop|macbook|notebook|thinkpad|ideapad|pavilion|inspiron|latitude|xps|chromebook)\b/i,
       /\b(macbook pro|macbook air|surface laptop)\b/i,
     ],
-    icon: FaLaptop,
+    icon: ({ className }) => <FaLaptop className={className} aria-hidden="true" />,
     description: "Laptop",
   },
 

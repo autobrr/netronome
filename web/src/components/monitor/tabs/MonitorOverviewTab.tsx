@@ -286,10 +286,10 @@ const SystemInfoDetails: React.FC<SystemInfoDetailsProps> = ({ cpu, kernel }) =>
     if (!kernel) return null;
 
     if (kernel.toLowerCase().includes("darwin")) {
-      return <FaApple className="h-4 w-4 text-gray-500 dark:text-gray-500 ml-2 mr-1" />;
+      return <FaApple className="h-4 w-4 text-gray-500 dark:text-gray-500 ml-2 mr-1" aria-hidden="true" />;
     }
     if (kernel.toLowerCase().includes("linux")) {
-      return <FaLinux className="h-4 w-4 text-gray-500 dark:text-gray-500 ml-2 mr-1" />;
+      return <FaLinux className="h-4 w-4 text-gray-500 dark:text-gray-500 ml-2 mr-1" aria-hidden="true" />;
     }
     return null;
   };
@@ -478,9 +478,9 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
               {systemInfo?.kernel && (
                 <div className="flex items-center space-x-1 sm:hidden">
                   {systemInfo.kernel.toLowerCase().includes("darwin") ? (
-                    <FaApple className="h-4 w-4 text-gray-500 dark:text-gray-500" />
+                    <FaApple className="h-4 w-4 text-gray-500 dark:text-gray-500" aria-hidden="true" />
                   ) : systemInfo.kernel.toLowerCase().includes("linux") ? (
-                    <FaLinux className="h-4 w-4 text-gray-500 dark:text-gray-500" />
+                    <FaLinux className="h-4 w-4 text-gray-500 dark:text-gray-500" aria-hidden="true" />
                   ) : (
                     <ServerIcon className="h-4 w-4 text-gray-500 dark:text-gray-500" />
                   )}

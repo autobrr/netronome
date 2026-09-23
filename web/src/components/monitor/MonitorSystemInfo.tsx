@@ -82,9 +82,9 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
         <div className="flex items-start space-x-3">
           <div className="rounded-full bg-green-100 p-2 dark:bg-green-900/20 flex-shrink-0">
             {systemInfo.kernel.toLowerCase().includes("darwin") ? (
-              <FaApple className="h-5 w-5 text-green-600 dark:text-green-400" />
+              <FaApple className="h-5 w-5 text-green-600 dark:text-green-400" aria-hidden="true" />
             ) : systemInfo.kernel.toLowerCase().includes("linux") ? (
-              <FaLinux className="h-5 w-5 text-green-600 dark:text-green-400" />
+              <FaLinux className="h-5 w-5 text-green-600 dark:text-green-400" aria-hidden="true" />
             ) : (
               <CpuChipIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
             )}
