@@ -256,35 +256,3 @@ export const SHOUTRRR_SERVICES = [
   { value: "wecom", label: "WeCom", example: "wecom://WEBHOOK_KEY" },
   { value: "zulip", label: "Zulip", example: "zulip://BOTMAIL:BOTKEY@DOMAIN?stream=STREAM&topic=TOPIC" },
 ];
-
-export const getThresholdOperatorLabel = (operator: string): string => {
-  switch (operator) {
-    case "gt":
-      return "Greater than";
-    case "lt":
-      return "Less than";
-    case "eq":
-      return "Equal to";
-    case "gte":
-      return "Greater than or equal";
-    case "lte":
-      return "Less than or equal";
-    default:
-      return operator;
-  }
-};
-
-export const getEventCategoryIcon = (category: string): string => {
-  switch (category) {
-    case "speedtest":
-      return "📊";
-    case "packetloss":
-      return "📉";
-    case "dns":
-      return "🌐";
-    case "agent":
-      return "🖥️";
-    default:
-      return "📌";
-  }
-};

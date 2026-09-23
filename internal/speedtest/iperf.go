@@ -24,26 +24,6 @@ import (
 	"github.com/autobrr/netronome/internal/types"
 )
 
-// IperfResult represents the parsed output from iperf3
-type IperfResult struct {
-	Start struct {
-		Connected []struct {
-			RemoteHost string `json:"remote_host"`
-		} `json:"connected"`
-	} `json:"start"`
-	End struct {
-		SumSent struct {
-			BitsPerSecond float64 `json:"bits_per_second"`
-			JitterMs      float64 `json:"jitter_ms"`
-		} `json:"sum_sent"`
-		SumReceived struct {
-			BitsPerSecond float64 `json:"bits_per_second"`
-			JitterMs      float64 `json:"jitter_ms"`
-		} `json:"sum_received"`
-	} `json:"end"`
-	Error string `json:"error,omitempty"`
-}
-
 type iperfEndData struct {
 	SumSent struct {
 		BitsPerSecond float64 `json:"bits_per_second"`

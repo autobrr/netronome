@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import { TracerouteHop } from "@/types/types";
 
 /**
  * Utility function to extract hostname from any server host value
@@ -65,45 +64,4 @@ export const getAverageRTT = (hop: {
   const validRTTs = [hop.rtt1, hop.rtt2, hop.rtt3].filter((rtt) => rtt > 0);
   if (validRTTs.length === 0) return 0;
   return validRTTs.reduce((sum, rtt) => sum + rtt, 0) / validRTTs.length;
-};
-
-/**
- * Get CSS color classes for RTT display based on RTT column
- */
-export const getRTTColorClass = (
-  timeout: boolean,
-  rttColumn: "rtt1" | "rtt2" | "rtt3" | "average",
-): string => {
-  if (timeout) return "text-gray-500";
-
-  switch (rttColumn) {
-    case "rtt1":
-      return "text-emerald-600 dark:text-emerald-400";
-    case "rtt2":
-      return "text-yellow-600 dark:text-yellow-400";
-    case "rtt3":
-      return "text-orange-600 dark:text-orange-400";
-    case "average":
-      return "text-gray-700 dark:text-gray-300";
-    default:
-      return "text-gray-700 dark:text-gray-300";
-  }
-};
-
-/**
- * Format hop data for display in table/cards
- */
-export const formatHopData = (hop: TracerouteHop) => {
-  return {
-    number: hop.number,
-    host: hop.timeout ? "Timeout" : hop.host,
-    provider: hop.as || "—",
-    countryCode: hop.countryCode,
-    location: hop.location,
-    rtt1: formatRTT(hop.rtt1),
-    rtt2: formatRTT(hop.rtt2),
-    rtt3: formatRTT(hop.rtt3),
-    average: hop.timeout ? "*" : formatRTT(getAverageRTT(hop)),
-    timeout: hop.timeout,
-  };
 };

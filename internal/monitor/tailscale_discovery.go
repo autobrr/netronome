@@ -26,7 +26,7 @@ import (
 type TailscaleDiscovery struct {
 	config          *config.TailscaleConfig
 	tsnetServer     *tsnet.Server
-	tailscaleClient tailscale.Client
+	tailscaleClient *tailscale.Client
 	service         *Service
 	discoveryTicker *time.Ticker
 	mode            tailscale.Mode

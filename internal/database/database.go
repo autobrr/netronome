@@ -160,34 +160,6 @@ func (s *service) insert(ctx context.Context, table string, data map[string]inte
 	return query.RunWith(s.db).ExecContext(ctx)
 }
 
-func (s *service) update(ctx context.Context, table string, data map[string]interface{}, where sq.Eq) (sql.Result, error) {
-	query := s.sqlBuilder.Update(table)
-
-	for col, val := range data {
-		query = query.Set(col, val)
-	}
-
-	query = query.Where(where)
-	return query.RunWith(s.db).ExecContext(ctx)
-}
-
-func (s *service) delete(ctx context.Context, table string, where sq.Eq) (sql.Result, error) {
-	query := s.sqlBuilder.
-		Delete(table).
-		Where(where)
-
-	return query.RunWith(s.db).ExecContext(ctx)
-}
-
-func (s *service) select_(ctx context.Context, table string, columns []string, where sq.Eq) (*sql.Rows, error) {
-	query := s.sqlBuilder.
-		Select(columns...).
-		From(table).
-		Where(where)
-
-	return query.RunWith(s.db).QueryContext(ctx)
-}
-
 func (s *service) count(ctx context.Context, table string, where sq.Eq) (int, error) {
 	query := s.sqlBuilder.
 		Select("COUNT(*)").
@@ -340,21 +312,6 @@ func (s *service) Close() error {
 	return s.db.Close()
 }
 
-func getMigrationVersion(fileName string) int {
-	parts := strings.Split(fileName, "/")
-	if len(parts) > 0 {
-		fileName = parts[len(parts)-1]
-	}
-
-	parts = strings.Split(fileName, "_")
-	if len(parts) > 0 {
-		if v, err := strconv.Atoi(parts[0]); err == nil {
-			return v
-		}
-	}
-	return 0
-}
-
 func (s *service) InitializeTables(ctx context.Context) error {
 	// Detect if we're in a test environment to reduce logging verbosity
 	isTest := strings.Contains(os.Args[0], ".test") || strings.HasSuffix(os.Args[0], "/test")
@@ -369,11 +326,7 @@ func (s *service) InitializeTables(ctx context.Context) error {
 		return fmt.Errorf("failed to get migration files: %w", err)
 	}
 
-	// log.Trace().Interface("migration_files", migrationFiles).Msg("Found migration files")
-
 	for _, fileName := range migrationFiles {
-		// version := getMigrationVersion(fileName)
-		// log.Trace().Str("file", fileName).Int("version", version).Msg("Adding migration")
 		m.Add(&migrator.Migration{
 			Name: fileName,
 			File: fileName,

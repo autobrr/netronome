@@ -4,7 +4,6 @@
 package migrator
 
 import (
-	"context"
 	"database/sql"
 	"embed"
 	"fmt"
@@ -24,32 +23,11 @@ type Migrator struct {
 	logger    Logger
 	embedFS   *embed.FS
 
-	initialSchemaFile string
-	initialSchema     string
-
 	migrations      []*Migration
 	migrationLookup map[int]*Migration
 }
 
 type Option func(migrate *Migrator)
-
-func WithTableName(table string) Option {
-	return func(migrate *Migrator) {
-		migrate.tableName = table
-	}
-}
-
-func WithSchemaString(schema string) Option {
-	return func(migrate *Migrator) {
-		migrate.initialSchema = schema
-	}
-}
-
-func WithSchemaFile(file string) Option {
-	return func(migrate *Migrator) {
-		migrate.initialSchemaFile = file
-	}
-}
 
 func WithEmbedFS(embedFS embed.FS) Option {
 	return func(migrate *Migrator) {
@@ -62,14 +40,6 @@ type Logger interface {
 	Printf(string, ...interface{})
 }
 
-// LoggerFunc adapts Logger and any third party logger
-type LoggerFunc func(string, ...interface{})
-
-// Printf implements Logger interface
-func (f LoggerFunc) Printf(msg string, args ...interface{}) {
-	f(msg, args...)
-}
-
 func WithLogger(logger Logger) Option {
 	return func(migrate *Migrator) {
 		migrate.logger = logger
@@ -78,13 +48,11 @@ func WithLogger(logger Logger) Option {
 
 func NewMigrate(db *sql.DB, opts ...Option) *Migrator {
 	m := &Migrator{
-		db:                db,
-		tableName:         DefaultTableName,
-		logger:            log.New(io.Discard, "migrator: ", 0),
-		initialSchema:     "",
-		initialSchemaFile: "",
-		migrations:        make([]*Migration, 0),
-		migrationLookup:   map[int]*Migration{},
+		db:              db,
+		tableName:       DefaultTableName,
+		logger:          log.New(io.Discard, "migrator: ", 0),
+		migrations:      make([]*Migration, 0),
+		migrationLookup: map[int]*Migration{},
 	}
 
 	for _, opt := range opts {
@@ -109,18 +77,6 @@ func (m *Migration) String() string {
 	return m.Name
 }
 
-func (m *Migration) Id() int {
-	return m.id
-}
-
-func (m *Migrator) TableDrop(table string) error {
-	if _, err := m.db.Exec(fmt.Sprintf(`DROP TABLE "%s"`, table)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (m *Migrator) Add(mi ...*Migration) {
 	for _, migration := range mi {
 		migration.db = m.db
@@ -128,18 +84,6 @@ func (m *Migrator) Add(mi ...*Migration) {
 		m.migrations = append(m.migrations, migration)
 		m.migrationLookup[migration.id] = migration
 	}
-}
-
-func (m *Migrator) Exec(query string, args ...string) error {
-	if _, err := m.db.Exec(query, args); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (m *Migrator) BeginTx() (*sql.Tx, error) {
-	return m.db.BeginTx(context.Background(), nil)
 }
 
 func (m *Migrator) CountApplied() (int, error) {
@@ -154,15 +98,6 @@ func (m *Migrator) CountApplied() (int, error) {
 	}
 
 	return count, nil
-}
-
-func (m *Migrator) Pending() ([]*Migration, error) {
-	count, err := m.CountApplied()
-	if err != nil {
-		return nil, err
-	}
-
-	return m.migrations[count:len(m.migrations)], nil
 }
 
 func (m *Migrator) Migrate() error {
@@ -311,55 +246,6 @@ func (m *Migrator) migrateInitialSchema(migration *Migration) error {
 	}
 
 	m.logger.Printf("applied initial schema migration")
-
-	return err
-}
-
-func (m *Migrator) migrateInitialSchemaOpt() error {
-	if m.initialSchema == "" && m.initialSchemaFile != "" {
-		data, err := m.readFile(m.initialSchemaFile)
-		if err != nil {
-			return errors.Wrapf(err, "could not read initial schema: %q", m.initialSchemaFile)
-		}
-
-		m.initialSchema = string(data)
-	}
-
-	tx, err := m.db.Begin()
-	if err != nil {
-		return errors.Wrap(err, "error could not begin transaction")
-	}
-
-	defer func() {
-		if err != nil {
-			if errRb := tx.Rollback(); errRb != nil {
-				//err = fmt.Errorf("error rolling back: %s\n%s", errRb, err)
-				err = errors.Wrapf(errRb, "error rolling back: %q", err)
-			}
-			return
-		}
-		err = tx.Commit()
-	}()
-
-	m.logger.Printf("applying base schema migration...")
-
-	if _, err = tx.Exec(m.initialSchema); err != nil {
-		return errors.Wrap(err, "error applying base schema migration")
-	}
-
-	if err = m.updateSchemaVersion(tx, 0, "initial schema"); err != nil {
-		return errors.Wrapf(err, "error updating migration versions: %s", "initial schema")
-	}
-
-	//if len(m.migrations) > 0 {
-	//	lastMigration := m.migrations[len(m.migrations)-1]
-	//
-	//	if err = m.updateVersion(tx, len(m.migrations), lastMigration.Name); err != nil {
-	//		return errors.Wrapf(err, "error updating migration versions: %s", lastMigration.Name)
-	//	}
-	//}
-
-	m.logger.Printf("applied base schema migration")
 
 	return err
 }

@@ -18,7 +18,7 @@ export const SERVER_TYPE_OPTIONS = [
 /**
  * Convert iperf servers to Server format
  */
-export const convertIperfServersToServerFormat = (
+const convertIperfServersToServerFormat = (
   iperfServers: SavedIperfServer[],
 ): Server[] => {
   return iperfServers.map((server) => ({
@@ -51,7 +51,7 @@ export const combineServers = (
 /**
  * Filter servers based on search term and server type
  */
-export const filterServers = (
+const filterServers = (
   servers: Server[],
   searchTerm: string,
   filterType: string,
@@ -77,7 +77,7 @@ export const filterServers = (
 /**
  * Sort servers - iperf servers by name, others by distance
  */
-export const sortServers = (servers: Server[]): Server[] => {
+const sortServers = (servers: Server[]): Server[] => {
   return servers.sort((a, b) => {
     // Sort iperf servers by name, others by distance
     if (a.isIperf && b.isIperf) {
