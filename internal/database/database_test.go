@@ -30,7 +30,6 @@
 // Avoid duplicating these tests in new files.
 //
 // Performance Tips:
-// - Use RunTestWithSQLiteOnly() for simple tests that don't need PostgreSQL
 // - Set SKIP_POSTGRES_TESTS=1 to skip PostgreSQL tests during local development
 // - PostgreSQL tests take ~6 seconds each due to embedded database initialization
 
@@ -358,13 +357,6 @@ func RunTestWithBothDatabases(t *testing.T, testFunc func(t *testing.T, td *Test
 	})
 }
 
-// RunTestWithSQLiteOnly runs a test function against SQLite only (for faster development)
-func RunTestWithSQLiteOnly(t *testing.T, testFunc func(t *testing.T, td *TestDatabase)) {
-	td := SetupTestDatabase(t, config.SQLite)
-	defer td.Close()
-	testFunc(t, td)
-}
-
 // AssertRecordExists checks if a record exists in the database
 func AssertRecordExists(t *testing.T, td *TestDatabase, table string, column string, value any) {
 	t.Helper()
@@ -399,17 +391,6 @@ func AssertRecordNotExists(t *testing.T, td *TestDatabase, table string, column 
 	err := td.DB.QueryRow(query, value).Scan(&count)
 	require.NoError(t, err)
 	require.Equal(t, 0, count, "Expected no records in %s where %s = %v", table, column, value)
-}
-
-// CreateTestUser creates a test user in the database
-func CreateTestUser(t *testing.T, td *TestDatabase, username, password string) *User {
-	t.Helper()
-
-	ctx := context.Background()
-	user, err := td.Service.CreateUser(ctx, username, password)
-	require.NoError(t, err)
-	require.NotNil(t, user)
-	return user
 }
 
 // CreateTestPacketLossMonitor creates a test packet loss monitor

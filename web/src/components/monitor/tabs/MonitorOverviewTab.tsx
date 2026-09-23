@@ -17,8 +17,7 @@ import {
   CircleStackIcon,
   FireIcon,
 } from "@heroicons/react/24/outline";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faLinux, faApple } from "@fortawesome/free-brands-svg-icons";
+import { FaLinux, FaApple } from "react-icons/fa";
 import { MonitorAgent, MonitorStatus, TemperatureStats } from "@/api/monitor";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { formatBytes } from "@/utils/formatBytes";
@@ -287,10 +286,10 @@ const SystemInfoDetails: React.FC<SystemInfoDetailsProps> = ({ cpu, kernel }) =>
     if (!kernel) return null;
 
     if (kernel.toLowerCase().includes("darwin")) {
-      return <FontAwesomeIcon icon={faApple} className="h-4 w-4 text-gray-500 dark:text-gray-500 ml-2 mr-1" />;
+      return <FaApple className="h-4 w-4 text-gray-500 dark:text-gray-500 ml-2 mr-1" aria-hidden="true" />;
     }
     if (kernel.toLowerCase().includes("linux")) {
-      return <FontAwesomeIcon icon={faLinux} className="h-4 w-4 text-gray-500 dark:text-gray-500 ml-2 mr-1" />;
+      return <FaLinux className="h-4 w-4 text-gray-500 dark:text-gray-500 ml-2 mr-1" aria-hidden="true" />;
     }
     return null;
   };
@@ -479,9 +478,9 @@ export const MonitorOverviewTab: React.FC<MonitorOverviewTabProps> = ({
               {systemInfo?.kernel && (
                 <div className="flex items-center space-x-1 sm:hidden">
                   {systemInfo.kernel.toLowerCase().includes("darwin") ? (
-                    <FontAwesomeIcon icon={faApple} className="h-4 w-4 text-gray-500 dark:text-gray-500" />
+                    <FaApple className="h-4 w-4 text-gray-500 dark:text-gray-500" aria-hidden="true" />
                   ) : systemInfo.kernel.toLowerCase().includes("linux") ? (
-                    <FontAwesomeIcon icon={faLinux} className="h-4 w-4 text-gray-500 dark:text-gray-500" />
+                    <FaLinux className="h-4 w-4 text-gray-500 dark:text-gray-500" aria-hidden="true" />
                   ) : (
                     <ServerIcon className="h-4 w-4 text-gray-500 dark:text-gray-500" />
                   )}

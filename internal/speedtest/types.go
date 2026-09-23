@@ -54,28 +54,8 @@ type SpeedUpdate struct {
 	IsScheduled bool    `json:"isScheduled"`
 }
 
-// TestRunner interface for different speed test implementations
-type TestRunner interface {
-	// RunTest executes a speed test and returns the result
-	RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error)
-	
-	// GetServers returns available servers for this test type
-	GetServers() ([]ServerResponse, error)
-	
-	// GetTestType returns the test type identifier
-	GetTestType() string
-	
-	// SetProgressCallback sets the callback for progress updates
-	SetProgressCallback(callback func(types.SpeedUpdate))
-}
-
 // ResultHandler handles database saves and notifications
 type ResultHandler interface {
 	SaveResult(ctx context.Context, result *Result, testType string, opts *types.TestOptions) error
 	SendNotification(result *types.SpeedTestResult)
-}
-
-// ProgressBroadcaster handles real-time progress updates
-type ProgressBroadcaster interface {
-	BroadcastUpdate(update types.SpeedUpdate)
 }

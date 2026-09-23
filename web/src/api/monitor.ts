@@ -138,15 +138,6 @@ export async function getMonitorAgents(): Promise<MonitorAgent[]> {
   return Array.isArray(data) ? data : [];
 }
 
-export async function getMonitorAgent(id: number): Promise<MonitorAgent> {
-  const response = await fetch(getApiUrl(`/monitor/agents/${id}`));
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || "Failed to fetch agent");
-  }
-  return response.json();
-}
-
 export async function createMonitorAgent(
   data: CreateAgentRequest,
 ): Promise<MonitorAgent> {
