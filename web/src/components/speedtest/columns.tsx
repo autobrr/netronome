@@ -29,6 +29,8 @@ const getTestTypeBadgeClass = (testType: string) => {
       return "bg-purple-500/10 text-purple-600 dark:text-purple-400";
     case "librespeed":
       return "bg-blue-500/10 text-blue-600 dark:text-blue-400";
+    case "url_download":
+      return "bg-orange-500/10 text-orange-600 dark:text-orange-400";
     default:
       return "bg-emerald-200/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
   }
@@ -41,6 +43,8 @@ const getTestTypeDisplayName = (testType: string) => {
       return "iperf3";
     case "librespeed":
       return "LibreSpeed";
+    case "url_download":
+      return "URL Download";
     default:
       return "Speedtest.net";
   }
@@ -112,6 +116,15 @@ export const getSpeedTestColumns = (
     header: createRightAlignedSortableHeader("Jitter"),
     cell: ({ row }) => {
       const jitter = row.getValue("jitter") as number | null;
+      const testType = row.getValue("testType") as string;
+      // URL download doesn't measure jitter
+      if (testType === "url_download") {
+        return (
+          <div className="text-right text-gray-400 dark:text-gray-600 font-mono">
+            N/A
+          </div>
+        );
+      }
       return (
         <div className="text-right text-purple-600 dark:text-purple-400 font-mono font-medium">
           {jitter !== null && jitter !== undefined ? `${jitter.toFixed(1)}ms` : "—"}
@@ -136,6 +149,15 @@ export const getSpeedTestColumns = (
     header: createRightAlignedSortableHeader("Upload"),
     cell: ({ row }) => {
       const speed = row.getValue("uploadSpeed") as number;
+      const testType = row.getValue("testType") as string;
+      // URL download only tests download speed
+      if (testType === "url_download") {
+        return (
+          <div className="text-right text-gray-400 dark:text-gray-600 font-mono">
+            N/A
+          </div>
+        );
+      }
       return (
         <div className="text-right text-emerald-600 dark:text-emerald-400 font-mono font-medium">
           {formatSpeed(speed)}
@@ -182,8 +204,8 @@ export const getSpeedTestMobileColumns = (
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Jitter:</span>
-              <span className="text-purple-600 dark:text-purple-400 font-mono font-semibold">
-                {test.jitter !== null && test.jitter !== undefined ? `${test.jitter.toFixed(1)}ms` : "—"}
+              <span className={`font-mono font-semibold ${testType === "url_download" ? "text-gray-400 dark:text-gray-600" : "text-purple-600 dark:text-purple-400"}`}>
+                {testType === "url_download" ? "N/A" : test.jitter !== null && test.jitter !== undefined ? `${test.jitter.toFixed(1)}ms` : "—"}
               </span>
             </div>
             <div className="flex justify-between items-center">
@@ -196,8 +218,8 @@ export const getSpeedTestMobileColumns = (
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Upload:</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-mono font-semibold">
-                {formatSpeed(test.uploadSpeed)}
+              <span className={`font-mono font-semibold ${testType === "url_download" ? "text-gray-400 dark:text-gray-600" : "text-emerald-600 dark:text-emerald-400"}`}>
+                {testType === "url_download" ? "N/A" : formatSpeed(test.uploadSpeed)}
               </span>
             </div>
           </div>

@@ -35,6 +35,15 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 	if opts.UseLibrespeed {
 		timeout = time.Duration(s.config.SpeedTest.Librespeed.Timeout) * time.Second
 	}
+	// For URL download, use user-specified timeout if provided
+	if opts.UseURLDownload {
+		if opts.DownloadTimeout > 0 {
+			timeout = time.Duration(opts.DownloadTimeout) * time.Second
+		} else {
+			// Default to 30 seconds if not specified
+			timeout = 30 * time.Second
+		}
+	}
 
 	// Use configured timeout
 	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)

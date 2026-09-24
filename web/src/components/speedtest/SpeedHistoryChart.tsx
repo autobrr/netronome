@@ -689,7 +689,8 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                 const shouldRedact =
                   isPublic &&
                   (data.testType === "iperf3" ||
-                    data.testType === "librespeed");
+                    data.testType === "librespeed" ||
+                    data.testType === "url_download");
 
                 const formattedDate =
                   data.timestamp ||
@@ -721,6 +722,8 @@ export const SpeedHistoryChart: React.FC<SpeedHistoryChartProps> = ({
                           (
                           {data.testType === "speedtest"
                             ? "speedtest.net"
+                            : data.testType === "url_download"
+                            ? "URL Download"
                             : data.testType}
                           )
                         </span>

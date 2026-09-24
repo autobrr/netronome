@@ -6,6 +6,7 @@ package speedtest
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -38,6 +39,7 @@ type service struct {
 	speedtestNetRunner *SpeedtestNetRunner
 	iperfRunner        *IperfRunner
 	librespeedRunner   *LibrespeedRunner
+	urlDownloadRunner  *UrlDownloadRunner
 	resultHandler      ResultHandler
 }
 
@@ -54,6 +56,7 @@ func New(db database.Service, cfg config.SpeedTestConfig, notifier *notification
 	svc.speedtestNetRunner = NewSpeedtestNetRunner(cfg)
 	svc.iperfRunner = NewIperfRunner(cfg.IPerf)
 	svc.librespeedRunner = NewLibrespeedRunner(cfg.Librespeed)
+	svc.urlDownloadRunner = NewUrlDownloadRunner()
 
 	// Initialize GeoIP databases for all speedtest features (traceroute, MTR, etc.)
 	svc.initGeoIP()
@@ -103,9 +106,32 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 		Bool("isScheduled", opts.IsScheduled).
 		Bool("useIperf", opts.UseIperf).
 		Bool("useLibrespeed", opts.UseLibrespeed).
+		Bool("useUrlDownload", opts.UseURLDownload).
 		Str("server_ids", fmt.Sprintf("%v", opts.ServerIDs)).
 		Str("server_host", opts.ServerHost).
 		Msg("Starting speed test coordination")
+
+	if opts.UseURLDownload {
+		log.Info().Msg("Using url_download runner")
+		s.urlDownloadRunner.SetProgressCallback(s.broadcastUpdate)
+		result, err := s.urlDownloadRunner.RunTest(ctx, opts)
+		if err != nil {
+			return nil, fmt.Errorf("url_download test failed: %w", err)
+		}
+
+		// Save the result (even if partial due to timeout, result is non-nil)
+		// Use independent context for save to avoid "context deadline exceeded" errors
+		// when the test itself times out but we still want to save partial results
+		if result != nil {
+			saveCtx, saveCancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer saveCancel()
+			if err := s.resultHandler.SaveResult(saveCtx, result, "url_download", opts); err != nil {
+				log.Error().Err(err).Msg("Failed to save url_download result")
+			}
+		}
+
+		return result, nil
+	}
 
 	if opts.UseLibrespeed {
 		log.Info().Msg("Using librespeed runner (handles ping natively)")
@@ -169,6 +195,8 @@ func (s *service) GetServers(testType string) ([]ServerResponse, error) {
 		return s.GetLibrespeedServers()
 	case "iperf3":
 		return s.iperfRunner.GetServers()
+	case "url_download":
+		return s.urlDownloadRunner.GetServers()
 	case "speedtest":
 		return s.speedtestNetRunner.GetServers()
 	default:
