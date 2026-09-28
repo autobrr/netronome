@@ -7,7 +7,22 @@
 - Web UI: `web/src` (Vite + React), build output in `web/dist`.
 - Tests and harnesses: `test/` plus `distrib/docker/docker-compose*.yml` for e2e stacks.
 - Long-form docs: `docs/` and `ai_docs/`.
-- User docs site: `documentation/` (Astro Starlight, deployed to netrono.me by Netlify). Write its pages in Simplified Technical English.
+- User docs site: `documentation/` (Astro Starlight, deployed to netrono.me by Netlify).
+
+## Documentation Prose (Hard Rule)
+Write every page in `documentation/`, `docs/`, and `README.md` in Simplified Technical English (ASD-STE100, plain mode). This covers new text and every text you change. If your harness has the `simple-english` and `unslop` skills, run both on that text before you commit. The rules:
+- Procedures: imperative mood, one instruction per sentence, 20 words at most. Descriptions: simple tenses, 25 words at most, one topic per paragraph.
+- Put the condition first, with a comma: "If the build fails, read the log."
+- Use active voice with a named actor, and simple tenses ("completed", not "has completed").
+- Use only the modals `can`, `will`, and `must`. A required "should" becomes "must". Delete an optional one.
+- Write complete sentences: articles, "that", and verbs stay. Spell out contractions, arrows, and abbreviations.
+- Punctuate with periods and commas. Use a colon only before a list, an example, or a code block. Use no semicolons and no dashes between clauses.
+- Give each word one meaning per document: "make sure that" for check, verify, confirm, and ensure, and "configuration" for config, settings, and options. Keep one term per concept.
+- Define a concept term at its first use, in under ten words. Name the host, the folder, the flag, or the prior step that a command needs.
+- State the fact, the mechanism, or the number. Replace tone words with plain ones ("use" for leverage or utilize, "help" for facilitate, "is" for serves as). Cut simply, seamlessly, robust, powerful, crucial, delve, enhance, "in order to", "it is worth noting", "not just X, but Y", an "-ing" clause after a comma, forced groups of three, and closing summaries.
+- Format: sentence-case headings, straight quotes, no emoji, no bold for emphasis. Use a vertical list for three or more parallel items.
+- Warnings: the command or condition first, then the risk.
+- Use American spelling. Keep code, commands, identifiers, error text, and product names exactly as they are.
 
 ## Build, Test, and Development Commands
 - `make build`: installs web deps, builds the UI, embeds assets, compiles `bin/netronome`.
