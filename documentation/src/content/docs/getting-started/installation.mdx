@@ -1,0 +1,206 @@
+---
+title: Installation
+description: Install Netronome on Linux, macOS, FreeBSD, Windows, or Docker, and install the external tools that some features need.
+sidebar:
+  order: 2
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Supported platforms
+
+The [Releases page](https://github.com/autobrr/netronome/releases/latest) has a prebuilt binary for these platforms:
+
+| Operating system | Architectures |
+| --- | --- |
+| Linux | x86_64, arm64, arm (ARMv6) |
+| macOS | x86_64, arm64 |
+| FreeBSD | x86_64 |
+| Windows | x86_64 |
+
+Linux releases also include `deb`, `rpm`, `apk`, and Arch Linux packages. The Docker image is `ghcr.io/autobrr/netronome`.
+
+## Install Netronome
+
+<Tabs syncKey="os">
+<TabItem label="Linux">
+
+You need `curl` and `tar`.
+
+1. Download the latest release and extract it to `/usr/local/bin`. The extraction step uses `sudo`. If you run as root, remove `sudo`.
+
+   ```bash
+   arch=$(uname -m | sed 's/^aarch64$/arm64/; s/^amd64$/x86_64/; s/^armv[67]l$/arm/')
+   url=$(curl -fsSL https://api.github.com/repos/autobrr/netronome/releases/latest | grep -i "browser_download_url.*_$(uname -s)_${arch}\.tar\.gz\"" | cut -d'"' -f4)
+   curl -fL "$url" -o netronome.tar.gz &&
+     sudo tar -C /usr/local/bin -xzf netronome.tar.gz
+   ```
+
+2. Create a configuration file. The command writes `~/.config/netronome/config.toml`.
+
+   ```bash
+   netronome generate-config
+   ```
+
+3. Create a systemd service. The service runs Netronome as the user in its name.
+
+   ```bash
+   sudo tee /etc/systemd/system/netronome@.service > /dev/null <<EOF
+   [Unit]
+   Description=netronome service for %i
+   After=syslog.target network-online.target
+
+   [Service]
+   Type=simple
+   User=%i
+   Group=%i
+   ExecStart=/usr/local/bin/netronome serve --config=/home/%i/.config/netronome/config.toml
+
+   [Install]
+   WantedBy=multi-user.target
+   EOF
+   ```
+
+4. Enable and start the service for your user.
+
+   ```bash
+   sudo systemctl enable --now netronome@$USER
+   ```
+
+If you install from a `deb`, `rpm`, `apk`, or Arch Linux package, the binary is not in `/usr/local/bin`. Run `command -v netronome` and put that path in `ExecStart`.
+
+</TabItem>
+<TabItem label="macOS and FreeBSD">
+
+You need `curl` and `tar`.
+
+1. Download the latest release and extract it to `/usr/local/bin`. The extraction step uses `sudo`. If you run as root, remove `sudo`.
+
+   ```bash
+   arch=$(uname -m | sed 's/^aarch64$/arm64/; s/^amd64$/x86_64/; s/^armv[67]l$/arm/')
+   url=$(curl -fsSL https://api.github.com/repos/autobrr/netronome/releases/latest | grep -i "browser_download_url.*_$(uname -s)_${arch}\.tar\.gz\"" | cut -d'"' -f4)
+   curl -fL "$url" -o netronome.tar.gz &&
+     sudo tar -C /usr/local/bin -xzf netronome.tar.gz
+   ```
+
+2. Create a configuration file and start the server.
+
+   ```bash
+   netronome generate-config
+   netronome serve
+   ```
+
+</TabItem>
+<TabItem label="Windows">
+
+1. Download the Windows `.zip` file from the [Releases page](https://github.com/autobrr/netronome/releases/latest).
+2. Extract the file into a folder.
+3. Put the external tools that you want to use (for example `iperf3.exe` and `librespeed-cli.exe`) in the same folder.
+4. Add the folder to the `Path` environment variable. Then restart Explorer and all open terminals.
+5. Create a configuration file. The command writes `C:\Users\<USERNAME>\.config\netronome\config.toml`.
+
+   ```cmd
+   netronome generate-config
+   ```
+
+6. Start the server.
+
+   ```cmd
+   netronome serve
+   ```
+
+To start Netronome when Windows starts, create a task in Task Scheduler that runs `netronome serve`.
+
+</TabItem>
+<TabItem label="Docker">
+
+The Docker image contains all the external tools: `iperf3`, `librespeed-cli`, `traceroute`, `mtr`, and `vnstat`.
+
+The repository has two Compose files in `distrib/docker`:
+
+- `docker-compose.yml` uses SQLite.
+- `docker-compose.postgres.yml` adds a PostgreSQL container and gives Netronome the `NET_RAW` capability for MTR and privileged ping.
+
+1. Clone the repository.
+
+   ```bash
+   git clone https://github.com/autobrr/netronome.git
+   cd netronome
+   ```
+
+2. Create a configuration file. The container keeps its data in `/data`, which the Compose files mount from the `netronome` folder in the repository. In a container, `generate-config` sets the listen address to `0.0.0.0`.
+
+   ```bash
+   docker compose -f distrib/docker/docker-compose.yml run --rm netronome generate-config
+   ```
+
+3. Start the container.
+
+   ```bash
+   # SQLite
+   docker compose -f distrib/docker/docker-compose.yml up -d
+
+   # PostgreSQL
+   docker compose -f distrib/docker/docker-compose.postgres.yml up -d
+   ```
+
+:::caution
+Do not skip step 2. Without a configuration file, the server listens on `127.0.0.1` inside the container, and you cannot open it from the host. If you do not want a configuration file, set `NETRONOME__HOST=0.0.0.0` in the Compose file.
+:::
+
+:::note
+The container runs as the user `netronome`, not as root. That user must be able to write to the mounted folder. If Docker creates the folder, root owns it. To find the user and group IDs, run `docker run --rm --entrypoint id ghcr.io/autobrr/netronome:latest`. Then give the folder to that user with `chown`.
+:::
+
+For Tailscale in Docker, see [Docker agents](/monitoring/docker-agents/) and [Tailscale](/monitoring/tailscale/).
+
+</TabItem>
+</Tabs>
+
+After the server starts, go to [First run](/getting-started/first-run/).
+
+## External tools
+
+If you use the Docker image, skip this section. The image contains all the tools in the table.
+
+Speedtest.net tests, the web interface, DNS monitors, and packet loss monitors without MTR need no external tool. The other features run a program that must be in the `PATH` of the user that runs Netronome.
+
+| Tool | Needed for | Where |
+| --- | --- | --- |
+| `iperf3` | iperf3 speed tests | Server |
+| `librespeed-cli` | LibreSpeed speed tests | Server |
+| `traceroute` (`tracert` on Windows) | The Traceroute tab | Server |
+| `mtr` | Packet loss for each hop. Without it, packet loss monitors use ping only. | Server |
+| `vnstat` | Bandwidth data | Agent |
+
+If a tool is missing, only the feature that needs it stops with an error. The rest of Netronome continues to work.
+
+On Linux, install the packaged tools with your package manager:
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install iperf3 traceroute mtr vnstat
+
+# RHEL/Fedora
+sudo dnf install iperf3 traceroute mtr vnstat
+```
+
+Get `librespeed-cli` from the [LibreSpeed CLI releases](https://github.com/librespeed/speedtest-cli/releases).
+
+On Windows, get MTR from [WinMTRCmd](https://github.com/dqos/WinMTRCmd/releases). Netronome looks for a program with the name `mtr`. Name the file `mtr.exe` and put it in a folder in your `Path`.
+
+### Disk temperatures and SMART data
+
+Temperatures from CPU, NVMe, and other system sensors work in all builds. SATA and HDD temperatures and disk model names come from SMART data. The binaries on the Releases page have no SMART support. The Docker image and `make build` binaries have it. For all the conditions, see [Temperature monitoring](/monitoring/agents/#temperature-monitoring).
+
+## Update Netronome
+
+To replace the binary with the latest release, run:
+
+```bash
+netronome update
+```
+
+The command downloads the release from GitHub, compares it with the release checksums, and replaces the running binary. Restart Netronome after the update. For Docker, pull the new image and create the container again.
+
+To see the version that you run, run `netronome version`.

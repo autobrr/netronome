@@ -7,6 +7,7 @@
 - Web UI: `web/src` (Vite + React), build output in `web/dist`.
 - Tests and harnesses: `test/` plus `distrib/docker/docker-compose*.yml` for e2e stacks.
 - Long-form docs: `docs/` and `ai_docs/`.
+- User docs site: `documentation/` (Astro Starlight, deployed to netrono.me by Netlify). Write its pages in Simplified Technical English.
 
 ## Build, Test, and Development Commands
 - `make build`: installs web deps, builds the UI, embeds assets, compiles `bin/netronome`.
