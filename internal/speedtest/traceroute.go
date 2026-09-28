@@ -58,7 +58,7 @@ func (s *service) initGeoIP() {
 	}
 
 	if countryDB == nil && asnDB == nil {
-		log.Warn().Msg("No GeoIP databases loaded. See README for setup instructions.")
+		log.Warn().Msg("No GeoIP databases loaded. See https://netrono.me/configuration/geoip/ for setup instructions.")
 	}
 }
 

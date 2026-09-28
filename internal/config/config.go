@@ -877,7 +877,7 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintln(w, "# GeoIP configuration for country flags and ASN info in traceroute"); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintln(w, "# Uncomment and configure database paths to enable. See README for setup instructions."); err != nil {
+	if _, err := fmt.Fprintln(w, "# Uncomment and configure database paths to enable. See https://netrono.me/configuration/geoip/ for setup instructions."); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, "#[geoip]"); err != nil {
