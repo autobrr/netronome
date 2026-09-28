@@ -128,7 +128,7 @@ The repository has two Compose files in `distrib/docker`:
    cd netronome
    ```
 
-2. Give the data folder to the container user. The container keeps its data in `/data`, which the Compose files mount from the `netronome` folder in the repository. Docker creates that folder as root, but the container runs as the user `netronome`. This command runs `chown` in the container as root:
+2. Give the data folder to the container user. The Compose files mount the `netronome` folder of the repository at `/data`. The container runs as the user `netronome`, and that user must own the folder. This command runs `chown` in the container as root:
 
    ```bash
    docker compose -f distrib/docker/docker-compose.yml run --rm --user root --entrypoint chown netronome netronome:netronome /data

@@ -12,11 +12,11 @@
   <img src=".github/assets/netronome_dashboard.png" alt="Netronome Dashboard">
 </p>
 
-Netronome tests the speed of your network with Speedtest.net, iperf3, and LibreSpeed. It traces routes, monitors packet loss and DNS resolvers, and collects system and bandwidth data from agents on your servers. It sends notifications when a value goes past a limit. The server, the web interface, and the agent are in one binary.
+Netronome tests your network speed with Speedtest.net, iperf3, or LibreSpeed. It also traces routes and watches packet loss and DNS resolvers. Agents on your servers send it system and bandwidth data. When a value goes past a limit, you get a notification. One binary holds the server, the web interface, and the agent.
 
 ## Documentation
 
-The documentation is at **[netrono.me](https://netrono.me)**:
+The documentation is at [netrono.me](https://netrono.me):
 
 - [Installation](https://netrono.me/getting-started/installation/)
 - [Configuration file](https://netrono.me/reference/configuration-file/)
