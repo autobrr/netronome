@@ -17,7 +17,7 @@ The agent gets bandwidth data from [vnstat](https://humdi.net/vnstat/), and it g
 
 ## Install with the script
 
-The install script downloads the latest release, writes a configuration file, and creates a service. It supports Linux and macOS on `x86_64`, `arm64`, and `armv7`.
+The install script downloads the latest release, writes a configuration file, and creates a service. It supports Linux and macOS on `x86_64` and `arm64`. On a 32-bit ARM host, install the agent by hand from the `linux_arm` release archive.
 
 Install vnstat before you run the script. If vnstat is missing, the script stops.
 
