@@ -30,11 +30,8 @@ type SpeedtestNetRunner struct {
 }
 
 func NewSpeedtestNetRunner(cfg config.SpeedTestConfig) *SpeedtestNetRunner {
-	client := st.New()
-	// The library default (one per CPU core down, 8 up) is too few for multi-gigabit links.
-	client.SetNThread(32)
 	return &SpeedtestNetRunner{
-		client:        client,
+		client:        st.New(),
 		config:        cfg,
 		cacheDuration: 30 * time.Minute,
 		cacheExpiry:   time.Now(),
