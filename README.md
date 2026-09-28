@@ -872,6 +872,7 @@ NETRONOME__OIDC_REDIRECT_URL=                # OIDC callback URL
 
 ```bash
 NETRONOME__SPEEDTEST_TIMEOUT=30              # Overall speedtest timeout (seconds)
+NETRONOME__SPEEDTEST_CONNECTIONS=0           # Speedtest.net connections (0 = library default)
 
 # iperf3 settings
 NETRONOME__IPERF_TEST_DURATION=10            # Test duration (seconds)
@@ -884,6 +885,8 @@ NETRONOME__IPERF_PING_TIMEOUT=10             # Ping timeout (seconds)
 # LibreSpeed settings
 NETRONOME__LIBRESPEED_TIMEOUT=60             # LibreSpeed timeout (seconds)
 ```
+
+`SPEEDTEST_CONNECTIONS` sets the maximum number of connections for the speedtest.net download and upload tests. The library default is one connection for each CPU core for download, and 8 for upload. A higher value, for example 32, can give more accurate results on multi-gigabit links. Do not set a high value on a slow uplink. The upload test starts all connections at the same time, and on a 10 Mbit uplink 32 connections give an upload result of 0 Mbps.
 
 ### Pagination
 

@@ -26,6 +26,7 @@ redirect_url = ""
 
 [speedtest]
 timeout = 30
+connections = 0
 
 [speedtest.iperf]
 test_duration = 10
