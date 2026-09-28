@@ -11,7 +11,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/autobrr/qui
+        - github.com/autobrr/netronome
 
 linters:
   enable:

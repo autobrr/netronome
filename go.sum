@@ -311,8 +311,8 @@ github.com/safchain/ethtool v0.3.0 h1:gimQJpsI6sc1yIqP/y8GYgiXn/NjgvpM0RNoWLVVmP
 github.com/safchain/ethtool v0.3.0/go.mod h1:SA9BwrgyAqNo7M+uaL6IYbxpm5wk3L7Mm6ocLW+CJUs=
 github.com/shirou/gopsutil/v4 v4.26.8 h1:YQMTF/1J50B5+Y0vlo1eDRf5DoR7Gk69hY+8wjYkQeo=
 github.com/shirou/gopsutil/v4 v4.26.8/go.mod h1:5O9FjBiXoTDFatIWjZZosqj4pV0DRtLx598xGbBehzM=
-github.com/showwin/speedtest-go v1.8.2 h1:vvNQBnk2BFqv96fmjEI+q0bNZ1WIaBkYXYrF6bDsm9A=
-github.com/showwin/speedtest-go v1.8.2/go.mod h1:N4bn2lgNNWmfJyC1AIHD4T5wYhU+9D21OfacVhJsxiU=
+github.com/showwin/speedtest-go v1.8.3 h1:x988hyZFsa5V1EEwox84niAji632uxBTk8Clsc1itF8=
+github.com/showwin/speedtest-go v1.8.3/go.mod h1:N4bn2lgNNWmfJyC1AIHD4T5wYhU+9D21OfacVhJsxiU=
 github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=
 github.com/spf13/cobra v1.10.2/go.mod h1:7C1pvHqHw5A4vrJfjNwvOdzYu0Gml16OCs2GRiTUUS4=
 github.com/spf13/pflag v1.0.9/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=

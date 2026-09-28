@@ -70,8 +70,10 @@ type serverFetcher func(context.Context, *ServerLocation) ([]ServerResponse, *Se
 // NewSpeedtestNetRunner creates a runner whose server catalogue is backed by store.
 // Catalogue operations return an error when store is nil.
 func NewSpeedtestNetRunner(cfg config.SpeedTestConfig, store serverCatalogueStore) *SpeedtestNetRunner {
+	client := st.New()
+	client.SetNThread(cfg.Connections) // 0 keeps the library default
 	runner := &SpeedtestNetRunner{
-		client:          st.New(),
+		client:          client,
 		config:          cfg,
 		catalogueStore:  store,
 		globalFetch:     make(chan struct{}, 1),
@@ -172,6 +174,8 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		ServerHost: selectedServer.Host,
 		ServerCity: selectedServer.Name,
 	}
+
+	resolveServerURL(ctx, selectedServer)
 
 	if err := selectedServer.PingTest(func(latency time.Duration) {
 		if r.progressCallback != nil {
@@ -348,6 +352,32 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 	result.Jitter = jitterFloat
 
 	return result, nil
+}
+
+// resolveServerURL replaces the server URL with the target of its redirects.
+// Some servers redirect the HTTP URL to HTTPS. The library resolves the
+// redirect only before the upload test, so each ping and download request
+// follows it again (showwin/speedtest-go#285). If the request fails, the
+// URL does not change.
+func resolveServerURL(ctx context.Context, server *st.Server) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, server.URL, nil)
+	if err != nil {
+		return
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Debug().Err(err).Str("url", server.URL).Msg("Failed to resolve speedtest server URL")
+		return
+	}
+	resp.Body.Close()
+
+	if resolved := resp.Request.URL.String(); resolved != server.URL {
+		log.Debug().Str("from", server.URL).Str("to", resolved).Msg("Resolved speedtest server URL")
+		server.URL = resolved
+	}
 }
 
 // GetServersWithOptions returns the durable Speedtest.net catalogue. An empty catalogue fetches

@@ -167,7 +167,3 @@ export async function checkRegistrationStatus(): Promise<RegistrationStatus> {
     };
   }
 }
-
-export function getOIDCLoginUrl(): string {
-  return getApiUrl("/auth/oidc/login");
-}

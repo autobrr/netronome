@@ -14,7 +14,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/auth"
-	"github.com/autobrr/netronome/internal/broadcaster"
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/dnsmonitor"
@@ -28,8 +27,6 @@ import (
 	"github.com/autobrr/netronome/internal/update"
 	"github.com/autobrr/netronome/web"
 )
-
-var _ broadcaster.Broadcaster = &Server{}
 
 type Server struct {
 	Router               *gin.Engine
@@ -184,12 +181,6 @@ func (s *Server) BroadcastMonitorUpdate(update types.MonitorUpdate) {
 		Int64("rxBytesPerSecond", update.RxBytesPerSecond).
 		Int64("txBytesPerSecond", update.TxBytesPerSecond).
 		Msg("Broadcasting monitor update")
-}
-
-func (s *Server) SetPacketLossService(service *speedtest.PacketLossService) {
-	s.mu.Lock()
-	s.packetLossService = service
-	s.mu.Unlock()
 }
 
 func (s *Server) SetMonitorService(service *monitor.Service) {

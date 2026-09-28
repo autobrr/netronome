@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -98,35 +99,9 @@ func getMigrationVersion(fileName string) int {
 	parts := strings.Split(fileName, "_")
 	if len(parts) > 0 {
 		version := strings.TrimPrefix(parts[0], "0")
-		if v, err := parseInt(version); err == nil {
+		if v, err := strconv.Atoi(version); err == nil {
 			return v
 		}
 	}
 	return 0
-}
-
-func parseInt(s string) (int, error) {
-	var result int
-	for _, ch := range s {
-		if ch < '0' || ch > '9' {
-			return 0, fmt.Errorf("invalid integer: %s", s)
-		}
-		result = result*10 + int(ch-'0')
-	}
-	return result, nil
-}
-
-func ReadMigration(fileName string) ([]byte, error) {
-	content, err := fs.ReadFile(SchemaMigrations, fileName)
-	if err != nil {
-		log.Error().Err(err).Str("file", fileName).Msg("Failed to read migration file")
-		return nil, err
-	}
-
-	log.Debug().
-		Str("file", fileName).
-		Int("contentLength", len(content)).
-		Msg("Successfully read migration content")
-
-	return content, nil
 }
