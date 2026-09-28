@@ -145,6 +145,12 @@ A sidecar is a second container that gives a service to the main container. In t
 
 ### Compose file
 
+The Netronome container in these examples runs as `1000:1000`. That user must own the `netronome` folder. If Docker creates the folder, root owns it, and Netronome cannot write its database. Create the folder before you start the containers:
+
+```bash
+mkdir -p netronome && sudo chown 1000:1000 netronome
+```
+
 ```yaml title="docker-compose.yml"
 services:
   netronome:
@@ -337,6 +343,12 @@ If the server does not discover agents:
    ```
 
 ### Other Docker setups
+
+The examples in this section run as the image user `netronome`. That user must own the `netronome` folder. If Docker creates the folder, root owns it, and Netronome cannot write its database or its Tailscale state. Before you start the container the first time, run `chown` in the container as root:
+
+```bash
+docker compose run --rm --user root --entrypoint chown netronome netronome:netronome /data
+```
 
 To give Netronome its own Tailscale node, use `tsnet`. You need no sidecar:
 

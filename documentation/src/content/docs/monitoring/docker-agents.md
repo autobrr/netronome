@@ -188,6 +188,12 @@ networks:
 
 Replace `<interface>` with the name of the host interface, for example `eth0`.
 
+The `netronome` container runs as the image user `netronome`, and that user must own `./netronome/data`. If Docker creates the folder, root owns it. Before you start the stack the first time, run `chown` in the container as root:
+
+```bash
+docker compose run --rm --user root --entrypoint chown netronome netronome:netronome /data
+```
+
 The agent is on the host network, but the dashboard is on a bridge network. The dashboard therefore cannot find the agent by its container name. Add the agent with the IP address of the host, for example `http://192.168.1.10:8200`.
 
 Give the API key to the agent with `NETRONOME__AGENT_API_KEY`, not with the `--api-key` flag. Any user of the host can read the command line of a container in `docker inspect` and in the process list.
