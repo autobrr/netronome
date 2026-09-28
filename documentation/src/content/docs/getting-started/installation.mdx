@@ -128,13 +128,19 @@ The repository has two Compose files in `distrib/docker`:
    cd netronome
    ```
 
-2. Create a configuration file. The container keeps its data in `/data`, which the Compose files mount from the `netronome` folder in the repository. In a container, `generate-config` sets the listen address to `0.0.0.0`.
+2. Give the data folder to the container user. The container keeps its data in `/data`, which the Compose files mount from the `netronome` folder in the repository. Docker creates that folder as root, but the container runs as the user `netronome`. This command runs `chown` in the container as root:
+
+   ```bash
+   docker compose -f distrib/docker/docker-compose.yml run --rm --user root --entrypoint chown netronome netronome:netronome /data
+   ```
+
+3. Create a configuration file. In a container, `generate-config` sets the listen address to `0.0.0.0`.
 
    ```bash
    docker compose -f distrib/docker/docker-compose.yml run --rm netronome generate-config
    ```
 
-3. Start the container.
+4. Start the container.
 
    ```bash
    # SQLite
@@ -145,11 +151,7 @@ The repository has two Compose files in `distrib/docker`:
    ```
 
 :::caution
-Do not skip step 2. Without a configuration file, the server listens on `127.0.0.1` inside the container, and you cannot open it from the host. If you do not want a configuration file, set `NETRONOME__HOST=0.0.0.0` in the Compose file.
-:::
-
-:::note
-The container runs as the user `netronome`, not as root. That user must be able to write to the mounted folder. If Docker creates the folder, root owns it. To find the user and group IDs, run `docker run --rm --entrypoint id ghcr.io/autobrr/netronome:latest`. Then give the folder to that user with `chown`.
+Do not skip step 3. Without a configuration file, the server listens on `127.0.0.1` inside the container, and you cannot open it from the host. If you do not want a configuration file, set `NETRONOME__HOST=0.0.0.0` in the Compose file.
 :::
 
 For Tailscale in Docker, see [Docker agents](/monitoring/docker-agents/) and [Tailscale](/monitoring/tailscale/).

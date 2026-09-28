@@ -32,6 +32,7 @@ With Docker:
 ```bash
 git clone https://github.com/autobrr/netronome.git
 cd netronome
+docker compose -f distrib/docker/docker-compose.yml run --rm --user root --entrypoint chown netronome netronome:netronome /data
 docker compose -f distrib/docker/docker-compose.yml run --rm netronome generate-config
 docker compose -f distrib/docker/docker-compose.yml up -d
 ```
