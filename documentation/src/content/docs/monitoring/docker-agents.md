@@ -188,7 +188,7 @@ networks:
 
 Replace `<interface>` with the name of the host interface, for example `eth0`.
 
-The `netronome` container runs as the image user `netronome`, and that user must own `./netronome/data`. If Docker creates the folder, root owns it. Before you start the stack the first time, run `chown` in the container as root:
+The `netronome` container runs as the user `netronome`. That user must own the `./netronome/data` folder. If Docker creates the folder, root owns it, and Netronome cannot write its database. Before you start the containers the first time, go to the folder that contains `docker-compose.yml`. Then run this command. It runs `chown` in the container as root:
 
 ```bash
 docker compose run --rm --user root --entrypoint chown netronome netronome:netronome /data
