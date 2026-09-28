@@ -348,6 +348,7 @@ netronome:
     - NETRONOME__TAILSCALE_METHOD=tsnet
     - NETRONOME__TAILSCALE_AUTH_KEY=tskey-auth-YOUR-KEY
     - NETRONOME__TAILSCALE_HOSTNAME=netronome-monitor
+    - NETRONOME__HOST=0.0.0.0
   volumes:
     - "./netronome:/data"
   ports:
@@ -365,6 +366,7 @@ netronome:
   environment:
     - NETRONOME__TAILSCALE_ENABLED=true
     - NETRONOME__TAILSCALE_METHOD=host
+    - NETRONOME__HOST=0.0.0.0
   volumes:
     - "./netronome:/data"
     - /var/run/tailscale:/var/run/tailscale:ro  # Mount host's socket read-only

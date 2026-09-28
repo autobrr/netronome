@@ -194,7 +194,7 @@ Tailscale connects the server and the agents over your tailnet. For the setup, s
 | `auto_discover` | boolean | `true` | The server finds Netronome agents on the tailnet. |
 | `discovery_interval` | string | `"5m"` | The time between two discovery runs, as a Go duration, for example `5m` or `1h`. |
 | `discovery_port` | integer | `8200` | The port that the server probes on each Tailscale peer. |
-| `discovery_prefix` | string | `""` | Netronome does not read this key. To filter by prefix, use `tailscale.monitor.discovery_prefix`. |
+| `discovery_prefix` | string | `""` | Discovery does not read this key. The server probes every online peer. |
 | `prefer_host` | boolean | `false` | Deprecated. Use `method = "host"`. |
 
 ### [tailscale.agent]
@@ -215,7 +215,7 @@ This section is deprecated. Use the keys in `[tailscale]`.
 | `auto_discover` | boolean | `true` | Deprecated. Use `tailscale.auto_discover`. |
 | `discovery_interval` | string | `"5m"` | Deprecated. Use `tailscale.discovery_interval`. |
 | `discovery_port` | integer | `8200` | Deprecated. Use `tailscale.discovery_port`. |
-| `discovery_prefix` | string | `""` | Deprecated, but discovery reads only this key. The server adds only peers whose hostname starts with this prefix. |
+| `discovery_prefix` | string | `""` | Deprecated. Discovery does not filter by this prefix. The server probes every online peer. |
 
 ## Settings that are not in the file
 

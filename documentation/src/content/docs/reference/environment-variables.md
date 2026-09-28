@@ -161,7 +161,7 @@ For the setup, see [Tailscale](/monitoring/tailscale/).
 | `NETRONOME__TAILSCALE_DISCOVERY_PORT` | `tailscale.discovery_port` | `8200` |
 | `NETRONOME__TAILSCALE_DISCOVERY_PREFIX` | `tailscale.discovery_prefix` | empty |
 
-The discovery filter does not read `tailscale.discovery_prefix`. To filter discovered agents by hostname prefix, use `NETRONOME__TAILSCALE_MONITOR_DISCOVERY_PREFIX`.
+Discovery does not filter by hostname prefix. The server probes every online peer, whatever the value of the prefix variables.
 
 ### Deprecated Tailscale variables
 
