@@ -30,8 +30,10 @@ type SpeedtestNetRunner struct {
 }
 
 func NewSpeedtestNetRunner(cfg config.SpeedTestConfig) *SpeedtestNetRunner {
+	client := st.New()
+	client.SetNThread(cfg.Connections) // 0 keeps the library default
 	return &SpeedtestNetRunner{
-		client:        st.New(),
+		client:        client,
 		config:        cfg,
 		cacheDuration: 30 * time.Minute,
 		cacheExpiry:   time.Now(),

@@ -90,6 +90,8 @@ type SpeedTestConfig struct {
 	IPerf      IperfConfig      `toml:"iperf"`
 	Librespeed LibrespeedConfig `toml:"librespeed"`
 	Timeout    int              `toml:"timeout" env:"SPEEDTEST_TIMEOUT"`
+	// Connections is the connection limit for speedtest.net tests. 0 keeps the library default.
+	Connections int `toml:"connections" env:"SPEEDTEST_CONNECTIONS"`
 }
 
 type IperfConfig struct {
@@ -511,6 +513,11 @@ func (c *Config) loadSpeedTestFromEnv() {
 			c.SpeedTest.Timeout = val
 		}
 	}
+	if v := getEnv("SPEEDTEST_CONNECTIONS"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.Connections = val
+		}
+	}
 	if v := getEnv("IPERF_TEST_DURATION"); v != "" {
 		if val, err := strconv.Atoi(v); err == nil {
 			c.SpeedTest.IPerf.TestDuration = val
@@ -801,6 +808,9 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "timeout = %d\n", cfg.SpeedTest.Timeout); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "connections = %d\n", cfg.SpeedTest.Connections); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
