@@ -60,6 +60,8 @@
     text-align: center;
   }
   .hero > img { order: -1; }
+  .hero .stack { text-align: center; }
+  .hero .copy { align-items: center; }
   .hero .sl-flex.actions { justify-content: center; }
 
   /* Put the search box at the right, next to the social icons. */
