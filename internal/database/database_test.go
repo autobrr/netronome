@@ -180,6 +180,8 @@ var testTablesToClear = []string{
 	"notification_rules",
 	"notification_channels",
 	"app_settings",
+	"speedtest_server_sources",
+	"speedtest_servers",
 	"packet_loss_results",
 	"packet_loss_monitors",
 	"dns_results",
@@ -246,7 +248,6 @@ func resetSequences(t *testing.T, db *sql.DB) {
 		}
 	}
 }
-
 
 // TestDatabase provides a test database instance
 type TestDatabase struct {

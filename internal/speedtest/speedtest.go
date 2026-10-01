@@ -15,9 +15,13 @@ import (
 	"github.com/autobrr/netronome/internal/types"
 )
 
+// Service coordinates speed tests, server discovery, result handling, and traceroutes.
 type Service interface {
 	RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error)
-	GetServers(testType string) ([]ServerResponse, error)
+	// GetServers returns servers for a test provider and applies Speedtest.net-only catalogue options.
+	GetServers(ctx context.Context, testType string, options ServerListOptions) ([]ServerResponse, error)
+	// GetSpeedtestServerCatalogueStatus reports whether the selected Speedtest.net source is stored.
+	GetSpeedtestServerCatalogueStatus(ctx context.Context, options ServerListOptions) (ServerCatalogueStatus, error)
 	GetLibrespeedServers() ([]ServerResponse, error)
 	RunLibrespeedTest(ctx context.Context, opts *types.TestOptions) (*Result, error)
 	RunTraceroute(ctx context.Context, host string) (*TracerouteResult, error)
@@ -51,7 +55,7 @@ func New(db database.Service, cfg config.SpeedTestConfig, notifier *notification
 
 	// Initialize new architecture components
 	svc.resultHandler = NewResultHandler(db, notifier)
-	svc.speedtestNetRunner = NewSpeedtestNetRunner(cfg)
+	svc.speedtestNetRunner = NewSpeedtestNetRunner(cfg, db)
 	svc.iperfRunner = NewIperfRunner(cfg.IPerf)
 	svc.librespeedRunner = NewLibrespeedRunner(cfg.Librespeed)
 
@@ -163,15 +167,19 @@ func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result
 	return result, nil
 }
 
-func (s *service) GetServers(testType string) ([]ServerResponse, error) {
+// GetServers returns selectable servers for a provider, applying discovery options to Speedtest.net.
+func (s *service) GetServers(ctx context.Context, testType string, options ServerListOptions) ([]ServerResponse, error) {
 	switch testType {
 	case "librespeed":
 		return s.GetLibrespeedServers()
 	case "iperf3":
 		return s.iperfRunner.GetServers()
-	case "speedtest":
-		return s.speedtestNetRunner.GetServers()
 	default:
-		return s.speedtestNetRunner.GetServers()
+		return s.speedtestNetRunner.GetServersWithOptions(ctx, options)
 	}
+}
+
+// GetSpeedtestServerCatalogueStatus returns durable source metadata without starting discovery.
+func (s *service) GetSpeedtestServerCatalogueStatus(ctx context.Context, options ServerListOptions) (ServerCatalogueStatus, error) {
+	return s.speedtestNetRunner.GetServerCatalogueStatus(ctx, options)
 }
