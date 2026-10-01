@@ -316,8 +316,25 @@ func New() *Config {
 func Load(configPath string) (*Config, error) {
 	cfg := New()
 
-	// If specific config path provided, only try that one
-	if configPath != "" {
+	// If no path is given, use the first default path that exists
+	if configPath == "" {
+		for _, path := range DefaultConfigPaths() {
+			log.Debug().
+				Str("checking_path", path).
+				Msg("Checking for config file")
+
+			if _, err := os.Stat(path); err == nil {
+				configPath = path
+				break
+			}
+		}
+	}
+
+	if configPath == "" {
+		log.Info().
+			Msg("No configuration file found, running with default values. Use 'netronome generate-config' to create one")
+	} else {
+		// A file that exists but does not decode is an error. Do not fall back to defaults.
 		if _, err := toml.DecodeFile(configPath, cfg); err != nil {
 			return nil, fmt.Errorf("failed to decode config file %s: %w", configPath, err)
 		}
@@ -333,42 +350,6 @@ func Load(configPath string) (*Config, error) {
 			cfg.Database.Path = filepath.Join(filepath.Dir(configPath), cfg.Database.Path)
 		}
 		cfg.SpeedTest.Librespeed.ServersPath = filepath.Join(filepath.Dir(configPath), "librespeed-servers.json")
-	} else {
-		// Try each default path in order
-		found := false
-		paths := DefaultConfigPaths()
-		for _, path := range paths {
-			log.Debug().
-				Str("checking_path", path).
-				Msg("Checking for config file")
-
-			if _, err := os.Stat(path); err == nil {
-				log.Debug().
-					Str("found_at", path).
-					Msg("Found config file")
-
-				if _, err := toml.DecodeFile(path, cfg); err == nil {
-					if cfg.SpeedTest.Librespeed.Timeout == 0 {
-						cfg.SpeedTest.Librespeed.Timeout = 60
-					}
-					log.Info().
-						Str("path", path).
-						Msg("Loaded configuration file")
-					found = true
-
-					// If db path is relative, make it relative to config file
-					if !filepath.IsAbs(cfg.Database.Path) {
-						cfg.Database.Path = filepath.Join(filepath.Dir(path), cfg.Database.Path)
-					}
-					cfg.SpeedTest.Librespeed.ServersPath = filepath.Join(filepath.Dir(path), "librespeed-servers.json")
-					break
-				}
-			}
-		}
-		if !found {
-			log.Info().
-				Msg("No configuration file found, running with default values. Use 'netronome generate-config' to create one")
-		}
 	}
 
 	// Override with environment variables
@@ -377,13 +358,6 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	return cfg, nil
-}
-
-// ApplyEnv loads configuration from environment variables.
-// This is useful when no config file is available and you want to apply
-// environment variable overrides to a default config.
-func (c *Config) ApplyEnv() {
-	c.loadFromEnv()
 }
 
 // loadFromEnv loads configuration from environment variables
