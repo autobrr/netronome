@@ -4,8 +4,15 @@
 package scheduler
 
 import (
+	"context"
+	"errors"
 	"testing"
+	"testing/synctest"
 	"time"
+
+	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/speedtest"
+	"github.com/autobrr/netronome/internal/types"
 )
 
 func TestCalculateNextRun(t *testing.T) {
@@ -123,4 +130,50 @@ func TestIsValidScheduleInterval(t *testing.T) {
 			}
 		})
 	}
+}
+
+type fakeScheduleDB struct {
+	database.Service
+	schedule types.Schedule
+}
+
+func (f *fakeScheduleDB) GetSchedules(context.Context) ([]types.Schedule, error) {
+	return []types.Schedule{f.schedule}, nil
+}
+
+func (f *fakeScheduleDB) UpdateSchedule(_ context.Context, schedule types.Schedule) error {
+	f.schedule = schedule
+	return nil
+}
+
+type failingSpeedtest struct {
+	speedtest.Service
+	runs int
+}
+
+func (f *failingSpeedtest) RunTest(context.Context, *types.TestOptions) (*speedtest.Result, error) {
+	f.runs++
+	return nil, errors.New("server unreachable")
+}
+
+func TestFailedScheduledTestWaitsForNextSlot(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		now := time.Now().UTC()
+		db := &fakeScheduleDB{schedule: types.Schedule{ID: 1, Interval: "1h", Enabled: true, NextRun: now.Add(-time.Second)}}
+		st := &failingSpeedtest{}
+		s := &service{db: db, speedtest: st}
+
+		for range 3 {
+			s.checkAndRunScheduledTests(t.Context())
+			synctest.Wait()
+			time.Sleep(time.Minute)
+		}
+
+		if st.runs != 1 {
+			t.Fatalf("RunTest ran %d times, want 1", st.runs)
+		}
+		if !db.schedule.NextRun.After(now.Add(time.Hour)) {
+			t.Fatalf("next_run = %v, want after %v", db.schedule.NextRun, now.Add(time.Hour))
+		}
+	})
 }
