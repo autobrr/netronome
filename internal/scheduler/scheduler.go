@@ -37,7 +37,7 @@ type service struct {
 	done       chan bool
 	mu         sync.Mutex
 	running    bool
-	inFlight   sync.Map // runKey -> struct{}, one entry per test that still runs
+	inFlight   sync.Map // holds one runKey for each test that still runs
 }
 
 // runKey names one schedule or monitor in inFlight.
@@ -186,8 +186,8 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 			scheduledStart = now
 		}
 
-		// claim the next run before the test starts, so the next tick does
-		// not start the test again and a failed test waits for its next slot
+		// claim the next run before the test starts. Then the next tick does
+		// not start the test again, and a failed test waits for its next slot.
 		nextRun := s.nextRunAfter(schedule.Interval, scheduledStart, now, false)
 		if nextRun.IsZero() {
 			log.Error().
@@ -529,18 +529,25 @@ func (s *service) checkAndRunPacketLossMonitors(ctx context.Context) {
 				Msg("Error calculating next run time for monitor")
 			continue
 		}
-		monitor.LastRun = &scheduledStart
+		// a slot that the guard skips moves next_run but keeps last_run
+		key := runKey{"packetloss", monitor.ID}
+		_, running := s.inFlight.LoadOrStore(key, struct{}{})
+		if !running {
+			monitor.LastRun = &scheduledStart
+		}
 		monitor.NextRun = &nextRun
 		if err := s.db.UpdatePacketLossMonitor(monitor); err != nil {
 			log.Error().
 				Err(err).
 				Int64("monitor_id", monitor.ID).
 				Msg("Error updating monitor schedule")
+			if !running {
+				s.inFlight.Delete(key)
+			}
 			continue
 		}
 
-		key := runKey{"packetloss", monitor.ID}
-		if _, running := s.inFlight.LoadOrStore(key, struct{}{}); running {
+		if running {
 			log.Warn().
 				Int64("monitor_id", monitor.ID).
 				Str("host", monitor.Host).
@@ -664,13 +671,26 @@ func (s *service) checkAndRunDNSMonitors() {
 				Msg("Error calculating next run time for dns monitor")
 			continue
 		}
-		if err := s.db.UpdateDNSMonitorSchedule(monitor.ID, &scheduledStart, nextRun); err != nil {
+
+		// a slot that the guard skips moves next_run but keeps last_run
+		key := runKey{"dns", monitor.ID}
+		_, running := s.inFlight.LoadOrStore(key, struct{}{})
+		lastRun := monitor.LastRun
+		if !running {
+			lastRun = &scheduledStart
+		}
+		if err := s.db.UpdateDNSMonitorSchedule(monitor.ID, lastRun, nextRun); err != nil {
 			log.Error().Err(err).Int64("monitor_id", monitor.ID).Msg("Error updating dns monitor schedule")
+			if !running {
+				s.inFlight.Delete(key)
+			}
 			continue
 		}
 
-		key := runKey{"dns", monitor.ID}
-		if _, running := s.inFlight.LoadOrStore(key, struct{}{}); running {
+		if running {
+			log.Warn().
+				Int64("monitor_id", monitor.ID).
+				Msg("Previous dns check still running, skipping this run")
 			continue
 		}
 

@@ -177,3 +177,58 @@ func TestFailedScheduledTestWaitsForNextSlot(t *testing.T) {
 		}
 	})
 }
+
+func TestNextRunAfter(t *testing.T) {
+	s := &service{}
+	start := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name string
+		now  time.Time
+		want time.Time
+	}{
+		{name: "slot after now", now: start.Add(time.Minute), want: start.Add(time.Hour)},
+		{name: "slot not after now", now: start.Add(90 * time.Minute), want: start.Add(150 * time.Minute)},
+		{name: "slot equal to now", now: start.Add(time.Hour), want: start.Add(2 * time.Hour)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := s.nextRunAfter("1h", start, tt.now, true); !got.Equal(tt.want) {
+				t.Errorf("nextRunAfter() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+type fakePacketLossDB struct {
+	database.Service
+	monitor types.PacketLossMonitor
+}
+
+func (f *fakePacketLossDB) GetPacketLossMonitors() ([]*types.PacketLossMonitor, error) {
+	m := f.monitor
+	return []*types.PacketLossMonitor{&m}, nil
+}
+
+func (f *fakePacketLossDB) UpdatePacketLossMonitor(monitor *types.PacketLossMonitor) error {
+	f.monitor = *monitor
+	return nil
+}
+
+func TestSkippedPacketLossSlotKeepsLastRun(t *testing.T) {
+	now := time.Now().UTC()
+	lastRun := now.Add(-time.Hour)
+	db := &fakePacketLossDB{monitor: types.PacketLossMonitor{ID: 1, Interval: "1h", Enabled: true, LastRun: &lastRun, NextRun: new(now.Add(-time.Second))}}
+	s := &service{db: db}
+	s.inFlight.Store(runKey{"packetloss", 1}, struct{}{})
+
+	s.checkAndRunPacketLossMonitors(t.Context())
+
+	if !db.monitor.LastRun.Equal(lastRun) {
+		t.Errorf("last_run = %v, want %v", db.monitor.LastRun, lastRun)
+	}
+	if !db.monitor.NextRun.After(now) {
+		t.Errorf("next_run = %v, want after %v", db.monitor.NextRun, now)
+	}
+}
