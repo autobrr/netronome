@@ -44,9 +44,12 @@ type ServerLocation struct {
 }
 
 // ServerCatalogueStatus reports whether the selected source has been durably fetched.
+// For the global source, FailedRegions counts the regions that the last fetch did not get.
 type ServerCatalogueStatus struct {
-	Stored    bool       `json:"stored"`
-	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+	Stored        bool       `json:"stored"`
+	UpdatedAt     *time.Time `json:"updatedAt,omitempty"`
+	FailedRegions int        `json:"failedRegions,omitzero"`
+	TotalRegions  int        `json:"totalRegions,omitzero"`
 }
 
 // PartialServerCatalogueError reports failed discovery sources after successful servers were retained.

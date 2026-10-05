@@ -18,6 +18,10 @@ export type { SpeedtestServerCatalogueResult } from "./serverCatalogueResponse";
 export interface SpeedtestServerCatalogueStatus {
   stored: boolean;
   updatedAt?: string;
+  /** Global regions that the last fetch did not get. Absent when 0. */
+  failedRegions?: number;
+  /** Global regions that a fetch asks for. Absent for other sources. */
+  totalRegions?: number;
 }
 
 const addSpeedtestServerQuery = (params: URLSearchParams, query: SpeedtestServerQuery) => {
@@ -88,12 +92,20 @@ export async function getSpeedtestServerCatalogueStatus(
     throw new Error("Invalid server catalogue status response");
   }
   const updatedAt = "updatedAt" in data ? data.updatedAt : undefined;
-  if (updatedAt !== undefined && typeof updatedAt !== "string") {
+  const failedRegions = "failedRegions" in data ? data.failedRegions : undefined;
+  const totalRegions = "totalRegions" in data ? data.totalRegions : undefined;
+  if (
+    (updatedAt !== undefined && typeof updatedAt !== "string") ||
+    (failedRegions !== undefined && typeof failedRegions !== "number") ||
+    (totalRegions !== undefined && typeof totalRegions !== "number")
+  ) {
     throw new Error("Invalid server catalogue status response");
   }
   return {
     stored: data.stored,
     updatedAt,
+    failedRegions,
+    totalRegions,
   };
 }
 

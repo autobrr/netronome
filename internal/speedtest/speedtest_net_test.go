@@ -236,7 +236,7 @@ func TestCatalogueSourceStoredTracksPersistedSource(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, stored)
 
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), nil, nil, "test", runner.nextCatalogueObservation()))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), nil, nil, "test", runner.nextCatalogueObservation(), 0, 0))
 	stored, err = runner.catalogueSourceStored(t.Context(), "test")
 	require.NoError(t, err)
 	assert.True(t, stored)
@@ -249,8 +249,8 @@ func TestSourceViewLimitsNearestServersExceptGlobal(t *testing.T) {
 		pool = append(pool, ServerResponse{ID: fmt.Sprint(i), Lat: float64(i), Lon: 0})
 	}
 	origin := &ServerLocation{Latitude: 0, Longitude: 0}
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), pool, origin, sourceKeyLocal, runner.nextCatalogueObservation()))
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), nil, nil, sourceKeyGlobal, runner.nextCatalogueObservation()))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), pool, origin, sourceKeyLocal, runner.nextCatalogueObservation(), 0, 0))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), nil, nil, sourceKeyGlobal, runner.nextCatalogueObservation(), 0, 0))
 	runner.fetchServers = func(context.Context, *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
 		return nil, nil, errors.New("unexpected fetch")
 	}
@@ -268,7 +268,7 @@ func TestSourceViewLimitsNearestServersExceptGlobal(t *testing.T) {
 func TestUnstoredSourceFetchesEvenWhenPoolIsNotEmpty(t *testing.T) {
 	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
 	runner.globalLocations = map[string]ServerLocation{"regional": {Latitude: 1, Longitude: 1}}
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), []ServerResponse{{ID: "local"}}, &ServerLocation{}, sourceKeyLocal, runner.nextCatalogueObservation()))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), []ServerResponse{{ID: "local"}}, &ServerLocation{}, sourceKeyLocal, runner.nextCatalogueObservation(), 0, 0))
 	runner.fetchServers = func(_ context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
 		if location == nil {
 			return []ServerResponse{{ID: "local"}}, &ServerLocation{}, nil
@@ -285,7 +285,7 @@ func TestCatalogueSourceRefreshRetainsValidEntry(t *testing.T) {
 	store := &memoryServerCatalogueStore{}
 	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
 	cachedServers := []ServerResponse{{ID: "cached"}}
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), cachedServers, &ServerLocation{}, "local", runner.nextCatalogueObservation()))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), cachedServers, &ServerLocation{}, "local", runner.nextCatalogueObservation(), 0, 0))
 
 	var fetchCount atomic.Int32
 	runner.fetchServers = func(_ context.Context, _ *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
@@ -442,11 +442,11 @@ func TestServerCatalogueSurvivesSourceRefresh(t *testing.T) {
 	store := &memoryServerCatalogueStore{}
 	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
 	oldServers := []ServerResponse{{ID: "old"}}
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), oldServers, nil, "old", runner.nextCatalogueObservation()))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), oldServers, nil, "old", runner.nextCatalogueObservation(), 0, 0))
 	store.setSourceUpdatedAt("old", time.Now().Add(-time.Hour))
 
 	newServers := []ServerResponse{{ID: "new"}}
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), newServers, nil, "new", runner.nextCatalogueObservation()))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), newServers, nil, "new", runner.nextCatalogueObservation(), 0, 0))
 
 	servers, err := runner.loadRetainedServers(t.Context(), nil, 0)
 	require.NoError(t, err)
@@ -620,11 +620,32 @@ func TestGlobalServersReportsPartialFailureAndRetainsSuccessfulResults(t *testin
 	status, statusErr := runner.GetServerCatalogueStatus(t.Context(), ServerListOptions{Global: true})
 	require.NoError(t, statusErr)
 	assert.True(t, status.Stored)
+	assert.Equal(t, 1, status.FailedRegions)
+	assert.Equal(t, 2, status.TotalRegions)
+	// A later region list does not change the counts of the stored fetch.
+	runner.globalLocations["added"] = ServerLocation{Latitude: 3, Longitude: 3}
+	status, statusErr = runner.GetServerCatalogueStatus(t.Context(), ServerListOptions{Global: true})
+	require.NoError(t, statusErr)
+	assert.Equal(t, 2, status.TotalRegions)
+	delete(runner.globalLocations, "added")
+
+	runner.fetchServers = func(_ context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
+		if location == nil {
+			return []ServerResponse{{ID: "local"}}, &ServerLocation{}, nil
+		}
+		return []ServerResponse{{ID: "regional", Lat: location.Latitude, Lon: location.Longitude}}, nil, nil
+	}
+	_, err = runner.GetServersWithOptions(t.Context(), ServerListOptions{Global: true, Refresh: true})
+	require.NoError(t, err)
+	status, statusErr = runner.GetServerCatalogueStatus(t.Context(), ServerListOptions{Global: true})
+	require.NoError(t, statusErr)
+	assert.Zero(t, status.FailedRegions)
+	assert.Equal(t, 2, status.TotalRegions)
 }
 
 func TestRetainedServerFindsByID(t *testing.T) {
 	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), []ServerResponse{{ID: "42", Host: "host:8080", Name: "Tokyo"}}, nil, sourceKeyGlobal, runner.nextCatalogueObservation()))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), []ServerResponse{{ID: "42", Host: "host:8080", Name: "Tokyo"}}, nil, sourceKeyGlobal, runner.nextCatalogueObservation(), 0, 0))
 
 	server, ok := runner.retainedServer(t.Context(), "42")
 	require.True(t, ok)
@@ -645,6 +666,8 @@ func TestGlobalServersUsesStoredLocationWhenLocalRefreshFails(t *testing.T) {
 		&ServerLocation{Latitude: -27.4698, Longitude: 153.0251},
 		"local",
 		runner.nextCatalogueObservation(),
+		0,
+		0,
 	))
 
 	runner.fetchServers = func(_ context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
@@ -672,8 +695,8 @@ func TestGlobalServersRefreshRetainsPreviousGlobalAndLocalServers(t *testing.T) 
 	}
 	cachedGlobal := []ServerResponse{{ID: "cached-global"}}
 	cachedLocal := []ServerResponse{{ID: "cached-local"}}
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), cachedGlobal, nil, "global", runner.nextCatalogueObservation()))
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), cachedLocal, &ServerLocation{}, "local", runner.nextCatalogueObservation()))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), cachedGlobal, nil, "global", runner.nextCatalogueObservation(), 0, 0))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), cachedLocal, &ServerLocation{}, "local", runner.nextCatalogueObservation(), 0, 0))
 
 	var fetchCount atomic.Int32
 	runner.fetchServers = func(_ context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
@@ -784,7 +807,7 @@ func TestGlobalServersRefreshPreservesRetainedOnPartialFailure(t *testing.T) {
 		"failure": {Latitude: 2, Longitude: 2},
 	}
 	previous := []ServerResponse{{ID: "cached-global"}}
-	require.NoError(t, runner.updateServerCatalogue(t.Context(), previous, nil, "global", runner.nextCatalogueObservation()))
+	require.NoError(t, runner.updateServerCatalogue(t.Context(), previous, nil, "global", runner.nextCatalogueObservation(), 0, 0))
 	statusBefore, err := runner.GetServerCatalogueStatus(t.Context(), ServerListOptions{Global: true})
 	require.NoError(t, err)
 	require.NotNil(t, statusBefore.UpdatedAt)

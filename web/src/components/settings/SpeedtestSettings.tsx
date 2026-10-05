@@ -157,6 +157,7 @@ export const SpeedtestSettings = () => {
     ? new Date(catalogueStatus.updatedAt).toLocaleString()
     : null;
   const sourceStored = coordinatesValid && catalogueStatus?.stored === true;
+  const fetchIncomplete = sourceStored && (catalogueStatus?.failedRegions ?? 0) > 0;
 
   return (
     <div className="space-y-6">
@@ -290,6 +291,8 @@ export const SpeedtestSettings = () => {
                         ? "Enter valid coordinates to check this source"
                         : formatSpeedtestServerStorageStatus(sourceLabel, {
                             stored: catalogueStatus?.stored,
+                            failedRegions: catalogueStatus?.failedRegions,
+                            totalRegions: catalogueStatus?.totalRegions,
                             isLoading: isStatusLoading,
                             isError: isStatusError,
                           })}
@@ -304,7 +307,7 @@ export const SpeedtestSettings = () => {
                         : isStatusError
                         ? "Discovery status is unavailable. You can still fetch this source."
                         : sourceStored
-                          ? `${lastUpdated ? `Last updated ${lastUpdated}. ` : ""}${fetchedServers ? `${fetchedServers.servers.length} servers are available for this source. ` : ""}Fetch again to add newly available servers.`
+                          ? `${lastUpdated ? `Last updated ${lastUpdated}. ` : ""}${fetchedServers ? `${fetchedServers.servers.length} servers are available for this source. ` : ""}${fetchIncomplete ? "Fetch again to add the missing regions." : "Fetch again to add newly available servers."}`
                           : "Fetch this source once to add its servers to the retained catalogue."}
                   </p>
                 </div>

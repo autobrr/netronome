@@ -75,10 +75,12 @@ func TestSpeedtestServerCataloguePersistsNewestMetadataAndSourceState(t *testing
 			Longitude:  longitude,
 			ObservedAt: newer,
 		}}, &SpeedtestServerSource{
-			Key:       "local",
-			UpdatedAt: newer,
-			Latitude:  &latitude,
-			Longitude: &longitude,
+			Key:           "local",
+			UpdatedAt:     newer,
+			Latitude:      &latitude,
+			Longitude:     &longitude,
+			FailedRegions: 3,
+			TotalRegions:  26,
 		}))
 
 		require.NoError(t, td.Service.SaveSpeedtestServerCatalogue(t.Context(), []SpeedtestServer{{
@@ -107,6 +109,8 @@ func TestSpeedtestServerCataloguePersistsNewestMetadataAndSourceState(t *testing
 		require.NoError(t, err)
 		require.True(t, found)
 		assert.Equal(t, newer, source.UpdatedAt)
+		assert.Equal(t, 3, source.FailedRegions)
+		assert.Equal(t, 26, source.TotalRegions)
 		require.NotNil(t, source.Latitude)
 		require.NotNil(t, source.Longitude)
 		assert.InDelta(t, latitude, *source.Latitude, 1e-9)
