@@ -433,7 +433,7 @@ func (r *SpeedtestNetRunner) GetServerCatalogueStatus(ctx context.Context, optio
 	status := ServerCatalogueStatus{Stored: true, UpdatedAt: new(source.UpdatedAt)}
 	if options.Global {
 		status.FailedRegions = source.FailedRegions
-		status.TotalRegions = len(r.globalLocations)
+		status.TotalRegions = source.TotalRegions
 	}
 	return status, nil
 }
@@ -461,7 +461,7 @@ func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key stri
 		}
 		persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), serverCatalogueStoreTimeout)
 		defer persistCancel()
-		err = r.updateServerCatalogue(persistCtx, servers, userLocation, key, r.nextCatalogueObservation(), 0)
+		err = r.updateServerCatalogue(persistCtx, servers, userLocation, key, r.nextCatalogueObservation(), 0, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -558,7 +558,7 @@ func (r *SpeedtestNetRunner) fetchGlobalServers(ctx context.Context) ([]ServerRe
 	// A partial result still marks the source as fetched. Otherwise every
 	// later read would fetch the world again until all regions succeed.
 	persistCtx, cancel := context.WithTimeout(ctx, serverCatalogueStoreTimeout)
-	err = r.updateServerCatalogue(persistCtx, discovered, nil, sourceKeyGlobal, observedAt, len(locationNames)-successfulLocations)
+	err = r.updateServerCatalogue(persistCtx, discovered, nil, sourceKeyGlobal, observedAt, len(locationNames)-successfulLocations, len(locationNames))
 	cancel()
 	if err != nil {
 		return nil, err
@@ -735,7 +735,7 @@ func (r *SpeedtestNetRunner) nextCatalogueObservation() time.Time {
 }
 
 // updateServerCatalogue atomically retains an observed batch and marks its source as fetched.
-// failedRegions records how many global regions the fetch did not get.
+// failedRegions and totalRegions record how many global regions the fetch missed and asked for.
 func (r *SpeedtestNetRunner) updateServerCatalogue(
 	ctx context.Context,
 	servers []ServerResponse,
@@ -743,6 +743,7 @@ func (r *SpeedtestNetRunner) updateServerCatalogue(
 	sourceKey string,
 	observedAt time.Time,
 	failedRegions int,
+	totalRegions int,
 ) error {
 	storedServers := make([]database.SpeedtestServer, 0, len(servers))
 	for _, server := range servers {
@@ -759,7 +760,7 @@ func (r *SpeedtestNetRunner) updateServerCatalogue(
 		})
 	}
 
-	source := &database.SpeedtestServerSource{Key: sourceKey, UpdatedAt: observedAt, FailedRegions: failedRegions}
+	source := &database.SpeedtestServerSource{Key: sourceKey, UpdatedAt: observedAt, FailedRegions: failedRegions, TotalRegions: totalRegions}
 	if detectedLocation != nil {
 		source.Latitude = new(detectedLocation.Latitude)
 		source.Longitude = new(detectedLocation.Longitude)
