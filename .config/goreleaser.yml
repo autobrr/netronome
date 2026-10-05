@@ -129,9 +129,12 @@ changelog:
       - Merge remote-tracking branch
       - Merge branch
   groups:
+    - title: "Breaking Changes"
+      regexp: "^\\w+(\\([^)]*\\))?!:.*$"
+      order: 0
     - title: "New Features"
       regexp: "^.*feat[(\\w)]*:+.*$"
-      order: 0
+      order: 5
     - title: "Bug Fixes"
       regexp: "^.*fix[(\\w)]*:+.*$"
       order: 10
