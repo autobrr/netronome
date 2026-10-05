@@ -424,7 +424,7 @@ func TestServerCatalogueCoalescesConcurrentFetchesByKey(t *testing.T) {
 		var wg sync.WaitGroup
 		for range 2 {
 			wg.Go(func() {
-				servers, err := runner.getServersForLocation(t.Context(), "local", nil, false)
+				servers, err := runner.getServersForLocation(t.Context(), "local", nil)
 				results <- fetchResult{servers: servers, err: err}
 			})
 		}
@@ -461,7 +461,6 @@ func TestServerCatalogueFetchesDifferentKeysIndependently(t *testing.T) {
 					t.Context(),
 					fmt.Sprintf("location:%d", i),
 					location,
-					false,
 				)
 				results <- err
 			})
@@ -498,12 +497,12 @@ func TestServerCatalogueCallerCancellationDoesNotAbortSharedFetch(t *testing.T) 
 		waiterResult := make(chan error, 1)
 		var wg sync.WaitGroup
 		wg.Go(func() {
-			_, err := runner.getServersForLocation(leaderCtx, "local", nil, false)
+			_, err := runner.getServersForLocation(leaderCtx, "local", nil)
 			leaderResult <- err
 		})
 		sharedDone := <-fetchContextDone
 		wg.Go(func() {
-			_, err := runner.getServersForLocation(t.Context(), "local", nil, false)
+			_, err := runner.getServersForLocation(t.Context(), "local", nil)
 			waiterResult <- err
 		})
 
@@ -536,7 +535,7 @@ func TestGlobalServersRejectsCompleteRegionalFailure(t *testing.T) {
 		return nil, nil, errors.New("regional fetch failed")
 	}
 
-	servers, err := runner.getGlobalServers(t.Context(), false)
+	servers, err := runner.getGlobalServers(t.Context())
 	require.Error(t, err)
 	assert.Nil(t, servers)
 	stored, storedErr := runner.catalogueSourceStored(t.Context(), "global")
@@ -560,7 +559,7 @@ func TestGlobalServersReportsPartialFailureAndRetainsSuccessfulResults(t *testin
 		return nil, nil, errors.New("regional fetch failed")
 	}
 
-	servers, err := runner.getGlobalServers(t.Context(), false)
+	servers, err := runner.getGlobalServers(t.Context())
 	require.ErrorContains(t, err, "updated from 1 of 2 regional locations")
 	require.ErrorContains(t, err, "fetch servers near failure")
 	partialErr, ok := errors.AsType[*PartialServerCatalogueError](err)
@@ -766,68 +765,50 @@ func TestGlobalServersRefreshPreservesRetainedOnPartialFailure(t *testing.T) {
 	assert.True(t, statusAfter.UpdatedAt.After(*statusBefore.UpdatedAt))
 }
 
-func TestGlobalServersPersistsCompletedRegionsAfterCancellation(t *testing.T) {
+func TestGlobalServersFetchSurvivesCallerCancellation(t *testing.T) {
 	store := &memoryServerCatalogueStore{}
 	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
 	runner.globalLocations = map[string]ServerLocation{
 		"completed": {Latitude: 1, Longitude: 1},
-		"blocked":   {Latitude: 2, Longitude: 2},
+		"slow":      {Latitude: 2, Longitude: 2},
 	}
-	completed := make(chan struct{}, 1)
-	blocked := make(chan struct{}, 1)
+	slowStarted := make(chan struct{})
+	releaseSlow := make(chan struct{})
 	runner.fetchServers = func(ctx context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
 		if location == nil {
 			return []ServerResponse{{ID: "local"}}, &ServerLocation{}, nil
 		}
 		if location.Latitude == 1 {
-			completed <- struct{}{}
 			return []ServerResponse{{ID: "regional"}}, nil, nil
 		}
-		blocked <- struct{}{}
-		<-ctx.Done()
-		return nil, nil, ctx.Err()
+		close(slowStarted)
+		select {
+		case <-releaseSlow:
+			return []ServerResponse{{ID: "slow-regional"}}, nil, nil
+		case <-ctx.Done():
+			return nil, nil, ctx.Err()
+		}
 	}
 
 	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
-	type globalResult struct {
-		servers []ServerResponse
-		err     error
-	}
-	done := make(chan globalResult, 1)
+	done := make(chan error, 1)
 	go func() {
-		servers, err := runner.GetServersWithOptions(ctx, ServerListOptions{Global: true, Refresh: true})
-		done <- globalResult{servers: servers, err: err}
+		_, err := runner.GetServersWithOptions(ctx, ServerListOptions{Global: true})
+		done <- err
 	}()
 
-	<-completed
-	<-blocked
+	<-slowStarted
 	cancel()
-	result := <-done
-	require.ErrorIs(t, result.err, context.Canceled)
-	assert.Nil(t, result.servers)
+	require.ErrorIs(t, <-done, context.Canceled)
+	close(releaseSlow)
 
-	restarted := NewSpeedtestNetRunner(config.SpeedTestConfig{}, store)
-	retained, retainedErr := restarted.loadRetainedServers(t.Context(), nil, 0)
-	require.NoError(t, retainedErr)
-	assert.ElementsMatch(t, []string{"local", "regional"}, serverIDs(retained))
-	stored, storedErr := restarted.catalogueSourceStored(t.Context(), sourceKeyGlobal)
+	// A later reader joins or follows the detached fetch and sees it stored.
+	servers, err := runner.getGlobalServers(t.Context())
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"local", "regional", "slow-regional"}, serverIDs(servers))
+	stored, storedErr := runner.catalogueSourceStored(t.Context(), sourceKeyGlobal)
 	require.NoError(t, storedErr)
-	assert.False(t, stored, "a cancelled global fetch must not count as fetched")
-}
-
-func TestGlobalServersWaitHonorsContext(t *testing.T) {
-	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
-	runner.fetchServers = func(context.Context, *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
-		return nil, nil, errors.New("unexpected fetch")
-	}
-	runner.globalFetch <- struct{}{}
-	defer func() { <-runner.globalFetch }()
-
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
-	defer cancel()
-	_, err := runner.getGlobalServers(ctx, false)
-	require.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.True(t, stored, "a global fetch must finish after its caller leaves")
 }
 
 func TestResolveServerURL(t *testing.T) {

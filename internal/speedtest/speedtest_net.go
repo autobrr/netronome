@@ -21,6 +21,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	st "github.com/showwin/speedtest-go/speedtest"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
 
 	"github.com/autobrr/netronome/internal/config"
@@ -58,7 +59,6 @@ type SpeedtestNetRunner struct {
 	config           config.SpeedTestConfig
 	progressCallback func(types.SpeedUpdate)
 	catalogueStore   serverCatalogueStore
-	globalFetch      chan struct{}
 	serverFetches    singleflight.Group
 	lastObservation  atomic.Int64
 	fetchServers     serverFetcher
@@ -68,7 +68,6 @@ type SpeedtestNetRunner struct {
 type serverFetcher func(context.Context, *ServerLocation) ([]ServerResponse, *ServerLocation, error)
 
 // NewSpeedtestNetRunner creates a runner whose server catalogue is backed by store.
-// Catalogue operations return an error when store is nil.
 func NewSpeedtestNetRunner(cfg config.SpeedTestConfig, store serverCatalogueStore) *SpeedtestNetRunner {
 	client := st.New()
 	client.SetNThread(cfg.Connections) // 0 keeps the library default
@@ -76,7 +75,6 @@ func NewSpeedtestNetRunner(cfg config.SpeedTestConfig, store serverCatalogueStor
 		client:          client,
 		config:          cfg,
 		catalogueStore:  store,
-		globalFetch:     make(chan struct{}, 1),
 		fetchServers:    fetchSpeedtestServers,
 		globalLocations: make(map[string]ServerLocation, len(st.Locations)),
 	}
@@ -402,9 +400,9 @@ func (r *SpeedtestNetRunner) GetServersWithOptions(ctx context.Context, options 
 		}
 	}
 	if options.Global {
-		return r.getGlobalServers(ctx, options.Refresh)
+		return r.getGlobalServers(ctx)
 	}
-	return r.getServersForLocation(ctx, key, options.Location, options.Refresh)
+	return r.getServersForLocation(ctx, key, options.Location)
 }
 
 // viewLimit returns how many retained servers a source shows. Zero means all.
@@ -422,9 +420,6 @@ func (r *SpeedtestNetRunner) GetServerCatalogueStatus(ctx context.Context, optio
 	}
 	if err := ctx.Err(); err != nil {
 		return ServerCatalogueStatus{}, err
-	}
-	if r.catalogueStore == nil {
-		return ServerCatalogueStatus{}, errors.New("speedtest server catalogue store is unavailable")
 	}
 	source, stored, err := r.catalogueStore.GetSpeedtestServerSource(ctx, serverCatalogueSourceKey(options))
 	if err != nil {
@@ -449,7 +444,7 @@ func serverCatalogueSourceKey(options ServerListOptions) string {
 }
 
 // getServersForLocation fetches one local or coordinate source, coalescing concurrent fetches by key.
-func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key string, location *ServerLocation, refresh bool) ([]ServerResponse, error) {
+func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key string, location *ServerLocation) ([]ServerResponse, error) {
 	result := r.serverFetches.DoChan(key, func() (any, error) {
 		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), serverCatalogueFetchTimeout)
 		defer cancel()
@@ -486,29 +481,25 @@ func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key stri
 	}
 }
 
-// getGlobalServers retains successful regional results and reports any failed regions to the caller.
-func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool) ([]ServerResponse, error) {
+// getGlobalServers fetches every regional source once for all concurrent callers.
+// The fetch is detached from ctx, so a caller that leaves, for example behind a
+// proxy timeout, does not stop it. A later read then finds the stored result.
+func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context) ([]ServerResponse, error) {
+	result := r.serverFetches.DoChan(sourceKeyGlobal, func() (any, error) {
+		return r.fetchGlobalServers(context.WithoutCancel(ctx))
+	})
 	select {
-	case r.globalFetch <- struct{}{}:
-		defer func() { <-r.globalFetch }()
 	case <-ctx.Done():
 		return nil, ctx.Err()
+	case fetched := <-result:
+		servers, _ := fetched.Val.([]ServerResponse)
+		return slices.Clone(servers), fetched.Err
 	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	// A caller that waited on the channel may find the fetch already done.
-	if !refresh {
-		stored, err := r.catalogueSourceStored(ctx, sourceKeyGlobal)
-		if err != nil {
-			return nil, err
-		}
-		if stored {
-			return r.loadRetainedServers(ctx, nil, 0)
-		}
-	}
+}
 
-	_, localErr := r.getServersForLocation(ctx, sourceKeyLocal, nil, refresh)
+// fetchGlobalServers retains successful regional results and reports any failed regions to the caller.
+func (r *SpeedtestNetRunner) fetchGlobalServers(ctx context.Context) ([]ServerResponse, error) {
+	_, localErr := r.getServersForLocation(ctx, sourceKeyLocal, nil)
 	userLocation, ok, err := r.loadUserLocation(ctx)
 	if err != nil {
 		return nil, err
@@ -529,22 +520,12 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool)
 	successfulLocations := 0
 	observedAt := r.nextCatalogueObservation()
 	var resultMu sync.Mutex
-	var wg sync.WaitGroup
-	semaphore := make(chan struct{}, 4)
+	var regions errgroup.Group
+	regions.SetLimit(4)
 
 	for _, name := range locationNames {
 		coordinates := r.globalLocations[name]
-		wg.Go(func() {
-			select {
-			case semaphore <- struct{}{}:
-				defer func() { <-semaphore }()
-			case <-ctx.Done():
-				resultMu.Lock()
-				failures = append(failures, ctx.Err())
-				resultMu.Unlock()
-				return
-			}
-
+		regions.Go(func() error {
 			fetchCtx, cancel := context.WithTimeout(ctx, serverCatalogueFetchTimeout)
 			servers, _, fetchErr := r.fetchServers(fetchCtx, &coordinates)
 			cancel()
@@ -552,39 +533,28 @@ func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context, refresh bool)
 			defer resultMu.Unlock()
 			if fetchErr != nil {
 				failures = append(failures, fmt.Errorf("fetch servers near %s: %w", name, fetchErr))
-				return
+				return nil
 			}
 			discovered = append(discovered, servers...)
 			successfulLocations++
+			return nil
 		})
 	}
-	wg.Wait()
+	_ = regions.Wait() // Each region records its own failure.
 
-	var persistErr error
-	if successfulLocations > 0 {
-		// A partial result still marks the source as fetched. Otherwise every
-		// later read would fetch the world again until all regions succeed.
-		// A cancelled fetch keeps its completed regions but stays unfetched,
-		// so the next read finishes the job instead of reporting success.
-		sourceKey := sourceKeyGlobal
-		if ctx.Err() != nil {
-			sourceKey = ""
-		}
-		persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), serverCatalogueStoreTimeout)
-		persistErr = r.updateServerCatalogue(persistCtx, discovered, nil, sourceKey, observedAt)
-		cancel()
-	}
-	if ctxErr := ctx.Err(); ctxErr != nil {
-		return nil, errors.Join(ctxErr, persistErr)
-	}
-	if persistErr != nil {
-		return nil, persistErr
-	}
 	if successfulLocations == 0 {
 		if err := errors.Join(failures...); err != nil {
 			return nil, fmt.Errorf("fetch global speedtest servers: %w", err)
 		}
 		return nil, errors.New("no global speedtest locations configured")
+	}
+	// A partial result still marks the source as fetched. Otherwise every
+	// later read would fetch the world again until all regions succeed.
+	persistCtx, cancel := context.WithTimeout(ctx, serverCatalogueStoreTimeout)
+	err = r.updateServerCatalogue(persistCtx, discovered, nil, sourceKeyGlobal, observedAt)
+	cancel()
+	if err != nil {
+		return nil, err
 	}
 
 	retained, err := r.loadRetainedServers(ctx, &userLocation, 0)
@@ -718,9 +688,6 @@ func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
 
 // catalogueSourceStored reports whether a source has completed a fetch at any time.
 func (r *SpeedtestNetRunner) catalogueSourceStored(ctx context.Context, key string) (bool, error) {
-	if r.catalogueStore == nil {
-		return false, errors.New("speedtest server catalogue store is unavailable")
-	}
 	_, ok, err := r.catalogueStore.GetSpeedtestServerSource(ctx, key)
 	if err != nil {
 		return false, fmt.Errorf("read speedtest server source %q: %w", key, err)
@@ -742,7 +709,7 @@ func (r *SpeedtestNetRunner) nextCatalogueObservation() time.Time {
 	}
 }
 
-// updateServerCatalogue atomically retains an observed batch and optional completed source.
+// updateServerCatalogue atomically retains an observed batch and marks its source as fetched.
 func (r *SpeedtestNetRunner) updateServerCatalogue(
 	ctx context.Context,
 	servers []ServerResponse,
@@ -750,10 +717,6 @@ func (r *SpeedtestNetRunner) updateServerCatalogue(
 	sourceKey string,
 	observedAt time.Time,
 ) error {
-	if r.catalogueStore == nil {
-		return errors.New("speedtest server catalogue store is unavailable")
-	}
-
 	storedServers := make([]database.SpeedtestServer, 0, len(servers))
 	for _, server := range servers {
 		storedServers = append(storedServers, database.SpeedtestServer{
@@ -769,13 +732,10 @@ func (r *SpeedtestNetRunner) updateServerCatalogue(
 		})
 	}
 
-	var source *database.SpeedtestServerSource
-	if sourceKey != "" {
-		source = &database.SpeedtestServerSource{Key: sourceKey, UpdatedAt: observedAt}
-		if detectedLocation != nil {
-			source.Latitude = new(detectedLocation.Latitude)
-			source.Longitude = new(detectedLocation.Longitude)
-		}
+	source := &database.SpeedtestServerSource{Key: sourceKey, UpdatedAt: observedAt}
+	if detectedLocation != nil {
+		source.Latitude = new(detectedLocation.Latitude)
+		source.Longitude = new(detectedLocation.Longitude)
 	}
 	if err := r.catalogueStore.SaveSpeedtestServerCatalogue(ctx, storedServers, source); err != nil {
 		return fmt.Errorf("write retained speedtest servers: %w", err)
@@ -786,9 +746,6 @@ func (r *SpeedtestNetRunner) updateServerCatalogue(
 // loadRetainedServers returns the retained servers sorted from origin. A limit
 // above zero keeps only the nearest servers when an origin is known.
 func (r *SpeedtestNetRunner) loadRetainedServers(ctx context.Context, origin *ServerLocation, limit int) ([]ServerResponse, error) {
-	if r.catalogueStore == nil {
-		return nil, errors.New("speedtest server catalogue store is unavailable")
-	}
 	storedServers, err := r.catalogueStore.ListSpeedtestServers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("read retained speedtest servers: %w", err)
@@ -831,9 +788,6 @@ func (r *SpeedtestNetRunner) loadRetainedServers(ctx context.Context, origin *Se
 
 // retainedServer finds one retained server by ID.
 func (r *SpeedtestNetRunner) retainedServer(ctx context.Context, id string) (database.SpeedtestServer, bool) {
-	if r.catalogueStore == nil {
-		return database.SpeedtestServer{}, false
-	}
 	servers, err := r.catalogueStore.ListSpeedtestServers(ctx)
 	if err != nil {
 		log.Debug().Err(err).Str("server_id", id).Msg("Could not read retained speedtest servers")
@@ -849,9 +803,6 @@ func (r *SpeedtestNetRunner) retainedServer(ctx context.Context, id string) (dat
 
 // loadUserLocation returns the last durably detected local origin.
 func (r *SpeedtestNetRunner) loadUserLocation(ctx context.Context) (ServerLocation, bool, error) {
-	if r.catalogueStore == nil {
-		return ServerLocation{}, false, errors.New("speedtest server catalogue store is unavailable")
-	}
 	source, ok, err := r.catalogueStore.GetSpeedtestServerSource(ctx, sourceKeyLocal)
 	if err != nil {
 		return ServerLocation{}, false, fmt.Errorf("read local speedtest server source: %w", err)
