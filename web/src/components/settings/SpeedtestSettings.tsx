@@ -114,11 +114,11 @@ export const SpeedtestSettings = () => {
       });
       if (warnings.length > 0) {
         showToast("Server catalogue partially updated", "warning", {
-          description: `${sourceLabel}: ${servers.length} retained servers available; ${warnings.length} source${warnings.length === 1 ? "" : "s"} failed`,
+          description: `${sourceLabel}: ${servers.length} servers available; ${warnings.length} source${warnings.length === 1 ? "" : "s"} failed`,
         });
       } else {
         showToast("Server catalogue updated", "success", {
-          description: `${sourceLabel}: ${servers.length} retained servers available`,
+          description: `${sourceLabel}: ${servers.length} servers available`,
         });
       }
     },
@@ -304,7 +304,7 @@ export const SpeedtestSettings = () => {
                         : isStatusError
                         ? "Discovery status is unavailable. You can still fetch this source."
                         : sourceStored
-                          ? `${lastUpdated ? `Last updated ${lastUpdated}. ` : ""}${fetchedServers ? `${fetchedServers.servers.length} servers are retained in total. ` : ""}Fetch again to add newly available servers.`
+                          ? `${lastUpdated ? `Last updated ${lastUpdated}. ` : ""}${fetchedServers ? `${fetchedServers.servers.length} servers are available for this source. ` : ""}Fetch again to add newly available servers.`
                           : "Fetch this source once to add its servers to the retained catalogue."}
                   </p>
                 </div>

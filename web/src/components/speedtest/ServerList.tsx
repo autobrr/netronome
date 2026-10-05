@@ -147,8 +147,8 @@ export const ServerList: React.FC<ServerListProps> = ({
     }
     // Prefer the real server if it's in the fetched list, so display data is correct
     const existing = servers.find((s) => s.id === id);
-    handleServerSelect(
-      existing ?? {
+    handleServerSelect({
+      ...(existing ?? {
         id,
         name: `Server ${id}`,
         host: `speedtest.net server ${id}`,
@@ -159,8 +159,9 @@ export const ServerList: React.FC<ServerListProps> = ({
         latitude: 0,
         longitude: 0,
         isIperf: false,
-      }
-    );
+      }),
+      isCustom: true,
+    });
     setCustomServerId("");
   };
 

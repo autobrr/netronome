@@ -191,10 +191,11 @@ export default function Main({ isPublic = false }: MainProps) {
   }, [testType, speedtestServers, librespeedServers]);
 
   // A chosen Speedtest.net server that left the list, for example after a source change, is no longer selected.
+  // A server added by ID stays selected.
   const selectedServers =
     testType !== "speedtest" || servers.length === 0
       ? chosenServers
-      : chosenServers.filter((selected) => servers.some((server) => server.id === selected.id));
+      : chosenServers.filter((selected) => selected.isCustom || servers.some((server) => server.id === selected.id));
 
   const { data: dashboardSettings } = useQuery({
     queryKey: ["dashboard-settings"],

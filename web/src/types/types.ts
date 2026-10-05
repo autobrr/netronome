@@ -17,6 +17,8 @@ export interface Server {
   isIperf: boolean;
   isLibrespeed?: boolean;
   isPublic?: boolean;
+  /** Added by ID, so it stays selected when it is not in the server list. */
+  isCustom?: boolean;
 }
 
 /** A persisted speed measurement and its recorded server identity. */
