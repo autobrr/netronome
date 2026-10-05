@@ -181,8 +181,6 @@ export const ServerList: React.FC<ServerListProps> = ({
   const handleTestTypeChange = (
     newTestType: "speedtest" | "iperf" | "librespeed"
   ) => {
-    // Clear selected servers when toggling
-    selectedServers.forEach((server) => onSelect(server));
     // Save the new state to localStorage
     localStorage.setItem("testType", newTestType);
     onTestTypeChange(newTestType);

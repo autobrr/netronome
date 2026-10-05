@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from "react";
-import type { Schedule, Server, SpeedTestResult } from "../types/types.ts";
+import type { Schedule, Server, SpeedTestResult, TestType } from "../types/types.ts";
 
 /** Selects the geographic source used to add servers to the server catalogue. */
 export type SpeedtestServerSource = "local" | "global" | "coordinates";
@@ -191,5 +191,29 @@ export const findScheduleServer = (
     server.id === serverID &&
     Boolean(server.isLibrespeed) === expectsLibrespeed &&
     (!expectsLibrespeed || Boolean(server.isPublic) === (options.isPublicServer === true))
+  );
+};
+
+/** The servers that the user chose, and the test type they chose them for. */
+export interface ServerSelection {
+  testType: TestType;
+  servers: Server[];
+}
+
+/**
+ * Returns the chosen servers that a test of testType can use.
+ * A selection for a different test type gives no servers.
+ * A chosen Speedtest.net server that left the list, for example after a source change, is not selected.
+ * A server added by ID stays selected.
+ */
+export const selectedServersFor = (
+  selection: ServerSelection,
+  testType: TestType,
+  servers: Server[]
+): Server[] => {
+  if (selection.testType !== testType) return [];
+  if (testType !== "speedtest" || servers.length === 0) return selection.servers;
+  return selection.servers.filter(
+    (selected) => selected.isCustom || servers.some((server) => server.id === selected.id)
   );
 };
