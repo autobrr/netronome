@@ -98,7 +98,41 @@ func (s *service) RunIperfTest(ctx context.Context, opts *types.TestOptions) (*t
 	return s.iperfRunner.runSingleIperfTest(ctx, opts)
 }
 
+// RunTest runs a speed test and saves the result. If the test fails, it sends
+// the failed speed test notification.
 func (s *service) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
+	result, err := s.runTest(ctx, opts)
+	if err != nil {
+		s.notifyFailure(opts)
+	}
+	return result, err
+}
+
+func (s *service) notifyFailure(opts *types.TestOptions) {
+	if s.notifier == nil {
+		return
+	}
+
+	failed := &notifications.SpeedTestResult{
+		ServerName: "Unknown",
+		Provider:   "speedtest",
+		Failed:     true,
+	}
+	if len(opts.ServerIDs) > 0 {
+		failed.ServerName = opts.ServerIDs[0]
+	}
+	if opts.UseIperf {
+		failed.Provider = "iperf"
+	} else if opts.UseLibrespeed {
+		failed.Provider = "librespeed"
+	}
+
+	if err := s.notifier.SendSpeedTestNotification(failed); err != nil {
+		log.Error().Err(err).Msg("Failed to send speedtest failure notification")
+	}
+}
+
+func (s *service) runTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
 	log.Debug().
 		Bool("isScheduled", opts.IsScheduled).
 		Bool("useIperf", opts.UseIperf).
