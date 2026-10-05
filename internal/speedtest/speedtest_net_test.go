@@ -148,6 +148,54 @@ func TestFetchSpeedtestServerListPreservesDiscoveryMetadataWithoutProbes(t *test
 	assert.InDelta(t, 153.0251, got[1].Lon, 1e-9)
 }
 
+func TestFetchSpeedtestServerListRetriesAfterRateLimit(t *testing.T) {
+	var requestCount atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if requestCount.Add(1) == 1 {
+			w.Header().Set("Retry-After", "0")
+			http.Error(w, "slow down", http.StatusTooManyRequests)
+			return
+		}
+		_, err := w.Write([]byte(`[{"id":"1","name":"Oslo","host":"unresolved.invalid:8080"}]`))
+		assert.NoError(t, err)
+	}))
+	t.Cleanup(server.Close)
+
+	servers, err := fetchSpeedtestServerList(t.Context(), server.URL, nil)
+	require.NoError(t, err)
+	assert.Equal(t, int32(2), requestCount.Load())
+	require.Len(t, servers, 1)
+	assert.Equal(t, "1", servers[0].ID)
+}
+
+func TestFetchSpeedtestServerListStopsRetryingPersistentRateLimit(t *testing.T) {
+	var requestCount atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requestCount.Add(1)
+		w.Header().Set("Retry-After", "0")
+		http.Error(w, "slow down", http.StatusTooManyRequests)
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := fetchSpeedtestServerList(t.Context(), server.URL, nil)
+	require.ErrorContains(t, err, "status 429 Too Many Requests")
+	assert.Equal(t, int32(4), requestCount.Load())
+}
+
+func TestFetchSpeedtestServerListReportsRateLimitWhenWaitOutlastsContext(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "60")
+		http.Error(w, "slow down", http.StatusTooManyRequests)
+	}))
+	t.Cleanup(server.Close)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+	_, err := fetchSpeedtestServerList(ctx, server.URL, nil)
+	require.ErrorContains(t, err, "status 429 Too Many Requests")
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
 func TestFetchSpeedtestServerListRejectsUnsuccessfulResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "try again later", http.StatusServiceUnavailable)

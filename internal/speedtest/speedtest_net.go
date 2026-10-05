@@ -37,6 +37,8 @@ const (
 	sourceKeyLocal                  = "local"
 	sourceKeyGlobal                 = "global"
 	speedtestServerListURL          = "https://www.speedtest.net/api/js/servers"
+	// serverListAttempts limits the requests for one server list when Speedtest.net returns 429.
+	serverListAttempts = 4
 	// nearestServerLimit is how many retained servers the local and coordinate
 	// views show, nearest first. The global view shows every retained server.
 	nearestServerLimit = 10
@@ -625,9 +627,27 @@ func fetchSpeedtestServerList(ctx context.Context, endpoint string, location *Se
 	}
 	request.Header.Set("User-Agent", st.DefaultUserAgent)
 
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return nil, fmt.Errorf("request speedtest servers: %w", err)
+	// Speedtest.net returns 429 when a global fetch follows another one too soon.
+	// The request waits as Retry-After says, or 1, 2, then 4 seconds.
+	var response *http.Response
+	for attempt := range serverListAttempts {
+		response, err = http.DefaultClient.Do(request)
+		if err != nil {
+			return nil, fmt.Errorf("request speedtest servers: %w", err)
+		}
+		if response.StatusCode != http.StatusTooManyRequests || attempt == serverListAttempts-1 {
+			break
+		}
+		response.Body.Close()
+		wait := time.Second << attempt
+		if seconds, err := strconv.Atoi(response.Header.Get("Retry-After")); err == nil {
+			wait = time.Duration(seconds) * time.Second
+		}
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("request speedtest servers: status %s: %w", response.Status, ctx.Err())
+		case <-time.After(wait):
+		}
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
