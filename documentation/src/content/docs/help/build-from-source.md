@@ -9,9 +9,9 @@ The build puts the web interface and the backend into one binary, `bin/netronome
 
 ## Prerequisites
 
-- Go 1.26 or later.
-- Node.js and pnpm. The web interface uses pnpm only.
-- `make` and `git`.
+- Install Go 1.27 or later.
+- Install Node.js and pnpm. The web interface uses pnpm only.
+- Install `make` and `git`.
 
 ## Build with SMART support
 
