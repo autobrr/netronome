@@ -34,11 +34,13 @@ type SpeedtestServer struct {
 
 // SpeedtestServerSource records the last completed discovery for one source.
 // Latitude and Longitude are populated together for the detected local origin.
+// FailedRegions counts the global regions that the last fetch did not get.
 type SpeedtestServerSource struct {
-	Key       string
-	UpdatedAt time.Time
-	Latitude  *float64
-	Longitude *float64
+	Key           string
+	UpdatedAt     time.Time
+	Latitude      *float64
+	Longitude     *float64
+	FailedRegions int
 }
 
 // ListSpeedtestServers returns every retained Speedtest.net server ordered by ID.
@@ -83,7 +85,7 @@ func (s *service) ListSpeedtestServers(ctx context.Context) ([]SpeedtestServer, 
 // false when the source has never completed successfully.
 func (s *service) GetSpeedtestServerSource(ctx context.Context, key string) (SpeedtestServerSource, bool, error) {
 	query := s.sqlBuilder.
-		Select("source_key", "updated_at", "latitude", "longitude").
+		Select("source_key", "updated_at", "latitude", "longitude", "failed_regions").
 		From("speedtest_server_sources").
 		Where(sq.Eq{"source_key": key})
 
@@ -94,6 +96,7 @@ func (s *service) GetSpeedtestServerSource(ctx context.Context, key string) (Spe
 		&source.UpdatedAt,
 		&latitude,
 		&longitude,
+		&source.FailedRegions,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return SpeedtestServerSource{}, false, nil
@@ -163,12 +166,13 @@ func (s *service) SaveSpeedtestServerCatalogue(
 	if source != nil {
 		query := s.sqlBuilder.
 			Insert("speedtest_server_sources").
-			Columns("source_key", "updated_at", "latitude", "longitude").
-			Values(source.Key, source.UpdatedAt.UTC(), source.Latitude, source.Longitude).
+			Columns("source_key", "updated_at", "latitude", "longitude", "failed_regions").
+			Values(source.Key, source.UpdatedAt.UTC(), source.Latitude, source.Longitude, source.FailedRegions).
 			Suffix(`ON CONFLICT (source_key) DO UPDATE SET
 				updated_at = EXCLUDED.updated_at,
 				latitude = EXCLUDED.latitude,
-				longitude = EXCLUDED.longitude
+				longitude = EXCLUDED.longitude,
+				failed_regions = EXCLUDED.failed_regions
 			WHERE speedtest_server_sources.updated_at < EXCLUDED.updated_at`)
 		if _, err := query.RunWith(tx).ExecContext(ctx); err != nil {
 			return fmt.Errorf("failed to upsert speedtest server source %q: %w", source.Key, err)

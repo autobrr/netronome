@@ -18,6 +18,10 @@ export type { SpeedtestServerCatalogueResult } from "./serverCatalogueResponse";
 export interface SpeedtestServerCatalogueStatus {
   stored: boolean;
   updatedAt?: string;
+  /** Global regions that the last fetch did not get. Absent when 0. */
+  failedRegions?: number;
+  /** Global regions that a fetch asks for. Absent for other sources. */
+  totalRegions?: number;
 }
 
 const addSpeedtestServerQuery = (params: URLSearchParams, query: SpeedtestServerQuery) => {

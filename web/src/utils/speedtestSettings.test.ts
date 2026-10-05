@@ -127,6 +127,16 @@ test("server discovery status distinguishes every state", () => {
     }),
     "No completed global discovery yet",
   );
+  assert.equal(
+    formatSpeedtestServerStorageStatus("Global", {
+      stored: true,
+      failedRegions: 18,
+      totalRegions: 26,
+      isLoading: false,
+      isError: false,
+    }),
+    "Last fetch incomplete: 8 of 26 regions",
+  );
 });
 
 test("history labels and keys preserve distinct server identities", () => {

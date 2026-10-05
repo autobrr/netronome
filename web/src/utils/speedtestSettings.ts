@@ -53,10 +53,19 @@ export const speedtestServerStatusQueryKey = (settings: SpeedtestSettings) =>
 /** Formats the selected source's stored state. */
 export const formatSpeedtestServerStorageStatus = (
   sourceLabel: string,
-  status: { stored?: boolean; isLoading: boolean; isError: boolean },
+  status: {
+    stored?: boolean;
+    failedRegions?: number;
+    totalRegions?: number;
+    isLoading: boolean;
+    isError: boolean;
+  },
 ): string => {
   if (status.isLoading) return "Checking discovery status…";
   if (status.isError) return "Discovery status unavailable";
+  if (status.stored && status.failedRegions && status.totalRegions) {
+    return `Last fetch incomplete: ${status.totalRegions - status.failedRegions} of ${status.totalRegions} regions`;
+  }
   return status.stored
     ? `${sourceLabel} discovery completed`
     : `No completed ${sourceLabel.toLowerCase()} discovery yet`;
