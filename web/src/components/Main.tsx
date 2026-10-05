@@ -18,9 +18,11 @@ import { showToast } from "@/components/common/Toast";
 import { getPublicTheme } from "@/api/license";
 import { applyPublicColorTheme } from "@/utils/colorTheme";
 import {
+  selectedServersFor,
   speedtestServerQueryKey,
   speedtestServerQuery,
   useSpeedtestSettings,
+  type ServerSelection,
 } from "@/utils/speedtestSettings";
 import {
   ChartBarIcon,
@@ -94,7 +96,10 @@ export default function Main({ isPublic = false }: MainProps) {
     serverIds: [],
   });
   const [testType, setTestType] = useState<TestType>("speedtest");
-  const [chosenServers, setChosenServers] = useState<Server[]>([]);
+  const [serverSelection, setServerSelection] = useState<ServerSelection>({
+    testType: "speedtest",
+    servers: [],
+  });
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
     "idle"
@@ -190,12 +195,7 @@ export default function Main({ isPublic = false }: MainProps) {
     return speedtestServers;
   }, [testType, speedtestServers, librespeedServers]);
 
-  // A chosen Speedtest.net server that left the list, for example after a source change, is no longer selected.
-  // A server added by ID stays selected.
-  const selectedServers =
-    testType !== "speedtest" || servers.length === 0
-      ? chosenServers
-      : chosenServers.filter((selected) => selected.isCustom || servers.some((server) => server.id === selected.id));
+  const selectedServers = selectedServersFor(serverSelection, testType, servers);
 
   const { data: dashboardSettings } = useQuery({
     queryKey: ["dashboard-settings"],
@@ -286,14 +286,18 @@ export default function Main({ isPublic = false }: MainProps) {
   });
 
   const handleServerSelect = (server: Server) => {
-    setChosenServers((prev) => {
+    setServerSelection((selection) => {
+      const prev = selection.testType === testType ? selection.servers : [];
       const isSelected = prev.some((s) => s.id === server.id);
       if (!options.multiServer) {
-        return isSelected ? [] : [server];
+        return { testType, servers: isSelected ? [] : [server] };
       }
-      return isSelected
-        ? prev.filter((s) => s.id !== server.id)
-        : [...prev, server];
+      return {
+        testType,
+        servers: isSelected
+          ? prev.filter((s) => s.id !== server.id)
+          : [...prev, server],
+      };
     });
   };
 

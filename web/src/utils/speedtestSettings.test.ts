@@ -12,11 +12,13 @@ import {
   isLatitude,
   isLongitude,
   normalizeSpeedtestSettings,
+  selectedServersFor,
   speedtestResultServerKey,
   speedtestServerQueryKey,
   speedtestServerStatusQueryKey,
   speedtestServerQuery,
 } from "./speedtestSettings.ts";
+import type { Server } from "../types/types.ts";
 
 test("coordinate settings require finite in-range coordinates", () => {
   assert.equal(isLatitude(-90), true);
@@ -208,5 +210,21 @@ test("schedule lookup respects the saved LibreSpeed catalogue source", () => {
   assert.equal(
     findScheduleServer(servers, "1", { ...options, isPublicServer: false })?.name,
     "Custom",
+  );
+});
+
+test("selectedServersFor keeps a selection to its own test type", () => {
+  const server = (id: string, isCustom = false) => ({ id, isCustom }) as Server;
+  const speedtestServer = server("1");
+  const selection = { testType: "speedtest" as const, servers: [speedtestServer] };
+
+  assert.deepEqual(selectedServersFor(selection, "speedtest", [speedtestServer]), [speedtestServer]);
+  assert.deepEqual(selectedServersFor(selection, "librespeed", [server("2")]), []);
+  assert.deepEqual(selectedServersFor(selection, "iperf", []), []);
+
+  const custom = server("3", true);
+  assert.deepEqual(
+    selectedServersFor({ testType: "speedtest", servers: [speedtestServer, custom] }, "speedtest", [server("4")]),
+    [custom]
   );
 });
