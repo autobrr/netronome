@@ -1,4 +1,4 @@
-# Netronome Domain Context
+# Netronome glossary
 
 The vocabulary of this codebase. When a word here has a definition, use that word
 with that meaning, in code, in issues, and in commit messages.

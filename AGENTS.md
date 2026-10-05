@@ -36,7 +36,7 @@ Write every page in `documentation/`, `docs/`, and `README.md` in Simplified Tec
 - `./test/test-local.sh`: local dockerized scenario tests.
 
 ## Coding Style & Naming Conventions
-- Go: `gofmt` or `goimports`, Go 1.26 target.
+- Go: `gofmt` or `goimports`, Go 1.27 target.
 - TypeScript: 2-space indentation, PascalCase components, camelCase utilities.
 - Tailwind tokens should align with the `@theme` block in `web/src/index.css`.
 - Lint: `pnpm -C web lint` (ESLint).
@@ -52,7 +52,7 @@ Write every page in `documentation/`, `docs/`, and `README.md` in Simplified Tec
 ## Commit & Pull Request Guidelines
 - Conventional Commits: `feat|fix|refactor|build|ci|chore|docs|style|perf|test`.
 - Keep changes scoped; avoid unrelated refactors and mass formatting.
-- PRs must include: summary, test commands run, and screenshots for UI changes.
+- Write the PR body with `.github/pull_request_template.md` and follow its comments.
 - For issue-driven fixes, review attached screenshots/log images before coding.
 - Use `pnpm` only; do not add `package-lock.json`.
 
@@ -74,4 +74,4 @@ The five canonical triage roles, each label string equal to its name. See `docs/
 
 ### Domain docs
 
-Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
