@@ -17,6 +17,8 @@ If you start Netronome with `--config <path>`, it reads only that file. If you d
 
 If Netronome finds no file, it starts with the default values and the environment variables. To write a file with the default values, run `netronome generate-config`. For more, see [CLI](/reference/cli/).
 
+If Netronome finds a file that it cannot read as TOML, it stops with an error. It does not try the next path and it does not start with the default values. This is also true for the agent.
+
 Netronome resolves a relative `database.path` from the directory of the configuration file. It also reads `librespeed-servers.json` from that directory.
 
 The default values in the tables below are the values that Netronome uses when a key is missing from the file. The file that `generate-config` writes can contain other values. For example, it sets `server.host` to `0.0.0.0` in a container and writes a random `session_secret`.
