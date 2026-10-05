@@ -52,7 +52,7 @@ Write every page in `documentation/`, `docs/`, and `README.md` in Simplified Tec
 ## Commit & Pull Request Guidelines
 - Conventional Commits: `feat|fix|refactor|build|ci|chore|docs|style|perf|test`.
 - Keep changes scoped; avoid unrelated refactors and mass formatting.
-- PRs must include: summary, test commands run, and screenshots for UI changes.
+- Write the PR body with `.github/pull_request_template.md` and follow its comments.
 - For issue-driven fixes, review attached screenshots/log images before coding.
 - Use `pnpm` only; do not add `package-lock.json`.
 
