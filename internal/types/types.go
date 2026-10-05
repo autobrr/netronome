@@ -17,9 +17,13 @@ type TestOptions struct {
 	IsScheduled      bool     `json:"isScheduled"`
 	UseIperf         bool     `json:"useIperf"`
 	UseLibrespeed    bool     `json:"useLibrespeed"`
+	UseURLDownload   bool     `json:"useUrlDownload"`
 	ServerHost       string   `json:"serverHost"`
 	ServerName       string   `json:"serverName"`
 	IsPublicServer   bool     `json:"isPublicServer"`
+	DownloadURL      string   `json:"downloadUrl,omitempty"`
+	DownloadThreads  int      `json:"downloadThreads,omitempty"`
+	DownloadTimeout  int      `json:"downloadTimeout,omitempty"`
 }
 
 type SpeedUpdate struct {

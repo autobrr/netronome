@@ -3,10 +3,21 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+// Test type constants
+export const TestType = {
+  SPEEDTEST: 'speedtest',
+  IPERF3: 'iperf3',
+  LIBRESPEED: 'librespeed',
+  URL_DOWNLOAD: 'url_download'
+} as const;
+
+export type TestType = typeof TestType[keyof typeof TestType];
+
 export interface Server {
   id: string;
   name: string;
   host: string;
+  url?: string;
   location: string;
   distance: number;
   country: string;
@@ -23,7 +34,7 @@ export interface SpeedTestResult {
   serverId: string;
   serverName: string;
   serverHost: string;
-  testType: "speedtest" | "iperf3" | "librespeed";
+  testType: "speedtest" | "iperf3" | "librespeed" | "url_download";
   downloadSpeed: number;
   uploadSpeed: number;
   latency: string;
@@ -43,6 +54,7 @@ export interface TestProgress {
   progress: number;
   isIperf: boolean;
   isLibrespeed: boolean;
+  isUrlDownload?: boolean;
 }
 
 export interface Schedule {
@@ -57,9 +69,13 @@ export interface Schedule {
     serverIds: string[];
     useIperf: boolean;
     useLibrespeed?: boolean;
+    useUrlDownload?: boolean;
     serverHost: string | undefined;
     serverName?: string | undefined;
     isPublicServer?: boolean;
+    downloadUrl?: string;
+    downloadThreads?: number;
+    downloadTimeout?: number;
   };
 }
 
@@ -70,10 +86,14 @@ export interface TestOptions {
   multiServer: boolean;
   useIperf: boolean;
   useLibrespeed?: boolean;
+  useUrlDownload?: boolean;
   serverIds?: string[];
   serverHost?: string;
   serverName?: string;
   isPublicServer?: boolean;
+  downloadUrl?: string;
+  downloadThreads?: number;
+  downloadTimeout?: number;
 }
 
 export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
