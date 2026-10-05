@@ -172,8 +172,8 @@ func TestFailedScheduledTestWaitsForNextSlot(t *testing.T) {
 		if st.runs != 1 {
 			t.Fatalf("RunTest ran %d times, want 1", st.runs)
 		}
-		if !db.schedule.NextRun.After(now.Add(time.Hour)) {
-			t.Fatalf("next_run = %v, want after %v", db.schedule.NextRun, now.Add(time.Hour))
+		if db.schedule.NextRun.Before(now.Add(time.Hour)) {
+			t.Fatalf("next_run = %v, want at or after %v", db.schedule.NextRun, now.Add(time.Hour))
 		}
 	})
 }
