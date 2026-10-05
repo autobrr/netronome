@@ -65,6 +65,9 @@ type Service interface {
 	// SpeedTest operations
 	SaveSpeedTest(ctx context.Context, result types.SpeedTestResult) (*types.SpeedTestResult, error)
 	GetSpeedTests(ctx context.Context, timeRange string, page int, limit int) (*types.PaginatedSpeedTests, error)
+	ListSpeedtestServers(ctx context.Context) ([]SpeedtestServer, error)
+	GetSpeedtestServerSource(ctx context.Context, key string) (SpeedtestServerSource, bool, error)
+	SaveSpeedtestServerCatalogue(ctx context.Context, servers []SpeedtestServer, source *SpeedtestServerSource) error
 
 	// App settings operations
 	GetAppSetting(ctx context.Context, key string) (string, error)

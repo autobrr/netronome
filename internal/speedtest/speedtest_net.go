@@ -4,50 +4,96 @@
 package speedtest
 
 import (
+	"cmp"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"net/http"
-	"sort"
+	"net/url"
+	"slices"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog/log"
 	st "github.com/showwin/speedtest-go/speedtest"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/autobrr/netronome/internal/config"
+	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/types"
 )
 
+const (
+	// serverCatalogueFetchTimeout bounds each upstream server discovery request.
+	serverCatalogueFetchTimeout     = 30 * time.Second
+	serverCatalogueStoreTimeout     = 30 * time.Second
+	serverCatalogueCoordinatePrefix = "location:"
+	sourceKeyLocal                  = "local"
+	sourceKeyGlobal                 = "global"
+	speedtestServerListURL          = "https://www.speedtest.net/api/js/servers"
+	// serverListAttempts limits the requests for one server list when Speedtest.net returns 429.
+	serverListAttempts = 4
+	// nearestServerLimit is how many retained servers the local and coordinate
+	// views show, nearest first. The global view shows every retained server.
+	nearestServerLimit = 10
+)
+
+// serverCatalogueStore owns durable Speedtest.net servers and discovery-source status.
+type serverCatalogueStore interface {
+	ListSpeedtestServers(ctx context.Context) ([]database.SpeedtestServer, error)
+	GetSpeedtestServerSource(ctx context.Context, key string) (database.SpeedtestServerSource, bool, error)
+	SaveSpeedtestServerCatalogue(
+		ctx context.Context,
+		servers []database.SpeedtestServer,
+		source *database.SpeedtestServerSource,
+	) error
+}
+
+// SpeedtestNetRunner executes Speedtest.net tests, coalesces discovery, and persistently retains servers.
 type SpeedtestNetRunner struct {
 	client           *st.Speedtest
 	config           config.SpeedTestConfig
 	progressCallback func(types.SpeedUpdate)
-	serverCache      []ServerResponse
-	cacheExpiry      time.Time
-	cacheDuration    time.Duration
+	catalogueStore   serverCatalogueStore
+	serverFetches    singleflight.Group
+	lastObservation  atomic.Int64
+	fetchServers     serverFetcher
+	globalLocations  map[string]ServerLocation
 }
 
-func NewSpeedtestNetRunner(cfg config.SpeedTestConfig) *SpeedtestNetRunner {
+type serverFetcher func(context.Context, *ServerLocation) ([]ServerResponse, *ServerLocation, error)
+
+// NewSpeedtestNetRunner creates a runner whose server catalogue is backed by store.
+func NewSpeedtestNetRunner(cfg config.SpeedTestConfig, store serverCatalogueStore) *SpeedtestNetRunner {
 	client := st.New()
 	client.SetNThread(cfg.Connections) // 0 keeps the library default
-	return &SpeedtestNetRunner{
-		client:        client,
-		config:        cfg,
-		cacheDuration: 30 * time.Minute,
-		cacheExpiry:   time.Now(),
+	runner := &SpeedtestNetRunner{
+		client:          client,
+		config:          cfg,
+		catalogueStore:  store,
+		fetchServers:    fetchSpeedtestServers,
+		globalLocations: make(map[string]ServerLocation, len(st.Locations)),
 	}
-}
-
-func (r *SpeedtestNetRunner) GetTestType() string {
-	return "speedtest"
+	for name, location := range st.Locations {
+		if location != nil {
+			runner.globalLocations[name] = ServerLocation{Latitude: location.Lat, Longitude: location.Lon}
+		}
+	}
+	return runner
 }
 
 func (r *SpeedtestNetRunner) SetProgressCallback(callback func(types.SpeedUpdate)) {
 	r.progressCallback = callback
 }
 
+// RunTest executes a Speedtest.net test against a requested server or the nearest available server.
+// Requested IDs omitted from the public list are looked up directly before the test is rejected.
 func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
 	log.Debug().
 		Bool("isScheduled", opts.IsScheduled).
@@ -95,10 +141,20 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		if len(opts.ServerIDs) > 0 {
 			return nil, fmt.Errorf("requested server(s) %v not found in public list or by direct lookup", opts.ServerIDs)
 		}
-		sort.Slice(serverList, func(i, j int) bool {
-			return serverList[i].Distance < serverList[j].Distance
+		if len(serverList) == 0 {
+			return nil, errors.New("no speedtest servers available")
+		}
+		slices.SortFunc(serverList, func(a, b *st.Server) int {
+			return cmp.Compare(a.Distance, b.Distance)
 		})
 		selectedServer = serverList[0]
+	}
+
+	// The by-ID lookup at Speedtest.net returns no host, so fill it from the retained catalogue.
+	if retained, ok := r.retainedServer(ctx, selectedServer.ID); ok {
+		selectedServer.Host = cmp.Or(selectedServer.Host, retained.Host)
+		selectedServer.Name = cmp.Or(selectedServer.Name, retained.Name)
+		selectedServer.Country = cmp.Or(selectedServer.Country, retained.Country)
 	}
 
 	log.Info().
@@ -112,8 +168,11 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		Msg("Starting speedtest.net test")
 
 	result := &Result{
-		Timestamp: time.Now(),
-		Server:    selectedServer.Sponsor, // Use provider/sponsor instead of city name
+		Timestamp:  time.Now(),
+		Server:     selectedServer.Sponsor, // Use provider/sponsor instead of city name
+		ServerID:   selectedServer.ID,
+		ServerHost: selectedServer.Host,
+		ServerCity: selectedServer.Name,
 	}
 
 	resolveServerURL(ctx, selectedServer)
@@ -321,81 +380,455 @@ func resolveServerURL(ctx context.Context, server *st.Server) {
 	}
 }
 
-func (r *SpeedtestNetRunner) GetServers() ([]ServerResponse, error) {
-	log.Trace().
-		Int("cache_size", len(r.serverCache)).
-		Time("cache_expiry", r.cacheExpiry).
-		Bool("cache_valid", time.Now().Before(r.cacheExpiry)).
-		Msg("Checking cache status")
+// GetServersWithOptions returns the durable Speedtest.net catalogue. An empty catalogue fetches
+// from the selected source, while Refresh always fetches and persists before returning the update.
+// Concurrent fetches for one local or coordinate source share work while each waiter observes its
+// own context.
+func (r *SpeedtestNetRunner) GetServersWithOptions(ctx context.Context, options ServerListOptions) ([]ServerResponse, error) {
+	if options.Global && options.Location != nil {
+		return nil, errors.New("global and coordinate server searches are mutually exclusive")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	key := serverCatalogueSourceKey(options)
+	if !options.Refresh {
+		stored, err := r.catalogueSourceStored(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+		if stored {
+			return r.loadRetainedServers(ctx, options.Location, viewLimit(options))
+		}
+	}
+	if options.Global {
+		return r.getGlobalServers(ctx)
+	}
+	return r.getServersForLocation(ctx, key, options.Location)
+}
 
-	if len(r.serverCache) > 0 && time.Now().Before(r.cacheExpiry) {
+// viewLimit returns how many retained servers a source shows. Zero means all.
+func viewLimit(options ServerListOptions) int {
+	if options.Global {
+		return 0
+	}
+	return nearestServerLimit
+}
+
+// GetServerCatalogueStatus returns durable fetch metadata without contacting Speedtest.net.
+func (r *SpeedtestNetRunner) GetServerCatalogueStatus(ctx context.Context, options ServerListOptions) (ServerCatalogueStatus, error) {
+	if options.Global && options.Location != nil {
+		return ServerCatalogueStatus{}, errors.New("global and coordinate server searches are mutually exclusive")
+	}
+	if err := ctx.Err(); err != nil {
+		return ServerCatalogueStatus{}, err
+	}
+	source, stored, err := r.catalogueStore.GetSpeedtestServerSource(ctx, serverCatalogueSourceKey(options))
+	if err != nil {
+		return ServerCatalogueStatus{}, fmt.Errorf("read speedtest server source status: %w", err)
+	}
+	if !stored {
+		return ServerCatalogueStatus{}, nil
+	}
+	return ServerCatalogueStatus{Stored: true, UpdatedAt: new(source.UpdatedAt)}, nil
+}
+
+// serverCatalogueSourceKey returns the durable identity for one discovery origin.
+func serverCatalogueSourceKey(options ServerListOptions) string {
+	if options.Global {
+		return sourceKeyGlobal
+	}
+	if options.Location != nil {
+		return serverCatalogueCoordinatePrefix + strconv.FormatFloat(options.Location.Latitude, 'f', -1, 64) + "," +
+			strconv.FormatFloat(options.Location.Longitude, 'f', -1, 64)
+	}
+	return sourceKeyLocal
+}
+
+// getServersForLocation fetches one local or coordinate source, coalescing concurrent fetches by key.
+func (r *SpeedtestNetRunner) getServersForLocation(ctx context.Context, key string, location *ServerLocation) ([]ServerResponse, error) {
+	result := r.serverFetches.DoChan(key, func() (any, error) {
+		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), serverCatalogueFetchTimeout)
+		defer cancel()
+		servers, userLocation, err := r.fetchServers(fetchCtx, location)
+		if err != nil {
+			return nil, err
+		}
+		persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), serverCatalogueStoreTimeout)
+		defer persistCancel()
+		err = r.updateServerCatalogue(persistCtx, servers, userLocation, key, r.nextCatalogueObservation())
+		if err != nil {
+			return nil, err
+		}
+		retained, err := r.loadRetainedServers(persistCtx, location, nearestServerLimit)
+		if err != nil {
+			return nil, err
+		}
+
 		log.Debug().
-			Int("server_count", len(r.serverCache)).
-			Time("cache_expiry", r.cacheExpiry).
-			Msg("Returning cached speedtest servers")
-		return r.serverCache, nil
+			Str("source_key", key).
+			Int("server_count", len(retained)).
+			Msg("Retrieved and retained speedtest servers")
+		return retained, nil
+	})
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case fetched := <-result:
+		if fetched.Err != nil {
+			return nil, fetched.Err
+		}
+		return slices.Clone(fetched.Val.([]ServerResponse)), nil
 	}
+}
 
-	log.Debug().Msg("Cache miss, fetching fresh speedtest servers")
+// getGlobalServers fetches every regional source once for all concurrent callers.
+// The fetch is detached from ctx, so a caller that leaves, for example behind a
+// proxy timeout, does not stop it. A later read then finds the stored result.
+func (r *SpeedtestNetRunner) getGlobalServers(ctx context.Context) ([]ServerResponse, error) {
+	result := r.serverFetches.DoChan(sourceKeyGlobal, func() (any, error) {
+		return r.fetchGlobalServers(context.WithoutCancel(ctx))
+	})
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case fetched := <-result:
+		servers, _ := fetched.Val.([]ServerResponse)
+		return slices.Clone(servers), fetched.Err
+	}
+}
 
-	_, err := r.client.FetchUserInfo()
+// fetchGlobalServers retains successful regional results and reports any failed regions to the caller.
+func (r *SpeedtestNetRunner) fetchGlobalServers(ctx context.Context) ([]ServerResponse, error) {
+	_, localErr := r.getServersForLocation(ctx, sourceKeyLocal, nil)
+	userLocation, ok, err := r.loadUserLocation(ctx)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to fetch speedtest user info")
-		return nil, fmt.Errorf("failed to fetch user info: %w", err)
+		return nil, err
+	}
+	if !ok {
+		if localErr != nil {
+			return nil, fmt.Errorf("fetch local speedtest servers: %w", localErr)
+		}
+		return nil, errors.New("speedtest user location is unavailable")
 	}
 
-	serverList, err := r.client.FetchServers()
+	locationNames := slices.Sorted(maps.Keys(r.globalLocations))
+	failures := make([]error, 0, len(locationNames)+1)
+	if localErr != nil {
+		failures = append(failures, fmt.Errorf("fetch local speedtest servers: %w", localErr))
+	}
+	var discovered []ServerResponse
+	successfulLocations := 0
+	observedAt := r.nextCatalogueObservation()
+	var resultMu sync.Mutex
+	var regions errgroup.Group
+	regions.SetLimit(4)
+
+	for _, name := range locationNames {
+		coordinates := r.globalLocations[name]
+		regions.Go(func() error {
+			fetchCtx, cancel := context.WithTimeout(ctx, serverCatalogueFetchTimeout)
+			servers, _, fetchErr := r.fetchServers(fetchCtx, &coordinates)
+			cancel()
+			resultMu.Lock()
+			defer resultMu.Unlock()
+			if fetchErr != nil {
+				failures = append(failures, fmt.Errorf("fetch servers near %s: %w", name, fetchErr))
+				return nil
+			}
+			discovered = append(discovered, servers...)
+			successfulLocations++
+			return nil
+		})
+	}
+	_ = regions.Wait() // Each region records its own failure.
+
+	if successfulLocations == 0 {
+		if err := errors.Join(failures...); err != nil {
+			return nil, fmt.Errorf("fetch global speedtest servers: %w", err)
+		}
+		return nil, errors.New("no global speedtest locations configured")
+	}
+	// A partial result still marks the source as fetched. Otherwise every
+	// later read would fetch the world again until all regions succeed.
+	persistCtx, cancel := context.WithTimeout(ctx, serverCatalogueStoreTimeout)
+	err = r.updateServerCatalogue(persistCtx, discovered, nil, sourceKeyGlobal, observedAt)
+	cancel()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to fetch speedtest servers")
-		return nil, fmt.Errorf("failed to fetch servers: %w", err)
+		return nil, err
 	}
 
-	// Available() drops servers whose HTTP ping failed during FetchServers().
-	// In restricted networks (e.g. Docker) all pings time out, leaving an empty
-	// (non-nil) slice, so fall back to the unfiltered list to keep the selectable
-	// server list populated.
-	availableServers := serverList.Available()
-	if availableServers == nil || len(*availableServers) == 0 {
-		log.Warn().Msg("No pingable speedtest servers, falling back to unfiltered server list")
-		availableServers = &serverList
+	retained, err := r.loadRetainedServers(ctx, &userLocation, 0)
+	if err != nil {
+		return nil, err
+	}
+	if len(failures) > 0 {
+		partialErr := &PartialServerCatalogueError{
+			successfulLocations: successfulLocations,
+			totalLocations:      len(locationNames),
+			failures:            failures,
+		}
+		log.Warn().Err(partialErr).Msg("Some global speedtest locations could not be fetched")
+		return retained, partialErr
 	}
 
-	if len(*availableServers) == 0 {
-		log.Error().Msg("No speedtest servers found")
-		return nil, fmt.Errorf("no speedtest servers found")
+	log.Info().
+		Int("server_count", len(retained)).
+		Int("locations", len(locationNames)).
+		Msg("Retrieved global speedtest servers")
+	return retained, nil
+}
+
+// fetchSpeedtestServers discovers nearby servers and returns the detected origin for local requests.
+func fetchSpeedtestServers(ctx context.Context, location *ServerLocation) ([]ServerResponse, *ServerLocation, error) {
+	client := st.New()
+	var userLocation *ServerLocation
+	if location == nil {
+		user, err := client.FetchUserInfoContext(ctx)
+		if err != nil {
+			return nil, nil, fmt.Errorf("fetch speedtest user info: %w", err)
+		}
+		latitude, latErr := strconv.ParseFloat(user.Lat, 64)
+		longitude, lonErr := strconv.ParseFloat(user.Lon, 64)
+		if latErr != nil || lonErr != nil {
+			return nil, nil, fmt.Errorf("parse speedtest user location: %w", errors.Join(latErr, lonErr))
+		}
+		userLocation = &ServerLocation{Latitude: latitude, Longitude: longitude}
 	}
 
-	response := make([]ServerResponse, len(*availableServers))
-	for i, server := range *availableServers {
+	serverList, err := fetchSpeedtestServerList(ctx, speedtestServerListURL, location)
+	if err != nil {
+		return nil, nil, fmt.Errorf("fetch speedtest servers: %w", err)
+	}
+	servers := serverResponses(serverList)
+	if len(servers) == 0 {
+		return nil, nil, errors.New("no speedtest servers found")
+	}
+	return servers, userLocation, nil
+}
+
+// fetchSpeedtestServerList retrieves discovery metadata without probing every returned server.
+func fetchSpeedtestServerList(ctx context.Context, endpoint string, location *ServerLocation) (st.Servers, error) {
+	serverURL, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("parse speedtest server URL: %w", err)
+	}
+	if location != nil {
+		query := serverURL.Query()
+		query.Set("lat", strconv.FormatFloat(location.Latitude, 'f', -1, 64))
+		query.Set("lon", strconv.FormatFloat(location.Longitude, 'f', -1, 64))
+		serverURL.RawQuery = query.Encode()
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, serverURL.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("create speedtest server request: %w", err)
+	}
+	request.Header.Set("User-Agent", st.DefaultUserAgent)
+
+	// Speedtest.net returns 429 when a global fetch follows another one too soon.
+	// The request waits as Retry-After says, or 1, 2, then 4 seconds.
+	var response *http.Response
+	for attempt := range serverListAttempts {
+		response, err = http.DefaultClient.Do(request)
+		if err != nil {
+			return nil, fmt.Errorf("request speedtest servers: %w", err)
+		}
+		if response.StatusCode != http.StatusTooManyRequests || attempt == serverListAttempts-1 {
+			break
+		}
+		response.Body.Close()
+		wait := time.Second << attempt
+		if seconds, err := strconv.Atoi(response.Header.Get("Retry-After")); err == nil {
+			wait = time.Duration(seconds) * time.Second
+		}
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("request speedtest servers: status %s: %w", response.Status, ctx.Err())
+		case <-time.After(wait):
+		}
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("request speedtest servers: status %s", response.Status)
+	}
+
+	var servers st.Servers
+	if err := json.NewDecoder(response.Body).Decode(&servers); err != nil {
+		return nil, fmt.Errorf("decode speedtest servers: %w", err)
+	}
+	return servers, nil
+}
+
+// serverResponses converts upstream discovery metadata into selectable servers.
+func serverResponses(serverList st.Servers) []ServerResponse {
+	response := make([]ServerResponse, 0, len(serverList))
+	for _, server := range serverList {
 		lat, _ := strconv.ParseFloat(server.Lat, 64)
 		lon, _ := strconv.ParseFloat(server.Lon, 64)
+		response = append(response, ServerResponse{
+			ID:      server.ID,
+			Name:    server.Name,
+			Host:    server.Host,
+			Country: server.Country,
+			Sponsor: server.Sponsor,
+			URL:     server.URL,
+			Lat:     lat,
+			Lon:     lon,
+		})
+	}
+	return response
+}
 
-		response[i] = ServerResponse{
-			ID:           server.ID,
-			Name:         server.Name,
-			Host:         server.Host,
-			Distance:     server.Distance,
-			Country:      server.Country,
-			Sponsor:      server.Sponsor,
-			URL:          server.URL,
-			Lat:          lat,
-			Lon:          lon,
-			IsIperf:      false,
-			IsLibrespeed: false,
+// sortServersFromOrigin recalculates distance and orders servers nearest-first.
+func sortServersFromOrigin(origin ServerLocation, servers []ServerResponse) []ServerResponse {
+	for i := range servers {
+		servers[i].Distance = haversineDistance(origin.Latitude, origin.Longitude, servers[i].Lat, servers[i].Lon)
+	}
+
+	slices.SortFunc(servers, func(a, b ServerResponse) int {
+		return cmp.Compare(a.Distance, b.Distance)
+	})
+	return servers
+}
+
+// haversineDistance returns the great-circle distance in kilometres between two coordinates.
+func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
+	const earthRadiusKM = 6371
+	lat1Rad := lat1 * math.Pi / 180
+	lat2Rad := lat2 * math.Pi / 180
+	deltaLat := (lat2 - lat1) * math.Pi / 180
+	deltaLon := (lon2 - lon1) * math.Pi / 180
+
+	a := math.Sin(deltaLat/2)*math.Sin(deltaLat/2) +
+		math.Cos(lat1Rad)*math.Cos(lat2Rad)*math.Sin(deltaLon/2)*math.Sin(deltaLon/2)
+	return earthRadiusKM * 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+}
+
+// catalogueSourceStored reports whether a source has completed a fetch at any time.
+func (r *SpeedtestNetRunner) catalogueSourceStored(ctx context.Context, key string) (bool, error) {
+	_, ok, err := r.catalogueStore.GetSpeedtestServerSource(ctx, key)
+	if err != nil {
+		return false, fmt.Errorf("read speedtest server source %q: %w", key, err)
+	}
+	return ok, nil
+}
+
+// nextCatalogueObservation returns a process-local monotonic UTC timestamp for refresh ordering.
+func (r *SpeedtestNetRunner) nextCatalogueObservation() time.Time {
+	now := time.Now().UTC().UnixNano()
+	for {
+		previous := r.lastObservation.Load()
+		if now <= previous {
+			now = previous + 1
+		}
+		if r.lastObservation.CompareAndSwap(previous, now) {
+			return time.Unix(0, now).UTC()
+		}
+	}
+}
+
+// updateServerCatalogue atomically retains an observed batch and marks its source as fetched.
+func (r *SpeedtestNetRunner) updateServerCatalogue(
+	ctx context.Context,
+	servers []ServerResponse,
+	detectedLocation *ServerLocation,
+	sourceKey string,
+	observedAt time.Time,
+) error {
+	storedServers := make([]database.SpeedtestServer, 0, len(servers))
+	for _, server := range servers {
+		storedServers = append(storedServers, database.SpeedtestServer{
+			ID:         server.ID,
+			Name:       server.Name,
+			Host:       server.Host,
+			Country:    server.Country,
+			Sponsor:    server.Sponsor,
+			URL:        server.URL,
+			Latitude:   server.Lat,
+			Longitude:  server.Lon,
+			ObservedAt: observedAt,
+		})
+	}
+
+	source := &database.SpeedtestServerSource{Key: sourceKey, UpdatedAt: observedAt}
+	if detectedLocation != nil {
+		source.Latitude = new(detectedLocation.Latitude)
+		source.Longitude = new(detectedLocation.Longitude)
+	}
+	if err := r.catalogueStore.SaveSpeedtestServerCatalogue(ctx, storedServers, source); err != nil {
+		return fmt.Errorf("write retained speedtest servers: %w", err)
+	}
+	return nil
+}
+
+// loadRetainedServers returns the retained servers sorted from origin. A limit
+// above zero keeps only the nearest servers when an origin is known.
+func (r *SpeedtestNetRunner) loadRetainedServers(ctx context.Context, origin *ServerLocation, limit int) ([]ServerResponse, error) {
+	storedServers, err := r.catalogueStore.ListSpeedtestServers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("read retained speedtest servers: %w", err)
+	}
+	servers := make([]ServerResponse, 0, len(storedServers))
+	for _, server := range storedServers {
+		servers = append(servers, ServerResponse{
+			ID:      server.ID,
+			Name:    server.Name,
+			Host:    server.Host,
+			Country: server.Country,
+			Sponsor: server.Sponsor,
+			URL:     server.URL,
+			Lat:     server.Latitude,
+			Lon:     server.Longitude,
+		})
+	}
+	if origin == nil {
+		location, ok, err := r.loadUserLocation(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			origin = &location
 		}
 	}
 
-	sort.Slice(response, func(i, j int) bool {
-		return response[i].Distance < response[j].Distance
+	if origin != nil {
+		servers = sortServersFromOrigin(*origin, servers)
+		if limit > 0 {
+			servers = servers[:min(limit, len(servers))]
+		}
+		return servers, nil
+	}
+	slices.SortFunc(servers, func(a, b ServerResponse) int {
+		return cmp.Compare(a.ID, b.ID)
 	})
+	return servers, nil
+}
 
-	r.serverCache = response
-	r.cacheExpiry = time.Now().Add(r.cacheDuration)
+// retainedServer finds one retained server by ID.
+func (r *SpeedtestNetRunner) retainedServer(ctx context.Context, id string) (database.SpeedtestServer, bool) {
+	servers, err := r.catalogueStore.ListSpeedtestServers(ctx)
+	if err != nil {
+		log.Debug().Err(err).Str("server_id", id).Msg("Could not read retained speedtest servers")
+		return database.SpeedtestServer{}, false
+	}
+	// ponytail: linear scan over the retained pool, a store lookup if it grows past a few thousand rows
+	i := slices.IndexFunc(servers, func(server database.SpeedtestServer) bool { return server.ID == id })
+	if i < 0 {
+		return database.SpeedtestServer{}, false
+	}
+	return servers[i], true
+}
 
-	log.Debug().
-		Int("server_count", len(response)).
-		Time("cache_expiry", r.cacheExpiry).
-		Msg("Retrieved and cached speedtest servers")
-
-	return response, nil
+// loadUserLocation returns the last durably detected local origin.
+func (r *SpeedtestNetRunner) loadUserLocation(ctx context.Context) (ServerLocation, bool, error) {
+	source, ok, err := r.catalogueStore.GetSpeedtestServerSource(ctx, sourceKeyLocal)
+	if err != nil {
+		return ServerLocation{}, false, fmt.Errorf("read local speedtest server source: %w", err)
+	}
+	if !ok || source.Latitude == nil || source.Longitude == nil {
+		return ServerLocation{}, false, nil
+	}
+	return ServerLocation{Latitude: *source.Latitude, Longitude: *source.Longitude}, true, nil
 }

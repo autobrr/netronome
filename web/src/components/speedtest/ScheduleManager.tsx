@@ -44,6 +44,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { getApiUrl } from "@/utils/baseUrl";
 import { formatNextRun } from "@/utils/timeUtils";
 import { Button } from "@/components/ui/Button";
+import { findScheduleServer } from "@/utils/speedtestSettings";
 
 interface ScheduleManagerProps {
   servers: Server[];
@@ -182,6 +183,7 @@ const formatExactTimeFromUTC = (time: string): string => {
   return formatTimeWithSettings(candidate);
 };
 
+/** Creates, displays, and removes schedules using the currently available test servers. */
 export default function ScheduleManager({ servers, selectedServers, testType }: ScheduleManagerProps) {
   const queryClient = useQueryClient();
   const [iperfServers, setIperfServers] = useState<SavedIperfServer[]>([]);
@@ -259,24 +261,33 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
   }, []);
 
   useEffect(() => {
-    fetchIperfServers();
-  }, []);
+    let active = true;
 
-  const fetchIperfServers = async () => {
-    try {
-      const response = await fetch(getApiUrl("/iperf/servers"));
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
-        );
+    const fetchIperfServers = async () => {
+      try {
+        const response = await fetch(getApiUrl("/iperf/servers"));
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.message || `HTTP error! status: ${response.status}`
+          );
+        }
+        const data = await response.json();
+        if (active) {
+          setIperfServers(data || []);
+        }
+      } catch (error) {
+        if (active) {
+          console.error("Failed to fetch iperf servers:", error);
+        }
       }
-      const data = await response.json();
-      setIperfServers(data || []);
-    } catch (error) {
-      console.error("Failed to fetch iperf servers:", error);
-    }
-  };
+    };
+
+    fetchIperfServers();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const requiresServerSelection = testType === "iperf" || testType === "librespeed";
   const isMissingServer = requiresServerSelection && selectedServers.length === 0;
@@ -413,9 +424,14 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
     }
   };
 
-  const getServerNames = (serverIds: string[] | undefined) => {
-    const serversList = (serverIds || [])
-      .map((id: string) => {
+  const getServerNames = (
+    serverIds: string[] | undefined,
+    options: Schedule["options"],
+  ) => {
+    const isLibrespeedSchedule = options.useLibrespeed === true;
+    const serversList = (serverIds ?? [])
+      .map((id) => {
+        const server = findScheduleServer(servers, id, options);
         if (id.startsWith("iperf3-")) {
           const host = id.substring(7);
           const iperfServer = iperfServers.find(
@@ -465,7 +481,6 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
           );
         }
 
-        const server = servers.find((s: Server) => s.id === id);
         if (server) {
           if (server.isLibrespeed) {
             return (
@@ -486,9 +501,18 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
             </span>
           );
         }
-        return null;
-      })
-      .filter(Boolean);
+        const provider = isLibrespeedSchedule ? "librespeed" : "speedtest.net";
+        return (
+          <span
+            key={id}
+            title={isLibrespeedSchedule
+              ? "This saved server is not in the active LibreSpeed catalogue"
+              : "This saved server is not in the current Speedtest.net server list"}
+          >
+            Saved server {id} - {provider}
+          </span>
+        );
+      });
 
     if (serversList.length === 1) {
       return serversList[0];
@@ -863,7 +887,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
                                           Server:
                                         </span>{" "}
                                         <span className="truncate">
-                                          {getServerNames(schedule.serverIds)}
+                                          {getServerNames(schedule.serverIds, schedule.options)}
                                         </span>
                                       </p>
                                       {schedule.interval.startsWith("exact:") &&

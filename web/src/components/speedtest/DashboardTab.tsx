@@ -53,6 +53,10 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { formatDateTimeWithSettings, useTimeSettings } from "@/utils/timeSettings";
+import {
+  speedtestResultServerKey,
+  useSpeedtestSettings,
+} from "@/utils/speedtestSettings";
 
 interface DashboardTabProps {
   latestTest: SpeedTestResult | null;
@@ -157,6 +161,7 @@ const DraggableSpeedHistoryChart: React.FC<DraggableSpeedHistoryChartProps> = ({
   );
 };
 
+/** Displays latest and historical speed results with shared server filtering. */
 export const DashboardTab: React.FC<DashboardTabProps> = ({
   latestTest,
   tests,
@@ -170,15 +175,19 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   onNavigateToVnstat,
 }) => {
   const { settings } = useTimeSettings();
+  const speedtestSettings = useSpeedtestSettings();
   const [displayCount, setDisplayCount] = useState(recentSpeedtestsRows);
   const [isRecentTestsOpen, setIsRecentTestsOpen] = useState(() => {
     const saved = localStorage.getItem("recent-tests-open");
     return saved === null ? true : saved === "true";
   });
-  const columns = useMemo(() => getSpeedTestColumns(settings), [settings]);
+  const columns = useMemo(
+    () => getSpeedTestColumns(settings, speedtestSettings.showServerCity),
+    [settings, speedtestSettings.showServerCity],
+  );
   const mobileColumns = useMemo(
-    () => getSpeedTestMobileColumns(settings),
-    [settings]
+    () => getSpeedTestMobileColumns(settings, speedtestSettings.showServerCity),
+    [settings, speedtestSettings.showServerCity],
   );
 
   // Initialize section order from localStorage or default
@@ -223,26 +232,26 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   const displayedTests = tests.slice(0, displayCount);
 
-  // Apply server filtering to tests (same logic as in SpeedHistoryChart)
+  const isServerFilterActive =
+    (serverFilterMode === "single" && selectedSingleServer !== "all") ||
+    (serverFilterMode === "multiple" && selectedMultipleServers.size > 0);
+
   const filteredDisplayTests = useMemo(() => {
     if (serverFilterMode === "single" && selectedSingleServer !== "all") {
-      return tests.filter(test => test.serverName === selectedSingleServer);
+      return tests.filter(test => speedtestResultServerKey(test) === selectedSingleServer);
     } else if (serverFilterMode === "multiple" && selectedMultipleServers.size > 0) {
-      return tests.filter(test => selectedMultipleServers.has(test.serverName));
+      return tests.filter(test => selectedMultipleServers.has(speedtestResultServerKey(test)));
     }
     return tests;
   }, [tests, serverFilterMode, selectedSingleServer, selectedMultipleServers]);
 
-  // Get the latest test from filtered results
-  const filteredLatestTestComputed = useMemo(() => {
-    return filteredDisplayTests.length > 0 ? filteredDisplayTests[0] : null;
-  }, [filteredDisplayTests]);
+  // Latest values follow the server filter. No match shows nothing, not the unfiltered latest test.
+  const summaryLatestTest = isServerFilterActive ? filteredDisplayTests[0] ?? null : latestTest;
 
   const calculateAverage = (field: keyof SpeedTestResult): string => {
-    const dataToUse = filteredDisplayTests.length > 0 ? filteredDisplayTests : tests;
-    if (dataToUse.length === 0) return "N/A";
+    if (filteredDisplayTests.length === 0) return "N/A";
 
-    const validValues = dataToUse
+    const validValues = filteredDisplayTests
       .map((test) => {
         const value = test[field];
         if (typeof value === "string") {
@@ -323,7 +332,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       )}
 
       {/* Latest Results */}
-      {hasAnyTests && latestTest && (
+      {hasAnyTests && summaryLatestTest && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -342,8 +351,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <div className="flex justify-between ml-1 items-center text-gray-600 dark:text-gray-400 text-sm mb-4">
             <div>
               Last test run:{" "}
-              {latestTest?.createdAt
-                ? formatDateTimeWithSettings(latestTest.createdAt, settings)
+              {summaryLatestTest.createdAt
+                ? formatDateTimeWithSettings(summaryLatestTest.createdAt, settings)
                 : "N/A"}
             </div>
           </div>
@@ -351,32 +360,32 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <MetricCard
               icon={<IoIosPulse className="w-5 h-5 text-amber-500" />}
               title="Latency"
-              value={parseFloat((filteredLatestTestComputed || latestTest)!.latency).toFixed(2)}
+              value={parseFloat(summaryLatestTest.latency).toFixed(2)}
               unit="ms"
               average={calculateAverage("latency")}
             />
             <MetricCard
               icon={<FaArrowDown className="w-5 h-5 text-blue-500" />}
               title="Download"
-              value={(filteredLatestTestComputed || latestTest)!.downloadSpeed.toFixed(2)}
+              value={summaryLatestTest.downloadSpeed.toFixed(2)}
               unit="Mbps"
               average={calculateAverage("downloadSpeed")}
             />
             <MetricCard
               icon={<FaArrowUp className="w-5 h-5 text-emerald-500" />}
               title="Upload"
-              value={(filteredLatestTestComputed || latestTest)!.uploadSpeed.toFixed(2)}
+              value={summaryLatestTest.uploadSpeed.toFixed(2)}
               unit="Mbps"
               average={calculateAverage("uploadSpeed")}
             />
             <MetricCard
               icon={<FaWaveSquare className="w-5 h-5 text-purple-400" />}
               title="Jitter"
-              value={(filteredLatestTestComputed || latestTest)!.jitter?.toFixed(2) ?? "N/A"}
+              value={summaryLatestTest.jitter?.toFixed(2) ?? "N/A"}
               unit="ms"
               average={
-                (filteredLatestTestComputed || latestTest)!.jitter !== null &&
-                (filteredLatestTestComputed || latestTest)!.jitter !== undefined
+                summaryLatestTest.jitter !== null &&
+                summaryLatestTest.jitter !== undefined
                   ? calculateAverage("jitter")
                   : undefined
               }
