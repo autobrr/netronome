@@ -40,6 +40,7 @@ Write every page in `documentation/`, `docs/`, and `README.md` in Simplified Tec
 - TypeScript: 2-space indentation, PascalCase components, camelCase utilities.
 - Tailwind tokens should align with the `@theme` block in `web/src/index.css`.
 - Lint: `pnpm -C web lint` (ESLint).
+- Before you write logic that a published spec or format defines (Markdown, HTML, URLs, CSV, semver, cron, time zones), use a well-proven library for it. Name the library in the PR body. If hand-written logic of this kind needs a second fix for an edge case, replace it with the library.
 
 ## Testing Guidelines
 - Go tests live alongside code as `*_test.go`.
