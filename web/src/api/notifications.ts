@@ -51,6 +51,7 @@ export interface NotificationEvent {
   default_enabled: boolean;
   supports_threshold: boolean;
   threshold_unit?: string;
+  default_operator?: NotificationRule["threshold_operator"] | null;
   created_at: string;
 }
 

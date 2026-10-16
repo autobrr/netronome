@@ -265,6 +265,24 @@ func TestNotificationEvent_GetByCategory(t *testing.T) {
 	})
 }
 
+func TestNotificationEvent_DefaultOperator(t *testing.T) {
+	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
+		events, err := td.Service.GetEventsByCategory(NotificationCategorySpeedtest)
+		require.NoError(t, err)
+
+		operators := map[string]*string{}
+		for _, event := range events {
+			operators[event.EventType] = event.DefaultOperator
+		}
+
+		assert.Equal(t, new("lt"), operators[NotificationEventSpeedtestDownloadLow])
+		assert.Equal(t, new("lt"), operators[NotificationEventSpeedtestUploadLow])
+		assert.Equal(t, new("gt"), operators[NotificationEventSpeedtestPingHigh])
+		require.Contains(t, operators, NotificationEventSpeedtestComplete)
+		assert.Nil(t, operators[NotificationEventSpeedtestComplete])
+	})
+}
+
 func TestNotificationRule_EnabledNotifications(t *testing.T) {
 	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
 		ctx := context.Background()

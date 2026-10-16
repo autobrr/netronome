@@ -264,7 +264,7 @@ export const NotificationSettings: React.FC = () => {
     ) {
       const existingRule = rules.find((r) => r.event_id === eventId);
       if (!existingRule?.threshold_operator) {
-        updatedChange.threshold_operator = "gt";
+        updatedChange.threshold_operator = event.default_operator ?? "gt";
       }
     }
 

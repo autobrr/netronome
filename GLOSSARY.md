@@ -98,5 +98,9 @@ an agent, and can find the agents on the tailnet. This is not the same as runnin
 next to the Tailscale daemon of the host.
 
 **Threshold** — a number that an event compares against, with an operator.
-A speed below a threshold, a temperature above one. Not every event has one;
-`SupportsThreshold` on the event says which.
+A speed below a threshold, a temperature above one. Not every event has one.
+`SupportsThreshold` on the event says which. The operator is on the rule.
+
+**Default operator** — the threshold operator that an event gives to a new rule.
+`download_low` and `upload_low` use `lt`. All other threshold events use `gt`.
+The user can change the operator on the rule.
