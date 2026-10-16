@@ -297,7 +297,7 @@ func New() *Config {
 			DiscoveryInterval: "5m",
 			DiscoveryPort:     8200,
 			DiscoveryPrefix:   "",
-			// Deprecated fields - kept for compatibility during migration
+			// Deprecated fields - kept for backward compatibility
 			Agent: TailscaleAgentConfig{
 				Enabled: false,
 				Port:    8200,
@@ -1118,43 +1118,6 @@ func (t *TailscaleConfig) Validate() error {
 	}
 
 	return nil
-}
-
-// MigrateFromOldFormat migrates from the old dual-section format to the new unified format
-func (t *TailscaleConfig) MigrateFromOldFormat() TailscaleConfig {
-	result := *t // Copy current config
-
-	// If Method is not set, determine from old fields
-	if result.Method == "" {
-		if t.PreferHost {
-			result.Method = "host"
-		} else if t.AuthKey != "" {
-			result.Method = "tsnet"
-		} else {
-			result.Method = "host" // Default to host
-		}
-	}
-
-	// Migrate agent settings
-	if t.Agent.Enabled && result.AgentPort == 0 {
-		result.AgentPort = t.Agent.Port
-	}
-
-	// Migrate monitor settings
-	if result.AutoDiscover == false && t.Monitor.AutoDiscover {
-		result.AutoDiscover = t.Monitor.AutoDiscover
-	}
-	if result.DiscoveryInterval == "" && t.Monitor.DiscoveryInterval != "" {
-		result.DiscoveryInterval = t.Monitor.DiscoveryInterval
-	}
-	if result.DiscoveryPort == 0 && t.Monitor.DiscoveryPort != 0 {
-		result.DiscoveryPort = t.Monitor.DiscoveryPort
-	}
-	if result.DiscoveryPrefix == "" && t.Monitor.DiscoveryPrefix != "" {
-		result.DiscoveryPrefix = t.Monitor.DiscoveryPrefix
-	}
-
-	return result
 }
 
 // IsAgentMode returns true if Tailscale is enabled for agent connectivity
