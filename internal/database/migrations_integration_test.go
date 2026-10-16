@@ -191,6 +191,7 @@ func TestMigrations_UpgradeSetsThresholdOperators(t *testing.T) {
 			rule(1, NotificationEventSpeedtestUploadLow, "'lte'"),
 			rule(1, NotificationEventSpeedtestPingHigh, "'gt'"),
 			rule(2, NotificationEventSpeedtestDownloadLow, "NULL"),
+			rule(2, NotificationEventSpeedtestUploadLow, "'gt'"),
 			rule(2, NotificationEventSpeedtestPingHigh, "NULL"),
 		} {
 			_, err := db.ExecContext(t.Context(), stmt)
@@ -219,6 +220,7 @@ func TestMigrations_UpgradeSetsThresholdOperators(t *testing.T) {
 			"1/upload_low":   new("lte"),
 			"1/ping_high":    new("gt"),
 			"2/download_low": new("lt"),
+			"2/upload_low":   new("lt"),
 			"2/ping_high":    new("gt"),
 		}, got)
 	})
