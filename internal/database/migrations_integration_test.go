@@ -4,8 +4,13 @@
 package database
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"os"
+	"path"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -13,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/autobrr/netronome/internal/config"
+	"github.com/autobrr/netronome/internal/database/migrations"
+	"github.com/autobrr/netronome/pkg/migrator"
 )
 
 func TestMigrations_FreshDatabase(t *testing.T) {
@@ -152,4 +159,101 @@ func countMigrationFiles(dbType config.DatabaseType) (int, error) {
 	}
 
 	return count, nil
+}
+
+func TestMigrations_UpgradeSetsThresholdOperators(t *testing.T) {
+	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
+		db := openEmptyDatabase(t, td.Config)
+
+		files, err := migrations.GetMigrationFiles(migrations.DatabaseType(td.Config.Type))
+		require.NoError(t, err)
+		first := slices.IndexFunc(files, func(f string) bool { return strings.HasPrefix(path.Base(f), "025_") })
+		require.Positive(t, first)
+
+		migrate := func(files []string) {
+			m := migrator.NewMigrate(db, migrator.WithEmbedFS(migrations.SchemaMigrations))
+			for _, f := range files {
+				m.Add(&migrator.Migration{Name: f, File: f})
+			}
+			require.NoError(t, m.Migrate())
+		}
+
+		migrate(files[:first])
+
+		rule := func(channelID int, eventType, operator string) string {
+			return fmt.Sprintf(`INSERT INTO notification_rules (channel_id, event_id, threshold_value, threshold_operator)
+				SELECT %d, id, 500, %s FROM notification_events WHERE category = 'speedtest' AND event_type = '%s'`,
+				channelID, operator, eventType)
+		}
+		for _, stmt := range []string{
+			`INSERT INTO notification_channels (id, name, url) VALUES (1, 'first', 'generic://example.invalid'), (2, 'second', 'generic://example.invalid')`,
+			rule(1, NotificationEventSpeedtestDownloadLow, "'gt'"),
+			rule(1, NotificationEventSpeedtestUploadLow, "'lte'"),
+			rule(1, NotificationEventSpeedtestPingHigh, "'gt'"),
+			rule(2, NotificationEventSpeedtestDownloadLow, "NULL"),
+			rule(2, NotificationEventSpeedtestPingHigh, "NULL"),
+		} {
+			_, err := db.ExecContext(t.Context(), stmt)
+			require.NoError(t, err)
+		}
+
+		migrate(files)
+
+		rows, err := db.QueryContext(t.Context(), `SELECT r.channel_id, e.event_type, r.threshold_operator
+			FROM notification_rules r JOIN notification_events e ON e.id = r.event_id`)
+		require.NoError(t, err)
+		defer rows.Close()
+
+		got := map[string]*string{}
+		for rows.Next() {
+			var channelID int
+			var eventType string
+			var operator *string
+			require.NoError(t, rows.Scan(&channelID, &eventType, &operator))
+			got[fmt.Sprintf("%d/%s", channelID, eventType)] = operator
+		}
+		require.NoError(t, rows.Err())
+
+		assert.Equal(t, map[string]*string{
+			"1/download_low": new("lt"),
+			"1/upload_low":   new("lte"),
+			"1/ping_high":    new("gt"),
+			"2/download_low": new("lt"),
+			"2/ping_high":    new("gt"),
+		}, got)
+	})
+}
+
+// openEmptyDatabase opens a database with no tables, of the same type as cfg.
+func openEmptyDatabase(t *testing.T, cfg config.DatabaseConfig) *sql.DB {
+	t.Helper()
+
+	if cfg.Type == config.SQLite {
+		db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "upgrade.db"))
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+		return db
+	}
+
+	admin, err := sql.Open("postgres", postgresDSN(cfg, cfg.DBName))
+	require.NoError(t, err)
+	t.Cleanup(func() { admin.Close() })
+
+	_, err = admin.ExecContext(t.Context(), "CREATE DATABASE upgrade_test")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if _, err := admin.ExecContext(context.Background(), "DROP DATABASE upgrade_test"); err != nil {
+			t.Errorf("drop database upgrade_test: %v", err)
+		}
+	})
+
+	db, err := sql.Open("postgres", postgresDSN(cfg, "upgrade_test"))
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
+	return db
+}
+
+func postgresDSN(cfg config.DatabaseConfig, dbName string) string {
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, dbName, cfg.SSLMode)
 }

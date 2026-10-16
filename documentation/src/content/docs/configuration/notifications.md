@@ -123,8 +123,12 @@ Notes on some events:
 
 ## Thresholds
 
-A rule for an event with a unit has an operator and a value. The operators are Greater than, Less than, Equal to, Greater or equal, and Less or equal. The default operator is Greater than.
+A rule for an event with a unit has an operator and a value. The operators are Greater than, Less than, Equal to, Greater or equal, and Less or equal.
 
-Netronome sends the notification only when the measured value matches the rule. For example, a High Ping rule with Greater than 50 sends a notification when the ping is more than 50 ms. For Low Download Speed, use Less than.
+When you turn on a rule, Netronome selects a default operator for it. Low Download Speed and Low Upload Speed use Less than. All other events use Greater than. You can change the operator on each rule.
+
+When Netronome starts after an update, it corrects the saved rules one time. A Low Download Speed or Low Upload Speed rule with Greater than changes to Less than. A rule with no operator gets the default operator of its event.
+
+Netronome sends the notification only when the measured value matches the rule. For example, a High Ping rule with Greater than 50 sends a notification when the ping is more than 50 ms.
 
 If a rule has no threshold value, Netronome sends the event each time that it occurs.

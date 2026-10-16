@@ -198,7 +198,7 @@ func (s *service) DeleteChannel(id int64) error {
 func (s *service) GetEvents() ([]NotificationEvent, error) {
 	var events []NotificationEvent
 
-	rows, err := s.sqlBuilder.Select("id", "category", "event_type", "name", "description", "default_enabled", "supports_threshold", "threshold_unit", "created_at").
+	rows, err := s.sqlBuilder.Select("id", "category", "event_type", "name", "description", "default_enabled", "supports_threshold", "threshold_unit", "default_operator", "created_at").
 		From("notification_events").
 		OrderBy("category", "name").
 		RunWith(s.db).
@@ -212,7 +212,7 @@ func (s *service) GetEvents() ([]NotificationEvent, error) {
 		var event NotificationEvent
 		var description, thresholdUnit sql.NullString
 
-		if err := rows.Scan(&event.ID, &event.Category, &event.EventType, &event.Name, &description, &event.DefaultEnabled, &event.SupportsThreshold, &thresholdUnit, &event.CreatedAt); err != nil {
+		if err := rows.Scan(&event.ID, &event.Category, &event.EventType, &event.Name, &description, &event.DefaultEnabled, &event.SupportsThreshold, &thresholdUnit, &event.DefaultOperator, &event.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan event: %w", err)
 		}
 
@@ -233,7 +233,7 @@ func (s *service) GetEvents() ([]NotificationEvent, error) {
 func (s *service) GetEventsByCategory(category string) ([]NotificationEvent, error) {
 	var events []NotificationEvent
 
-	rows, err := s.sqlBuilder.Select("id", "category", "event_type", "name", "description", "default_enabled", "supports_threshold", "threshold_unit", "created_at").
+	rows, err := s.sqlBuilder.Select("id", "category", "event_type", "name", "description", "default_enabled", "supports_threshold", "threshold_unit", "default_operator", "created_at").
 		From("notification_events").
 		Where(sq.Eq{"category": category}).
 		OrderBy("name").
@@ -248,7 +248,7 @@ func (s *service) GetEventsByCategory(category string) ([]NotificationEvent, err
 		var event NotificationEvent
 		var description, thresholdUnit sql.NullString
 
-		if err := rows.Scan(&event.ID, &event.Category, &event.EventType, &event.Name, &description, &event.DefaultEnabled, &event.SupportsThreshold, &thresholdUnit, &event.CreatedAt); err != nil {
+		if err := rows.Scan(&event.ID, &event.Category, &event.EventType, &event.Name, &description, &event.DefaultEnabled, &event.SupportsThreshold, &thresholdUnit, &event.DefaultOperator, &event.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan event: %w", err)
 		}
 
@@ -270,12 +270,12 @@ func (s *service) GetEvent(id int64) (*NotificationEvent, error) {
 	var event NotificationEvent
 	var description, thresholdUnit sql.NullString
 
-	err := s.sqlBuilder.Select("id", "category", "event_type", "name", "description", "default_enabled", "supports_threshold", "threshold_unit", "created_at").
+	err := s.sqlBuilder.Select("id", "category", "event_type", "name", "description", "default_enabled", "supports_threshold", "threshold_unit", "default_operator", "created_at").
 		From("notification_events").
 		Where(sq.Eq{"id": id}).
 		RunWith(s.db).
 		QueryRow().
-		Scan(&event.ID, &event.Category, &event.EventType, &event.Name, &description, &event.DefaultEnabled, &event.SupportsThreshold, &thresholdUnit, &event.CreatedAt)
+		Scan(&event.ID, &event.Category, &event.EventType, &event.Name, &description, &event.DefaultEnabled, &event.SupportsThreshold, &thresholdUnit, &event.DefaultOperator, &event.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
@@ -299,7 +299,7 @@ func (s *service) GetEventByType(category, eventType string) (*NotificationEvent
 	var event NotificationEvent
 	var description, thresholdUnit sql.NullString
 
-	err := s.sqlBuilder.Select("id", "category", "event_type", "name", "description", "default_enabled", "supports_threshold", "threshold_unit", "created_at").
+	err := s.sqlBuilder.Select("id", "category", "event_type", "name", "description", "default_enabled", "supports_threshold", "threshold_unit", "default_operator", "created_at").
 		From("notification_events").
 		Where(sq.And{
 			sq.Eq{"category": category},
@@ -307,7 +307,7 @@ func (s *service) GetEventByType(category, eventType string) (*NotificationEvent
 		}).
 		RunWith(s.db).
 		QueryRow().
-		Scan(&event.ID, &event.Category, &event.EventType, &event.Name, &description, &event.DefaultEnabled, &event.SupportsThreshold, &thresholdUnit, &event.CreatedAt)
+		Scan(&event.ID, &event.Category, &event.EventType, &event.Name, &description, &event.DefaultEnabled, &event.SupportsThreshold, &thresholdUnit, &event.DefaultOperator, &event.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
@@ -391,7 +391,7 @@ func (s *service) GetRules() ([]NotificationRule, error) {
 	rows, err := s.sqlBuilder.Select(
 		"r.id", "r.channel_id", "r.event_id", "r.enabled", "r.threshold_value", "r.threshold_operator", "r.created_at", "r.updated_at",
 		"c.id", "c.name", "c.url", "c.enabled", "c.created_at", "c.updated_at",
-		"e.id", "e.category", "e.event_type", "e.name", "e.description", "e.default_enabled", "e.supports_threshold", "e.threshold_unit", "e.created_at",
+		"e.id", "e.category", "e.event_type", "e.name", "e.description", "e.default_enabled", "e.supports_threshold", "e.threshold_unit", "e.default_operator", "e.created_at",
 	).
 		From("notification_rules r").
 		LeftJoin("notification_channels c ON r.channel_id = c.id").
@@ -414,7 +414,7 @@ func (s *service) GetRules() ([]NotificationRule, error) {
 		err := rows.Scan(
 			&rule.ID, &rule.ChannelID, &rule.EventID, &rule.Enabled, &thresholdValue, &thresholdOperator, &rule.CreatedAt, &rule.UpdatedAt,
 			&channel.ID, &channel.Name, &channel.URL, &channel.Enabled, &channel.CreatedAt, &channel.UpdatedAt,
-			&event.ID, &event.Category, &event.EventType, &event.Name, &eventDescription, &event.DefaultEnabled, &event.SupportsThreshold, &eventThresholdUnit, &event.CreatedAt,
+			&event.ID, &event.Category, &event.EventType, &event.Name, &eventDescription, &event.DefaultEnabled, &event.SupportsThreshold, &eventThresholdUnit, &event.DefaultOperator, &event.CreatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan rule: %w", err)
@@ -448,7 +448,7 @@ func (s *service) GetRulesByChannel(channelID int64) ([]NotificationRule, error)
 
 	rows, err := s.sqlBuilder.Select(
 		"r.id", "r.channel_id", "r.event_id", "r.enabled", "r.threshold_value", "r.threshold_operator", "r.created_at", "r.updated_at",
-		"e.id", "e.category", "e.event_type", "e.name", "e.description", "e.default_enabled", "e.supports_threshold", "e.threshold_unit", "e.created_at",
+		"e.id", "e.category", "e.event_type", "e.name", "e.description", "e.default_enabled", "e.supports_threshold", "e.threshold_unit", "e.default_operator", "e.created_at",
 	).
 		From("notification_rules r").
 		LeftJoin("notification_events e ON r.event_id = e.id").
@@ -469,7 +469,7 @@ func (s *service) GetRulesByChannel(channelID int64) ([]NotificationRule, error)
 
 		err := rows.Scan(
 			&rule.ID, &rule.ChannelID, &rule.EventID, &rule.Enabled, &thresholdValue, &thresholdOperator, &rule.CreatedAt, &rule.UpdatedAt,
-			&event.ID, &event.Category, &event.EventType, &event.Name, &eventDescription, &event.DefaultEnabled, &event.SupportsThreshold, &eventThresholdUnit, &event.CreatedAt,
+			&event.ID, &event.Category, &event.EventType, &event.Name, &eventDescription, &event.DefaultEnabled, &event.SupportsThreshold, &eventThresholdUnit, &event.DefaultOperator, &event.CreatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan rule: %w", err)

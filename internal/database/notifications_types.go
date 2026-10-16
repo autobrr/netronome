@@ -25,6 +25,7 @@ type NotificationEvent struct {
 	DefaultEnabled    bool      `json:"default_enabled" db:"default_enabled"`
 	SupportsThreshold bool      `json:"supports_threshold" db:"supports_threshold"`
 	ThresholdUnit     *string   `json:"threshold_unit" db:"threshold_unit"`
+	DefaultOperator   *string   `json:"default_operator" db:"default_operator"`
 	CreatedAt         time.Time `json:"created_at" db:"created_at"`
 }
 
