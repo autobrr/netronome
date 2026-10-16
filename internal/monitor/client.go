@@ -352,7 +352,7 @@ func (c *Client) IsConnected() (bool, *types.MonitorLiveData) {
 }
 
 func (c *Client) baseURL() string {
-	return strings.TrimSuffix(c.agent.URL, "/events?stream=live-data")
+	return AgentBaseURL(c.agent.URL)
 }
 
 func (c *Client) ensureCapabilities() {
@@ -392,7 +392,7 @@ func (c *Client) shouldPollHardwareStats() bool {
 }
 
 func (c *Client) handleEndpointNotFound(err error, ep agentEndpoint) bool {
-	var statusErr *httpStatusError
+	var statusErr *StatusError
 	if !errors.As(err, &statusErr) {
 		return false
 	}
@@ -498,10 +498,7 @@ func (c *Client) connectAndStream() error {
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
 
-	// Add API key if configured
-	if c.agent.APIKey != nil && *c.agent.APIKey != "" {
-		req.Header.Set("X-API-Key", *c.agent.APIKey)
-	}
+	setAgentAuth(req, c.agent.APIKey)
 
 	// Create HTTP client with timeout
 	client := &http.Client{
@@ -777,7 +774,7 @@ func (s *Service) fetchAndStoreResourceStats(client *Client) {
 
 // fetchSystemInfo fetches and stores system information from an agent
 func (s *Service) fetchSystemInfo(client *Client) error {
-	systemURL := strings.TrimRight(client.baseURL(), "/") + "/system/info"
+	systemURL := client.baseURL() + "/system/info"
 
 	req, err := http.NewRequestWithContext(client.ctx, "GET", systemURL, nil)
 	if err != nil {
@@ -796,7 +793,7 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return &httpStatusError{StatusCode: resp.StatusCode, URL: systemURL}
+		return &StatusError{StatusCode: resp.StatusCode, URL: systemURL}
 	}
 
 	// Read the response body first for debugging
@@ -826,18 +823,20 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 
 	// Fetch agent version from /netronome/info endpoint
 	agentVersion := ""
-	infoURL := strings.TrimRight(client.baseURL(), "/") + "/netronome/info"
+	infoURL := client.baseURL() + "/netronome/info"
 	infoReq, err := http.NewRequestWithContext(client.ctx, "GET", infoURL, nil)
 	if err == nil {
 		// Don't add API key for this endpoint as it's public
 		infoResp, err := httpClient.Do(infoReq)
-		if err == nil && infoResp.StatusCode == http.StatusOK {
+		if err == nil {
 			defer infoResp.Body.Close()
-			var agentInfo struct {
-				Version string `json:"version"`
-			}
-			if err := json.NewDecoder(infoResp.Body).Decode(&agentInfo); err == nil {
-				agentVersion = agentInfo.Version
+			if infoResp.StatusCode == http.StatusOK {
+				var agentInfo struct {
+					Version string `json:"version"`
+				}
+				if err := json.NewDecoder(infoResp.Body).Decode(&agentInfo); err == nil {
+					agentVersion = agentInfo.Version
+				}
 			}
 		}
 	}
@@ -897,7 +896,7 @@ func (s *Service) fetchSystemInfo(client *Client) error {
 
 // fetchHardwareStats fetches and stores hardware statistics from an agent
 func (s *Service) fetchHardwareStats(client *Client) error {
-	hardwareURL := strings.TrimRight(client.baseURL(), "/") + "/system/hardware"
+	hardwareURL := client.baseURL() + "/system/hardware"
 
 	req, err := http.NewRequestWithContext(client.ctx, "GET", hardwareURL, nil)
 	if err != nil {
@@ -916,7 +915,7 @@ func (s *Service) fetchHardwareStats(client *Client) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return &httpStatusError{StatusCode: resp.StatusCode, URL: hardwareURL}
+		return &StatusError{StatusCode: resp.StatusCode, URL: hardwareURL}
 	}
 
 	var hardwareStats struct {
@@ -1130,8 +1129,7 @@ func (s *Service) collectHistoricalSnapshots() {
 
 // fetchAndStoreHistoricalData fetches and stores vnstat historical data from an agent
 func (s *Service) fetchAndStoreHistoricalData(client *Client) {
-	baseURL := strings.TrimSuffix(client.agent.URL, "/events?stream=live-data")
-	historicalURL := baseURL + "/export/historical"
+	historicalURL := client.baseURL() + "/export/historical"
 
 	req, err := http.NewRequestWithContext(client.ctx, "GET", historicalURL, nil)
 	if err != nil {
@@ -1289,8 +1287,7 @@ func (s *Service) fetchAndStoreHistoricalData(client *Client) {
 
 // fetchInitialPeakStats fetches and stores initial peak bandwidth statistics from an agent
 func (c *Client) fetchInitialPeakStats() {
-	baseURL := strings.TrimSuffix(c.agent.URL, "/events?stream=live-data")
-	peaksURL := baseURL + "/stats/peaks"
+	peaksURL := c.baseURL() + "/stats/peaks"
 
 	req, err := http.NewRequestWithContext(c.ctx, "GET", peaksURL, nil)
 	if err != nil {

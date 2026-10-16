@@ -5,21 +5,111 @@
 
 import { getApiUrl } from "@/utils/baseUrl";
 import { SpeedTestOptions } from "@/types/speedtest";
+import type { Server } from "@/types/types";
+import type { SpeedtestServerQuery } from "@/utils/speedtestSettings";
+import {
+  parseServerCatalogueResponse,
+  type SpeedtestServerCatalogueResult,
+} from "./serverCatalogueResponse";
 
-export async function getServers(testType: string) {
+export type { SpeedtestServerCatalogueResult } from "./serverCatalogueResponse";
+
+/** Durable fetch metadata for one Speedtest.net discovery source. */
+export interface SpeedtestServerCatalogueStatus {
+  stored: boolean;
+  updatedAt?: string;
+  /** Global regions that the last fetch did not get. Absent when 0. */
+  failedRegions?: number;
+  /** Global regions that a fetch asks for. Absent for other sources. */
+  totalRegions?: number;
+}
+
+const addSpeedtestServerQuery = (params: URLSearchParams, query: SpeedtestServerQuery) => {
+  if (query.global) {
+    params.set("global", "true");
+  }
+  if (query.latitude !== undefined && query.longitude !== undefined) {
+    params.set("latitude", query.latitude.toString());
+    params.set("longitude", query.longitude.toString());
+  }
+};
+
+const requestServers = async (
+  testType: string,
+  query: SpeedtestServerQuery = {},
+  signal?: AbortSignal,
+): Promise<SpeedtestServerCatalogueResult> => {
   try {
-    const response = await fetch(getApiUrl(`/servers?testType=${testType}`));
+    const params = new URLSearchParams({ testType });
+    addSpeedtestServerQuery(params, query);
+    if (query.refresh) {
+      params.set("refresh", "true");
+    }
+    const response = await fetch(getApiUrl(`/servers?${params.toString()}`), { signal });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || "Failed to fetch servers");
     }
-    return await response.json();
+    const data: unknown = await response.json();
+    return parseServerCatalogueResponse(data);
   } catch (error) {
     console.error("Error fetching servers:", error);
     throw error;
   }
+};
+
+/** Fetches a provider's servers and returns only the server list. */
+export async function getServers(testType: string): Promise<Server[]> {
+  return (await requestServers(testType)).servers;
 }
 
+/** Fetches Speedtest.net servers together with any partial-discovery warnings. */
+export async function getSpeedtestServerCatalogue(
+  query: SpeedtestServerQuery,
+  signal?: AbortSignal,
+): Promise<SpeedtestServerCatalogueResult> {
+  return requestServers("speedtest", query, signal);
+}
+
+/** Reads whether the selected source has been durably fetched without starting discovery. */
+export async function getSpeedtestServerCatalogueStatus(
+  query: SpeedtestServerQuery,
+  signal?: AbortSignal,
+): Promise<SpeedtestServerCatalogueStatus> {
+  const params = new URLSearchParams();
+  addSpeedtestServerQuery(params, query);
+  const response = await fetch(
+    getApiUrl(`/servers/catalogue/status?${params.toString()}`),
+    { signal },
+  );
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to get server catalogue status");
+  }
+
+  const data: unknown = await response.json();
+  if (typeof data !== "object" || data === null || !("stored" in data) || typeof data.stored !== "boolean") {
+    throw new Error("Invalid server catalogue status response");
+  }
+  const updatedAt = "updatedAt" in data ? data.updatedAt : undefined;
+  const failedRegions = "failedRegions" in data ? data.failedRegions : undefined;
+  const totalRegions = "totalRegions" in data ? data.totalRegions : undefined;
+  if (
+    (updatedAt !== undefined && typeof updatedAt !== "string") ||
+    (failedRegions !== undefined && typeof failedRegions !== "number") ||
+    (totalRegions !== undefined && typeof totalRegions !== "number")
+  ) {
+    throw new Error("Invalid server catalogue status response");
+  }
+  return {
+    stored: data.stored,
+    updatedAt,
+    failedRegions,
+    totalRegions,
+  };
+}
+
+/** Fetches one page of private speed test history for a time range. */
 export async function getHistory(
   timeRange: string,
   page: number,
@@ -42,6 +132,7 @@ export async function getHistory(
   }
 }
 
+/** Fetches the instance's configured speed test schedules. */
 export async function getSchedules() {
   try {
     const response = await fetch(getApiUrl("/schedules"));
@@ -56,6 +147,7 @@ export async function getSchedules() {
   }
 }
 
+/** Starts a speed test with the selected provider and server options. */
 export async function runSpeedTest(options: SpeedTestOptions) {
   try {
     const response = await fetch(getApiUrl("/speedtest"), {
@@ -76,6 +168,7 @@ export async function runSpeedTest(options: SpeedTestOptions) {
   }
 }
 
+/** Fetches one page of history exposed by the public dashboard. */
 export async function getPublicHistory(
   timeRange: string,
   page: number,
@@ -98,6 +191,7 @@ export async function getPublicHistory(
   }
 }
 
+/** Reads the currently running speed test's status without using a cached response. */
 export async function getSpeedTestStatus() {
   try {
     const response = await fetch(getApiUrl("/speedtest/status"), {
@@ -117,6 +211,7 @@ export async function getSpeedTestStatus() {
   }
 }
 
+/** Starts a traceroute for a host and returns its initial response. */
 export async function runTraceroute(host: string) {
   try {
     const response = await fetch(
@@ -133,6 +228,7 @@ export async function runTraceroute(host: string) {
   }
 }
 
+/** Reads the current traceroute execution status. */
 export async function getTracerouteStatus() {
   try {
     const response = await fetch(getApiUrl("/traceroute/status"));

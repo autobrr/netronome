@@ -3,11 +3,9 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import { Server, SavedIperfServer } from "@/types/types";
+import type { Server, SavedIperfServer } from "@/types/types";
 
-/**
- * Server type options for filtering
- */
+/** Server provider options shown by the traceroute selector. */
 export const SERVER_TYPE_OPTIONS = [
   { value: "all", label: "All Types" },
   { value: "speedtest", label: "Speedtest.net" },
@@ -15,10 +13,8 @@ export const SERVER_TYPE_OPTIONS = [
   { value: "librespeed", label: "LibreSpeed" },
 ];
 
-/**
- * Convert iperf servers to Server format
- */
-export const convertIperfServersToServerFormat = (
+/** Converts saved iperf3 endpoints to the shared server representation. */
+const convertIperfServersToServerFormat = (
   iperfServers: SavedIperfServer[],
 ): Server[] => {
   return iperfServers.map((server) => ({
@@ -36,9 +32,7 @@ export const convertIperfServersToServerFormat = (
   }));
 };
 
-/**
- * Combine all server types into a single array
- */
+/** Combines every provider's selectable servers into one list. */
 export const combineServers = (
   speedtestServers: Server[],
   librespeedServers: Server[],
@@ -48,10 +42,8 @@ export const combineServers = (
   return [...speedtestServers, ...librespeedServers, ...iperfServerList];
 };
 
-/**
- * Filter servers based on search term and server type
- */
-export const filterServers = (
+/** Filters servers by provider and a case-insensitive display-field search. */
+const filterServers = (
   servers: Server[],
   searchTerm: string,
   filterType: string,
@@ -74,10 +66,8 @@ export const filterServers = (
   });
 };
 
-/**
- * Sort servers - iperf servers by name, others by distance
- */
-export const sortServers = (servers: Server[]): Server[] => {
+/** Sorts iperf3 endpoints by name and all other entries by distance. */
+const sortServers = (servers: Server[]): Server[] => {
   return servers.sort((a, b) => {
     // Sort iperf servers by name, others by distance
     if (a.isIperf && b.isIperf) {
@@ -87,9 +77,7 @@ export const sortServers = (servers: Server[]): Server[] => {
   });
 };
 
-/**
- * Get filtered and sorted servers
- */
+/** Applies traceroute server filtering and provider-specific ordering. */
 export const getFilteredAndSortedServers = (
   servers: Server[],
   searchTerm: string,
@@ -99,24 +87,20 @@ export const getFilteredAndSortedServers = (
   return sortServers(filtered);
 };
 
-/**
- * Get server type label for display
- */
+/** Returns the provider label displayed for a selectable server. */
 export const getServerTypeLabel = (server: Server): string => {
   if (server.isIperf) return "iperf3";
   if (server.isLibrespeed) return "librespeed";
   return "speedtest.net";
 };
 
-/**
- * Get server type color classes
- */
+/** Returns the provider-specific text classes used by the selector. */
 export const getServerTypeColorClass = (server: Server): string => {
   if (server.isIperf) {
-    return "text-purple-600 dark:text-purple-400 drop-shadow-[0_0_1px_rgba(168,85,247,0.8)]";
+    return "text-purple-600 dark:text-purple-400 drop-shadow-[0_0_1px_var(--color-purple-500)]";
   }
   if (server.isLibrespeed) {
-    return "text-blue-600 dark:text-blue-400 drop-shadow-[0_0_1px_rgba(96,165,250,0.8)]";
+    return "text-blue-600 dark:text-blue-400 drop-shadow-[0_0_1px_var(--color-blue-400)]";
   }
-  return "text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_rgba(251,191,36,0.8)]";
+  return "text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_var(--color-amber-400)]";
 };

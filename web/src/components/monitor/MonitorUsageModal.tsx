@@ -16,6 +16,7 @@ import { getAgentIcon } from "@/utils/agentIcons";
 import { useMonitorAgent } from "@/hooks/useMonitorAgent";
 import { parseMonitorUsagePeriods } from "@/utils/monitorDataParser";
 import { formatBytes } from "@/utils/formatBytes";
+import { temperatureLevel } from "@/utils/temperature";
 import { TailscaleLogo } from "@/components/icons/TailscaleLogo";
 import {
   Dialog,
@@ -181,10 +182,10 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                             width: `${hardwareStats.cpu.usage_percent}%`,
                             backgroundColor:
                               hardwareStats.cpu.usage_percent < 70
-                                ? "#10B981"
+                                ? "var(--color-emerald-500, #10b981)"
                                 : hardwareStats.cpu.usage_percent < 85
-                                  ? "#F59E0B"
-                                  : "#EF4444",
+                                  ? "var(--color-amber-500, #f59e0b)"
+                                  : "var(--color-red-500, #ef4444)",
                           }}
                         />
                       </div>
@@ -203,10 +204,10 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                             width: `${hardwareStats.memory.used_percent}%`,
                             backgroundColor:
                               hardwareStats.memory.used_percent < 70
-                                ? "#10B981"
+                                ? "var(--color-emerald-500, #10b981)"
                                 : hardwareStats.memory.used_percent < 85
-                                  ? "#F59E0B"
-                                  : "#EF4444",
+                                  ? "var(--color-amber-500, #f59e0b)"
+                                  : "var(--color-red-500, #ef4444)",
                           }}
                         />
                       </div>
@@ -215,10 +216,10 @@ export const MonitorUsageModal: React.FC<MonitorUsageModalProps> = ({
                         hardwareStats.temperature.length > 0 &&
                         (() => {
                           const hotSensors = hardwareStats.temperature.filter(
-                            (t) => t.temperature > 80,
+                            (t) => temperatureLevel(t) === "hot",
                           );
                           const warmSensors = hardwareStats.temperature.filter(
-                            (t) => t.temperature > 60 && t.temperature <= 80,
+                            (t) => temperatureLevel(t) === "warm",
                           );
 
                           if (hotSensors.length > 0) {

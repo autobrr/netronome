@@ -44,11 +44,13 @@ type Schedule struct {
 	CreatedAt time.Time   `json:"createdAt"`
 }
 
+// SpeedTestResult is a persisted speed measurement and its recorded server identity.
 type SpeedTestResult struct {
 	ID            int64     `json:"id"`
 	ServerName    string    `json:"serverName"`
 	ServerID      string    `json:"serverId"`
 	ServerHost    *string   `json:"serverHost,omitempty"`
+	ServerCity    *string   `json:"serverCity,omitempty"`
 	TestType      string    `json:"testType"`
 	DownloadSpeed float64   `json:"downloadSpeed"`
 	UploadSpeed   float64   `json:"uploadSpeed"`
@@ -190,6 +192,69 @@ type PaginatedPacketLossResults struct {
 	Limit int                       `json:"limit"`
 }
 
+// LibrespeedServerIDPrefix starts every stored LibreSpeed server ID. Rows
+// written by older releases use it too, so the value is fixed.
+const LibrespeedServerIDPrefix = "librespeed-"
+
+// DNS protocols a DNS monitor can use.
+const (
+	DNSProtocolUDP = "udp"
+	DNSProtocolTCP = "tcp"
+	DNSProtocolDoT = "dot"
+)
+
+// DNSMonitor is a resolver, an interval, a query, and a protocol. The server
+// sends the query to the resolver and records the response time and the
+// response code. It measures the resolver, not the record.
+type DNSMonitor struct {
+	ID              int64      `db:"id" json:"id"`
+	Host            string     `db:"host" json:"host"`
+	Name            string     `db:"name" json:"name"`
+	Protocol        string     `db:"protocol" json:"protocol"`
+	Query           string     `db:"query" json:"query"`
+	RecordType      string     `db:"record_type" json:"recordType"`
+	Interval        string     `db:"interval" json:"interval"`
+	Enabled         bool       `db:"enabled" json:"enabled"`
+	LastRun         *time.Time `db:"last_run" json:"lastRun"`
+	NextRun         *time.Time `db:"next_run" json:"nextRun"`
+	LastState       string     `db:"last_state" json:"lastState"`
+	LastStateChange *time.Time `db:"last_state_change" json:"lastStateChange"`
+	CreatedAt       time.Time  `db:"created_at" json:"createdAt"`
+	UpdatedAt       time.Time  `db:"updated_at" json:"updatedAt"`
+}
+
+// DNSResult is one recorded DNS check.
+type DNSResult struct {
+	ID             int64     `db:"id" json:"id"`
+	MonitorID      int64     `db:"monitor_id" json:"monitorId"`
+	ResponseTimeMs float64   `db:"response_time_ms" json:"responseTimeMs"`
+	ResponseCode   string    `db:"response_code" json:"responseCode"`
+	Success        bool      `db:"success" json:"success"`
+	Error          *string   `db:"error" json:"error,omitempty"`
+	CreatedAt      time.Time `db:"created_at" json:"createdAt"`
+}
+
+type PaginatedDNSResults struct {
+	Data  []DNSResult `json:"data"`
+	Total int         `json:"total"`
+	Page  int         `json:"page"`
+	Limit int         `json:"limit"`
+}
+
+// DNSUpdate is the live status of a DNS monitor.
+type DNSUpdate struct {
+	Type           string  `json:"type"`
+	MonitorID      int64   `json:"monitorId"`
+	Host           string  `json:"host"`
+	IsRunning      bool    `json:"isRunning"`
+	Enabled        bool    `json:"enabled"`
+	Success        bool    `json:"success"`
+	ResponseTimeMs float64 `json:"responseTimeMs,omitempty"`
+	ResponseCode   string  `json:"responseCode,omitempty"`
+	State          string  `json:"state,omitempty"`
+	Error          string  `json:"error,omitempty"`
+}
+
 // MonitorAgent represents a monitoring agent configuration
 type MonitorAgent struct {
 	ID                int64      `db:"id" json:"id"`
@@ -203,19 +268,6 @@ type MonitorAgent struct {
 	DiscoveredAt      *time.Time `db:"discovered_at" json:"discoveredAt,omitempty"`
 	CreatedAt         time.Time  `db:"created_at" json:"createdAt"`
 	UpdatedAt         time.Time  `db:"updated_at" json:"updatedAt"`
-}
-
-// MonitorBandwidth represents bandwidth data from monitoring agent
-type MonitorBandwidth struct {
-	ID                 int64     `db:"id" json:"id"`
-	AgentID            int64     `db:"agent_id" json:"agentId"`
-	RxBytesPerSecond   *int64    `db:"rx_bytes_per_second" json:"rxBytesPerSecond"`
-	TxBytesPerSecond   *int64    `db:"tx_bytes_per_second" json:"txBytesPerSecond"`
-	RxPacketsPerSecond *int      `db:"rx_packets_per_second" json:"rxPacketsPerSecond"`
-	TxPacketsPerSecond *int      `db:"tx_packets_per_second" json:"txPacketsPerSecond"`
-	RxRateString       *string   `db:"rx_rate_string" json:"rxRateString"`
-	TxRateString       *string   `db:"tx_rate_string" json:"txRateString"`
-	CreatedAt          time.Time `db:"created_at" json:"createdAt"`
 }
 
 // MonitorLiveData represents live data from monitoring agent
@@ -240,92 +292,6 @@ type MonitorLiveData struct {
 		Totalbytes       int    `json:"totalbytes"`
 		Totalpackets     int    `json:"totalpackets"`
 	} `json:"tx"`
-}
-
-// MonitorFullData represents the complete bandwidth monitor JSON export structure
-type MonitorFullData struct {
-	Vnstatversion string `json:"vnstatversion"`
-	Jsonversion   string `json:"jsonversion"`
-	Interfaces    []struct {
-		Name    string `json:"name"`
-		Alias   string `json:"alias"`
-		Created struct {
-			Date struct {
-				Year  int `json:"year"`
-				Month int `json:"month"`
-				Day   int `json:"day"`
-			} `json:"date"`
-		} `json:"created"`
-		Updated struct {
-			Date struct {
-				Year  int `json:"year"`
-				Month int `json:"month"`
-				Day   int `json:"day"`
-			} `json:"date"`
-			Time struct {
-				Hour   int `json:"hour"`
-				Minute int `json:"minute"`
-			} `json:"time"`
-		} `json:"updated"`
-		Traffic struct {
-			Total struct {
-				Rx int64 `json:"rx"`
-				Tx int64 `json:"tx"`
-			} `json:"total"`
-			Fiveminute []struct {
-				ID   int `json:"id"`
-				Date struct {
-					Year  int `json:"year"`
-					Month int `json:"month"`
-					Day   int `json:"day"`
-				} `json:"date"`
-				Time struct {
-					Hour   int `json:"hour"`
-					Minute int `json:"minute"`
-				} `json:"time"`
-				Rx int64 `json:"rx"`
-				Tx int64 `json:"tx"`
-			} `json:"fiveminute"`
-			Hour []struct {
-				ID   int `json:"id"`
-				Date struct {
-					Year  int `json:"year"`
-					Month int `json:"month"`
-					Day   int `json:"day"`
-				} `json:"date"`
-				Hour int   `json:"hour"`
-				Rx   int64 `json:"rx"`
-				Tx   int64 `json:"tx"`
-			} `json:"hour"`
-			Day []struct {
-				ID   int `json:"id"`
-				Date struct {
-					Year  int `json:"year"`
-					Month int `json:"month"`
-					Day   int `json:"day"`
-				} `json:"date"`
-				Rx int64 `json:"rx"`
-				Tx int64 `json:"tx"`
-			} `json:"day"`
-			Month []struct {
-				ID   int `json:"id"`
-				Date struct {
-					Year  int `json:"year"`
-					Month int `json:"month"`
-				} `json:"date"`
-				Rx int64 `json:"rx"`
-				Tx int64 `json:"tx"`
-			} `json:"month"`
-			Year []struct {
-				ID   int `json:"id"`
-				Date struct {
-					Year int `json:"year"`
-				} `json:"date"`
-				Rx int64 `json:"rx"`
-				Tx int64 `json:"tx"`
-			} `json:"year"`
-		} `json:"traffic"`
-	} `json:"interfaces"`
 }
 
 // MonitorUpdate represents real-time monitoring updates

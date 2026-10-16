@@ -10,8 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -29,19 +27,6 @@ var (
 //	}
 //	return nil
 //}
-
-func HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
-}
-
-func CheckPassword(password, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	return err == nil
-}
 
 // MemoryOnlyPrefix is used to mark tokens that should only exist in memory
 const MemoryOnlyPrefix = "mem_"
@@ -70,9 +55,9 @@ func VerifyToken(signedToken, secret string) (string, error) {
 
 	if secret != "" {
 		parts := strings.Split(signedToken, ".")
-		
+
 		var token, signature string
-		
+
 		// Handle different token formats
 		if len(parts) == 2 {
 			// Regular signed token: token.signature

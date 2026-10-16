@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+/** A selectable endpoint from Speedtest.net, LibreSpeed, or the saved iperf3 list. */
 export interface Server {
   id: string;
   name: string;
@@ -16,13 +17,17 @@ export interface Server {
   isIperf: boolean;
   isLibrespeed?: boolean;
   isPublic?: boolean;
+  /** Added by ID, so it stays selected when it is not in the server list. */
+  isCustom?: boolean;
 }
 
+/** A persisted speed measurement and its recorded server identity. */
 export interface SpeedTestResult {
   id: string;
   serverId: string;
   serverName: string;
   serverHost: string;
+  serverCity?: string | null;
   testType: "speedtest" | "iperf3" | "librespeed";
   downloadSpeed: number;
   uploadSpeed: number;
@@ -79,17 +84,6 @@ export interface TestOptions {
 export type TimeRange = "1d" | "3d" | "1w" | "1m" | "all";
 
 export type TestType = "speedtest" | "iperf" | "librespeed";
-
-export interface SpeedUpdate {
-  isComplete: boolean;
-  type: "download" | "upload" | "ping" | "complete";
-  speed: number;
-  progress: number;
-  serverName: string;
-  latency?: string;
-  isScheduled: boolean;
-  testType?: string; // "speedtest", "iperf3", "librespeed"
-}
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -216,5 +210,51 @@ export interface PacketLossUpdate {
   packetsRecv?: number;
   usedMtr?: boolean;
   hopCount?: number;
+  error?: string;
+}
+
+export type DNSProtocol = "udp" | "tcp" | "dot";
+
+// The host holds an optional ":port". Without one the server uses port 53, or
+// port 853 for DoT.
+export interface DNSMonitorInput {
+  host: string;
+  name: string;
+  protocol: DNSProtocol;
+  query: string;
+  recordType: string;
+  interval: string;
+  enabled: boolean;
+}
+
+export interface DNSMonitor extends DNSMonitorInput {
+  id: number;
+  lastRun?: string | null;
+  nextRun?: string | null;
+  lastState?: string;
+  lastStateChange?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DNSResult {
+  id: number;
+  monitorId: number;
+  responseTimeMs: number;
+  responseCode: string;
+  success: boolean;
+  error?: string;
+  createdAt: string;
+}
+
+// DNSUpdate is the last known result of a monitor, not the progress of a
+// running check. State is "unknown" until the first check, then "ok", "down",
+// or "recovered".
+export interface DNSUpdate {
+  monitorId: number;
+  success: boolean;
+  responseTimeMs?: number;
+  responseCode?: string;
+  state?: string;
   error?: string;
 }

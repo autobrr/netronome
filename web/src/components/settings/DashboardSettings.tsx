@@ -92,7 +92,7 @@ export const DashboardSettings: React.FC = () => {
                 mutation.mutate({ recentSpeedtestsRows: selectedRows })
               }
               disabled={mutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-on-accent"
             >
               <CheckIcon className="w-4 h-4" />
               Save Changes

@@ -74,7 +74,7 @@ func TestClient_HandleEndpointNotFound_DisablesPolling(t *testing.T) {
 		t.Fatalf("expected system info polling enabled by default")
 	}
 
-	if !c.handleEndpointNotFound(&httpStatusError{StatusCode: http.StatusNotFound, URL: "http://x/system/info"}, endpointSystemInfo) {
+	if !c.handleEndpointNotFound(&StatusError{StatusCode: http.StatusNotFound, URL: "http://x/system/info"}, endpointSystemInfo) {
 		t.Fatalf("expected handleEndpointNotFound=true")
 	}
 	if c.shouldPollSystemInfo() {

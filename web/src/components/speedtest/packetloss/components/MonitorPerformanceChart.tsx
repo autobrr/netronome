@@ -51,18 +51,18 @@ export const MonitorPerformanceChart: React.FC<
   // Calculate RTT statistics for better axis scaling
   const rttStats = useMemo(() => {
     if (chartData.length === 0) return null;
-    
+
     const allRttValues = chartData.flatMap(d => [d.avgRtt, d.minRtt, d.maxRtt]).filter(v => v > 0);
     if (allRttValues.length === 0) return null;
-    
+
     const min = Math.min(...allRttValues);
     const max = Math.max(...allRttValues);
     const avg = allRttValues.reduce((sum, val) => sum + val, 0) / allRttValues.length;
-    
+
     // Calculate a good range around the data
     const range = max - min;
     const padding = Math.max(range * 0.1, 5); // 10% padding or 5ms minimum
-    
+
     return {
       min: Math.max(0, min - padding),
       max: max + padding,
@@ -103,7 +103,7 @@ export const MonitorPerformanceChart: React.FC<
               <span>Min RTT</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5 bg-yellow-500 border-dashed"></div>
+              <div className="w-3 h-0.5 bg-amber-400 border-dashed"></div>
               <span>Max RTT</span>
             </div>
           </div>
@@ -118,12 +118,13 @@ export const MonitorPerformanceChart: React.FC<
           >
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="rgba(128, 128, 128, 0.15)"
+              stroke="var(--color-gray-500, #6b7280)"
+              strokeOpacity={0.15}
               strokeWidth={0.5}
             />
             <XAxis
               dataKey="time"
-              stroke="rgb(156, 163, 175)"
+              stroke="var(--color-gray-400, #9ca3af)"
               fontSize={11}
               axisLine={false}
               tickLine={false}
@@ -132,7 +133,7 @@ export const MonitorPerformanceChart: React.FC<
             <YAxis
               yAxisId="left"
               orientation="left"
-              stroke="rgb(156, 163, 175)"
+              stroke="var(--color-gray-400, #9ca3af)"
               fontSize={11}
               axisLine={false}
               tickLine={false}
@@ -144,7 +145,7 @@ export const MonitorPerformanceChart: React.FC<
                 angle: -90,
                 position: "insideLeft",
                 style: {
-                  fill: "rgb(156, 163, 175)",
+                  fill: "var(--color-gray-400, #9ca3af)",
                   textAnchor: "middle",
                 },
               }}
@@ -152,7 +153,7 @@ export const MonitorPerformanceChart: React.FC<
             <YAxis
               yAxisId="right"
               orientation="right"
-              stroke="rgb(239, 68, 68)"
+              stroke="var(--color-red-500, #ef4444)"
               fontSize={11}
               axisLine={false}
               tickLine={false}
@@ -163,23 +164,24 @@ export const MonitorPerformanceChart: React.FC<
                 angle: 90,
                 position: "insideRight",
                 style: {
-                  fill: "rgb(239, 68, 68)",
+                  fill: "var(--color-red-500, #ef4444)",
                   textAnchor: "middle",
                 },
               }}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "rgba(17, 24, 39, 0.95)",
-                border: "1px solid rgba(75, 85, 99, 0.3)",
+                backgroundColor: "var(--tooltip-bg)",
+                border: "1px solid var(--tooltip-border)",
                 borderRadius: "0.5rem",
                 boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
               }}
               labelStyle={{
-                color: "rgb(229, 231, 235)",
+                color: "var(--tooltip-label)",
                 fontSize: "12px",
                 fontWeight: "medium",
               }}
+              itemStyle={{ color: "var(--tooltip-text)" }}
               formatter={(value: number | string) => {
                 if (typeof value === "number") {
                   return value.toFixed(1);
@@ -191,17 +193,17 @@ export const MonitorPerformanceChart: React.FC<
               yAxisId="right"
               type="monotone"
               dataKey="packetLoss"
-              stroke="rgb(239, 68, 68)"
+              stroke="var(--color-red-500, #ef4444)"
               strokeWidth={2.5}
               name="Packet Loss %"
               dot={{
-                fill: "rgb(239, 68, 68)",
+                fill: "var(--color-red-500, #ef4444)",
                 strokeWidth: 0,
                 r: 3,
               }}
               activeDot={{
                 r: 5,
-                stroke: "rgb(239, 68, 68)",
+                stroke: "var(--color-red-500, #ef4444)",
                 strokeWidth: 2,
               }}
             />
@@ -209,17 +211,17 @@ export const MonitorPerformanceChart: React.FC<
               yAxisId="left"
               type="monotone"
               dataKey="avgRtt"
-              stroke="rgb(59, 130, 246)"
+              stroke="var(--color-blue-500, #3b82f6)"
               strokeWidth={2.5}
               name="Avg RTT"
               dot={{
-                fill: "rgb(59, 130, 246)",
+                fill: "var(--color-blue-500, #3b82f6)",
                 strokeWidth: 0,
                 r: 3,
               }}
               activeDot={{
                 r: 5,
-                stroke: "rgb(59, 130, 246)",
+                stroke: "var(--color-blue-500, #3b82f6)",
                 strokeWidth: 2,
               }}
             />
@@ -227,14 +229,14 @@ export const MonitorPerformanceChart: React.FC<
               yAxisId="left"
               type="monotone"
               dataKey="minRtt"
-              stroke="rgb(16, 185, 129)"
+              stroke="var(--color-emerald-500, #10b981)"
               strokeWidth={1.5}
               strokeDasharray="4 4"
               name="Min RTT"
               dot={false}
               activeDot={{
                 r: 4,
-                stroke: "rgb(16, 185, 129)",
+                stroke: "var(--color-emerald-500, #10b981)",
                 strokeWidth: 2,
               }}
             />
@@ -242,14 +244,14 @@ export const MonitorPerformanceChart: React.FC<
               yAxisId="left"
               type="monotone"
               dataKey="maxRtt"
-              stroke="rgb(251, 191, 36)"
+              stroke="var(--color-amber-400, #fbbf24)"
               strokeWidth={1.5}
               strokeDasharray="4 4"
               name="Max RTT"
               dot={false}
               activeDot={{
                 r: 4,
-                stroke: "rgb(251, 191, 36)",
+                stroke: "var(--color-amber-400, #fbbf24)",
                 strokeWidth: 2,
               }}
             />

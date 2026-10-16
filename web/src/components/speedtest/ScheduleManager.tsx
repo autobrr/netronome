@@ -44,6 +44,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { getApiUrl } from "@/utils/baseUrl";
 import { formatNextRun } from "@/utils/timeUtils";
 import { Button } from "@/components/ui/Button";
+import { findScheduleServer } from "@/utils/speedtestSettings";
 
 interface ScheduleManagerProps {
   servers: Server[];
@@ -182,6 +183,7 @@ const formatExactTimeFromUTC = (time: string): string => {
   return formatTimeWithSettings(candidate);
 };
 
+/** Creates, displays, and removes schedules using the currently available test servers. */
 export default function ScheduleManager({ servers, selectedServers, testType }: ScheduleManagerProps) {
   const queryClient = useQueryClient();
   const [iperfServers, setIperfServers] = useState<SavedIperfServer[]>([]);
@@ -259,24 +261,33 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
   }, []);
 
   useEffect(() => {
-    fetchIperfServers();
-  }, []);
+    let active = true;
 
-  const fetchIperfServers = async () => {
-    try {
-      const response = await fetch(getApiUrl("/iperf/servers"));
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
-        );
+    const fetchIperfServers = async () => {
+      try {
+        const response = await fetch(getApiUrl("/iperf/servers"));
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.message || `HTTP error! status: ${response.status}`
+          );
+        }
+        const data = await response.json();
+        if (active) {
+          setIperfServers(data || []);
+        }
+      } catch (error) {
+        if (active) {
+          console.error("Failed to fetch iperf servers:", error);
+        }
       }
-      const data = await response.json();
-      setIperfServers(data || []);
-    } catch (error) {
-      console.error("Failed to fetch iperf servers:", error);
-    }
-  };
+    };
+
+    fetchIperfServers();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const requiresServerSelection = testType === "iperf" || testType === "librespeed";
   const isMissingServer = requiresServerSelection && selectedServers.length === 0;
@@ -402,7 +413,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
           errorData.message || `HTTP error! status: ${response.status}`
         );
       }
-      
+
       showToast("Schedule deleted successfully", "success");
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to delete schedule";
@@ -413,9 +424,14 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
     }
   };
 
-  const getServerNames = (serverIds: string[] | undefined) => {
-    const serversList = (serverIds || [])
-      .map((id: string) => {
+  const getServerNames = (
+    serverIds: string[] | undefined,
+    options: Schedule["options"],
+  ) => {
+    const isLibrespeedSchedule = options.useLibrespeed === true;
+    const serversList = (serverIds ?? [])
+      .map((id) => {
+        const server = findScheduleServer(servers, id, options);
         if (id.startsWith("iperf3-")) {
           const host = id.substring(7);
           const iperfServer = iperfServers.find(
@@ -430,7 +446,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
             >
               <span>
                 {iperfServer?.name || host} -{" "}
-                <span className="text-purple-600 dark:text-purple-400 drop-shadow-[0_0_1px_rgba(168,85,247,0.8)]">
+                <span className="text-purple-600 dark:text-purple-400 drop-shadow-[0_0_1px_var(--color-purple-500)]">
                   iperf3
                 </span>
               </span>
@@ -443,7 +459,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
                     rounded-lg shadow-lg
                     border border-gray-300/50 dark:border-gray-700/50
                     backdrop-blur-sm
-                    opacity-0 scale-95 invisible 
+                    opacity-0 scale-95 invisible
                     group-hover:opacity-100 group-hover:scale-100 group-hover:visible
                     transition-all duration-200 ease-out
                     whitespace-nowrap
@@ -465,13 +481,12 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
           );
         }
 
-        const server = servers.find((s: Server) => s.id === id);
         if (server) {
           if (server.isLibrespeed) {
             return (
               <span key={id}>
                 {server.name} -{" "}
-                <span className="text-blue-600 dark:text-blue-400 drop-shadow-[0_0_1px_rgba(96,165,250,0.8)]">
+                <span className="text-blue-600 dark:text-blue-400 drop-shadow-[0_0_1px_var(--color-blue-400)]">
                   librespeed
                 </span>
               </span>
@@ -480,15 +495,24 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
           return (
             <span key={id}>
               {server.sponsor} - {server.name} -{" "}
-              <span className="text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_rgba(251,191,36,0.8)]">
+              <span className="text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_1px_var(--color-emerald-400)]">
                 speedtest.net
               </span>
             </span>
           );
         }
-        return null;
-      })
-      .filter(Boolean);
+        const provider = isLibrespeedSchedule ? "librespeed" : "speedtest.net";
+        return (
+          <span
+            key={id}
+            title={isLibrespeedSchedule
+              ? "This saved server is not in the active LibreSpeed catalogue"
+              : "This saved server is not in the current Speedtest.net server list"}
+          >
+            Saved server {id} - {provider}
+          </span>
+        );
+      });
 
     if (serversList.length === 1) {
       return serversList[0];
@@ -760,7 +784,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
                               className={`w-full px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
                                 isCreateDisabled
                                   ? "bg-gray-300/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-500 cursor-not-allowed border border-gray-400 dark:border-gray-900"
-                                  : "bg-blue-500 hover:bg-blue-600 text-white shadow-lg border border-blue-600 hover:border-blue-700 hover:shadow-xl"
+                                  : "bg-blue-500 hover:bg-blue-600 text-on-accent shadow-lg border border-blue-600 hover:border-blue-700 hover:shadow-xl"
                               }`}
                               onClick={handleCreateSchedule}
                               disabled={isCreateDisabled}
@@ -863,7 +887,7 @@ export default function ScheduleManager({ servers, selectedServers, testType }: 
                                           Server:
                                         </span>{" "}
                                         <span className="truncate">
-                                          {getServerNames(schedule.serverIds)}
+                                          {getServerNames(schedule.serverIds, schedule.options)}
                                         </span>
                                       </p>
                                       {schedule.interval.startsWith("exact:") &&

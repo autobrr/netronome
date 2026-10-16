@@ -1,0 +1,134 @@
+/* Colors from the Netronome web UI: zinc grays and the blue-500 accent. */
+
+/* Dark mode (default) */
+:root {
+  --sl-color-accent-low: #172554;
+  --sl-color-accent: #3b82f6;
+  --sl-color-accent-high: #bfdbfe;
+  --sl-color-white: #ffffff;
+  --sl-color-gray-1: #f4f4f5;
+  --sl-color-gray-2: #d4d4d8;
+  --sl-color-gray-3: #a1a1aa;
+  --sl-color-gray-4: #71717a;
+  --sl-color-gray-5: #3f3f46;
+  --sl-color-gray-6: #27272a;
+  --sl-color-black: #18181b;
+  --sl-color-bg-nav: #1c1c1f;
+  --sl-color-bg-sidebar: #18181b;
+  --sl-color-hairline: #27272a;
+  --sl-color-hairline-light: #3f3f46;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #dbeafe;
+  --sl-color-accent: #2563eb;
+  --sl-color-accent-high: #1e3a8a;
+  --sl-color-white: #18181b;
+  --sl-color-gray-1: #27272a;
+  --sl-color-gray-2: #3f3f46;
+  --sl-color-gray-3: #52525b;
+  --sl-color-gray-4: #71717a;
+  --sl-color-gray-5: #d4d4d8;
+  --sl-color-gray-6: #f4f4f5;
+  --sl-color-gray-7: #fafafa;
+  --sl-color-black: #ffffff;
+  --sl-color-bg-nav: #fafafa;
+  --sl-color-bg-sidebar: #ffffff;
+  --sl-color-hairline: #e4e4e7;
+  --sl-color-hairline-light: #e4e4e7;
+}
+
+/* Asides use the gray-850 surface of the app. */
+:root:not([data-theme="light"]) .starlight-aside {
+  background-color: #1c1c1f;
+}
+
+.site-title img { width: 2rem; height: 2rem; }
+
+/* Keep the hero logo small, like the logo on the app login page. */
+.hero > img {
+  width: 6rem;
+  height: 6rem;
+}
+
+.hero { padding-block: 3rem 2rem; }
+
+@media (min-width: 50rem) {
+  .hero {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+  .hero > img { order: -1; }
+  .hero .stack { text-align: center; }
+  .hero .copy { align-items: center; }
+  .hero .sl-flex.actions { justify-content: center; }
+
+  /* Put the search box at the right, next to the social icons. */
+  .header > div:nth-child(2) { justify-content: flex-end; }
+}
+
+/* Primary buttons match the app: blue-500 with white text. */
+.sl-link-button.primary {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
+}
+.sl-link-button.primary:hover { background: #2563eb; border-color: #2563eb; }
+
+.site-title { color: var(--sl-color-white); }
+
+/* Active sidebar link: blue-500 with white text, like selected tabs in the app. */
+nav.sidebar a[aria-current="page"],
+nav.sidebar a[aria-current="page"]:hover {
+  background-color: #3b82f6;
+  color: #ffffff;
+}
+
+/* Front page: the dashboard screenshot, cut at the chart and faded out. */
+.nt-shot {
+  display: block;
+  width: 100%;
+  max-height: 46rem;
+  object-fit: cover;
+  object-position: top;
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+
+/* Front page: plain link columns under the screenshot. */
+.nt-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 2rem;
+  max-width: 48rem;
+  margin: 2rem auto 0;
+}
+.nt-links div { display: flex; flex-direction: column; gap: 0.4rem; }
+.nt-links p {
+  margin: 0 0 0.25rem;
+  font-size: var(--sl-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--sl-color-gray-3);
+}
+.nt-links a { color: var(--sl-color-white); text-decoration: none; }
+.nt-links a:hover { color: var(--sl-color-accent); }
+
+/* Starlight caps the text column at 45rem. Use more of a wide screen. */
+@media (min-width: 90rem) {
+  :root { --sl-content-width: 56rem; }
+}
+@media (min-width: 120rem) {
+  :root { --sl-content-width: 68rem; }
+}
+
+/* A code span that starts a list item is a term: no box, bold, accent color. */
+.sl-markdown-content code.term {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-weight: 600;
+  color: var(--sl-color-accent-high);
+}
+:root[data-theme="light"] .sl-markdown-content code.term { color: var(--sl-color-accent); }

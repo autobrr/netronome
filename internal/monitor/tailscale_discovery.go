@@ -26,7 +26,7 @@ import (
 type TailscaleDiscovery struct {
 	config          *config.TailscaleConfig
 	tsnetServer     *tsnet.Server
-	tailscaleClient tailscale.Client
+	tailscaleClient *tailscale.Client
 	service         *Service
 	discoveryTicker *time.Ticker
 	mode            tailscale.Mode
@@ -340,7 +340,7 @@ func (td *TailscaleDiscovery) createAndSaveAgent(ctx context.Context, peer struc
 	Online   bool
 }, discoveryPort int) {
 	// Create agent URL with SSE endpoint using short hostname
-	agentURL := fmt.Sprintf("http://%s:%d/events?stream=live-data", peer.HostName, discoveryPort)
+	agentURL := AgentStreamURL(fmt.Sprintf("http://%s:%d", peer.HostName, discoveryPort))
 
 	// Create new agent entry
 	emptyString := ""

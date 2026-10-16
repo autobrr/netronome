@@ -1,0 +1,75 @@
+/* @name: Debug
+ * @description: Deliberately garish fixture theme. Dev builds only - never shipped.
+ * @premium: false
+ *
+ * Exists so the ramp-override engine is exercisable without THEMES_REPO_TOKEN.
+ * If a surface does NOT turn hot pink / lime here, it is not theme-aware.
+ */
+
+:root.theme-debug {
+  --color-white: #ffe4f3;
+  --color-gray-50: #ffd6ec;
+  --color-gray-100: #ffc2e2;
+  --color-gray-200: #ffadd8;
+  --color-gray-300: #ff99ce;
+  --color-gray-400: #ff70ba;
+  --color-gray-500: #ff47a6;
+  --color-gray-600: #e01f85;
+  --color-gray-700: #b31569;
+  --color-gray-800: #850f4e;
+  --color-gray-815: #7a0e48;
+  --color-gray-850: #6b0c3f;
+  --color-gray-900: #570a33;
+  --color-gray-950: #3d0724;
+
+  --color-blue-50: #f0ffe0;
+  --color-blue-100: #e1ffc2;
+  --color-blue-200: #d2ffa3;
+  --color-blue-300: #c3ff85;
+  --color-blue-400: #b4ff66;
+  --color-blue-500: #a5ff47;
+  --color-blue-600: #8ae02f;
+  --color-blue-700: #6db31f;
+  --color-blue-800: #518514;
+  --color-blue-900: #35570d;
+  --color-blue-950: #1f3d07;
+
+  /* Chart series identity tokens - if a chart series does not adopt these
+     colors under Debug, it is not wired to the --chart-* tokens. */
+  --chart-download: #00e5ff;
+  --chart-upload: #ff6d00;
+  --chart-latency: #ff1744;
+  --chart-jitter: #76ff03;
+}
+
+:root.theme-debug.dark {
+  /* white is TEXT in dark mode (dark:text-white) - it must stay light. */
+  --color-white: #ffe4f3;
+  --color-gray-50: #ffd6ec;
+  --color-gray-100: #ffc2e2;
+  --color-gray-200: #ff99ce;
+  --color-gray-300: #ff70ba;
+  --color-gray-400: #ff47a6;
+  --color-gray-500: #e01f85;
+  --color-gray-600: #b31569;
+  --color-gray-700: #850f4e;
+  --color-gray-800: #570a33;
+  --color-gray-815: #4d0a2d;
+  --color-gray-850: #450826;
+  --color-gray-900: #2b0519;
+  --color-gray-950: #17030e;
+
+  /* The ramp keeps its direction in dark mode (50 lightest, 950 darkest) -
+     it is re-anchored, never reversed. See scripts/README-themes.md. */
+  --color-blue-50: #f0ffe0;
+  --color-blue-100: #e1ffc2;
+  --color-blue-200: #d2ffa3;
+  --color-blue-300: #c3ff85;
+  --color-blue-400: #b4ff66;
+  --color-blue-500: #a5ff47;
+  --color-blue-600: #8ae02f;
+  --color-blue-700: #6db31f;
+  --color-blue-800: #518514;
+  --color-blue-900: #35570d;
+  --color-blue-950: #1f3d07;
+}

@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect, useMemo } from "react";
-import { Container } from "@mui/material";
 import { FaGithub } from "react-icons/fa";
 import { XMarkIcon } from "@heroicons/react/20/solid";
 import { ShareModal } from "./speedtest/ShareModal";
@@ -14,12 +13,23 @@ import { DashboardTab } from "./speedtest/DashboardTab";
 import { SpeedTestTab } from "./speedtest/SpeedTestTab";
 import { TracerouteTab } from "./speedtest/TracerouteTab";
 import { MonitorTab } from "./monitor/MonitorTab";
+import { DNSTab } from "./dns/DNSTab";
 import { showToast } from "@/components/common/Toast";
+import { getPublicTheme } from "@/api/license";
+import { applyPublicColorTheme } from "@/utils/colorTheme";
+import {
+  selectedServersFor,
+  speedtestServerQueryKey,
+  speedtestServerQuery,
+  useSpeedtestSettings,
+  type ServerSelection,
+} from "@/utils/speedtestSettings";
 import {
   ChartBarIcon,
   PlayIcon,
   GlobeAltIcon,
   ServerIcon,
+  ServerStackIcon,
 } from "@heroicons/react/24/outline";
 import {
   Server,
@@ -29,6 +39,7 @@ import {
   TestOptions,
   PaginatedResponse,
   Schedule,
+  TestType,
 } from "@/types/types";
 import {
   useQuery,
@@ -38,6 +49,7 @@ import {
 } from "@tanstack/react-query";
 import {
   getServers,
+  getSpeedtestServerCatalogue,
   getHistory,
   getSchedules,
   runSpeedTest,
@@ -51,9 +63,29 @@ interface MainProps {
   isPublic?: boolean;
 }
 
+/** Coordinates dashboard data, server selection, and test execution for private and public views. */
 export default function Main({ isPublic = false }: MainProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const speedtestSettings = useSpeedtestSettings();
+  const speedtestQuery = speedtestServerQuery(speedtestSettings);
+
+  // The public dashboard uses the server-configured public theme. Boot
+  // deliberately skipped the localStorage theme on /public; on failure the
+  // built-in default simply stays.
+  useEffect(() => {
+    if (!isPublic) return;
+    let active = true;
+    getPublicTheme()
+      .then(({ theme }) => {
+        if (active) applyPublicColorTheme(theme);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [isPublic]);
+
   const [options, setOptions] = useState<TestOptions>({
     enableDownload: true,
     enableUpload: true,
@@ -63,10 +95,11 @@ export default function Main({ isPublic = false }: MainProps) {
     useLibrespeed: false,
     serverIds: [],
   });
-  const [testType, setTestType] = useState<
-    "speedtest" | "iperf" | "librespeed"
-  >("speedtest");
-  const [selectedServers, setSelectedServers] = useState<Server[]>([]);
+  const [testType, setTestType] = useState<TestType>("speedtest");
+  const [serverSelection, setServerSelection] = useState<ServerSelection>({
+    testType: "speedtest",
+    servers: [],
+  });
   const [progress, setProgress] = useState<TestProgressType | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "running" | "complete">(
     "idle"
@@ -105,6 +138,11 @@ export default function Main({ isPublic = false }: MainProps) {
       icon: <GlobeAltIcon className="w-5 h-5" />,
     },
     {
+      id: "dns",
+      label: "DNS",
+      icon: <ServerStackIcon className="w-5 h-5" />,
+    },
+    {
       id: "monitor",
       label: "Agents",
       icon: <ServerIcon className="w-5 h-5" />,
@@ -117,11 +155,28 @@ export default function Main({ isPublic = false }: MainProps) {
   };
 
   // Queries
-  const { data: speedtestServers = [] } = useQuery({
-    queryKey: ["servers", "speedtest"],
-    queryFn: () => getServers("speedtest"),
+  const {
+    data: speedtestCatalogue,
+    dataUpdatedAt: speedtestCatalogueUpdatedAt,
+    isLoading: isSpeedtestLoading,
+    isError: isSpeedtestError,
+  } = useQuery({
+    queryKey: speedtestServerQueryKey(speedtestQuery),
+    queryFn: ({ signal }) => getSpeedtestServerCatalogue(speedtestQuery, signal),
     enabled: !isPublic,
-  }) as { data: Server[] };
+  });
+  const speedtestServers = useMemo(
+    () => speedtestCatalogue?.servers ?? [],
+    [speedtestCatalogue?.servers]
+  );
+  const speedtestCatalogueWarning = speedtestCatalogue?.warnings.join("; ") ?? "";
+
+  useEffect(() => {
+    if (!speedtestCatalogueWarning) return;
+    showToast("Server catalogue partially updated", "warning", {
+      description: speedtestCatalogueWarning,
+    });
+  }, [speedtestCatalogueUpdatedAt, speedtestCatalogueWarning]);
 
   const { data: librespeedServers = [], isLoading: isLibrespeedLoading, isError: isLibrespeedError } = useQuery({
     queryKey: ["servers", "librespeed"],
@@ -139,6 +194,8 @@ export default function Main({ isPublic = false }: MainProps) {
     if (testType === "iperf") return []; // or fetch iperf servers if they are separate
     return speedtestServers;
   }, [testType, speedtestServers, librespeedServers]);
+
+  const selectedServers = selectedServersFor(serverSelection, testType, servers);
 
   const { data: dashboardSettings } = useQuery({
     queryKey: ["dashboard-settings"],
@@ -178,37 +235,20 @@ export default function Main({ isPublic = false }: MainProps) {
   }, [historyData]);
 
   // Query to get all-time history for latest run display and existence check
-  const { data: allTimeHistoryData } = useInfiniteQuery({
+  const { data: allTimeHistoryData } = useQuery({
     queryKey: ["history", "all", isPublic],
-    queryFn: async ({ pageParam = 1 }) => {
+    queryFn: async () => {
       const historyFn = isPublic ? getPublicHistory : getHistory;
-      const response = await historyFn("all", pageParam, 20); // Get more results for latest run display
+      const response = await historyFn("all", 1, 1);
       return response as PaginatedResponse<SpeedTestResult>;
     },
-    getNextPageParam: () => undefined, // Only fetch first page
-    initialPageParam: 1,
     staleTime: 60000, // Cache for 1 minute
   });
 
-  const allTimeHistory = useMemo(() => {
-    if (!allTimeHistoryData?.pages) return [];
-    return allTimeHistoryData.pages.flatMap(
-      (page) => page?.data ?? []
-    ) as SpeedTestResult[];
-  }, [allTimeHistoryData]);
+  const allTimeHistory = allTimeHistoryData?.data ?? [];
 
-  const hasAnyTests = useMemo(() => {
-    return allTimeHistory.length > 0;
-  }, [allTimeHistory]);
-
-  // Use current time range history if available, otherwise fall back to all-time history for latest run
-  const latestTest = useMemo(() => {
-    return history && history.length > 0
-      ? history[0]
-      : allTimeHistory.length > 0
-      ? allTimeHistory[0]
-      : null;
-  }, [history, allTimeHistory]);
+  const hasAnyTests = allTimeHistory.length > 0;
+  const latestTest = history[0] ?? allTimeHistory[0] ?? null;
 
   const { data: schedules = [] } = useQuery({
     queryKey: ["schedules"],
@@ -246,14 +286,18 @@ export default function Main({ isPublic = false }: MainProps) {
   });
 
   const handleServerSelect = (server: Server) => {
-    setSelectedServers((prev) => {
+    setServerSelection((selection) => {
+      const prev = selection.testType === testType ? selection.servers : [];
       const isSelected = prev.some((s) => s.id === server.id);
       if (!options.multiServer) {
-        return isSelected ? [] : [server];
+        return { testType, servers: isSelected ? [] : [server] };
       }
-      return isSelected
-        ? prev.filter((s) => s.id !== server.id)
-        : [...prev, server];
+      return {
+        testType,
+        servers: isSelected
+          ? prev.filter((s) => s.id !== server.id)
+          : [...prev, server],
+      };
     });
   };
 
@@ -425,7 +469,7 @@ export default function Main({ isPublic = false }: MainProps) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Container maxWidth="xl" className="pb-20 sm:pb-8 pt-16 sm:pt-20 md:pt-14 flex-1">
+      <div className="mx-auto w-full max-w-[1536px] px-4 min-[600px]:px-6 pb-20 sm:pb-8 pt-16 sm:pt-20 md:pt-14 flex-1">
         {/* Test Progress - Always rendered with fixed height to prevent layout shift */}
         <div className="flex justify-center mb-2 sm:mb-4 mt-2 sm:mt-4 md:mt-0 h-5">
           <TestProgress progress={progress} />
@@ -574,8 +618,14 @@ export default function Main({ isPublic = false }: MainProps) {
                 onRunTest={runTest}
                 progress={progress}
                 allServers={allServers}
-                isServersLoading={testType === "librespeed" ? isLibrespeedLoading : false}
-                isServersError={testType === "librespeed" ? isLibrespeedError : false}
+                isServersLoading={
+                  testType === "speedtest" ? isSpeedtestLoading :
+                  testType === "librespeed" ? isLibrespeedLoading : false
+                }
+                isServersError={
+                  testType === "speedtest" ? isSpeedtestError :
+                  testType === "librespeed" ? isLibrespeedError : false
+                }
               />
             </motion.div>
           )}
@@ -592,6 +642,18 @@ export default function Main({ isPublic = false }: MainProps) {
             </motion.div>
           )}
 
+          {!isPublic && activeTab === "dns" && (
+            <motion.div
+              key="dns"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <DNSTab />
+            </motion.div>
+          )}
+
           {!isPublic && activeTab === "monitor" && (
             <motion.div
               key="monitor"
@@ -604,13 +666,13 @@ export default function Main({ isPublic = false }: MainProps) {
             </motion.div>
           )}
         </AnimatePresence>
-      </Container>
+      </div>
 
 
       {/* Public Footer */}
       {isPublic && (
         <div className="mb-8">
-          <Container maxWidth="xl">
+          <div className="mx-auto w-full max-w-[1536px] px-4 min-[600px]:px-6">
             <div className="flex justify-center">
               <div className="text-gray-600 dark:text-gray-500 text-sm">
                 Powered by{" "}
@@ -636,7 +698,7 @@ export default function Main({ isPublic = false }: MainProps) {
                 </a>
               </div>
             </div>
-          </Container>
+          </div>
         </div>
       )}
     </div>

@@ -4,24 +4,9 @@
  */
 
 /**
- * Animation configuration for Motion components
- * Moved outside component to prevent re-creation
- */
-export const SPRING_TRANSITION = {
-  type: "spring" as const,
-  stiffness: 500,
-  damping: 30,
-} as const;
-
-/**
  * Default display count for servers list
  */
 export const DEFAULT_SERVER_DISPLAY_COUNT = 4;
-
-/**
- * Server list increment when loading more
- */
-export const SERVER_DISPLAY_INCREMENT = 4;
 
 /**
  * Default traceroute configuration
@@ -72,4 +57,3 @@ export const TABLE_COLUMNS = {
   rtt3: "RTT 3",
   average: "Average",
 } as const;
-

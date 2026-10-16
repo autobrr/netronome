@@ -55,7 +55,7 @@ export const DistanceSettings: React.FC = () => {
           <div className="flex items-center gap-2">
             <Button
               onClick={saveSettings}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-on-accent"
             >
               <CheckIcon className="w-4 h-4" />
               Save Changes

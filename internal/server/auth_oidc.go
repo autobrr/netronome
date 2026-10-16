@@ -4,6 +4,7 @@
 package server
 
 import (
+	"crypto/rand"
 	"net/http"
 	"net/url"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/auth"
-	"github.com/autobrr/netronome/internal/utils"
 )
 
 func loginErrorRedirectURL(baseURL, errorCode string) string {
@@ -33,12 +33,7 @@ func (h *AuthHandler) handleOIDCLogin(c *gin.Context) {
 	}
 
 	// Generate state parameter
-	state, err := utils.GenerateSecureToken(32)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to generate state parameter")
-		c.Redirect(http.StatusTemporaryRedirect, loginErrorRedirectURL(baseURL, "state_generation_failed"))
-		return
-	}
+	state := rand.Text()
 
 	// Generate PKCE parameters
 	pkceParams, err := auth.GeneratePKCEParams()

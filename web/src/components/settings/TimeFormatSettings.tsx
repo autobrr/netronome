@@ -10,9 +10,9 @@ import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { 
-  getTimeFormatSettings, 
-  saveTimeFormatSettings, 
+import {
+  getTimeFormatSettings,
+  saveTimeFormatSettings,
   TIMEZONE_OPTIONS,
   getBrowserTimezone,
   getTimezoneDisplayName,
@@ -71,14 +71,14 @@ export const TimeFormatSettings: React.FC = () => {
 
         {hasChanges && (
           <div className="flex items-center gap-2">
-            <Button 
+            <Button
               onClick={saveSettings}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-on-accent"
             >
               <CheckIcon className="w-4 h-4" />
               Save Changes
             </Button>
-            <Button 
+            <Button
               onClick={() => {
                 setSettings(getTimeFormatSettings());
                 setHasChanges(false);
@@ -121,9 +121,9 @@ export const TimeFormatSettings: React.FC = () => {
                       <Badge variant="secondary" className="ml-2">Recommended</Badge>
                     </div>
                   </SelectItem>
-                  
+
                   <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
-                  
+
                   {TIMEZONE_OPTIONS.map((tz) => (
                     <SelectItem key={tz.value} value={tz.value}>
                       <div className="flex items-center justify-between w-full">

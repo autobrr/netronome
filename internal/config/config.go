@@ -4,6 +4,7 @@
 package config
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
 	"os"
@@ -14,8 +15,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/rs/zerolog/log"
-
-	"github.com/autobrr/netronome/internal/utils"
 )
 
 const (
@@ -36,19 +35,20 @@ const (
 
 // Config represents the application configuration
 type Config struct {
-	Database   DatabaseConfig   `toml:"database"`
-	Server     ServerConfig     `toml:"server"`
-	Logging    LoggingConfig    `toml:"logging"`
-	Auth       AuthConfig       `toml:"auth"`
-	OIDC       OIDCConfig       `toml:"oidc"`
-	SpeedTest  SpeedTestConfig  `toml:"speedtest"`
-	GeoIP      GeoIPConfig      `toml:"geoip"`
-	Pagination PaginationConfig `toml:"pagination"`
-	Session    SessionConfig    `toml:"session"`
-	PacketLoss PacketLossConfig `toml:"packetloss"`
-	Agent      AgentConfig      `toml:"agent"`
-	Monitor    MonitorConfig    `toml:"monitor"`
-	Tailscale  TailscaleConfig  `toml:"tailscale"`
+	CheckForUpdates bool             `toml:"check_for_updates" env:"CHECK_FOR_UPDATES"`
+	Database        DatabaseConfig   `toml:"database"`
+	Server          ServerConfig     `toml:"server"`
+	Logging         LoggingConfig    `toml:"logging"`
+	Auth            AuthConfig       `toml:"auth"`
+	OIDC            OIDCConfig       `toml:"oidc"`
+	SpeedTest       SpeedTestConfig  `toml:"speedtest"`
+	GeoIP           GeoIPConfig      `toml:"geoip"`
+	Pagination      PaginationConfig `toml:"pagination"`
+	Session         SessionConfig    `toml:"session"`
+	PacketLoss      PacketLossConfig `toml:"packetloss"`
+	Agent           AgentConfig      `toml:"agent"`
+	Monitor         MonitorConfig    `toml:"monitor"`
+	Tailscale       TailscaleConfig  `toml:"tailscale"`
 }
 
 type DatabaseConfig struct {
@@ -90,6 +90,8 @@ type SpeedTestConfig struct {
 	IPerf      IperfConfig      `toml:"iperf"`
 	Librespeed LibrespeedConfig `toml:"librespeed"`
 	Timeout    int              `toml:"timeout" env:"SPEEDTEST_TIMEOUT"`
+	// Connections is the connection limit for speedtest.net tests. 0 keeps the library default.
+	Connections int `toml:"connections" env:"SPEEDTEST_CONNECTIONS"`
 }
 
 type IperfConfig struct {
@@ -112,8 +114,6 @@ type PingConfig struct {
 
 type PaginationConfig struct {
 	DefaultPage      int    `toml:"default_page" env:"DEFAULT_PAGE"`
-	DefaultPageSize  int    `toml:"default_page_size" env:"DEFAULT_PAGE_SIZE"`
-	MaxPageSize      int    `toml:"max_page_size" env:"MAX_PAGE_SIZE"`
 	DefaultTimeRange string `toml:"default_time_range" env:"DEFAULT_TIME_RANGE"`
 	DefaultLimit     int    `toml:"default_limit" env:"DEFAULT_LIMIT"`
 }
@@ -128,13 +128,10 @@ type GeoIPConfig struct {
 }
 
 type PacketLossConfig struct {
-	Enabled                  bool `toml:"enabled" env:"PACKETLOSS_ENABLED"`
-	DefaultInterval          int  `toml:"default_interval" env:"PACKETLOSS_DEFAULT_INTERVAL"`
-	DefaultPacketCount       int  `toml:"default_packet_count" env:"PACKETLOSS_DEFAULT_PACKET_COUNT"`
-	MaxConcurrentMonitors    int  `toml:"max_concurrent_monitors" env:"PACKETLOSS_MAX_CONCURRENT_MONITORS"`
-	PrivilegedMode           bool `toml:"privileged_mode" env:"PACKETLOSS_PRIVILEGED_MODE"`
-	MTREnableDNS             bool `toml:"mtr_enable_dns" env:"PACKETLOSS_MTR_ENABLE_DNS"`
-	RestoreMonitorsOnStartup bool `toml:"restore_monitors_on_startup" env:"PACKETLOSS_RESTORE_MONITORS_ON_STARTUP"`
+	Enabled               bool `toml:"enabled" env:"PACKETLOSS_ENABLED"`
+	MaxConcurrentMonitors int  `toml:"max_concurrent_monitors" env:"PACKETLOSS_MAX_CONCURRENT_MONITORS"`
+	PrivilegedMode        bool `toml:"privileged_mode" env:"PACKETLOSS_PRIVILEGED_MODE"`
+	MTREnableDNS          bool `toml:"mtr_enable_dns" env:"PACKETLOSS_MTR_ENABLE_DNS"`
 }
 
 type AgentConfig struct {
@@ -148,8 +145,7 @@ type AgentConfig struct {
 }
 
 type MonitorConfig struct {
-	Enabled           bool   `toml:"enabled" env:"MONITOR_ENABLED"`
-	ReconnectInterval string `toml:"reconnect_interval" env:"MONITOR_RECONNECT_INTERVAL"`
+	Enabled bool `toml:"enabled" env:"MONITOR_ENABLED"`
 }
 
 type TailscaleConfig struct {
@@ -181,9 +177,8 @@ type TailscaleConfig struct {
 
 // Deprecated - kept for backward compatibility
 type TailscaleAgentConfig struct {
-	Enabled      bool `toml:"enabled" env:"TAILSCALE_AGENT_ENABLED"`
-	AcceptRoutes bool `toml:"accept_routes" env:"TAILSCALE_AGENT_ACCEPT_ROUTES"`
-	Port         int  `toml:"port" env:"TAILSCALE_AGENT_PORT"`
+	Enabled bool `toml:"enabled" env:"TAILSCALE_AGENT_ENABLED"`
+	Port    int  `toml:"port" env:"TAILSCALE_AGENT_PORT"`
 }
 
 // Deprecated - kept for backward compatibility
@@ -226,6 +221,7 @@ func isRunningInContainer() bool {
 // New creates a new Config instance with default values
 func New() *Config {
 	return &Config{
+		CheckForUpdates: true,
 		Database: DatabaseConfig{
 			Type:    SQLite,
 			Host:    "localhost",
@@ -262,8 +258,6 @@ func New() *Config {
 		},
 		Pagination: PaginationConfig{
 			DefaultPage:      1,
-			DefaultPageSize:  20,
-			MaxPageSize:      100,
 			DefaultTimeRange: "1w",
 			DefaultLimit:     20,
 		},
@@ -275,13 +269,10 @@ func New() *Config {
 			ASNDatabasePath:     "",
 		},
 		PacketLoss: PacketLossConfig{
-			Enabled:                  true,
-			DefaultInterval:          3600,
-			DefaultPacketCount:       10,
-			MaxConcurrentMonitors:    10,
-			PrivilegedMode:           true,
-			MTREnableDNS:             false,
-			RestoreMonitorsOnStartup: false,
+			Enabled:               true,
+			MaxConcurrentMonitors: 10,
+			PrivilegedMode:        true,
+			MTREnableDNS:          false,
 		},
 		Agent: AgentConfig{
 			Host:         "0.0.0.0",
@@ -291,8 +282,7 @@ func New() *Config {
 			DiskExcludes: []string{},
 		},
 		Monitor: MonitorConfig{
-			Enabled:           true,
-			ReconnectInterval: "30s",
+			Enabled: true,
 		},
 		Tailscale: TailscaleConfig{
 			Enabled:           false,
@@ -309,9 +299,8 @@ func New() *Config {
 			DiscoveryPrefix:   "",
 			// Deprecated fields - kept for compatibility during migration
 			Agent: TailscaleAgentConfig{
-				Enabled:      false,
-				AcceptRoutes: true,
-				Port:         8200,
+				Enabled: false,
+				Port:    8200,
 			},
 			Monitor: TailscaleMonitorConfig{
 				AutoDiscover:      true,
@@ -327,8 +316,25 @@ func New() *Config {
 func Load(configPath string) (*Config, error) {
 	cfg := New()
 
-	// If specific config path provided, only try that one
-	if configPath != "" {
+	// If no path is given, use the first default path that exists
+	if configPath == "" {
+		for _, path := range DefaultConfigPaths() {
+			log.Debug().
+				Str("checking_path", path).
+				Msg("Checking for config file")
+
+			if _, err := os.Stat(path); err == nil {
+				configPath = path
+				break
+			}
+		}
+	}
+
+	if configPath == "" {
+		log.Info().
+			Msg("No configuration file found, running with default values. Use 'netronome generate-config' to create one")
+	} else {
+		// A file that exists but does not decode is an error. Do not fall back to defaults.
 		if _, err := toml.DecodeFile(configPath, cfg); err != nil {
 			return nil, fmt.Errorf("failed to decode config file %s: %w", configPath, err)
 		}
@@ -344,42 +350,6 @@ func Load(configPath string) (*Config, error) {
 			cfg.Database.Path = filepath.Join(filepath.Dir(configPath), cfg.Database.Path)
 		}
 		cfg.SpeedTest.Librespeed.ServersPath = filepath.Join(filepath.Dir(configPath), "librespeed-servers.json")
-	} else {
-		// Try each default path in order
-		found := false
-		paths := DefaultConfigPaths()
-		for _, path := range paths {
-			log.Debug().
-				Str("checking_path", path).
-				Msg("Checking for config file")
-
-			if _, err := os.Stat(path); err == nil {
-				log.Debug().
-					Str("found_at", path).
-					Msg("Found config file")
-
-				if _, err := toml.DecodeFile(path, cfg); err == nil {
-					if cfg.SpeedTest.Librespeed.Timeout == 0 {
-						cfg.SpeedTest.Librespeed.Timeout = 60
-					}
-					log.Info().
-						Str("path", path).
-						Msg("Loaded configuration file")
-					found = true
-
-					// If db path is relative, make it relative to config file
-					if !filepath.IsAbs(cfg.Database.Path) {
-						cfg.Database.Path = filepath.Join(filepath.Dir(path), cfg.Database.Path)
-					}
-					cfg.SpeedTest.Librespeed.ServersPath = filepath.Join(filepath.Dir(path), "librespeed-servers.json")
-					break
-				}
-			}
-		}
-		if !found {
-			log.Info().
-				Msg("No configuration file found, running with default values. Use 'netronome generate-config' to create one")
-		}
 	}
 
 	// Override with environment variables
@@ -393,13 +363,6 @@ func Load(configPath string) (*Config, error) {
 	cfg.Tailscale = cfg.Tailscale.MigrateFromOldFormat()
 
 	return cfg, nil
-}
-
-// ApplyEnv loads configuration from environment variables.
-// This is useful when no config file is available and you want to apply
-// environment variable overrides to a default config.
-func (c *Config) ApplyEnv() {
-	c.loadFromEnv()
 }
 
 // loadFromEnv loads configuration from environment variables
@@ -417,7 +380,16 @@ func (c *Config) loadFromEnv() error {
 	c.loadAgentFromEnv()
 	c.loadMonitorFromEnv()
 	c.loadTailscaleFromEnv()
+	c.loadUpdatesFromEnv()
 	return nil
+}
+
+func (c *Config) loadUpdatesFromEnv() {
+	if v := getEnv("CHECK_FOR_UPDATES"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			c.CheckForUpdates = enabled
+		}
+	}
 }
 
 func (c *Config) loadDatabaseFromEnv() {
@@ -520,6 +492,11 @@ func (c *Config) loadSpeedTestFromEnv() {
 			c.SpeedTest.Timeout = val
 		}
 	}
+	if v := getEnv("SPEEDTEST_CONNECTIONS"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil {
+			c.SpeedTest.Connections = val
+		}
+	}
 	if v := getEnv("IPERF_TEST_DURATION"); v != "" {
 		if val, err := strconv.Atoi(v); err == nil {
 			c.SpeedTest.IPerf.TestDuration = val
@@ -563,16 +540,6 @@ func (c *Config) loadPaginationFromEnv() {
 			c.Pagination.DefaultPage = page
 		}
 	}
-	if v := getEnv("DEFAULT_PAGE_SIZE"); v != "" {
-		if size, err := strconv.Atoi(v); err == nil {
-			c.Pagination.DefaultPageSize = size
-		}
-	}
-	if v := getEnv("MAX_PAGE_SIZE"); v != "" {
-		if size, err := strconv.Atoi(v); err == nil {
-			c.Pagination.MaxPageSize = size
-		}
-	}
 	if v := getEnv("DEFAULT_TIME_RANGE"); v != "" {
 		c.Pagination.DefaultTimeRange = v
 	}
@@ -604,16 +571,6 @@ func (c *Config) loadPacketLossFromEnv() {
 			c.PacketLoss.Enabled = enabled
 		}
 	}
-	if v := getEnv("PACKETLOSS_DEFAULT_INTERVAL"); v != "" {
-		if interval, err := strconv.Atoi(v); err == nil {
-			c.PacketLoss.DefaultInterval = interval
-		}
-	}
-	if v := getEnv("PACKETLOSS_DEFAULT_PACKET_COUNT"); v != "" {
-		if count, err := strconv.Atoi(v); err == nil {
-			c.PacketLoss.DefaultPacketCount = count
-		}
-	}
 	if v := getEnv("PACKETLOSS_MAX_CONCURRENT_MONITORS"); v != "" {
 		if max, err := strconv.Atoi(v); err == nil {
 			c.PacketLoss.MaxConcurrentMonitors = max
@@ -627,11 +584,6 @@ func (c *Config) loadPacketLossFromEnv() {
 	if v := getEnv("PACKETLOSS_MTR_ENABLE_DNS"); v != "" {
 		if enableDNS, err := strconv.ParseBool(v); err == nil {
 			c.PacketLoss.MTREnableDNS = enableDNS
-		}
-	}
-	if v := getEnv("PACKETLOSS_RESTORE_MONITORS_ON_STARTUP"); v != "" {
-		if restore, err := strconv.ParseBool(v); err == nil {
-			c.PacketLoss.RestoreMonitorsOnStartup = restore
 		}
 	}
 }
@@ -676,9 +628,6 @@ func (c *Config) loadMonitorFromEnv() {
 			c.Monitor.Enabled = enabled
 		}
 	}
-	if v := getEnv("MONITOR_RECONNECT_INTERVAL"); v != "" {
-		c.Monitor.ReconnectInterval = v
-	}
 }
 
 func (c *Config) loadTailscaleFromEnv() {
@@ -689,11 +638,10 @@ func (c *Config) WriteToml(w io.Writer) error {
 	cfg := New()
 	cfg.Database.Path = "netronome.db"
 
-	secret, err := utils.GenerateSecureToken(32)
-	if err != nil {
-		return fmt.Errorf("failed to generate session secret: %w", err)
-	}
-	cfg.Session.Secret = secret
+	// Two rand.Text() calls: this is a long-lived signing key, so keep the
+	// ~256 bits the old 32-byte generator gave. One call (~130 bits) is
+	// plenty for the per-request tokens elsewhere, but not worth shaving here.
+	cfg.Session.Secret = rand.Text() + rand.Text()
 
 	if isRunningInContainer() {
 		cfg.Server.Host = "0.0.0.0"
@@ -703,6 +651,9 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "# Check for new releases in the background and show available updates in the UI\ncheck_for_updates = %v\n\n", cfg.CheckForUpdates); err != nil {
 		return err
 	}
 
@@ -838,6 +789,9 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "timeout = %d\n", cfg.SpeedTest.Timeout); err != nil {
 		return err
 	}
+	if _, err := fmt.Fprintf(w, "connections = %d\n", cfg.SpeedTest.Connections); err != nil {
+		return err
+	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
 		return err
 	}
@@ -902,7 +856,7 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintln(w, "# GeoIP configuration for country flags and ASN info in traceroute"); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintln(w, "# Uncomment and configure database paths to enable. See README for setup instructions."); err != nil {
+	if _, err := fmt.Fprintln(w, "# Uncomment and configure database paths to enable. See https://netrono.me/configuration/geoip/ for setup instructions."); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, "#[geoip]"); err != nil {
@@ -925,12 +879,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.PacketLoss.Enabled); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "default_interval = %d # seconds between tests\n", cfg.PacketLoss.DefaultInterval); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "default_packet_count = %d # packets per test\n", cfg.PacketLoss.DefaultPacketCount); err != nil {
-		return err
-	}
 	if _, err := fmt.Fprintf(w, "max_concurrent_monitors = %d\n", cfg.PacketLoss.MaxConcurrentMonitors); err != nil {
 		return err
 	}
@@ -949,9 +897,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "enabled = %v\n", cfg.Monitor.Enabled); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "reconnect_interval = \"%s\"\n", cfg.Monitor.ReconnectInterval); err != nil {
 		return err
 	}
 
@@ -1018,17 +963,6 @@ func (c *Config) WriteToml(w io.Writer) error {
 	}
 
 	return nil
-}
-
-func GetDefaultConfigPath() string {
-	if configDir, err := os.UserConfigDir(); err == nil {
-		configPath := filepath.Join(configDir, AppName, "config.toml")
-		if _, err := os.Stat(configPath); err == nil {
-			return configPath
-		}
-	}
-
-	return "config.toml"
 }
 
 func DefaultConfigPaths() []string {
@@ -1315,11 +1249,6 @@ func (t *TailscaleConfig) loadFromEnv() {
 	if v := getEnv("TAILSCALE_AGENT_ENABLED"); v != "" {
 		if enabled, err := strconv.ParseBool(v); err == nil {
 			t.Agent.Enabled = enabled
-		}
-	}
-	if v := getEnv("TAILSCALE_AGENT_ACCEPT_ROUTES"); v != "" {
-		if accept, err := strconv.ParseBool(v); err == nil {
-			t.Agent.AcceptRoutes = accept
 		}
 	}
 	if v := getEnv("TAILSCALE_AGENT_PORT"); v != "" {

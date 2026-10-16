@@ -26,13 +26,6 @@ type User struct {
 	PasswordHash string `json:"-"`
 }
 
-type UserService interface {
-	CreateUser(ctx context.Context, username, password string) (*User, error)
-	GetUserByUsername(ctx context.Context, username string) (*User, error)
-	ValidatePassword(user *User, password string) bool
-	UpdatePassword(ctx context.Context, username, newPassword string) error
-}
-
 func (s *service) CreateUser(ctx context.Context, username, password string) (*User, error) {
 	if username == "" || password == "" {
 		return nil, fmt.Errorf("%w: username and password required", ErrInvalidInput)
@@ -104,8 +97,8 @@ func (s *service) CreateUser(ctx context.Context, username, password string) (*U
 			INSERT INTO registration_status (is_registration_enabled) VALUES (false);`
 	} else {
 		disableRegQuery = `
-			INSERT INTO registration_status (is_registration_enabled) 
-			VALUES (0) 
+			INSERT INTO registration_status (is_registration_enabled)
+			VALUES (0)
 			ON CONFLICT (rowid) DO UPDATE SET is_registration_enabled = 0`
 	}
 

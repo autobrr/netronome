@@ -37,9 +37,25 @@ func TestValidateNotificationURL(t *testing.T) {
 			wantErr: "must include a host",
 		},
 		{
+			name:   "ntfy scheme override with shoutrrr casing",
+			rawURL: "ntfy://:tk_token@ntfy/htpc?Scheme=http",
+		},
+		{
 			name:    "trims whitespace before validating",
 			rawURL:  "  pushover://API_TOKEN@USER_KEY  ",
 			wantErr: "token missing",
+		},
+		{
+			// This URL caused a panic in shoutrrr v0.8.0 (slice bounds). The
+			// panic stopped the whole validation request.
+			name:    "opsgenie missing host does not panic",
+			rawURL:  "opsgenie://APIKEY",
+			wantErr: "API key missing",
+		},
+		{
+			name:    "unknown service scheme",
+			rawURL:  "carrierpigeon://coop.example.com/loft",
+			wantErr: "unknown service",
 		},
 	}
 

@@ -4,42 +4,30 @@
 package utils
 
 import (
-	"net"
+	"net/netip"
 	"net/url"
 	"strings"
+
+	"tailscale.com/net/tsaddr"
 )
 
-// IsTailscaleIP checks if a given URL contains a Tailscale IP address
+// IsTailscaleIP reports whether the host of urlStr is in the Tailscale CGNAT or
+// ULA range. Deliberately not tsaddr.IsTailscaleIP: that one subtracts the ChromeOS
+// VM range 100.115.92.0/23, and agents on those addresses must still report as Tailscale.
 func IsTailscaleIP(urlStr string) bool {
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
 		return false
 	}
 
-	host := parsedURL.Hostname()
-	if host == "" {
+	ip, err := netip.ParseAddr(parsedURL.Hostname())
+	if err != nil {
 		return false
 	}
 
-	// Parse the IP address
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return false
-	}
-
-	// Check if it's in the Tailscale CGNAT range (100.64.0.0/10)
-	_, tailscaleNet, _ := net.ParseCIDR("100.64.0.0/10")
-	if tailscaleNet != nil && tailscaleNet.Contains(ip) {
-		return true
-	}
-
-	// Check if it's in the Tailscale IPv6 range (fd7a:115c:a1e0::/48)
-	_, tailscaleNet6, _ := net.ParseCIDR("fd7a:115c:a1e0::/48")
-	if tailscaleNet6 != nil && tailscaleNet6.Contains(ip) {
-		return true
-	}
-
-	return false
+	// Unmap keeps ::ffff:100.64.0.1 matching the v4 range, as net.IP did.
+	ip = ip.Unmap()
+	return tsaddr.CGNATRange().Contains(ip) || tsaddr.TailscaleULARange().Contains(ip)
 }
 
 // IsTailscaleHostname checks if a hostname looks like a Tailscale MagicDNS name

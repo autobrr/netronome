@@ -57,6 +57,7 @@ import {
   TAB_MODE_STORAGE_KEY,
 } from "./traceroute/constants/tracerouteConstants";
 
+/** Provides traceroute execution and packet-loss monitoring with server selection. */
 export const TracerouteTab: React.FC = () => {
   const queryClient = useQueryClient();
 

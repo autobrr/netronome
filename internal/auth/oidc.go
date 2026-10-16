@@ -263,10 +263,6 @@ func getProviderEndpoints(ctx context.Context, client *http.Client, issuer strin
 	}, discovery.UserinfoURL, nil
 }
 
-func (c *OIDCConfig) AuthURL() string {
-	return c.OAuth2Config.AuthCodeURL("state")
-}
-
 func containsScope(scopes []string, target string) bool {
 	return slices.Contains(scopes, target)
 }
