@@ -6,6 +6,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -320,7 +321,7 @@ func TestTailscaleConfig_BackwardCompatibility(t *testing.T) {
 				Method:            "host",
 				AuthKey:           "",
 				AgentPort:         8200,
-				AutoDiscover:      true,
+				AutoDiscover:      false,
 				DiscoveryInterval: "5m",
 				DiscoveryPort:     8200,
 			},
@@ -368,7 +369,7 @@ func TestTailscaleConfig_BackwardCompatibility(t *testing.T) {
 			expected: TailscaleConfig{
 				Enabled:           false,
 				Method:            "host",
-				AutoDiscover:      true,
+				AutoDiscover:      false,
 				DiscoveryInterval: "2m",
 				DiscoveryPort:     8200,
 			},
@@ -482,10 +483,12 @@ func splitEnvPair(env string) []string {
 	}
 	return []string{env, ""}
 }
+
 // Load must fold the deprecated [tailscale.monitor] section into the unified
 // fields. Before this was wired up, MigrateFromOldFormat existed but was never
 // called, so these settings were silently dropped in favour of the defaults.
 func TestLoad_MigratesDeprecatedTailscaleSection(t *testing.T) {
+	clearNetronomeEnv(t)
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
 
@@ -507,4 +510,43 @@ discovery_prefix = "netronome-agent"
 	assert.Equal(t, "5m", cfg.Tailscale.DiscoveryInterval)
 	assert.Equal(t, 8200, cfg.Tailscale.DiscoveryPort)
 	assert.True(t, cfg.Tailscale.AutoDiscover)
+}
+
+// An explicit auto_discover = false must survive Load. The deprecated
+// [tailscale.monitor] default of true must not turn discovery back on.
+func TestLoad_KeepsAutoDiscoverOff(t *testing.T) {
+	tests := []struct {
+		name string
+		toml string
+		env  string
+	}{
+		{name: "file", toml: "[tailscale]\nenabled = true\nauto_discover = false\n"},
+		{name: "env", toml: "[tailscale]\nenabled = true\n", env: "false"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clearNetronomeEnv(t)
+			if tt.env != "" {
+				t.Setenv(EnvPrefix+"TAILSCALE_AUTO_DISCOVER", tt.env)
+			}
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.toml), 0o600))
+
+			cfg, err := Load(path)
+			require.NoError(t, err)
+			assert.False(t, cfg.Tailscale.AutoDiscover)
+		})
+	}
+}
+
+// clearNetronomeEnv blanks every NETRONOME__ variable for the test, so Load
+// sees only the test fixture. Load treats an empty value as unset.
+func clearNetronomeEnv(t *testing.T) {
+	t.Helper()
+	for _, kv := range os.Environ() {
+		if key, _, _ := strings.Cut(kv, "="); strings.HasPrefix(key, EnvPrefix) {
+			t.Setenv(key, "")
+		}
+	}
 }

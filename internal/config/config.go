@@ -1211,10 +1211,8 @@ func (t *TailscaleConfig) MigrateFromOldFormat() TailscaleConfig {
 		result.AgentPort = t.Agent.Port
 	}
 
-	// Migrate monitor settings
-	if result.AutoDiscover == false && t.Monitor.AutoDiscover {
-		result.AutoDiscover = t.Monitor.AutoDiscover
-	}
+	// Migrate monitor settings. AutoDiscover is not migrated: the unified
+	// field defaults to true, so false means the user turned it off.
 	if result.DiscoveryInterval == "" && t.Monitor.DiscoveryInterval != "" {
 		result.DiscoveryInterval = t.Monitor.DiscoveryInterval
 	}
