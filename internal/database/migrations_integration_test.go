@@ -4,6 +4,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -192,13 +193,13 @@ func TestMigrations_UpgradeSetsThresholdOperators(t *testing.T) {
 			rule(2, NotificationEventSpeedtestDownloadLow, "NULL"),
 			rule(2, NotificationEventSpeedtestPingHigh, "NULL"),
 		} {
-			_, err := db.Exec(stmt)
+			_, err := db.ExecContext(t.Context(), stmt)
 			require.NoError(t, err)
 		}
 
 		migrate(files)
 
-		rows, err := db.Query(`SELECT r.channel_id, e.event_type, r.threshold_operator
+		rows, err := db.QueryContext(t.Context(), `SELECT r.channel_id, e.event_type, r.threshold_operator
 			FROM notification_rules r JOIN notification_events e ON e.id = r.event_id`)
 		require.NoError(t, err)
 		defer rows.Close()
@@ -238,9 +239,13 @@ func openEmptyDatabase(t *testing.T, cfg config.DatabaseConfig) *sql.DB {
 	require.NoError(t, err)
 	t.Cleanup(func() { admin.Close() })
 
-	_, err = admin.Exec("CREATE DATABASE upgrade_test")
+	_, err = admin.ExecContext(t.Context(), "CREATE DATABASE upgrade_test")
 	require.NoError(t, err)
-	t.Cleanup(func() { admin.Exec("DROP DATABASE upgrade_test") })
+	t.Cleanup(func() {
+		if _, err := admin.ExecContext(context.Background(), "DROP DATABASE upgrade_test"); err != nil {
+			t.Errorf("drop database upgrade_test: %v", err)
+		}
+	})
 
 	db, err := sql.Open("postgres", postgresDSN(cfg, "upgrade_test"))
 	require.NoError(t, err)
