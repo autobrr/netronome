@@ -187,7 +187,7 @@ func (m *Migrator) readFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
-func (m *Migrator) migrateInitialSchema(migration *Migration) error {
+func (m *Migrator) migrateInitialSchema(migration *Migration) (err error) {
 	if migration.Name == "" {
 		return errors.New("migration must have a name")
 	}
@@ -231,7 +231,8 @@ func (m *Migrator) migrateInitialSchema(migration *Migration) error {
 
 	} else if migration.File != "" {
 		// handle file based migration
-		data, err := m.readFile(migration.File)
+		var data []byte
+		data, err = m.readFile(migration.File)
 		if err != nil {
 			return errors.Wrapf(err, "could not read migration from file: %q", migration.File)
 		}
@@ -250,7 +251,7 @@ func (m *Migrator) migrateInitialSchema(migration *Migration) error {
 	return err
 }
 
-func (m *Migrator) migrate(migrationNumber int, migration *Migration) error {
+func (m *Migrator) migrate(migrationNumber int, migration *Migration) (err error) {
 	if migration.Name == "" {
 		return errors.New("migration must have a name")
 	}
@@ -292,7 +293,8 @@ func (m *Migrator) migrate(migrationNumber int, migration *Migration) error {
 			return errors.Wrapf(err, "error executing migration: %s", migration.Name)
 		}
 	} else if migration.File != "" {
-		data, err := m.readFile(migration.File)
+		var data []byte
+		data, err = m.readFile(migration.File)
 		if err != nil {
 			return errors.Wrapf(err, "could not read migration from file: %q", migration.File)
 		}
