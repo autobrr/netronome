@@ -5,7 +5,11 @@
 
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { speedtestServersNetworkOnlyRoute } from "./pwaRuntimeCaching.ts";
+import {
+  apiNavigateFallbackDenylist,
+  exportNetworkOnlyRoute,
+  speedtestServersNetworkOnlyRoute,
+} from "./pwaRuntimeCaching.ts";
 
 test("server catalogue requests bypass PWA runtime caches", () => {
   assert.equal(speedtestServersNetworkOnlyRoute.handler, "NetworkOnly");
@@ -21,4 +25,12 @@ test("server catalogue requests bypass PWA runtime caches", () => {
     "https://netronome.example/api/server-status",
     speedtestServersNetworkOnlyRoute.urlPattern,
   );
+});
+
+test("export downloads bypass the PWA caches and the app shell", () => {
+  const url = "https://netronome.example/netronome/api/export/dns?format=csv";
+  assert.equal(exportNetworkOnlyRoute.handler, "NetworkOnly");
+  assert.match(url, exportNetworkOnlyRoute.urlPattern);
+  assert.ok(apiNavigateFallbackDenylist.some((pattern) => pattern.test(new URL(url).pathname)));
+  assert.ok(!apiNavigateFallbackDenylist.some((pattern) => pattern.test("/netronome/settings")));
 });

@@ -49,6 +49,8 @@ instance's detected location, `global` queries known regions, and `coordinates`
 uses an explicit latitude and longitude. Each source has its own last-updated
 status.
 
+**Speed test result** — one stored measurement from one speed test.
+
 ## Monitors
 
 The word **monitor** has two meanings in this codebase. Do not mix them.
@@ -104,3 +106,9 @@ A speed below a threshold, a temperature above one. Not every event has one.
 **Default operator** — the threshold operator that an event gives to a new rule.
 `download_low` and `upload_low` use `lt`. All other threshold events use `gt`.
 The user can change the operator on the rule.
+
+**Result** — one stored measurement: a speed test result, a packet loss result, or a
+DNS result. Purge and export act on results.
+
+**Export** — a download of the results of one dataset, as CSV or JSON, with an
+optional date range.

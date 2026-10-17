@@ -346,6 +346,7 @@ func (s *Server) RegisterRoutes() {
 			protected.PUT("/settings/dashboard", s.handleUpdateDashboardSettings)
 
 			protected.POST("/history/purge", s.handlePurgeHistory)
+			protected.GET("/export/:dataset", s.handleExportResults)
 		}
 	}
 

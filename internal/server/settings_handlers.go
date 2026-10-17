@@ -120,6 +120,61 @@ func (s *Server) handlePurgeHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, purgeHistoryResponse{SpeedTests: speedTests, PacketLoss: packetLoss, DNS: dnsResults})
 }
 
+func (s *Server) handleExportResults(c *gin.Context) {
+	dataset := database.ExportDataset(c.Param("dataset"))
+	if !dataset.Valid() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dataset must be speedtests, packetloss, or dns"})
+		return
+	}
+	format := database.ExportFormat(c.Query("format"))
+	if !format.Valid() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "format must be csv or json"})
+		return
+	}
+	var from, to time.Time
+	for _, p := range []struct {
+		name string
+		dst  *time.Time
+	}{{"from", &from}, {"to", &to}} {
+		value := c.Query(p.name)
+		if value == "" {
+			continue
+		}
+		t, err := time.Parse(time.RFC3339, value)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": p.name + " must be an RFC 3339 timestamp"})
+			return
+		}
+		*p.dst = t
+	}
+
+	contentType := "text/csv; charset=utf-8"
+	if format == database.ExportJSON {
+		contentType = "application/json"
+	}
+	filename := "netronome-" + string(dataset) + "-" + time.Now().Format(time.DateOnly) + "." + string(format)
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Disposition", `attachment; filename="`+filename+`"`)
+	// Send the headers now, so that the browser shows the download before
+	// the first row arrives.
+	c.Status(http.StatusOK)
+	c.Writer.Flush()
+
+	if err := s.db.ExportResults(c.Request.Context(), c.Writer, dataset, format, from, to); err != nil {
+		log.Error().Err(err).Str("dataset", string(dataset)).Msg("Failed to export results")
+		// Close the connection without the end of the body, so that the
+		// browser marks the download as failed. gin.Recovery swallows
+		// http.ErrAbortHandler, and gin refuses Hijack after the first byte,
+		// so hijack the net/http writer under it.
+		// ponytail: HTTP/2 cannot hijack, so there the body ends cleanly. Netronome serves only HTTP/1.1.
+		if u, ok := c.Writer.(interface{ Unwrap() http.ResponseWriter }); ok {
+			if conn, _, err := http.NewResponseController(u.Unwrap()).Hijack(); err == nil {
+				_ = conn.Close()
+			}
+		}
+	}
+}
+
 func isAllowedDashboardRecentRows(rows int) bool {
 	_, ok := allowedDashboardRecentRows[rows]
 	return ok
