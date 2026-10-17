@@ -68,9 +68,11 @@ const ExportResults: React.FC = () => {
       <CardContent className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelClass}>Dataset</label>
+            <label htmlFor="export-dataset" className={labelClass}>
+              Dataset
+            </label>
             <Select value={dataset} onValueChange={setDataset}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="export-dataset" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -83,9 +85,11 @@ const ExportResults: React.FC = () => {
             </Select>
           </div>
           <div>
-            <label className={labelClass}>Format</label>
+            <label htmlFor="export-format" className={labelClass}>
+              Format
+            </label>
             <Select value={format} onValueChange={setFormat}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="export-format" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
