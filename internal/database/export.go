@@ -270,6 +270,8 @@ func newExportScanTarget(kind exportKind) any {
 		return new(sql.NullBool)
 	case exportTime:
 		return new(sql.NullTime)
+	case exportText, exportLatency:
+		return new(sql.NullString)
 	default:
 		return new(sql.NullString)
 	}
