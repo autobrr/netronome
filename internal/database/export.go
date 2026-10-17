@@ -144,7 +144,8 @@ func (s *service) ExportResults(ctx context.Context, w io.Writer, dataset Export
 	query := s.sqlBuilder.Select(exprs...).From(spec.from)
 
 	// SQLite compares timestamps as text, and some rows hold a local offset.
-	// julianday compares the instants.
+	// julianday compares the instants. Migration 026 indexes this expression,
+	// so keep the two the same.
 	createdAt := "r.created_at"
 	param := "?"
 	if s.config.Type == config.SQLite {
