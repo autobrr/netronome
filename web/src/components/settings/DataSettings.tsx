@@ -4,10 +4,15 @@
  */
 
 import React, { useState } from "react";
-import { CircleStackIcon, TrashIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowDownTrayIcon,
+  CircleStackIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -18,6 +23,8 @@ import {
 import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
 import { settingsApi } from "@/api/settings";
 import { showToast } from "@/components/common/Toast";
+import { getApiUrl } from "@/utils/baseUrl";
+import { exportQuery } from "@/utils/exportQuery";
 
 const RETENTION_OPTIONS = [
   { value: 7, label: "older than 7 days" },
@@ -26,6 +33,118 @@ const RETENTION_OPTIONS = [
   { value: 365, label: "older than 1 year" },
   { value: 0, label: "everything" },
 ];
+
+const EXPORT_DATASETS = [
+  { value: "speedtests", label: "Speed tests" },
+  { value: "packetloss", label: "Packet loss" },
+  { value: "dns", label: "DNS" },
+];
+
+const EXPORT_FORMATS = [
+  { value: "csv", label: "CSV" },
+  { value: "json", label: "JSON" },
+];
+
+const ExportResults: React.FC = () => {
+  const [dataset, setDataset] = useState("speedtests");
+  const [format, setFormat] = useState("csv");
+  const [fromDay, setFromDay] = useState("");
+  const [toDay, setToDay] = useState("");
+
+  // A plain link: the browser streams the file to disk and sends the session cookie.
+  const query = exportQuery(format, fromDay, toDay);
+  const canDownload = query !== null && !(fromDay && toDay && fromDay > toDay);
+  const labelClass =
+    "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ArrowDownTrayIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          Export Results
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelClass}>Dataset</label>
+            <Select value={dataset} onValueChange={setDataset}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EXPORT_DATASETS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className={labelClass}>Format</label>
+            <Select value={format} onValueChange={setFormat}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EXPORT_FORMATS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label htmlFor="export-from" className={labelClass}>
+              From
+            </label>
+            <Input
+              id="export-from"
+              type="date"
+              value={fromDay}
+              max={toDay || undefined}
+              onChange={(e) => setFromDay(e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="export-to" className={labelClass}>
+              To
+            </label>
+            <Input
+              id="export-to"
+              type="date"
+              value={toDay}
+              min={fromDay || undefined}
+              onChange={(e) => setToDay(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Leave a date empty to export all results on that side. Dates use your
+          local time zone, and the end day is included.
+        </p>
+
+        {canDownload ? (
+          <Button asChild>
+            <a href={getApiUrl(`/export/${dataset}?${query}`)} download>
+              <ArrowDownTrayIcon className="w-4 h-4" />
+              Download
+            </a>
+          </Button>
+        ) : (
+          <Button disabled>
+            <ArrowDownTrayIcon className="w-4 h-4" />
+            Download
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 export const DataSettings: React.FC = () => {
   const queryClient = useQueryClient();
@@ -62,9 +181,11 @@ export const DataSettings: React.FC = () => {
           Data Settings
         </h3>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Purge historic speedtest and packet loss results
+          Export or purge speed test, packet loss, and DNS results
         </p>
       </div>
+
+      <ExportResults />
 
       <Card>
         <CardHeader>

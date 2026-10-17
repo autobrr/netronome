@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -134,6 +135,7 @@ type Service interface {
 
 	CleanupMonitorData(ctx context.Context) error
 	PurgeHistoricalData(ctx context.Context, before time.Time) (speedTests int64, packetLoss int64, dnsResults int64, err error)
+	ExportResults(ctx context.Context, w io.Writer, dataset ExportDataset, format ExportFormat, from, to time.Time) error
 
 	// Embed NotificationService interface
 	NotificationService
