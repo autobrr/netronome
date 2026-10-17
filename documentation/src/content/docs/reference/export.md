@@ -9,12 +9,13 @@ An export is a download of the results of one dataset, as CSV or JSON. A result 
 
 ## Export from the web interface
 
-1. Click **Settings** and select **Data**.
-2. In **Export Results**, select the dataset in **Dataset**.
-3. Select **CSV** or **JSON** in **Format**.
-4. To set a start day, select it in **From**.
-5. To set an end day, select it in **To**.
-6. Click **Download**.
+1. Click **Settings**.
+2. Select **Data**.
+3. In **Export Results**, select the dataset in **Dataset**.
+4. Select **CSV** or **JSON** in **Format**.
+5. To set a start day, select it in **From**.
+6. To set an end day, select it in **To**.
+7. Click **Download**.
 
 The browser saves one file, for example `netronome-speedtests-2026-10-17.csv`. The file name contains the dataset and the date of the export.
 
