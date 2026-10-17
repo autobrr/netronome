@@ -19,6 +19,7 @@ func TestLatencyMs(t *testing.T) {
 		{name: "microseconds", latency: "850µs", want: 0.85},
 		{name: "seconds", latency: "1.2s", want: 1200.0},
 		{name: "librespeed plain milliseconds", latency: "12.35", want: 12.35},
+		{name: "iperf3 ping", latency: "15.20 ms", want: 15.2},
 		{name: "iperf3 without ping data", latency: "0ms", want: 0.0},
 		{name: "empty", latency: "", want: nil},
 		{name: "garbage", latency: "fast", want: nil},

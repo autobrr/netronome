@@ -330,10 +330,11 @@ func csvCell(value any) string {
 }
 
 // latencyMs converts stored latency text to milliseconds. speedtest.net stores
-// a Go duration ("12.345ms"), LibreSpeed stores plain milliseconds ("12.35").
-// It returns nil when the text is neither.
+// a Go duration ("12.345ms"). iperf3 stores milliseconds with a space
+// ("15.20 ms"). LibreSpeed stores plain milliseconds ("12.35"). It returns nil
+// when the text has none of these forms.
 func latencyMs(latency string) any {
-	if d, err := time.ParseDuration(latency); err == nil {
+	if d, err := time.ParseDuration(strings.ReplaceAll(latency, " ", "")); err == nil {
 		return float64(d) / float64(time.Millisecond)
 	}
 	ms, err := strconv.ParseFloat(latency, 64)
