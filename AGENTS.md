@@ -6,7 +6,7 @@
 - Reusable helpers: `pkg/`.
 - Web UI: `web/src` (Vite + React), build output in `web/dist`.
 - Tests and harnesses: `test/` plus `distrib/docker/docker-compose*.yml` for e2e stacks.
-- Long-form docs: `docs/` and `ai_docs/`.
+- Long-form docs: `docs/`. `ai_docs/` is gitignored and holds local notes only. Put each doc that the repo keeps in `docs/`.
 - User docs site: `documentation/` (Astro Starlight, deployed to netrono.me by Netlify).
 
 ## Documentation Prose (Hard Rule)
@@ -34,9 +34,15 @@ Write every page in `documentation/`, `docs/`, and `README.md` in Simplified Tec
 - `pnpm -C web test`: frontend unit tests (`node:test`, no test framework). CI runs this in the web job.
 - `go test ./...`: backend unit tests.
 - `./test/test-local.sh`: local dockerized scenario tests.
+- If the server stops with `applied migration number on db cannot be greater than the defined migration list` after a branch switch, the local database has migrations that the branch does not have. Back up `config/netronome.db` and its `-wal` and `-shm` files. Then run `sqlite3 config/netronome.db "DELETE FROM schema_migrations WHERE id >= N;"`, where N is the number of migration files on the branch. The columns that those migrations added stay. If you switch back, the `ALTER TABLE ... ADD COLUMN` of those migrations fails with `duplicate column name`.
 
 ## Coding Style & Naming Conventions
-- Go: `gofmt` or `goimports`, Go 1.27 target.
+- Go: `gofmt` or `goimports`, Go 1.27 target. If `go.mod` needs a newer Go, change these in the same PR:
+  - `GO_VERSION` in `.github/workflows/release.yml`.
+  - The `golang:` image in `distrib/docker/ci.Dockerfile`. The release workflow builds the Docker image from this file.
+  - The `golang:` image in `distrib/docker/Dockerfile`.
+  - The Go target on this line.
+- Migrations: give each new file in `internal/database/migrations/sqlite/` and `postgres/` a number higher than every existing number. The migrator counts the applied rows and runs only the files after that count. An upgrade skips a file with a reused or lower number and gives no error. A fresh install runs every file, so the tests pass. After a rebase onto `develop`, make sure that no new migration on `develop` uses your number.
 - TypeScript: 2-space indentation, PascalCase components, camelCase utilities.
 - Tailwind tokens should align with the `@theme` block in `web/src/index.css`.
 - Lint: `pnpm -C web lint` (ESLint).
