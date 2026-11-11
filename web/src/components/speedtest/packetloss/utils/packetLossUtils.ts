@@ -18,33 +18,45 @@ const storedExactTimes = (interval: string | undefined): string[] =>
     : [];
 
 /**
- * The stored UTC times of an `exact:` interval, as HH:MM in userTimezone.
+ * The times of an `exact:` interval as the edit form loaded them: `shown[i]`
+ * is `stored[i]` (UTC) as HH:MM in the user's time zone at load time.
  */
-export const exactTimesFromInterval = (
+export interface LoadedExactTimes {
+  shown: string[];
+  stored: string[];
+}
+
+export const loadExactTimes = (
   interval: string,
   userTimezone: string,
-): string[] =>
-  storedExactTimes(interval).map((time) => convertUTCTimeToUser(time, userTimezone));
+): LoadedExactTimes => {
+  const stored = storedExactTimes(interval);
+  return {
+    shown: stored.map((time) => convertUTCTimeToUser(time, userTimezone)),
+    stored,
+  };
+};
 
 /**
  * Builds the stored `exact:` interval (UTC) from HH:MM times in userTimezone.
- * A time that previousInterval already holds keeps its stored UTC value, so
- * an unchanged save does not move it when the offset changed since the load.
+ * Each time that the form loaded and the user kept reuses its stored UTC
+ * value, so an unchanged save does not move a time when the offset changed.
  */
 export const exactIntervalFromTimes = (
   times: string[],
   userTimezone: string,
-  previousInterval?: string,
+  loaded?: LoadedExactTimes,
 ): string => {
-  const storedByShown = new Map(
-    storedExactTimes(previousInterval).map((utc) => [
-      convertUTCTimeToUser(utc, userTimezone),
-      utc,
-    ]),
-  );
-  const utcTimes = times.map(
-    (time) => storedByShown.get(time) ?? convertUserTimeToUTC(time, userTimezone),
-  );
+  const unused = loaded
+    ? loaded.shown.map((shown, i) => ({ shown, utc: loaded.stored[i] }))
+    : [];
+  const utcTimes = times.map((time) => {
+    const match = unused.findIndex((entry) => entry.shown === time);
+    if (match === -1) {
+      return convertUserTimeToUTC(time, userTimezone);
+    }
+    return unused.splice(match, 1)[0].utc;
+  });
   return `${EXACT_PREFIX}${utcTimes.join(",")}`;
 };
 

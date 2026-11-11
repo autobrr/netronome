@@ -7,8 +7,8 @@ import { strict as assert } from "node:assert";
 import { afterEach, beforeEach, mock, test } from "node:test";
 import {
   exactIntervalFromTimes,
-  exactTimesFromInterval,
   formatInterval,
+  loadExactTimes,
 } from "./packetLossUtils.ts";
 
 const initialTZ = process.env.TZ;
@@ -36,7 +36,7 @@ test("a duration interval does not change", () => {
 });
 
 test("an edit form shows the stored UTC exact times in the time zone of the user", () => {
-  assert.deepEqual(exactTimesFromInterval("exact:12:00, 23:00", "Europe/Oslo"), ["14:00", "01:00"]);
+  assert.deepEqual(loadExactTimes("exact:12:00, 23:00", "Europe/Oslo").shown, ["14:00", "01:00"]);
 });
 
 test("a saved form stores the exact times in UTC", () => {
@@ -46,14 +46,31 @@ test("a saved form stores the exact times in UTC", () => {
 test("an unchanged save keeps the stored times across a daylight saving change", () => {
   process.env.TZ = "America/New_York";
   mock.timers.setTime(new Date("2026-11-02T01:00:00Z").getTime());
-  const stored = "exact:05:00";
-  const shown = exactTimesFromInterval(stored, "America/New_York");
-  assert.equal(exactIntervalFromTimes(shown, "America/New_York", stored), stored);
+  const loaded = loadExactTimes("exact:05:00", "America/New_York");
+  assert.equal(exactIntervalFromTimes(loaded.shown, "America/New_York", loaded), "exact:05:00");
+});
+
+test("an unchanged save keeps two stored times that show as the same hour on a fall-back day", () => {
+  process.env.TZ = "America/New_York";
+  mock.timers.setTime(new Date("2026-11-01T12:00:00Z").getTime());
+  const loaded = loadExactTimes("exact:05:00,06:00", "America/New_York");
+  assert.deepEqual(loaded.shown, ["01:00", "01:00"]);
+  assert.equal(exactIntervalFromTimes(loaded.shown, "America/New_York", loaded), "exact:05:00,06:00");
+});
+
+test("an unchanged save keeps the stored times when the form stays open across a daylight saving change", () => {
+  process.env.TZ = "America/New_York";
+  mock.timers.setTime(new Date("2026-10-31T12:00:00Z").getTime());
+  const loaded = loadExactTimes("exact:12:00", "America/New_York");
+  assert.deepEqual(loaded.shown, ["08:00"]);
+  mock.timers.setTime(new Date("2026-11-02T12:00:00Z").getTime());
+  assert.equal(exactIntervalFromTimes(loaded.shown, "America/New_York", loaded), "exact:12:00");
 });
 
 test("a new time in an edited monitor is converted to UTC", () => {
+  const loaded = loadExactTimes("exact:12:00", "Europe/Oslo");
   assert.equal(
-    exactIntervalFromTimes(["14:00", "15:00"], "Europe/Oslo", "exact:12:00"),
+    exactIntervalFromTimes(["14:00", "15:00"], "Europe/Oslo", loaded),
     "exact:12:00,13:00",
   );
 });

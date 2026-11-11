@@ -28,8 +28,9 @@ import {
 } from "./packetloss/constants/packetLossConstants";
 import { getUserTimezone } from "@/utils/timeSettings";
 import {
+  LoadedExactTimes,
   exactIntervalFromTimes,
-  exactTimesFromInterval,
+  loadExactTimes,
 } from "./packetloss/utils/packetLossUtils";
 
 // Import packet loss API functions
@@ -88,6 +89,7 @@ export const TracerouteTab: React.FC = () => {
   const [editingMonitor, setEditingMonitor] =
     useState<PacketLossMonitor | null>(null);
   const [formData, setFormData] = useState<MonitorFormData>(defaultFormData);
+  const [loadedExactTimes, setLoadedExactTimes] = useState<LoadedExactTimes>();
   const [togglingMonitorIds, setTogglingMonitorIds] = useState<Set<number>>(new Set());
 
   // Save tab mode to localStorage when it changes
@@ -286,7 +288,7 @@ export const TracerouteTab: React.FC = () => {
       interval = exactIntervalFromTimes(
         data.exactTimes,
         getUserTimezone(),
-        editingMonitor?.interval,
+        editingMonitor ? loadedExactTimes : undefined,
       );
     }
 
@@ -316,9 +318,12 @@ export const TracerouteTab: React.FC = () => {
     let exactTimes: string[] = [];
     let interval = monitor.interval;
 
+    const loaded = loadExactTimes(monitor.interval, getUserTimezone());
+    setLoadedExactTimes(loaded);
+
     if (monitor.interval.startsWith("exact:")) {
       scheduleType = "exact";
-      exactTimes = exactTimesFromInterval(monitor.interval, getUserTimezone());
+      exactTimes = loaded.shown;
       interval = "1h";
     }
 
