@@ -323,7 +323,7 @@ export const TracerouteTab: React.FC = () => {
 
     if (monitor.interval.startsWith("exact:")) {
       scheduleType = "exact";
-      exactTimes = loaded.shown;
+      exactTimes = [...loaded.shown];
       interval = "1h";
     }
 
