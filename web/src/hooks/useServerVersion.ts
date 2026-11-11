@@ -11,7 +11,7 @@ const SERVER_VERSION_POLL_INTERVAL = 5 * 60 * 1000;
 
 export function useServerVersion(): string | null {
   const { isAuthenticated } = useAuth();
-  const { data } = useQuery({
+  const { data, isError } = useQuery({
     queryKey: serverVersionQueryKey,
     queryFn: getServerVersion,
     enabled: isAuthenticated,
@@ -19,5 +19,6 @@ export function useServerVersion(): string | null {
     refetchInterval: SERVER_VERSION_POLL_INTERVAL,
   });
 
-  return isAuthenticated ? (data?.version ?? null) : null;
+  if (!isAuthenticated || isError) return null;
+  return data?.version ?? null;
 }
