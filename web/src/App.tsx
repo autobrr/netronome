@@ -195,7 +195,7 @@ function App() {
                     </SheetTitle>
                   </SheetHeader>
 
-                  <div className="flex-1 py-6">
+                  <div className="min-h-0 flex-1 overflow-y-auto py-6">
                     <div className="space-y-2">
                       {availableRelease && (
                         <Button
@@ -211,11 +211,13 @@ function App() {
                             aria-label={`View Netronome ${formatReleaseTag(availableRelease.tag_name)} release`}
                           >
                             <ArrowTopRightOnSquareIcon className="h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
-                            <span className="flex-1 text-left text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Netronome {formatReleaseTag(availableRelease.tag_name)} available
-                            </span>
-                            <span className="text-xs text-blue-600 dark:text-blue-400">
-                              View release
+                            <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 whitespace-normal text-left">
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Netronome {formatReleaseTag(availableRelease.tag_name)} available
+                              </span>
+                              <span className="text-xs text-blue-600 dark:text-blue-400">
+                                View release
+                              </span>
                             </span>
                           </a>
                         </Button>
