@@ -120,6 +120,7 @@ type Service interface {
 	// Monitor agent data operations
 	UpsertMonitorSystemInfo(ctx context.Context, agentID int64, info *types.MonitorSystemInfo) error
 	GetMonitorSystemInfo(ctx context.Context, agentID int64) (*types.MonitorSystemInfo, error)
+	GetMonitorAgentVersions(ctx context.Context) (map[int64]string, error)
 
 	UpsertMonitorInterfaces(ctx context.Context, agentID int64, interfaces []types.MonitorInterface) error
 	GetMonitorInterfaces(ctx context.Context, agentID int64) ([]types.MonitorInterface, error)

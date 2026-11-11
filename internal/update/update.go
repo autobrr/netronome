@@ -175,6 +175,17 @@ func IsNewer(current, latest string) (bool, error) {
 	return latestVersion.GreaterThan(currentVersion), nil
 }
 
+// IsAgentOutdated reports whether server is a newer release than agent. A
+// development build on either side, an empty version, or a version that does
+// not parse is never outdated.
+func IsAgentOutdated(agent, server string) bool {
+	if !isCheckableVersion(agent) || !isCheckableVersion(server) {
+		return false
+	}
+	outdated, err := IsNewer(agent, server)
+	return err == nil && outdated
+}
+
 func isCheckableVersion(current string) bool {
 	current = strings.ToLower(strings.TrimSpace(current))
 	if current == "" || current == "dev" || current == "develop" || current == "main" || current == "latest" {

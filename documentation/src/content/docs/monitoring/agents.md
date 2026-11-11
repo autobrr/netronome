@@ -108,6 +108,53 @@ Set an API key if other devices can connect to the agent port. Without a key, an
 
 If **Enable monitoring** is on, the server connects to the agent at once. To show the agent on the dashboard, click **Feature on dashboard** in the agent list.
 
+## Update an agent
+
+An outdated agent is an agent that runs an older release than the server. The agent list shows an **Outdated** badge next to each outdated agent. The **System** tab of the agent shows the same badge next to **Agent Version**. To see the version of the agent and the version of the server, move the pointer over the badge.
+
+The agent list uses the last agent version that the server saved. The server saves the version every 30 seconds while it is connected to the agent. After an agent update, the agent list can show the badge until the server saves the new version.
+
+The **System** tab uses the version that the agent reports. If the agent is offline, the **System** tab uses the saved version. These agents never show the badge:
+
+- An agent that runs a development build or a pull request build.
+- An agent that connects to a server with a development build.
+- An agent with an unknown version.
+- An agent that is newer than the server.
+
+To update the server, see [Update Netronome](/getting-started/installation/#update-netronome).
+
+### Update with the install script
+
+If you installed the agent with the install script, run these commands on the agent host:
+
+```bash
+curl -sL https://netrono.me/install-agent -o install-agent.sh
+sudo bash install-agent.sh --update
+```
+
+The script runs `netronome update` and restarts the agent service. On macOS, run the script without `sudo`.
+
+### Update with the update command
+
+If you set up the agent by hand, run this command on the agent host:
+
+```bash
+netronome update
+```
+
+The command does not restart the agent. After the update, restart the agent on the agent host.
+
+### Update a Docker agent
+
+If the agent runs in Docker, run these commands in the folder that contains `docker-compose.yml`:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+The first command downloads the new image. The second command creates the agent container again with the new image.
+
 ## Agent configuration
 
 The agent reads the `[agent]` section of the configuration file:

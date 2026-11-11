@@ -25,6 +25,7 @@ import (
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
 	"github.com/autobrr/netronome/internal/update"
+	appversion "github.com/autobrr/netronome/internal/version"
 	"github.com/autobrr/netronome/web"
 )
 
@@ -258,6 +259,7 @@ func (s *Server) RegisterRoutes() {
 			protected.POST("/auth/logout", s.auth.Logout)
 			protected.GET("/auth/verify", s.auth.Verify)
 			protected.GET("/auth/user", s.auth.GetUserInfo)
+			protected.GET("/version", s.handleVersion)
 			protected.GET("/version/latest", s.handleLatestVersion)
 
 			protected.GET("/license", licenseHandler.GetLicense)
@@ -310,7 +312,7 @@ func (s *Server) RegisterRoutes() {
 
 			// Vnstat monitoring routes
 			if s.monitorService != nil {
-				monitorHandler := handlers.NewMonitorHandler(s.db, s.monitorService, &s.config.Monitor)
+				monitorHandler := handlers.NewMonitorHandler(s.db, s.monitorService, &s.config.Monitor, appversion.Version)
 				protected.GET("/monitor/agents", monitorHandler.GetAgents)
 				protected.POST("/monitor/agents", monitorHandler.CreateAgent)
 				protected.GET("/monitor/agents/:id", monitorHandler.GetAgent)

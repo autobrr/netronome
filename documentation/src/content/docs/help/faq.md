@@ -35,6 +35,12 @@ No. Speedtest.net tests, DNS monitors, and packet loss monitors work without ext
 
 See [External tools](/getting-started/installation/#external-tools).
 
+### Which version am I running?
+
+Sign in to the web interface. Then open the gear menu. The last line of the menu shows the version, for example `Netronome v0.10.0`. On a phone, open the menu. The version is above **Sign Out**.
+
+On the host, run `netronome version`. If Netronome runs in Docker, run `docker exec <container> netronome version`.
+
 ### How do I stop the update notice?
 
 Set `check_for_updates = false` at the top level of `config.toml`, or set `NETRONOME__CHECK_FOR_UPDATES=false`. Development builds do not check for updates.

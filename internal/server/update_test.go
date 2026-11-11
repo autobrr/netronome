@@ -17,6 +17,7 @@ import (
 
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/update"
+	appversion "github.com/autobrr/netronome/internal/version"
 )
 
 func TestLatestVersionRouteUsesBaseURLAndReturnsCachedRelease(t *testing.T) {
@@ -79,4 +80,40 @@ type serverRoundTripper func(*http.Request) (*http.Response, error)
 
 func (f serverRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	return f(r)
+}
+
+func TestVersionRouteReturnsBuildValuesForSignedInSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previous := appversion.Version
+	previousBuildTime := appversion.BuildTime
+	previousCommit := appversion.Commit
+	appversion.Set("v0.10.0", "2026-11-11T12:00:00Z", "336f529")
+	t.Cleanup(func() { appversion.Set(previous, previousBuildTime, previousCommit) })
+
+	cfg := config.New()
+	cfg.Server.BaseURL = "/netronome"
+	cfg.Auth.Whitelist = []string{"127.0.0.1/32"}
+	server := NewServer(nil, nil, nil, cfg, nil, nil, nil, nil, nil)
+	server.RegisterRoutes()
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/netronome/api/version", nil)
+	request.RemoteAddr = "127.0.0.1:12345"
+	server.Router.ServeHTTP(response, request)
+
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.JSONEq(t, `{"version":"v0.10.0","commit":"336f529","buildTime":"2026-11-11T12:00:00Z"}`, response.Body.String())
+}
+
+func TestVersionRouteRequiresSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	server := NewServer(nil, nil, nil, config.New(), nil, nil, nil, nil, nil)
+	server.RegisterRoutes()
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/version", nil)
+	request.RemoteAddr = "127.0.0.1:12345"
+	server.Router.ServeHTTP(response, request)
+
+	assert.Equal(t, http.StatusUnauthorized, response.Code)
 }

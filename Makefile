@@ -2,6 +2,10 @@
 BINARY_NAME=netronome
 BUILD_DIR=bin
 DOCKER_IMAGE=netronome
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+GIT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS=-X 'main.version=$(VERSION)' -X 'main.commit=$(GIT_COMMIT)' -X 'main.buildTime=$(BUILD_DATE)'
 
 .PHONY: all build clean run docker-build docker-run watch dev dev-expose lint themes-fetch themes-clean
 
@@ -39,7 +43,7 @@ build: themes-fetch
 	@mkdir -p web/dist
 	@cd web && pnpm install && pnpm build
 	@touch web/dist/.gitkeep
-	@go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/netronome
+	@go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/netronome
 
 clean:
 	@echo "Cleaning up..."
@@ -55,7 +59,11 @@ run: build
 
 docker-build:
 	@echo "Building Docker image..."
-	docker build -f distrib/docker/Dockerfile -t $(DOCKER_IMAGE) .
+	docker build -f distrib/docker/Dockerfile \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg REVISION=$(GIT_COMMIT) \
+		--build-arg BUILDTIME=$(BUILD_DATE) \
+		-t $(DOCKER_IMAGE) .
 
 docker-run: docker-build
 	@echo "Running Docker container..."

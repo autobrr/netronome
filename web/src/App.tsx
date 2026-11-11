@@ -48,6 +48,8 @@ import {
   latestReleaseQueryKey,
 } from "@/api/version";
 import { AppUpdatePrompt } from "@/components/AppUpdatePrompt";
+import { formatVersion } from "@/api/formatVersion";
+import { useServerVersion } from "@/hooks/useServerVersion";
 
 const RELEASE_POLL_INTERVAL = 2 * 60 * 1000;
 
@@ -61,6 +63,7 @@ function App() {
     refetchInterval: RELEASE_POLL_INTERVAL,
     refetchOnWindowFocus: false,
   });
+  const serverVersion = useServerVersion();
   const [isDonateOpen, setIsDonateOpen] = useState(false);
   const [mobileSettingsSection, setMobileSettingsSection] = useState<
     string | null
@@ -282,6 +285,11 @@ function App() {
 
                   {/* Logout */}
                   <div className="pt-6 border-t border-gray-200 dark:border-gray-800">
+                    {serverVersion && (
+                      <p className="px-4 pb-3 text-xs text-gray-500 dark:text-gray-400">
+                        Netronome {formatVersion(serverVersion)}
+                      </p>
+                    )}
                     <Button
                       onClick={() => logout()}
                       variant="ghost"

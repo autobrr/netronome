@@ -72,6 +72,10 @@ key header, the shared HTTP client, and the timeouts. The proxy handlers are its
 callers, and the poller becomes a caller later. The live-data SSE stream is not
 part of it.
 
+**Outdated agent** — an agent whose last saved version is an older release than
+the version of the server. A dev build, a PR build, or an unknown version is
+never outdated. An agent that is newer than the server is not outdated.
+
 **DNS monitor** (`DNSMonitor`) — a resolver, an interval, a query, and a protocol
 (UDP, TCP, or DoT). The server sends the query to the resolver and records the
 response time and the response code. A check fails on a timeout or an error

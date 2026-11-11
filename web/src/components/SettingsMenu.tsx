@@ -37,6 +37,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatReleaseTag, type AppRelease } from "@/api/version";
+import { formatVersion } from "@/api/formatVersion";
+import { useServerVersion } from "@/hooks/useServerVersion";
 
 interface SettingsSection {
   id: string;
@@ -128,6 +130,7 @@ export const SettingsMenu: React.FC<{ release: AppRelease | null }> = ({
   release,
 }) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const serverVersion = useServerVersion();
 
   return (
     <>
@@ -193,6 +196,15 @@ export const SettingsMenu: React.FC<{ release: AppRelease | null }> = ({
               </div>
             </DropdownMenuItem>
           ))}
+
+          {serverVersion && (
+            <>
+              <DropdownMenuSeparator />
+              <p className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400">
+                Netronome {formatVersion(serverVersion)}
+              </p>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
