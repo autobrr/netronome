@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-const releaseNumber = /^v?\d+\.\d+\.\d+$/;
+import valid from "semver/functions/valid.js";
 
 export function formatVersion(version: string): string {
-  if (!releaseNumber.test(version) || version.startsWith("v")) return version;
+  if (version.startsWith("v") || valid(version) === null) return version;
   return `v${version}`;
 }
