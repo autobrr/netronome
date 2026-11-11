@@ -60,6 +60,15 @@ export const exactIntervalFromTimes = (
   return `${EXACT_PREFIX}${utcTimes.join(",")}`;
 };
 
+/**
+ * Removes one entry of time. Two stored times can show as the same hour on a
+ * fall-back day, and removing one chip must keep the other run.
+ */
+export const withoutOneTime = (times: string[], time: string): string[] => {
+  const index = times.indexOf(time);
+  return index === -1 ? times : times.filter((_, i) => i !== index);
+};
+
 export const formatInterval = (
   interval: number | string,
   userTimezone: string = getUserTimezone(),

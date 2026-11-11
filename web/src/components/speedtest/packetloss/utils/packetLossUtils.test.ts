@@ -9,6 +9,7 @@ import {
   exactIntervalFromTimes,
   formatInterval,
   loadExactTimes,
+  withoutOneTime,
 } from "./packetLossUtils.ts";
 
 const initialTZ = process.env.TZ;
@@ -73,4 +74,13 @@ test("a new time in an edited monitor is converted to UTC", () => {
     exactIntervalFromTimes(["14:00", "15:00"], "Europe/Oslo", loaded),
     "exact:12:00,13:00",
   );
+});
+
+test("removing one of two times that show as the same hour on a fall-back day keeps the other run", () => {
+  process.env.TZ = "America/New_York";
+  mock.timers.setTime(new Date("2026-11-01T12:00:00Z").getTime());
+  const loaded = loadExactTimes("exact:05:00,06:00,12:00", "America/New_York");
+  assert.deepEqual(loaded.shown, ["01:00", "01:00", "07:00"]);
+  const times = withoutOneTime(loaded.shown, "01:00");
+  assert.equal(exactIntervalFromTimes(times, "America/New_York", loaded), "exact:05:00,12:00");
 });
