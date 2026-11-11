@@ -7,13 +7,16 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/auth";
 import { getServerVersion, serverVersionQueryKey } from "@/api/version";
 
+const SERVER_VERSION_POLL_INTERVAL = 5 * 60 * 1000;
+
 export function useServerVersion(): string | null {
   const { isAuthenticated } = useAuth();
   const { data } = useQuery({
     queryKey: serverVersionQueryKey,
     queryFn: getServerVersion,
     enabled: isAuthenticated,
-    staleTime: 5 * 60 * 1000,
+    staleTime: SERVER_VERSION_POLL_INTERVAL,
+    refetchInterval: SERVER_VERSION_POLL_INTERVAL,
   });
 
   return isAuthenticated ? (data?.version ?? null) : null;
