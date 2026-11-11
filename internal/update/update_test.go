@@ -69,6 +69,12 @@ func TestIsAgentOutdated(t *testing.T) {
 		{name: "unparsable agent version", agent: "not-a-version", server: "0.10.0", want: false},
 		{name: "commit hash server", agent: "0.9.0", server: "336f529", want: false},
 		{name: "git describe server", agent: "0.8.0", server: "v0.9.0-3-g336f529-dirty", want: false},
+		{name: "git describe agent after server release", agent: "v0.16.0-9-g336f529", server: "v0.16.0", want: false},
+		{name: "git describe agent behind server", agent: "v0.15.0-2-g1a2b3c4", server: "v0.16.0", want: false},
+		{name: "dirty agent on release tag", agent: "v0.15.0-dirty", server: "v0.16.0", want: false},
+		{name: "pseudo-version agent", agent: "v0.16.1-0.20261108124624-336f529d52a5", server: "v0.17.0", want: false},
+		{name: "dirty pseudo-version agent", agent: "v0.16.1-0.20261108124624-336f529d52a5+dirty", server: "v0.17.0", want: false},
+		{name: "release candidate agent", agent: "v0.16.0-rc.1", server: "v0.16.0", want: true},
 	}
 
 	for _, tt := range tests {
@@ -79,7 +85,7 @@ func TestIsAgentOutdated(t *testing.T) {
 }
 
 func TestCheckSkipsDevelopmentVersionsWithoutNetworkRequest(t *testing.T) {
-	versions := []string{"", "dev", "develop", "main", "latest", "pr-123", "1.2.3-dev", "1.2.3-develop", "1.2.3 (devel)"}
+	versions := []string{"", "dev", "develop", "main", "latest", "pr-123", "1.2.3-dev", "1.2.3-develop", "1.2.3 (devel)", "v1.2.3-4-g336f529", "v1.2.3-4-g336f529-dirty", "v1.2.3-dirty", "v1.2.4-0.20261108124624-336f529d52a5"}
 
 	for _, current := range versions {
 		t.Run(current, func(t *testing.T) {

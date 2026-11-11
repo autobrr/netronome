@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -16,9 +17,12 @@ import (
 
 	version "github.com/hashicorp/go-version"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/mod/module"
 )
 
 const latestReleaseURL = "https://api.autobrr.com/repos/autobrr/netronome/releases/latest"
+
+var gitDescribeSuffix = regexp.MustCompile(`-[0-9]+-g[0-9a-f]+$`)
 
 // Release is the release metadata shown in the UI when an update is available.
 type Release struct {
@@ -194,5 +198,12 @@ func isCheckableVersion(current string) bool {
 	if strings.Contains(current, "(devel)") || strings.HasPrefix(current, "pr-") {
 		return false
 	}
-	return !strings.HasSuffix(current, "-dev") && !strings.HasSuffix(current, "-develop")
+	if strings.HasSuffix(current, "-dev") || strings.HasSuffix(current, "-develop") || strings.HasSuffix(current, "-dirty") {
+		return false
+	}
+	if module.IsPseudoVersion("v" + strings.TrimPrefix(current, "v")) {
+		return false
+	}
+	// git describe appends "-<commits>-g<hash>" when HEAD is past the tag.
+	return !gitDescribeSuffix.MatchString(current)
 }
