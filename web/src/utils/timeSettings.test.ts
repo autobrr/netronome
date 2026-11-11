@@ -61,3 +61,13 @@ test("a stored UTC time shows in the browser time zone when the setting is auto"
     "14:00",
   );
 });
+
+test("a time that the browser zone skips on its spring-forward day keeps its hour in the time zone setting", () => {
+  process.env.TZ = "America/New_York";
+  mock.timers.setTime(new Date("2026-03-08T12:00:00Z").getTime());
+  try {
+    assert.equal(convertUserTimeToUTC("02:00", "UTC"), "02:00");
+  } finally {
+    process.env.TZ = "Europe/Oslo";
+  }
+});

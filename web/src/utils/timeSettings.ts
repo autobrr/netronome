@@ -296,25 +296,9 @@ export const convertUserTimeToUTC = (
   timeString: string,
   userTimezone: string
 ): string => {
-  const [hours, minutes] = timeString.split(':').map(Number);
+  const today = formatInTimeZone(new Date(), userTimezone, 'yyyy-MM-dd');
+  const utcDate = fromZonedTime(`${today}T${timeString}:00`, userTimezone);
 
-  // Use today's date for the conversion to handle DST correctly
-  const today = new Date();
-  const dateInUserTz = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate(),
-    hours,
-    minutes,
-    0,
-    0
-  );
-
-  // Convert from user's timezone to UTC using date-fns-tz
-  // fromZonedTime treats the input as if it's in the specified timezone
-  const utcDate = fromZonedTime(dateInUserTz, userTimezone);
-
-  // Extract UTC hours and minutes
   const utcHours = utcDate.getUTCHours().toString().padStart(2, '0');
   const utcMinutes = utcDate.getUTCMinutes().toString().padStart(2, '0');
 
