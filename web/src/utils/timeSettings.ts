@@ -285,6 +285,26 @@ export const formatDate = (
   return formatDateWithSettings(date, options);
 };
 
+const zonedDateAndTime = (date: Date, timeZone: string) => {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(date)
+      .map((part) => [part.type, part.value])
+  );
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    time: `${parts.hour}:${parts.minute}`,
+  };
+};
+
 /**
  * Convert user's selected time (HH:MM) to UTC for backend storage
  * Using a reference date to handle timezone offset calculation
@@ -296,7 +316,7 @@ export const convertUserTimeToUTC = (
   timeString: string,
   userTimezone: string
 ): string => {
-  const today = formatInTimeZone(new Date(), userTimezone, 'yyyy-MM-dd');
+  const today = zonedDateAndTime(new Date(), userTimezone).date;
   const utcDate = fromZonedTime(`${today}T${timeString}:00`, userTimezone);
 
   const utcHours = utcDate.getUTCHours().toString().padStart(2, '0');
@@ -305,16 +325,19 @@ export const convertUserTimeToUTC = (
   return `${utcHours}:${utcMinutes}`;
 };
 
-const todayAtUTCTime = (timeString: string): Date => {
+// The occurrence of a stored UTC time on today's date in userTimezone, the
+// same reference date that convertUserTimeToUTC uses.
+const storedTimeToday = (timeString: string, userTimezone: string): Date => {
+  const today = zonedDateAndTime(new Date(), userTimezone).date;
+  const [year, month, day] = today.split('-').map(Number);
   const [hours, minutes] = timeString.split(':').map(Number);
-  const today = new Date();
-  return new Date(Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate(),
-    hours,
-    minutes
-  ));
+  const candidates = [0, -1, 1].map(
+    (days) => new Date(Date.UTC(year, month - 1, day + days, hours, minutes))
+  );
+  return (
+    candidates.find((date) => zonedDateAndTime(date, userTimezone).date === today) ??
+    candidates[0]
+  );
 };
 
 /**
@@ -324,7 +347,7 @@ const todayAtUTCTime = (timeString: string): Date => {
 export const convertUTCTimeToUser = (
   timeString: string,
   userTimezone: string
-): string => formatInTimeZone(todayAtUTCTime(timeString), userTimezone, 'HH:mm');
+): string => zonedDateAndTime(storedTimeToday(timeString, userTimezone), userTimezone).time;
 
 /**
  * Formats a stored UTC time (HH:MM) for display, in the time zone and
@@ -333,7 +356,8 @@ export const convertUTCTimeToUser = (
 export const formatUTCTimeOfDay = (
   timeString: string,
   settings?: TimeFormatSettings
-): string => formatTimeWithSettings(todayAtUTCTime(timeString), settings);
+): string =>
+  formatTimeWithSettings(storedTimeToday(timeString, getUserTimezone(settings)), settings);
 
 /**
  * Calculate next run time for a schedule in user's timezone

@@ -71,3 +71,24 @@ test("a time that the browser zone skips on its spring-forward day keeps its hou
     process.env.TZ = "Europe/Oslo";
   }
 });
+
+test("a stored time that the browser zone skips on its spring-forward day keeps its hour in the time zone setting", () => {
+  process.env.TZ = "America/New_York";
+  mock.timers.setTime(new Date("2026-03-08T12:00:00Z").getTime());
+  try {
+    assert.equal(convertUTCTimeToUser("02:00", "UTC"), "02:00");
+  } finally {
+    process.env.TZ = "Europe/Oslo";
+  }
+});
+
+test("a stored time shows the hour that it was saved as when the UTC date and the user date differ", () => {
+  mock.timers.setTime(new Date("2026-03-28T23:30:00Z").getTime());
+  const utc = convertUserTimeToUTC("14:00", "Europe/Oslo");
+  assert.equal(utc, "12:00");
+  assert.equal(convertUTCTimeToUser(utc, "Europe/Oslo"), "14:00");
+  assert.equal(
+    formatUTCTimeOfDay(utc, { timezone: "Europe/Oslo", use24HourFormat: true }),
+    "14:00",
+  );
+});
