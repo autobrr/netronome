@@ -8,7 +8,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Outlet } from "@tanstack/react-router";
 import {
   ArrowRightStartOnRectangleIcon as LogoutIcon,
-  ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import {
@@ -48,8 +47,7 @@ import {
   latestReleaseQueryKey,
 } from "@/api/version";
 import { AppUpdatePrompt } from "@/components/AppUpdatePrompt";
-import { formatVersion } from "@/api/formatVersion";
-import { useServerVersion } from "@/hooks/useServerVersion";
+import { AvailableReleaseLink, RunningVersion } from "@/components/AppVersion";
 
 const RELEASE_POLL_INTERVAL = 2 * 60 * 1000;
 
@@ -63,7 +61,6 @@ function App() {
     refetchInterval: RELEASE_POLL_INTERVAL,
     refetchOnWindowFocus: false,
   });
-  const serverVersion = useServerVersion();
   const [isDonateOpen, setIsDonateOpen] = useState(false);
   const [mobileSettingsSection, setMobileSettingsSection] = useState<
     string | null
@@ -203,23 +200,10 @@ function App() {
                           variant="ghost"
                           className="h-auto w-full justify-start gap-3 px-4 py-3"
                         >
-                          <a
-                            href={availableRelease.html_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <AvailableReleaseLink
+                            release={availableRelease}
                             onClick={() => setMobileMenuOpen(false)}
-                            aria-label={`View Netronome ${formatReleaseTag(availableRelease.tag_name)} release`}
-                          >
-                            <ArrowTopRightOnSquareIcon className="h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
-                            <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 whitespace-normal text-left">
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Netronome {formatReleaseTag(availableRelease.tag_name)} available
-                              </span>
-                              <span className="text-xs text-blue-600 dark:text-blue-400">
-                                View release
-                              </span>
-                            </span>
-                          </a>
+                          />
                         </Button>
                       )}
 
@@ -287,11 +271,7 @@ function App() {
 
                   {/* Logout */}
                   <div className="pt-6 border-t border-gray-200 dark:border-gray-800">
-                    {serverVersion && (
-                      <p className="px-4 pb-3 text-xs text-gray-500 dark:text-gray-400">
-                        Netronome {formatVersion(serverVersion)}
-                      </p>
-                    )}
+                    <RunningVersion className="px-4 pb-3" />
                     <Button
                       onClick={() => logout()}
                       variant="ghost"
