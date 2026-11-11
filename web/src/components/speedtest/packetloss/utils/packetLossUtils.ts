@@ -3,16 +3,62 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-import { MTRData } from "@/types/types";
+import type { MTRData } from "../../../../types/types.ts";
+import {
+  convertUTCTimeToUser,
+  convertUserTimeToUTC,
+  getUserTimezone,
+} from "../../../../utils/timeSettings.ts";
 
-export const formatInterval = (interval: number | string): string => {
+const EXACT_PREFIX = "exact:";
+
+const storedExactTimes = (interval: string | undefined): string[] =>
+  interval?.startsWith(EXACT_PREFIX)
+    ? interval.substring(EXACT_PREFIX.length).split(",").map((t) => t.trim())
+    : [];
+
+/**
+ * The stored UTC times of an `exact:` interval, as HH:MM in userTimezone.
+ */
+export const exactTimesFromInterval = (
+  interval: string,
+  userTimezone: string,
+): string[] =>
+  storedExactTimes(interval).map((time) => convertUTCTimeToUser(time, userTimezone));
+
+/**
+ * Builds the stored `exact:` interval (UTC) from HH:MM times in userTimezone.
+ * A time that previousInterval already holds keeps its stored UTC value, so
+ * an unchanged save does not move it when the offset changed since the load.
+ */
+export const exactIntervalFromTimes = (
+  times: string[],
+  userTimezone: string,
+  previousInterval?: string,
+): string => {
+  const storedByShown = new Map(
+    storedExactTimes(previousInterval).map((utc) => [
+      convertUTCTimeToUser(utc, userTimezone),
+      utc,
+    ]),
+  );
+  const utcTimes = times.map(
+    (time) => storedByShown.get(time) ?? convertUserTimeToUTC(time, userTimezone),
+  );
+  return `${EXACT_PREFIX}${utcTimes.join(",")}`;
+};
+
+export const formatInterval = (
+  interval: number | string,
+  userTimezone: string = getUserTimezone(),
+): string => {
   // Handle string intervals
   if (typeof interval === "string") {
     // Handle exact time format
-    if (interval.startsWith("exact:")) {
-      const times = interval.substring(6).split(",");
+    if (interval.startsWith(EXACT_PREFIX)) {
+      const times = storedExactTimes(interval);
       if (times.length === 1) {
-        return `daily at ${times[0]}`;
+        return `daily at ${convertUTCTimeToUser(times[0], userTimezone)}`;
       } else {
         return `daily at ${times.length} times`;
       }

@@ -26,6 +26,11 @@ import {
   MonitorFormData,
   defaultFormData,
 } from "./packetloss/constants/packetLossConstants";
+import { getUserTimezone } from "@/utils/timeSettings";
+import {
+  exactIntervalFromTimes,
+  exactTimesFromInterval,
+} from "./packetloss/utils/packetLossUtils";
 
 // Import packet loss API functions
 import {
@@ -278,7 +283,11 @@ export const TracerouteTab: React.FC = () => {
       data.exactTimes &&
       data.exactTimes.length > 0
     ) {
-      interval = `exact:${data.exactTimes.join(",")}`;
+      interval = exactIntervalFromTimes(
+        data.exactTimes,
+        getUserTimezone(),
+        editingMonitor?.interval,
+      );
     }
 
     const monitorData = {
@@ -309,8 +318,7 @@ export const TracerouteTab: React.FC = () => {
 
     if (monitor.interval.startsWith("exact:")) {
       scheduleType = "exact";
-      const timePart = monitor.interval.substring(6);
-      exactTimes = timePart.split(",").map((t) => t.trim());
+      exactTimes = exactTimesFromInterval(monitor.interval, getUserTimezone());
       interval = "1h";
     }
 

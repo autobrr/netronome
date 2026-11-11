@@ -169,6 +169,12 @@ export const getBrowserTimezone = (): string => {
 };
 
 /**
+ * The IANA time zone of the time zone setting, or the browser's zone when the setting is "auto".
+ */
+export const getUserTimezone = (settings?: TimeFormatSettings): string =>
+  getEffectiveTimezone(settings) ?? getBrowserTimezone();
+
+/**
  * Get timezone display name
  */
 export const getTimezoneDisplayName = (timezone: string): string => {
@@ -314,6 +320,36 @@ export const convertUserTimeToUTC = (
 
   return `${utcHours}:${utcMinutes}`;
 };
+
+const todayAtUTCTime = (timeString: string): Date => {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  const today = new Date();
+  return new Date(Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate(),
+    hours,
+    minutes
+  ));
+};
+
+/**
+ * Reverse of convertUserTimeToUTC: converts a stored UTC time (HH:MM) to
+ * HH:MM in userTimezone, with today's offset.
+ */
+export const convertUTCTimeToUser = (
+  timeString: string,
+  userTimezone: string
+): string => formatInTimeZone(todayAtUTCTime(timeString), userTimezone, 'HH:mm');
+
+/**
+ * Formats a stored UTC time (HH:MM) for display, in the time zone and
+ * 12/24-hour format of the time settings, with today's offset.
+ */
+export const formatUTCTimeOfDay = (
+  timeString: string,
+  settings?: TimeFormatSettings
+): string => formatTimeWithSettings(todayAtUTCTime(timeString), settings);
 
 /**
  * Calculate next run time for a schedule in user's timezone
