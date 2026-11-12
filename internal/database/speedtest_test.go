@@ -44,25 +44,28 @@ func TestSpeedTest_GetSkipsAliasLookupWithoutLegacyRows(t *testing.T) {
 }
 
 func TestSpeedTestRangeStart(t *testing.T) {
-	now := time.Date(2026, 3, 31, 12, 0, 0, 0, time.UTC)
+	endOfMarch := time.Date(2026, 3, 31, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
+		name      string
 		timeRange string
+		now       time.Time
 		want      time.Time
 		ok        bool
 	}{
-		{"24h", time.Date(2026, 3, 30, 12, 0, 0, 0, time.UTC), true},
-		{"1d", time.Date(2026, 3, 30, 12, 0, 0, 0, time.UTC), true},
-		{"3d", time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC), true},
-		{"week", time.Date(2026, 3, 24, 12, 0, 0, 0, time.UTC), true},
-		{"1w", time.Date(2026, 3, 24, 12, 0, 0, 0, time.UTC), true},
-		{"month", time.Date(2026, 3, 3, 12, 0, 0, 0, time.UTC), true},
-		{"1m", time.Date(2026, 3, 3, 12, 0, 0, 0, time.UTC), true},
-		{"all", time.Time{}, false},
-		{"unknown", time.Time{}, false},
+		{"24h", "24h", endOfMarch, time.Date(2026, 3, 30, 12, 0, 0, 0, time.UTC), true},
+		{"1d", "1d", endOfMarch, time.Date(2026, 3, 30, 12, 0, 0, 0, time.UTC), true},
+		{"3d", "3d", endOfMarch, time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC), true},
+		{"week", "week", endOfMarch, time.Date(2026, 3, 24, 12, 0, 0, 0, time.UTC), true},
+		{"1w", "1w", endOfMarch, time.Date(2026, 3, 24, 12, 0, 0, 0, time.UTC), true},
+		{"month at end of month", "month", endOfMarch, time.Date(2026, 2, 28, 12, 0, 0, 0, time.UTC), true},
+		{"1m at end of month in leap year", "1m", time.Date(2028, 3, 31, 12, 0, 0, 0, time.UTC), time.Date(2028, 2, 29, 12, 0, 0, 0, time.UTC), true},
+		{"month in mid month", "month", time.Date(2026, 3, 15, 12, 0, 0, 0, time.UTC), time.Date(2026, 2, 15, 12, 0, 0, 0, time.UTC), true},
+		{"all", "all", endOfMarch, time.Time{}, false},
+		{"unknown", "unknown", endOfMarch, time.Time{}, false},
 	}
 	for _, tt := range tests {
-		t.Run(tt.timeRange, func(t *testing.T) {
-			got, ok := speedTestRangeStart(tt.timeRange, now)
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := speedTestRangeStart(tt.timeRange, tt.now)
 			require.Equal(t, tt.ok, ok)
 			require.Equal(t, tt.want, got)
 		})

@@ -335,7 +335,12 @@ func speedTestRangeStart(timeRange string, now time.Time) (time.Time, bool) {
 	case "week", "1w":
 		return now.AddDate(0, 0, -7), true
 	case "month", "1m":
-		return now.AddDate(0, -1, 0), true
+		start := now.AddDate(0, -1, 0)
+		if start.Day() != now.Day() {
+			// AddDate rolled a missing day (February 31) into this month.
+			start = start.AddDate(0, 0, -start.Day())
+		}
+		return start, true
 	}
 	return time.Time{}, false
 }
