@@ -305,8 +305,11 @@ const zonedDateAndTime = (date: Date, timeZone: string) => {
   };
 };
 
-const isTimeOfDay = (timeString: string): boolean =>
-  /^([01]?\d|2[0-3]):[0-5]\d$/.test(timeString);
+// Accepts the values that calculateNextRun in internal/scheduler/scheduler.go accepts.
+const isTimeOfDay = (timeString: string): boolean => {
+  const match = /^(\d+):(\d+)$/.exec(timeString);
+  return match !== null && Number(match[1]) <= 23 && Number(match[2]) <= 59;
+};
 
 /**
  * Convert user's selected time (HH:MM) to UTC for backend storage
