@@ -32,7 +32,7 @@ import {
   intervalOptions,
   timeOptions,
 } from "./constants/packetLossConstants";
-import { formatInterval } from "./utils/packetLossUtils";
+import { formatInterval, withoutOneTime } from "./utils/packetLossUtils";
 import {
   ClockIcon,
   ArrowPathIcon,
@@ -235,9 +235,9 @@ export const PacketLossMonitorForm: React.FC<PacketLossMonitorFormProps> = ({
                           {/* Selected Times Display */}
                           {formData.exactTimes && formData.exactTimes.length > 0 && (
                             <div className="flex flex-wrap gap-2 p-3 bg-gray-200/50 dark:bg-gray-800/30 rounded-lg border border-gray-300 dark:border-gray-900">
-                              {formData.exactTimes.sort().map((time) => (
+                              {[...formData.exactTimes].sort().map((time, index) => (
                                 <div
-                                  key={time}
+                                  key={`${time}-${index}`}
                                   className="flex items-center gap-1 px-3 py-1.5 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-md border border-blue-500/30"
                                 >
                                   <ClockIcon className="w-3.5 h-3.5" />
@@ -249,7 +249,7 @@ export const PacketLossMonitorForm: React.FC<PacketLossMonitorFormProps> = ({
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      const newTimes = formData.exactTimes?.filter(t => t !== time) || [];
+                                      const newTimes = withoutOneTime(formData.exactTimes || [], time);
                                       onFormDataChange({
                                         ...formData,
                                         exactTimes: newTimes,

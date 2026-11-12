@@ -169,6 +169,12 @@ export const getBrowserTimezone = (): string => {
 };
 
 /**
+ * The IANA time zone of the time zone setting, or the browser's zone when the setting is "auto".
+ */
+export const getUserTimezone = (settings?: TimeFormatSettings): string =>
+  getEffectiveTimezone(settings) ?? getBrowserTimezone();
+
+/**
  * Get timezone display name
  */
 export const getTimezoneDisplayName = (timezone: string): string => {
@@ -279,6 +285,32 @@ export const formatDate = (
   return formatDateWithSettings(date, options);
 };
 
+const zonedDateAndTime = (date: Date, timeZone: string) => {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(date)
+      .map((part) => [part.type, part.value])
+  );
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    time: `${parts.hour}:${parts.minute}`,
+  };
+};
+
+// Accepts the values that calculateNextRun in internal/scheduler/scheduler.go accepts.
+const isTimeOfDay = (timeString: string): boolean => {
+  const match = /^(\d+):(\d+)$/.exec(timeString);
+  return match !== null && Number(match[1]) <= 23 && Number(match[2]) <= 59;
+};
+
 /**
  * Convert user's selected time (HH:MM) to UTC for backend storage
  * Using a reference date to handle timezone offset calculation
@@ -290,30 +322,53 @@ export const convertUserTimeToUTC = (
   timeString: string,
   userTimezone: string
 ): string => {
-  const [hours, minutes] = timeString.split(':').map(Number);
+  const today = zonedDateAndTime(new Date(), userTimezone).date;
+  const utcDate = fromZonedTime(`${today}T${timeString}:00`, userTimezone);
 
-  // Use today's date for the conversion to handle DST correctly
-  const today = new Date();
-  const dateInUserTz = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate(),
-    hours,
-    minutes,
-    0,
-    0
-  );
-
-  // Convert from user's timezone to UTC using date-fns-tz
-  // fromZonedTime treats the input as if it's in the specified timezone
-  const utcDate = fromZonedTime(dateInUserTz, userTimezone);
-
-  // Extract UTC hours and minutes
   const utcHours = utcDate.getUTCHours().toString().padStart(2, '0');
   const utcMinutes = utcDate.getUTCMinutes().toString().padStart(2, '0');
 
   return `${utcHours}:${utcMinutes}`;
 };
+
+// The occurrence of a stored UTC time on today's date in userTimezone, the
+// same reference date that convertUserTimeToUTC uses.
+const storedTimeToday = (timeString: string, userTimezone: string): Date => {
+  const today = zonedDateAndTime(new Date(), userTimezone).date;
+  const [year, month, day] = today.split('-').map(Number);
+  const [hours, minutes] = timeString.split(':').map(Number);
+  const candidates = [0, -1, 1].map(
+    (days) => new Date(Date.UTC(year, month - 1, day + days, hours, minutes))
+  );
+  return (
+    candidates.find((date) => zonedDateAndTime(date, userTimezone).date === today) ??
+    candidates[0]
+  );
+};
+
+/**
+ * Reverse of convertUserTimeToUTC: converts a stored UTC time (HH:MM) to
+ * HH:MM in userTimezone, with today's offset.
+ */
+export const convertUTCTimeToUser = (
+  timeString: string,
+  userTimezone: string
+): string =>
+  isTimeOfDay(timeString)
+    ? zonedDateAndTime(storedTimeToday(timeString, userTimezone), userTimezone).time
+    : timeString;
+
+/**
+ * Formats a stored UTC time (HH:MM) for display, in the time zone and
+ * 12/24-hour format of the time settings, with today's offset.
+ */
+export const formatUTCTimeOfDay = (
+  timeString: string,
+  settings?: TimeFormatSettings
+): string =>
+  isTimeOfDay(timeString)
+    ? formatTimeWithSettings(storedTimeToday(timeString, getUserTimezone(settings)), settings)
+    : timeString;
 
 /**
  * Calculate next run time for a schedule in user's timezone

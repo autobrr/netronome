@@ -14,7 +14,7 @@ import {
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { PacketLossMonitor } from "@/types/types";
-import { formatTimeWithSettings } from "@/utils/timeSettings";
+import { formatUTCTimeOfDay } from "@/utils/timeSettings";
 import { formatInterval } from "./utils/packetLossUtils";
 import { DeleteMonitorModal } from "@/components/common/DeleteMonitorModal";
 import { MonitorStatus } from "./types/monitorStatus";
@@ -46,9 +46,7 @@ const MonitorStatusDisplay: React.FC<MonitorStatusDisplayProps> = ({
                         key={index}
                         className="inline-flex items-center px-1.5 py-0.5 bg-gray-500/10 text-gray-600 dark:text-gray-400 rounded text-xs border border-gray-500/20"
                       >
-                        {formatTimeWithSettings(
-                          `2000-01-01T${time.trim()}:00`
-                        )}
+                        {formatUTCTimeOfDay(time.trim())}
                       </span>
                     ))}
                   {monitor.interval.substring(6).split(",").length > 3 && (
@@ -161,9 +159,7 @@ const MonitorStatusDisplay: React.FC<MonitorStatusDisplayProps> = ({
                           : "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20"
                       }`}
                     >
-                      {formatTimeWithSettings(
-                        `2000-01-01T${time.trim()}:00`
-                      )}
+                      {formatUTCTimeOfDay(time.trim())}
                     </span>
                   ))}
                 {monitor.interval.substring(6).split(",").length > 3 && (
