@@ -92,3 +92,21 @@ test("a stored time shows the hour that it was saved as when the UTC date and th
     "14:00",
   );
 });
+
+test("a malformed stored time shows as its text and does not throw", () => {
+  assert.equal(formatUTCTimeOfDay(""), "");
+  assert.equal(formatUTCTimeOfDay("25:00"), "25:00");
+  assert.equal(convertUTCTimeToUser("", "Europe/Oslo"), "");
+});
+
+test("a stored UTC time shows in the time zone setting when the browser is in another zone", () => {
+  process.env.TZ = "America/New_York";
+  try {
+    assert.equal(
+      formatUTCTimeOfDay("12:00", { timezone: "Europe/Oslo", use24HourFormat: true }),
+      "14:00",
+    );
+  } finally {
+    process.env.TZ = "Europe/Oslo";
+  }
+});

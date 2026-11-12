@@ -305,6 +305,9 @@ const zonedDateAndTime = (date: Date, timeZone: string) => {
   };
 };
 
+const isTimeOfDay = (timeString: string): boolean =>
+  /^([01]?\d|2[0-3]):[0-5]\d$/.test(timeString);
+
 /**
  * Convert user's selected time (HH:MM) to UTC for backend storage
  * Using a reference date to handle timezone offset calculation
@@ -347,7 +350,10 @@ const storedTimeToday = (timeString: string, userTimezone: string): Date => {
 export const convertUTCTimeToUser = (
   timeString: string,
   userTimezone: string
-): string => zonedDateAndTime(storedTimeToday(timeString, userTimezone), userTimezone).time;
+): string =>
+  isTimeOfDay(timeString)
+    ? zonedDateAndTime(storedTimeToday(timeString, userTimezone), userTimezone).time
+    : timeString;
 
 /**
  * Formats a stored UTC time (HH:MM) for display, in the time zone and
@@ -357,7 +363,9 @@ export const formatUTCTimeOfDay = (
   timeString: string,
   settings?: TimeFormatSettings
 ): string =>
-  formatTimeWithSettings(storedTimeToday(timeString, getUserTimezone(settings)), settings);
+  isTimeOfDay(timeString)
+    ? formatTimeWithSettings(storedTimeToday(timeString, getUserTimezone(settings)), settings)
+    : timeString;
 
 /**
  * Calculate next run time for a schedule in user's timezone

@@ -50,7 +50,7 @@ export const exactIntervalFromTimes = (
   const unused = loaded
     ? loaded.shown.map((shown, i) => ({ shown, utc: loaded.stored[i] }))
     : [];
-  const utcTimes = times.map((time) => {
+  const utcTimes = [...times].sort().map((time) => {
     const match = unused.findIndex((entry) => entry.shown === time);
     if (match === -1) {
       return convertUserTimeToUTC(time, userTimezone);

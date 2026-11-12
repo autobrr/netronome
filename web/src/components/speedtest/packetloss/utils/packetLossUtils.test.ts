@@ -41,7 +41,14 @@ test("an edit form shows the stored UTC exact times in the time zone of the user
 });
 
 test("a saved form stores the exact times in UTC", () => {
-  assert.equal(exactIntervalFromTimes(["14:00", "01:00"], "Europe/Oslo"), "exact:12:00,23:00");
+  assert.equal(exactIntervalFromTimes(["14:00", "01:00"], "Europe/Oslo"), "exact:23:00,12:00");
+});
+
+test("a saved form stores the exact times in clock order, not in click order", () => {
+  assert.equal(
+    exactIntervalFromTimes(["22:00", "08:00", "14:00", "01:00"], "Europe/Oslo"),
+    "exact:23:00,06:00,12:00,20:00",
+  );
 });
 
 test("an unchanged save keeps the stored times across a daylight saving change", () => {
