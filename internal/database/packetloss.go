@@ -176,8 +176,9 @@ func (s *service) GetLatestPacketLossResult(monitorID int64) (*types.PacketLossR
 
 // CreatePacketLossMonitor creates a new packet loss monitor
 func (s *service) CreatePacketLossMonitor(monitor *types.PacketLossMonitor) (*types.PacketLossMonitor, error) {
-	monitor.CreatedAt = time.Now()
-	monitor.UpdatedAt = time.Now()
+	now := time.Now().UTC()
+	monitor.CreatedAt = now
+	monitor.UpdatedAt = now
 
 	query := s.sqlBuilder.
 		Insert("packet_loss_monitors").
@@ -207,7 +208,7 @@ func (s *service) CreatePacketLossMonitor(monitor *types.PacketLossMonitor) (*ty
 
 // UpdatePacketLossMonitor updates an existing packet loss monitor
 func (s *service) UpdatePacketLossMonitor(monitor *types.PacketLossMonitor) error {
-	monitor.UpdatedAt = time.Now()
+	monitor.UpdatedAt = time.Now().UTC()
 
 	data := map[string]interface{}{
 		"host":         monitor.Host,

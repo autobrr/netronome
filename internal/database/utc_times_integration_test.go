@@ -194,3 +194,50 @@ func TestResultTimesReadBackInUTC(t *testing.T) {
 		assert.Equal(t, want, dns.Data[0].CreatedAt.Format(time.RFC3339), "DNS")
 	})
 }
+
+func TestWrittenObjectTimesAreUTC(t *testing.T) {
+	useLocalZone(t)
+	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
+		assertUTC := func(name string, times ...time.Time) {
+			t.Helper()
+			for _, tm := range times {
+				assert.Equal(t, time.UTC, tm.Location(), name)
+			}
+		}
+
+		pl := CreateTestPacketLossMonitor(t, td)
+		assertUTC("CreatePacketLossMonitor", pl.CreatedAt, pl.UpdatedAt)
+		require.NoError(t, td.Service.UpdatePacketLossMonitor(pl))
+		assertUTC("UpdatePacketLossMonitor", pl.UpdatedAt)
+
+		dns := CreateTestDNSMonitor(t, td)
+		assertUTC("CreateDNSMonitor", dns.CreatedAt, dns.UpdatedAt)
+		require.NoError(t, td.Service.UpdateDNSMonitor(dns))
+		assertUTC("UpdateDNSMonitor", dns.UpdatedAt)
+
+		agent, err := td.Service.CreateMonitorAgent(t.Context(), &types.MonitorAgent{Name: "agent", URL: "http://127.0.0.1:8200", Enabled: true})
+		require.NoError(t, err)
+		assertUTC("CreateMonitorAgent", agent.CreatedAt, agent.UpdatedAt)
+		require.NoError(t, td.Service.UpdateMonitorAgent(t.Context(), agent))
+		assertUTC("UpdateMonitorAgent", agent.UpdatedAt)
+
+		channelInput := NotificationChannelInput{Name: "channel", URL: "json://127.0.0.1:9000"}
+		channel, err := td.Service.CreateChannel(channelInput)
+		require.NoError(t, err)
+		assertUTC("CreateChannel", channel.CreatedAt, channel.UpdatedAt)
+		channel, err = td.Service.UpdateChannel(channel.ID, channelInput)
+		require.NoError(t, err)
+		assertUTC("UpdateChannel", channel.CreatedAt, channel.UpdatedAt)
+
+		events, err := td.Service.GetEvents()
+		require.NoError(t, err)
+		require.NotEmpty(t, events)
+		ruleInput := NotificationRuleInput{ChannelID: channel.ID, EventID: events[0].ID}
+		rule, err := td.Service.CreateRule(ruleInput)
+		require.NoError(t, err)
+		assertUTC("CreateRule", rule.CreatedAt, rule.UpdatedAt)
+		rule, err = td.Service.UpdateRule(rule.ID, ruleInput)
+		require.NoError(t, err)
+		assertUTC("UpdateRule", rule.CreatedAt, rule.UpdatedAt)
+	})
+}

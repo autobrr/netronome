@@ -46,8 +46,9 @@ func scanDNSMonitor(scan func(dest ...any) error) (*types.DNSMonitor, error) {
 
 // CreateDNSMonitor creates a new DNS monitor
 func (s *service) CreateDNSMonitor(monitor *types.DNSMonitor) (*types.DNSMonitor, error) {
-	monitor.CreatedAt = time.Now()
-	monitor.UpdatedAt = time.Now()
+	now := time.Now().UTC()
+	monitor.CreatedAt = now
+	monitor.UpdatedAt = now
 
 	query := s.sqlBuilder.
 		Insert("dns_monitors").
@@ -121,7 +122,7 @@ func (s *service) GetDNSMonitors() ([]*types.DNSMonitor, error) {
 
 // UpdateDNSMonitor updates an existing DNS monitor
 func (s *service) UpdateDNSMonitor(monitor *types.DNSMonitor) error {
-	monitor.UpdatedAt = time.Now()
+	monitor.UpdatedAt = time.Now().UTC()
 
 	query := s.sqlBuilder.
 		Update("dns_monitors").
