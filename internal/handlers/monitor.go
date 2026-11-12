@@ -61,8 +61,6 @@ func (h *MonitorHandler) GetAgents(c *gin.Context) {
 		return
 	}
 
-	// The agent version only drives the outdated badge, so a failure here
-	// does not fail the agent list.
 	versions, err := h.db.GetMonitorAgentVersions(c.Request.Context())
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to get monitor agent versions")

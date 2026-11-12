@@ -198,6 +198,10 @@ func isCheckableVersion(current string) bool {
 	if strings.Contains(current, "(devel)") || strings.HasPrefix(current, "pr-") {
 		return false
 	}
+	// git describe --always prints a bare commit hash when no tag is reachable.
+	if !strings.Contains(current, ".") {
+		return false
+	}
 	if strings.HasSuffix(current, "-dev") || strings.HasSuffix(current, "-develop") || strings.HasSuffix(current, "-dirty") {
 		return false
 	}

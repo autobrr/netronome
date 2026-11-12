@@ -110,14 +110,14 @@ If **Enable monitoring** is on, the server connects to the agent at once. To sho
 
 ## Update an agent
 
-An outdated agent is an agent that runs an older release than the server. The agent list shows an **Outdated** badge next to each outdated agent. The **System** tab of the agent shows the same badge next to **Agent Version**. To see the version of the agent and the version of the server, click the badge.
+An outdated agent runs an older release than the server. The agent list shows an **Outdated** badge next to each outdated agent. The **System** tab of the agent shows the same badge next to **Agent Version**. To see the version of the agent and the version of the server, click the badge.
 
 The agent list uses the last agent version that the server saved. The server saves the version every 30 seconds while it is connected to the agent. After an agent update, the agent list can show the badge until the server saves the new version.
 
 The **System** tab uses the version that the agent reports. If the agent is offline, the **System** tab uses the saved version. These agents never show the badge:
 
 - An agent that runs a development build or a pull request build.
-- An agent that connects to a server with a development build.
+- Any agent, if the server runs a development build.
 - An agent with an unknown version.
 - An agent that is newer than the server.
 
