@@ -16,8 +16,6 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-
-	"github.com/autobrr/netronome/internal/config"
 )
 
 // ExportDataset names a set of results that ExportResults can write.
@@ -143,22 +141,13 @@ func (s *service) ExportResults(ctx context.Context, w io.Writer, dataset Export
 	}
 	query := s.sqlBuilder.Select(exprs...).From(spec.from)
 
-	// SQLite compares timestamps as text, and some rows hold a local offset.
-	// julianday compares the instants. Migration 026 indexes this expression,
-	// so keep the two the same.
-	createdAt := "r.created_at"
-	param := "?"
-	if s.config.Type == config.SQLite {
-		createdAt = "julianday(r.created_at)"
-		param = "julianday(?)"
-	}
 	if !from.IsZero() {
-		query = query.Where(sq.Expr(createdAt+" >= "+param, from.UTC()))
+		query = query.Where(sq.GtOrEq{"r.created_at": from})
 	}
 	if !to.IsZero() {
-		query = query.Where(sq.Expr(createdAt+" < "+param, to.UTC()))
+		query = query.Where(sq.Lt{"r.created_at": to})
 	}
-	query = query.OrderBy(createdAt, "r.id")
+	query = query.OrderBy("r.created_at", "r.id")
 
 	rows, err := query.RunWith(s.db).QueryContext(ctx)
 	if err != nil {

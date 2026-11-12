@@ -42,3 +42,29 @@ func TestSpeedTest_GetSkipsAliasLookupWithoutLegacyRows(t *testing.T) {
 	require.Len(t, results.Data, 1)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestSpeedTestRangeStart(t *testing.T) {
+	now := time.Date(2026, 3, 31, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		timeRange string
+		want      time.Time
+		ok        bool
+	}{
+		{"24h", time.Date(2026, 3, 30, 12, 0, 0, 0, time.UTC), true},
+		{"1d", time.Date(2026, 3, 30, 12, 0, 0, 0, time.UTC), true},
+		{"3d", time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC), true},
+		{"week", time.Date(2026, 3, 24, 12, 0, 0, 0, time.UTC), true},
+		{"1w", time.Date(2026, 3, 24, 12, 0, 0, 0, time.UTC), true},
+		{"month", time.Date(2026, 3, 3, 12, 0, 0, 0, time.UTC), true},
+		{"1m", time.Date(2026, 3, 3, 12, 0, 0, 0, time.UTC), true},
+		{"all", time.Time{}, false},
+		{"unknown", time.Time{}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.timeRange, func(t *testing.T) {
+			got, ok := speedTestRangeStart(tt.timeRange, now)
+			require.Equal(t, tt.ok, ok)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}

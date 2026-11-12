@@ -326,38 +326,25 @@ func (s *service) speedTestResultAliases(ctx context.Context, legacyNames map[sp
 	return aliases, nil
 }
 
+func speedTestRangeStart(timeRange string, now time.Time) (time.Time, bool) {
+	switch timeRange {
+	case "24h", "1d":
+		return now.AddDate(0, 0, -1), true
+	case "3d":
+		return now.AddDate(0, 0, -3), true
+	case "week", "1w":
+		return now.AddDate(0, 0, -7), true
+	case "month", "1m":
+		return now.AddDate(0, -1, 0), true
+	}
+	return time.Time{}, false
+}
+
 func (s *service) GetSpeedTests(ctx context.Context, timeRange string, page, limit int) (*types.PaginatedSpeedTests, error) {
 	baseQuery := s.sqlBuilder.Select().From("speed_tests")
 
-	if timeRange != "all" {
-		var timeExpr string
-		switch s.config.Type {
-		case config.Postgres:
-			switch timeRange {
-			case "24h", "1d":
-				timeExpr = "NOW() - INTERVAL '1 day'"
-			case "3d":
-				timeExpr = "NOW() - INTERVAL '3 days'"
-			case "week", "1w":
-				timeExpr = "NOW() - INTERVAL '7 days'"
-			case "month", "1m":
-				timeExpr = "NOW() - INTERVAL '1 month'"
-			}
-		case config.SQLite:
-			switch timeRange {
-			case "24h", "1d":
-				timeExpr = "datetime('now', '-1 day')"
-			case "3d":
-				timeExpr = "datetime('now', '-3 days')"
-			case "week", "1w":
-				timeExpr = "datetime('now', '-7 days')"
-			case "month", "1m":
-				timeExpr = "datetime('now', '-1 month')"
-			}
-		}
-		if timeExpr != "" {
-			baseQuery = baseQuery.Where("created_at >= " + timeExpr)
-		}
+	if since, ok := speedTestRangeStart(timeRange, time.Now().UTC()); ok {
+		baseQuery = baseQuery.Where(sq.GtOrEq{"created_at": since})
 	}
 
 	countQuery := baseQuery.Columns("COUNT(*)")
