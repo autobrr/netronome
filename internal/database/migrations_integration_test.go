@@ -4,8 +4,10 @@
 package database
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json/v2"
 	"fmt"
 	"os"
 	"path"
@@ -13,6 +15,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -267,9 +270,10 @@ func postgresDSN(cfg config.DatabaseConfig, dbName string) string {
 }
 
 func TestMigrations_UpgradeRewritesSQLiteResultTimesToUTC(t *testing.T) {
-	td := SetupTestDatabase(t, config.SQLite)
-	defer td.Close()
-	db := openEmptyDatabase(t, td.Config)
+	cfg := config.DatabaseConfig{Type: config.SQLite, Path: filepath.Join(t.TempDir(), "upgrade.db")}
+	db, err := sql.Open("sqlite", cfg.Path)
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
 
 	files, first := migrationFilesFrom(t, config.SQLite, "027_")
 	migrateFiles(t, db, files[:first])
@@ -325,5 +329,24 @@ func TestMigrations_UpgradeRewritesSQLiteResultTimesToUTC(t *testing.T) {
 		rows.Close()
 
 		assert.Equal(t, want, got, table)
+	}
+
+	dbInstance = nil
+	svc := New(cfg)
+	t.Cleanup(func() { svc.Close(); dbInstance = nil })
+	from := time.Date(2025, 12, 1, 11, 0, 0, 0, time.FixedZone("UTC+1", 60*60))
+	to := from.Add(500 * time.Millisecond)
+	for _, dataset := range []ExportDataset{ExportSpeedTests, ExportPacketLoss, ExportDNS} {
+		var buf bytes.Buffer
+		require.NoError(t, svc.ExportResults(t.Context(), &buf, dataset, ExportJSON, from, to))
+		var rows []struct {
+			ID int64 `json:"id"`
+		}
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &rows))
+		var ids []int64
+		for _, r := range rows {
+			ids = append(ids, r.ID)
+		}
+		assert.Equal(t, []int64{2, 6, 5}, ids, dataset)
 	}
 }
