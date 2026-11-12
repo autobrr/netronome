@@ -699,7 +699,7 @@ func (h *MonitorHandler) GetAgentHardwareStats(c *gin.Context) {
 				"disks":       []interface{}{},
 				"temperature": []interface{}{},
 				"uptime":      0,
-				"updated_at":  time.Now().Format(time.RFC3339),
+				"updated_at":  time.Now().UTC().Format(time.RFC3339),
 				"from_cache":  true,
 			}
 

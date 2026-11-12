@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +22,13 @@ import (
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/types"
 )
+
+func useLocalZone(t *testing.T) {
+	t.Helper()
+	old := time.Local
+	time.Local = time.FixedZone("UTC+2", 2*60*60)
+	t.Cleanup(func() { time.Local = old })
+}
 
 type monitorStubDB struct {
 	database.Service
@@ -58,12 +66,17 @@ func (db monitorStubDB) GetMonitorInterfaces(context.Context, int64) ([]types.Mo
 	return nil, nil
 }
 
+func (db monitorStubDB) GetMonitorResourceStats(context.Context, int64, int) ([]types.MonitorResourceStats, error) {
+	return nil, nil
+}
+
 func newMonitorTestRouter(db database.Service, serverVersion string) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	handler := NewMonitorHandler(db, nil, &config.MonitorConfig{}, serverVersion)
 	router := gin.New()
 	router.GET("/api/monitor/agents", handler.GetAgents)
 	router.GET("/api/monitor/agents/:id/system", handler.GetAgentSystemInfo)
+	router.GET("/api/monitor/agents/:id/hardware", handler.GetAgentHardwareStats)
 	return router
 }
 
@@ -193,4 +206,24 @@ func TestGetAgentSystemInfoReportsOutdatedForSavedData(t *testing.T) {
 			assert.Equal(t, tt.want, body["outdated"])
 		})
 	}
+}
+
+func TestGetAgentHardwareStatsWithoutSavedSampleAnswersInUTC(t *testing.T) {
+	useLocalZone(t)
+
+	offline := httptest.NewServer(http.NotFoundHandler())
+	offlineURL := offline.URL
+	offline.Close()
+	db := monitorStubDB{agents: []*types.MonitorAgent{{ID: 1, Name: "offline", URL: offlineURL}}}
+
+	response := serveMonitor(t, newMonitorTestRouter(db, "0.10.0"), "/api/monitor/agents/1/hardware")
+
+	require.Equal(t, http.StatusOK, response.Code)
+	var body struct {
+		UpdatedAt string `json:"updated_at"`
+		FromCache bool   `json:"from_cache"`
+	}
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.True(t, body.FromCache)
+	assert.True(t, strings.HasSuffix(body.UpdatedAt, "Z"), "updated_at %q", body.UpdatedAt)
 }

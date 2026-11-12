@@ -15,7 +15,7 @@ import (
 
 // CreateChannel creates a new notification channel
 func (s *service) CreateChannel(input NotificationChannelInput) (*NotificationChannel, error) {
-	now := time.Now()
+	now := time.Now().UTC()
 	enabled := true
 	if input.Enabled != nil {
 		enabled = *input.Enabled
@@ -328,7 +328,7 @@ func (s *service) GetEventByType(category, eventType string) (*NotificationEvent
 
 // CreateRule creates a new notification rule
 func (s *service) CreateRule(input NotificationRuleInput) (*NotificationRule, error) {
-	now := time.Now()
+	now := time.Now().UTC()
 	enabled := false
 	if input.Enabled != nil {
 		enabled = *input.Enabled
