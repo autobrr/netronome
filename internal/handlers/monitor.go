@@ -19,23 +19,37 @@ import (
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/monitor"
 	"github.com/autobrr/netronome/internal/types"
+	"github.com/autobrr/netronome/internal/update"
 	"github.com/autobrr/netronome/internal/utils"
 )
 
 // MonitorHandler handles monitoring endpoints
 type MonitorHandler struct {
-	db      database.Service
-	service *monitor.Service
-	config  *config.MonitorConfig
+	db            database.Service
+	service       *monitor.Service
+	config        *config.MonitorConfig
+	serverVersion string
 }
 
-// NewMonitorHandler creates a new monitor handler
-func NewMonitorHandler(db database.Service, service *monitor.Service, cfg *config.MonitorConfig) *MonitorHandler {
+// NewMonitorHandler returns a handler that marks an agent outdated when
+// serverVersion is a newer release than the version of the agent.
+func NewMonitorHandler(db database.Service, service *monitor.Service, cfg *config.MonitorConfig, serverVersion string) *MonitorHandler {
 	return &MonitorHandler{
-		db:      db,
-		service: service,
-		config:  cfg,
+		db:            db,
+		service:       service,
+		config:        cfg,
+		serverVersion: serverVersion,
 	}
+}
+
+type monitorAgentResponse struct {
+	*types.MonitorAgent
+	AgentVersion *string `json:"agentVersion"`
+	Outdated     bool    `json:"outdated"`
+}
+
+func (h *MonitorHandler) isOutdated(agentVersion *string) bool {
+	return agentVersion != nil && update.IsAgentOutdated(*agentVersion, h.serverVersion)
 }
 
 // GetAgents returns all monitoring agents
@@ -47,15 +61,28 @@ func (h *MonitorHandler) GetAgents(c *gin.Context) {
 		return
 	}
 
-	// Don't expose API keys to frontend
+	versions, err := h.db.GetMonitorAgentVersions(c.Request.Context())
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to get monitor agent versions")
+	}
+
+	response := make([]monitorAgentResponse, 0, len(agents))
 	for _, agent := range agents {
+		// Don't expose API keys to frontend
 		if agent.APIKey != nil && *agent.APIKey != "" {
 			masked := "configured"
 			agent.APIKey = &masked
 		}
+
+		item := monitorAgentResponse{MonitorAgent: agent}
+		if agentVersion, ok := versions[agent.ID]; ok {
+			item.AgentVersion = new(agentVersion)
+			item.Outdated = h.isOutdated(item.AgentVersion)
+		}
+		response = append(response, item)
 	}
 
-	c.JSON(http.StatusOK, agents)
+	c.JSON(http.StatusOK, response)
 }
 
 // GetAgent returns a specific monitor agent
@@ -588,6 +615,7 @@ func (h *MonitorHandler) GetAgentSystemInfo(c *gin.Context) {
 			"total_memory":   systemInfo.TotalMemory,
 			"updated_at":     systemInfo.UpdatedAt.Format(time.RFC3339),
 			"from_cache":     true,
+			"outdated":       h.isOutdated(systemInfo.AgentVersion),
 		}
 
 		c.JSON(http.StatusOK, response)
@@ -607,6 +635,8 @@ func (h *MonitorHandler) GetAgentSystemInfo(c *gin.Context) {
 	if info, infoErr := agentClient.Info(c.Request.Context()); infoErr == nil && info.Version != "" {
 		systemData["agent_version"] = info.Version
 	}
+	agentVersion, _ := systemData["agent_version"].(string)
+	systemData["outdated"] = h.isOutdated(new(agentVersion))
 
 	// Return the augmented system info
 	c.JSON(http.StatusOK, systemData)

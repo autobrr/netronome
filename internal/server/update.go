@@ -8,7 +8,21 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	appversion "github.com/autobrr/netronome/internal/version"
 )
+
+func (s *Server) handleVersion(c *gin.Context) {
+	c.JSON(http.StatusOK, struct {
+		Version   string `json:"version"`
+		Commit    string `json:"commit"`
+		BuildTime string `json:"buildTime"`
+	}{
+		Version:   appversion.Version,
+		Commit:    appversion.Commit,
+		BuildTime: appversion.BuildTime,
+	})
+}
 
 func (s *Server) handleLatestVersion(c *gin.Context) {
 	if s.updateChecker == nil {

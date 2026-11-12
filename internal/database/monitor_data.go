@@ -6,6 +6,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -98,6 +99,35 @@ func (s *service) GetMonitorSystemInfo(ctx context.Context, agentID int64) (*typ
 		return nil, ErrNotFound
 	}
 	return &info, err
+}
+
+// GetMonitorAgentVersions returns the last saved agent version of each agent,
+// keyed by agent ID. Agents without a saved version are absent.
+func (s *service) GetMonitorAgentVersions(ctx context.Context) (map[int64]string, error) {
+	rows, err := s.sqlBuilder.
+		Select("agent_id", "agent_version").
+		From("monitor_agent_system_info").
+		Where(sq.And{sq.NotEq{"agent_version": nil}, sq.NotEq{"agent_version": ""}}).
+		RunWith(s.db).
+		QueryContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get monitor agent versions: %w", err)
+	}
+	defer rows.Close()
+
+	versions := make(map[int64]string)
+	for rows.Next() {
+		var agentID int64
+		var agentVersion string
+		if err := rows.Scan(&agentID, &agentVersion); err != nil {
+			return nil, fmt.Errorf("failed to scan monitor agent version: %w", err)
+		}
+		versions[agentID] = agentVersion
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read monitor agent versions: %w", err)
+	}
+	return versions, nil
 }
 
 // UpsertMonitorInterfaces inserts or updates network interfaces for an agent

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -16,9 +17,12 @@ import (
 
 	version "github.com/hashicorp/go-version"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/mod/module"
 )
 
 const latestReleaseURL = "https://api.autobrr.com/repos/autobrr/netronome/releases/latest"
+
+var gitDescribeSuffix = regexp.MustCompile(`-[0-9]+-g[0-9a-f]+$`)
 
 // Release is the release metadata shown in the UI when an update is available.
 type Release struct {
@@ -175,6 +179,17 @@ func IsNewer(current, latest string) (bool, error) {
 	return latestVersion.GreaterThan(currentVersion), nil
 }
 
+// IsAgentOutdated reports whether server is a newer release than agent. A
+// development build on either side, an empty version, or a version that does
+// not parse is never outdated.
+func IsAgentOutdated(agent, server string) bool {
+	if !isCheckableVersion(agent) || !isCheckableVersion(server) {
+		return false
+	}
+	outdated, err := IsNewer(agent, server)
+	return err == nil && outdated
+}
+
 func isCheckableVersion(current string) bool {
 	current = strings.ToLower(strings.TrimSpace(current))
 	if current == "" || current == "dev" || current == "develop" || current == "main" || current == "latest" {
@@ -183,5 +198,16 @@ func isCheckableVersion(current string) bool {
 	if strings.Contains(current, "(devel)") || strings.HasPrefix(current, "pr-") {
 		return false
 	}
-	return !strings.HasSuffix(current, "-dev") && !strings.HasSuffix(current, "-develop")
+	// git describe --always prints a bare commit hash when no tag is reachable.
+	if !strings.Contains(current, ".") {
+		return false
+	}
+	if strings.HasSuffix(current, "-dev") || strings.HasSuffix(current, "-develop") || strings.HasSuffix(current, "-dirty") {
+		return false
+	}
+	if module.IsPseudoVersion("v" + strings.TrimPrefix(current, "v")) {
+		return false
+	}
+	// git describe appends "-<commits>-g<hash>" when HEAD is past the tag.
+	return !gitDescribeSuffix.MatchString(current)
 }

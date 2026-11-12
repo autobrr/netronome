@@ -13,7 +13,6 @@ import {
   CircleStackIcon,
   ServerStackIcon,
   SwatchIcon,
-  ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
 import { NotificationSettings } from "./settings/NotificationSettings";
 import { TimeFormatSettings } from "./settings/TimeFormatSettings";
@@ -37,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatReleaseTag, type AppRelease } from "@/api/version";
+import { AvailableReleaseLink, RunningVersion } from "@/components/AppVersion";
 
 interface SettingsSection {
   id: string;
@@ -154,26 +154,15 @@ export const SettingsMenu: React.FC<{ release: AppRelease | null }> = ({
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className="w-56 bg-white dark:bg-gray-800 shadow-xl ring-1 ring-black/10 dark:ring-white/10"
+          className="w-64 bg-white dark:bg-gray-800 shadow-xl ring-1 ring-black/10 dark:ring-white/10"
         >
           {release && (
             <>
               <DropdownMenuItem asChild>
-                <a
-                  href={release.html_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`View Netronome ${formatReleaseTag(release.tag_name)} release`}
-                  className="cursor-pointer px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
-                  <ArrowTopRightOnSquareIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span className="flex-1 text-left font-medium">
-                    Netronome {formatReleaseTag(release.tag_name)} available
-                  </span>
-                  <span className="text-xs text-blue-600 dark:text-blue-400">
-                    View release
-                  </span>
-                </a>
+                <AvailableReleaseLink
+                  release={release}
+                  className="cursor-pointer px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                />
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
@@ -193,6 +182,11 @@ export const SettingsMenu: React.FC<{ release: AppRelease | null }> = ({
               </div>
             </DropdownMenuItem>
           ))}
+
+          <RunningVersion
+            divider={<DropdownMenuSeparator />}
+            className="px-3 py-1.5"
+          />
         </DropdownMenuContent>
       </DropdownMenu>
 

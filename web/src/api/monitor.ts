@@ -16,6 +16,8 @@ export interface MonitorAgent {
   isTailscale?: boolean;
   tailscaleHostname?: string;
   discoveredAt?: string;
+  agentVersion?: string | null;
+  outdated?: boolean;
 }
 
 export interface MonitorStatus {
@@ -53,6 +55,7 @@ export interface SystemInfo {
   database_size: number; // bytes
   updated_at: string;
   from_cache?: boolean; // True when data is from database, not live agent
+  outdated?: boolean;
 }
 
 export interface PeakStats {

@@ -41,8 +41,53 @@ func TestIsNewer(t *testing.T) {
 	}
 }
 
+func TestIsAgentOutdated(t *testing.T) {
+	tests := []struct {
+		name   string
+		agent  string
+		server string
+		want   bool
+	}{
+		{name: "agent older than server", agent: "0.9.0", server: "v0.10.0", want: true},
+		{name: "agent patch behind server", agent: "v0.10.0", server: "0.10.1", want: true},
+		{name: "same version with v on agent", agent: "v0.10.0", server: "0.10.0", want: false},
+		{name: "same version with v on server", agent: "0.10.0", server: "v0.10.0", want: false},
+		{name: "agent newer than server", agent: "0.11.0", server: "0.10.0", want: false},
+		{name: "stable agent against prerelease server", agent: "0.9.0", server: "0.10.0-rc.1", want: false},
+		{name: "prerelease agent against its stable release", agent: "0.10.0-rc.1", server: "0.10.0", want: true},
+		{name: "empty agent version", agent: "", server: "0.10.0", want: false},
+		{name: "dev agent", agent: "dev", server: "0.10.0", want: false},
+		{name: "dev server", agent: "0.9.0", server: "dev", want: false},
+		{name: "develop agent", agent: "develop", server: "0.10.0", want: false},
+		{name: "main server", agent: "0.9.0", server: "main", want: false},
+		{name: "latest agent", agent: "latest", server: "0.10.0", want: false},
+		{name: "PR build agent", agent: "pr-352", server: "0.10.0", want: false},
+		{name: "PR build server", agent: "0.9.0", server: "pr-352", want: false},
+		{name: "devel agent", agent: "0.9.0 (devel)", server: "0.10.0", want: false},
+		{name: "dev suffix server", agent: "0.9.0", server: "0.10.0-dev", want: false},
+		{name: "develop suffix agent", agent: "0.9.0-develop", server: "0.10.0", want: false},
+		{name: "unparsable agent version", agent: "not-a-version", server: "0.10.0", want: false},
+		{name: "commit hash server", agent: "0.9.0", server: "336f529", want: false},
+		{name: "git describe server", agent: "0.8.0", server: "v0.9.0-3-g336f529-dirty", want: false},
+		{name: "git describe agent after server release", agent: "v0.16.0-9-g336f529", server: "v0.16.0", want: false},
+		{name: "git describe agent behind server", agent: "v0.15.0-2-g1a2b3c4", server: "v0.16.0", want: false},
+		{name: "dirty agent on release tag", agent: "v0.15.0-dirty", server: "v0.16.0", want: false},
+		{name: "pseudo-version agent", agent: "v0.16.1-0.20261108124624-336f529d52a5", server: "v0.17.0", want: false},
+		{name: "dirty pseudo-version agent", agent: "v0.16.1-0.20261108124624-336f529d52a5+dirty", server: "v0.17.0", want: false},
+		{name: "release candidate agent", agent: "v0.16.0-rc.1", server: "v0.16.0", want: true},
+		{name: "commit hash agent", agent: "0abc123", server: "v0.16.0", want: false},
+		{name: "numeric commit hash server", agent: "v0.15.0", server: "1234567", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, IsAgentOutdated(tt.agent, tt.server))
+		})
+	}
+}
+
 func TestCheckSkipsDevelopmentVersionsWithoutNetworkRequest(t *testing.T) {
-	versions := []string{"", "dev", "develop", "main", "latest", "pr-123", "1.2.3-dev", "1.2.3-develop", "1.2.3 (devel)"}
+	versions := []string{"", "dev", "develop", "main", "latest", "pr-123", "1.2.3-dev", "1.2.3-develop", "1.2.3 (devel)", "v1.2.3-4-g336f529", "v1.2.3-4-g336f529-dirty", "v1.2.3-dirty", "v1.2.4-0.20261108124624-336f529d52a5", "0abc123", "1234567"}
 
 	for _, current := range versions {
 		t.Run(current, func(t *testing.T) {

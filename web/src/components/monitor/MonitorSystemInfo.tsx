@@ -16,6 +16,7 @@ import { FaLinux, FaApple } from "react-icons/fa";
 import { SystemInfo, InterfaceInfo } from "@/api/monitor";
 import { formatBytes } from "@/utils/formatBytes";
 import { formatters } from "@/utils/timeSettings";
+import { OutdatedAgentBadge } from "./OutdatedAgentBadge";
 
 interface MonitorSystemInfoProps {
   systemInfo: SystemInfo;
@@ -124,9 +125,14 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
               <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
                 Agent Version
               </p>
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                {systemInfo.agent_version}
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {systemInfo.agent_version}
+                </p>
+                {systemInfo.outdated && (
+                  <OutdatedAgentBadge agentVersion={systemInfo.agent_version} />
+                )}
+              </div>
             </div>
           </div>
         )}
