@@ -215,8 +215,6 @@ func TestMigrations_UpgradeSetsThresholdOperators(t *testing.T) {
 	})
 }
 
-// migrationFilesFrom returns the migration files of dbType and the index of the
-// first file whose name starts with prefix.
 func migrationFilesFrom(t *testing.T, dbType config.DatabaseType, prefix string) ([]string, int) {
 	t.Helper()
 	files, err := migrations.GetMigrationFiles(migrations.DatabaseType(dbType))
