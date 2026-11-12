@@ -111,7 +111,8 @@ func setupSharedPostgreSQL() {
 				Password("test").
 				Database("testdb").
 				Port(uint32(port)).
-				RuntimePath(filepath.Join(tempDir, "postgres-runtime")),
+				RuntimePath(filepath.Join(tempDir, "postgres-runtime")).
+				StartParameters(map[string]string{"timezone": "America/New_York"}),
 		)
 
 		if err := postgres.Start(); err != nil {

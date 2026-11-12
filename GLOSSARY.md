@@ -114,5 +114,9 @@ The user can change the operator on the rule.
 **Result** — one stored measurement: a speed test result, a packet loss result, or a
 DNS result. Purge and export act on results.
 
+**Result time** — the instant at which a result was measured. It is the same
+instant in every time zone. The time zone setting changes only how the web
+interface shows it.
+
 **Export** — a download of the results of one dataset, as CSV or JSON, with an
 optional date range.

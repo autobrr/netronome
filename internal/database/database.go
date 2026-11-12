@@ -194,7 +194,7 @@ func New(cfg config.DatabaseConfig) Service {
 
 	switch cfg.Type {
 	case config.Postgres:
-		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s timezone=UTC",
 			cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode)
 		db, err = sql.Open("postgres", dsn)
 		if err != nil {
@@ -217,7 +217,7 @@ func New(cfg config.DatabaseConfig) Service {
 			log.Fatal().Err(err).Msg("Failed to set database directory permissions")
 		}
 
-		db, err = sql.Open("sqlite", fmt.Sprintf("file:%s?cache=shared&mode=rwc&_foreign_keys=on&_time_format=sqlite", cfg.Path))
+		db, err = sql.Open("sqlite", fmt.Sprintf("file:%s?cache=shared&mode=rwc&_foreign_keys=on&_time_format=sqlite&_timezone=UTC", cfg.Path))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to open SQLite database")
 		}
