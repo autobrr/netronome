@@ -170,7 +170,8 @@ func cleanupSharedPostgreSQL() {
 		if sharedPostgres != nil {
 			log.Println("Stopping shared PostgreSQL...")
 			if err := sharedPostgres.Stop(); err != nil {
-				log.Printf("Warning: failed to stop shared PostgreSQL: %v", err)
+				log.Printf("Warning: failed to stop shared PostgreSQL, keeping %s: %v", sharedTempDir, err)
+				return
 			}
 			sharedPostgres = nil
 		}
