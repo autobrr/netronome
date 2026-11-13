@@ -144,8 +144,6 @@ func setupSharedPostgreSQL() {
 
 		if err := service.InitializeTables(ctx); err != nil {
 			sharedInitError = fmt.Errorf("failed to initialize tables: %w", err)
-			postgres.Stop()
-			sharedPostgres = nil
 			return
 		}
 
