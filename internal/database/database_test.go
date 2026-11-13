@@ -58,6 +58,7 @@ import (
 var (
 	sharedPostgres    *embeddedpostgres.EmbeddedPostgres
 	sharedConfig      config.DatabaseConfig
+	sharedTempDir     string
 	sharedInitOnce    sync.Once
 	sharedInitError   error
 	sharedCleanupOnce sync.Once
@@ -101,6 +102,7 @@ func setupSharedPostgreSQL() {
 			sharedInitError = fmt.Errorf("failed to create temp dir: %w", err)
 			return
 		}
+		sharedTempDir = tempDir
 
 		log.Printf("Starting shared PostgreSQL on port %d", port)
 
@@ -142,8 +144,6 @@ func setupSharedPostgreSQL() {
 
 		if err := service.InitializeTables(ctx); err != nil {
 			sharedInitError = fmt.Errorf("failed to initialize tables: %w", err)
-			postgres.Stop()
-			sharedPostgres = nil
 			return
 		}
 
@@ -168,9 +168,16 @@ func cleanupSharedPostgreSQL() {
 		if sharedPostgres != nil {
 			log.Println("Stopping shared PostgreSQL...")
 			if err := sharedPostgres.Stop(); err != nil {
-				log.Printf("Warning: failed to stop shared PostgreSQL: %v", err)
+				log.Printf("Warning: failed to stop shared PostgreSQL, keeping %s: %v", sharedTempDir, err)
+				return
 			}
 			sharedPostgres = nil
+		}
+		if sharedTempDir != "" {
+			if err := os.RemoveAll(sharedTempDir); err != nil {
+				log.Printf("Warning: failed to remove shared PostgreSQL temp dir: %v", err)
+			}
+			sharedTempDir = ""
 		}
 	})
 }
