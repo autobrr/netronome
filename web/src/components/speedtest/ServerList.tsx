@@ -19,6 +19,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { formatDistance, useDistanceSettings } from "@/utils/distanceSettings";
+import { formatIperfServerEndpoint } from "@/utils/iperfEndpoint";
 import {
   Select,
   SelectContent,
@@ -528,7 +529,10 @@ export const ServerList: React.FC<ServerListProps> = ({
                               const iperfServer: Server = {
                                 id: `iperf3-${server.host}:${server.port}`,
                                 name: server.name,
-                                host: `${server.host}:${server.port}`,
+                                host: formatIperfServerEndpoint(
+                                  server.host,
+                                  server.port
+                                ),
                                 location: "Saved",
                                 distance: 0,
                                 country: "Saved",
@@ -564,9 +568,15 @@ export const ServerList: React.FC<ServerListProps> = ({
                                         iperf3 Server
                                         <span
                                           className="block truncate text-xs text-gray-500 dark:text-gray-500"
-                                          title={`${server.host}:${server.port}`}
+                                          title={formatIperfServerEndpoint(
+                                            server.host,
+                                            server.port
+                                          )}
                                         >
-                                          {server.host}:{server.port}
+                                          {formatIperfServerEndpoint(
+                                            server.host,
+                                            server.port
+                                          )}
                                         </span>
                                       </span>
                                       <span className="text-gray-600 dark:text-gray-400 text-sm mt-1">

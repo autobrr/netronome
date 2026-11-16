@@ -4,6 +4,7 @@
  */
 
 import type { Server, SavedIperfServer } from "@/types/types";
+import { formatIperfServerEndpoint } from "@/utils/iperfEndpoint";
 
 /** Server provider options shown by the traceroute selector. */
 export const SERVER_TYPE_OPTIONS = [
@@ -20,7 +21,7 @@ const convertIperfServersToServerFormat = (
   return iperfServers.map((server) => ({
     id: `iperf3-${server.host}:${server.port}`,
     name: server.name,
-    host: `${server.host}:${server.port}`,
+    host: formatIperfServerEndpoint(server.host, server.port),
     location: "Saved",
     distance: 0,
     country: "Saved",
