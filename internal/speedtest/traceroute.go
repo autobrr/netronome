@@ -559,107 +559,128 @@ func (s *service) parseTracerouteOutputStreaming(stdout io.ReadCloser, originalH
 	return result, nil
 }
 
-// parseHopLine parses a single hop line from traceroute output
-func (s *service) parseHopLine(line string) *TracerouteHop {
-	// Regex patterns for parsing hop lines based on OS
-	var hopRegex, hopRegexIPOnly, timeoutRegex *regexp.Regexp
+var hopNumberRegex = regexp.MustCompile(`^\s*(\d+)\s+(.+)$`)
 
-	switch runtime.GOOS {
-	case "darwin", "linux":
-		// Unix traceroute patterns (3 query format)
-		hopRegex = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+\(([^)]+)\)\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
-		hopRegexIPOnly = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+([0-9A-Fa-f:.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
-		timeoutRegex = regexp.MustCompile(`^\s*(\d+)\s+\*\s+\*\s+\*`)
-	case "windows":
-		// Windows tracert patterns
-		hopRegex = regexp.MustCompile(`^\s*(\d+)\s+(<?[\d.]+)\s+ms\s+(<?[\d.]+)\s+ms\s+(<?[\d.]+)\s+ms\s+(.+)`)
-		timeoutRegex = regexp.MustCompile(`^\s*(\d+)\s+\*\s+\*\s+\*\s+Request timed out\.`)
-	default:
-		// Default to Unix style (3 query format)
-		hopRegex = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+\(([^)]+)\)\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
-		hopRegexIPOnly = regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+([0-9A-Fa-f:.]+)\s+ms\s+([\d.]+)\s+ms\s+([\d.]+)\s+ms`)
-		timeoutRegex = regexp.MustCompile(`^\s*(\d+)\s+\*\s+\*\s+\*`)
+var windowsHopRegex = regexp.MustCompile(`^\s*(\d+)\s+(<?[\d.]+)\s+ms\s+(<?[\d.]+)\s+ms\s+(<?[\d.]+)\s+ms\s+(.+)`)
+
+var windowsTimeoutRegex = regexp.MustCompile(`^\s*(\d+)\s+\*\s+\*\s+\*\s+Request timed out\.`)
+
+type probeResult struct {
+	rtt  float64
+	lost bool
+}
+
+func (s *service) parseHopLine(line string) *TracerouteHop {
+	if runtime.GOOS == "windows" {
+		return parseWindowsHopLine(line)
+	}
+	return parseUnixHopLine(line)
+}
+
+func parseUnixHopLine(line string) *TracerouteHop {
+	match := hopNumberRegex.FindStringSubmatch(line)
+	if match == nil {
+		return nil
 	}
 
-	// Try to match timeout line first
-	if match := timeoutRegex.FindStringSubmatch(line); match != nil {
+	hopNumber, err := strconv.Atoi(match[1])
+	if err != nil {
+		return nil
+	}
+
+	var (
+		hostTokens []string
+		probes     []probeResult
+	)
+	fields := strings.Fields(match[2])
+	for i := 0; i < len(fields); i++ {
+		switch {
+		case fields[i] == "*":
+			probes = append(probes, probeResult{lost: true})
+		case i+1 < len(fields) && fields[i+1] == "ms":
+			rtt, parseErr := strconv.ParseFloat(fields[i], 64)
+			if parseErr != nil {
+				hostTokens = append(hostTokens, fields[i])
+				continue
+			}
+			probes = append(probes, probeResult{rtt: rtt})
+			i++
+		case strings.HasPrefix(fields[i], "!") || strings.HasPrefix(fields[i], "?"):
+		default:
+			hostTokens = append(hostTokens, fields[i])
+		}
+	}
+
+	if len(probes) == 0 {
+		return nil
+	}
+
+	hop := &TracerouteHop{Number: hopNumber, Host: "*", IP: "*"}
+	lost := 0
+	for i, probe := range probes {
+		if probe.lost {
+			lost++
+			continue
+		}
+		switch i {
+		case 0:
+			hop.RTT1 = probe.rtt
+		case 1:
+			hop.RTT2 = probe.rtt
+		case 2:
+			hop.RTT3 = probe.rtt
+		}
+	}
+	hop.Timeout = lost == len(probes)
+
+	if len(hostTokens) > 0 {
+		hop.Host = hostTokens[0]
+	}
+	if len(hostTokens) > 1 && strings.HasPrefix(hostTokens[1], "(") {
+		hop.IP = strings.Trim(hostTokens[1], "()")
+	} else if len(hostTokens) == 1 {
+		hop.IP = hostTokens[0]
+	}
+
+	if hop.IP != "*" && hop.IP != "" {
+		hop.CountryCode = getCountryFromHost(hop.IP)
+		hop.AS = getASNFromHost(hop.IP)
+	}
+
+	return hop
+}
+
+func parseWindowsHopLine(line string) *TracerouteHop {
+	if match := windowsTimeoutRegex.FindStringSubmatch(line); match != nil {
 		hopNum, _ := strconv.Atoi(match[1])
 		return &TracerouteHop{
-			Number:      hopNum,
-			Host:        "*",
-			IP:          "*",
-			Timeout:     true,
-			CountryCode: "",
-			AS:          "",
+			Number:  hopNum,
+			Host:    "*",
+			IP:      "*",
+			Timeout: true,
 		}
 	}
 
-	// Try to match different hop patterns
-	if runtime.GOOS == "windows" {
-		if match := hopRegex.FindStringSubmatch(line); match != nil {
-			hopNum, _ := strconv.Atoi(match[1])
-			rtt1Str := strings.TrimPrefix(match[2], "<")
-			rtt2Str := strings.TrimPrefix(match[3], "<")
-			rtt3Str := strings.TrimPrefix(match[4], "<")
-			ip := strings.TrimSpace(match[5])
-
-			rtt1, _ := strconv.ParseFloat(rtt1Str, 64)
-			rtt2, _ := strconv.ParseFloat(rtt2Str, 64)
-			rtt3, _ := strconv.ParseFloat(rtt3Str, 64)
-
-			return &TracerouteHop{
-				Number:      hopNum,
-				Host:        ip,
-				IP:          ip,
-				RTT1:        rtt1,
-				RTT2:        rtt2,
-				RTT3:        rtt3,
-				Timeout:     false,
-				CountryCode: getCountryFromHost(ip),
-				AS:          getASNFromHost(ip),
-			}
-		}
-	} else {
-		// 3 query format
-		if match := hopRegex.FindStringSubmatch(line); match != nil {
-			hopNum, _ := strconv.Atoi(match[1])
-			hostname := match[2]
-			ip := match[3]
-			rtt1, _ := strconv.ParseFloat(match[4], 64)
-			rtt2, _ := strconv.ParseFloat(match[5], 64)
-			rtt3, _ := strconv.ParseFloat(match[6], 64)
-
-			return &TracerouteHop{
-				Number:      hopNum,
-				Host:        hostname,
-				IP:          ip,
-				RTT1:        rtt1,
-				RTT2:        rtt2,
-				RTT3:        rtt3,
-				Timeout:     false,
-				CountryCode: getCountryFromHost(ip),
-				AS:          getASNFromHost(ip),
-			}
-		} else if match := hopRegexIPOnly.FindStringSubmatch(line); match != nil {
-			hopNum, _ := strconv.Atoi(match[1])
-			ip := match[2]
-			rtt1, _ := strconv.ParseFloat(match[3], 64)
-			rtt2, _ := strconv.ParseFloat(match[4], 64)
-			rtt3, _ := strconv.ParseFloat(match[5], 64)
-
-			return &TracerouteHop{
-				Number:      hopNum,
-				Host:        ip,
-				IP:          ip,
-				RTT1:        rtt1,
-				RTT2:        rtt2,
-				RTT3:        rtt3,
-				Timeout:     false,
-				CountryCode: getCountryFromHost(ip),
-				AS:          getASNFromHost(ip),
-			}
-		}
+	match := windowsHopRegex.FindStringSubmatch(line)
+	if match == nil {
+		return nil
 	}
 
-	return nil
+	hopNum, _ := strconv.Atoi(match[1])
+	rtt1, _ := strconv.ParseFloat(strings.TrimPrefix(match[2], "<"), 64)
+	rtt2, _ := strconv.ParseFloat(strings.TrimPrefix(match[3], "<"), 64)
+	rtt3, _ := strconv.ParseFloat(strings.TrimPrefix(match[4], "<"), 64)
+	ip := strings.TrimSpace(match[5])
+
+	return &TracerouteHop{
+		Number:      hopNum,
+		Host:        ip,
+		IP:          ip,
+		RTT1:        rtt1,
+		RTT2:        rtt2,
+		RTT3:        rtt3,
+		Timeout:     false,
+		CountryCode: getCountryFromHost(ip),
+		AS:          getASNFromHost(ip),
+	}
 }
