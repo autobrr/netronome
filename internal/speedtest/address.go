@@ -5,6 +5,7 @@ package speedtest
 
 import (
 	"net"
+	"net/netip"
 	"strings"
 )
 
@@ -27,10 +28,11 @@ func serverAddress(rawAddress, defaultPort string) (string, string) {
 		return host, port
 	}
 
-	// A bracketed IPv6 address without a port, such as "[::1]".
+	// A bracketed IPv6 address without a port, such as "[::1]". netip keeps
+	// the zone of a link-local address, which net.ParseIP rejects.
 	if strings.HasPrefix(address, "[") && strings.HasSuffix(address, "]") {
-		if ip := net.ParseIP(address[1 : len(address)-1]); ip != nil {
-			return ip.String(), defaultPort
+		if addr, err := netip.ParseAddr(address[1 : len(address)-1]); err == nil {
+			return addr.String(), defaultPort
 		}
 	}
 
