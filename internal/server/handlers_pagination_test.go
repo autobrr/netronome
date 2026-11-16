@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -62,6 +63,7 @@ func TestSpeedTestHistoryKeepsPageValuesInRange(t *testing.T) {
 		{target: "/speedtest/history?page=abc&limit=xyz", wantPage: 1, wantLimit: 20},
 		{target: "/speedtest/history?limit=100000", wantPage: 1, wantLimit: 100},
 		{target: "/speedtest/history?page=99999999999999999999", wantPage: 1, wantLimit: 20},
+		{target: "/speedtest/history?page=4611686018427387905&limit=101", wantPage: math.MaxInt/100 + 1, wantLimit: 100},
 		{target: "/speedtest/public/history", wantPage: 1, wantLimit: 20},
 		{target: "/speedtest/public/history?limit=-1", wantPage: 1, wantLimit: 20},
 		{target: "/speedtest/public/history?timeRange=all&limit=100000", wantPage: 1, wantLimit: 100},
@@ -79,6 +81,7 @@ func TestSpeedTestHistoryKeepsPageValuesInRange(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.Code)
 			assert.Equal(t, tt.wantPage, db.page)
 			assert.Equal(t, tt.wantLimit, db.limit)
+			assert.GreaterOrEqual(t, (db.page-1)*db.limit, 0)
 		})
 	}
 }

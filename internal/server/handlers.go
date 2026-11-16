@@ -86,6 +86,9 @@ func queryValueOrDefault(c *gin.Context, name string, fallback int) int {
 func historyPageParams(c *gin.Context, defaultPage, defaultLimit int) (page, limit int) {
 	page = queryValueOrDefault(c, "page", defaultPage)
 	limit = min(queryValueOrDefault(c, "limit", defaultLimit), historyPageLimit)
+	if maxPage := math.MaxInt/limit + 1; page > maxPage {
+		page = maxPage
+	}
 	return page, limit
 }
 
