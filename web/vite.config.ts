@@ -32,6 +32,9 @@ export default defineConfig({
         name: 'Netronome',
         short_name: 'Netronome',
         description: 'Network performance testing and monitoring tool',
+        // These two colors stay static on purpose. They show only on the install
+        // splash screen. syncThemeColorMeta() in src/utils/colorTheme.ts sets the
+        // theme color at first paint.
         theme_color: '#18181b',
         background_color: '#18181b',
         display: 'standalone',
