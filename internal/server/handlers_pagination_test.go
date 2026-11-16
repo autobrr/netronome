@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -63,7 +64,7 @@ func TestSpeedTestHistoryKeepsPageValuesInRange(t *testing.T) {
 		{target: "/speedtest/history?page=abc&limit=xyz", wantPage: 1, wantLimit: 20},
 		{target: "/speedtest/history?limit=100000", wantPage: 1, wantLimit: 100},
 		{target: "/speedtest/history?page=99999999999999999999", wantPage: 1, wantLimit: 20},
-		{target: "/speedtest/history?page=4611686018427387905&limit=101", wantPage: math.MaxInt/100 + 1, wantLimit: 100},
+		{target: "/speedtest/history?page=" + strconv.Itoa(math.MaxInt) + "&limit=101", wantPage: math.MaxInt/100 + 1, wantLimit: 100},
 		{target: "/speedtest/history?page=1&limit=1", wantPage: 1, wantLimit: 1},
 		{target: "/speedtest/history?page=5&limit=1", wantPage: 5, wantLimit: 1},
 		{target: "/speedtest/public/history?page=2&limit=1", wantPage: 2, wantLimit: 1},
