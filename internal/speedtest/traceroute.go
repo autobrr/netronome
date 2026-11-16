@@ -559,23 +559,17 @@ func (s *service) parseTracerouteOutputStreaming(stdout io.ReadCloser, originalH
 	return result, nil
 }
 
-// hopNumberRegex matches the hop number that starts a traceroute hop line.
 var hopNumberRegex = regexp.MustCompile(`^\s*(\d+)\s+(.+)$`)
 
-// windowsHopRegex matches a Windows tracert hop line with three replies.
 var windowsHopRegex = regexp.MustCompile(`^\s*(\d+)\s+(<?[\d.]+)\s+ms\s+(<?[\d.]+)\s+ms\s+(<?[\d.]+)\s+ms\s+(.+)`)
 
-// windowsTimeoutRegex matches a Windows tracert hop line with no reply.
 var windowsTimeoutRegex = regexp.MustCompile(`^\s*(\d+)\s+\*\s+\*\s+\*\s+Request timed out\.`)
 
-// probeResult is one round-trip measurement on a hop line. A probe that got no
-// answer is lost and has no round-trip time.
 type probeResult struct {
 	rtt  float64
 	lost bool
 }
 
-// parseHopLine parses a single hop line from traceroute output
 func (s *service) parseHopLine(line string) *TracerouteHop {
 	if runtime.GOOS == "windows" {
 		return parseWindowsHopLine(line)
@@ -583,10 +577,6 @@ func (s *service) parseHopLine(line string) *TracerouteHop {
 	return parseUnixHopLine(line)
 }
 
-// parseUnixHopLine parses one hop line of Unix traceroute output. Each probe is
-// either "*" for no answer or a number followed by "ms", and a line can hold
-// zero to three answers. The host name is printed on the first probe that got
-// an answer, so a leading "*" comes before the host.
 func parseUnixHopLine(line string) *TracerouteHop {
 	match := hopNumberRegex.FindStringSubmatch(line)
 	if match == nil {
@@ -614,9 +604,8 @@ func parseUnixHopLine(line string) *TracerouteHop {
 				continue
 			}
 			probes = append(probes, probeResult{rtt: rtt})
-			i++ // skip the "ms" unit
+			i++
 		case strings.HasPrefix(fields[i], "!") || strings.HasPrefix(fields[i], "?"):
-			// An ICMP annotation such as "!H", not part of the host name.
 		default:
 			hostTokens = append(hostTokens, fields[i])
 		}
@@ -661,7 +650,6 @@ func parseUnixHopLine(line string) *TracerouteHop {
 	return hop
 }
 
-// parseWindowsHopLine parses one hop line of Windows tracert output.
 func parseWindowsHopLine(line string) *TracerouteHop {
 	if match := windowsTimeoutRegex.FindStringSubmatch(line); match != nil {
 		hopNum, _ := strconv.Atoi(match[1])
