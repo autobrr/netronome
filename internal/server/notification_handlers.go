@@ -272,15 +272,9 @@ func (s *Server) handleTestNotification(c *gin.Context) {
 
 // handleGetNotificationHistory retrieves notification history
 func (s *Server) handleGetNotificationHistory(c *gin.Context) {
-	limit := 100 // Default limit
-	if limitStr := c.Query("limit"); limitStr != "" {
-		parsedLimit, err := strconv.Atoi(limitStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid limit"})
-			return
-		}
-		limit = parsedLimit
-	}
+	// The database reads a limit below one as unlimited, so keep the value in
+	// the same range as the other history endpoints.
+	limit := min(queryValueOrDefault(c, "limit", historyPageLimit), historyPageLimit)
 
 	history, err := s.db.GetNotificationHistory(limit)
 	if err != nil {

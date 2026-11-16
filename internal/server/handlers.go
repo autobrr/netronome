@@ -63,10 +63,35 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 	}
 }
 
+// historyPageLimit is the largest page of history that one response returns.
+// The packet loss and DNS history endpoints use the same cap.
+const historyPageLimit = 100
+
+// queryValueOrDefault returns a query value that is a positive integer, or
+// fallback when the value is missing, malformed, or not positive.
+func queryValueOrDefault(c *gin.Context, name string, fallback int) int {
+	if fallback < 1 {
+		fallback = 1
+	}
+	value, err := strconv.Atoi(c.Query(name))
+	if err != nil || value < 1 {
+		return fallback
+	}
+	return value
+}
+
+// historyPageParams returns the page and the limit for one history request,
+// both kept in range. Without this clamp, a negative limit reaches the database
+// as a very large uint64 and returns every stored row.
+func historyPageParams(c *gin.Context, defaultPage, defaultLimit int) (page, limit int) {
+	page = queryValueOrDefault(c, "page", defaultPage)
+	limit = min(queryValueOrDefault(c, "limit", defaultLimit), historyPageLimit)
+	return page, limit
+}
+
 func (s *Server) handleSpeedTestHistory(c *gin.Context) {
 	timeRange := c.DefaultQuery("timeRange", s.config.Pagination.DefaultTimeRange)
-	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(s.config.Pagination.DefaultPage)))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(s.config.Pagination.DefaultLimit)))
+	page, limit := historyPageParams(c, s.config.Pagination.DefaultPage, s.config.Pagination.DefaultLimit)
 
 	results, err := s.db.GetSpeedTests(c.Request.Context(), timeRange, page, limit)
 	if err != nil {
@@ -85,8 +110,7 @@ func (s *Server) handleSpeedTestHistory(c *gin.Context) {
 
 func (s *Server) handlePublicSpeedTestHistory(c *gin.Context) {
 	timeRange := c.DefaultQuery("timeRange", s.config.Pagination.DefaultTimeRange)
-	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(s.config.Pagination.DefaultPage)))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(s.config.Pagination.DefaultLimit)))
+	page, limit := historyPageParams(c, s.config.Pagination.DefaultPage, s.config.Pagination.DefaultLimit)
 
 	results, err := s.db.GetSpeedTests(c.Request.Context(), timeRange, page, limit)
 	if err != nil {
