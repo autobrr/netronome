@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -143,16 +144,9 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 		return nil, fmt.Errorf("server host is required for iperf3 test")
 	}
 
-	// Split host and port if port is included
-	host := opts.ServerHost
-	port := "5201" // Default to 5201 since we know it works
-	if strings.Contains(host, ":") {
-		parts := strings.Split(host, ":")
-		host = parts[0]
-		if len(parts) > 1 {
-			port = parts[1]
-		}
-	}
+	// Split host and port if port is included. A bare IPv6 address has more
+	// than one colon, so a plain Split would cut the address in half.
+	host, port := serverAddress(opts.ServerHost, "5201")
 
 	log.Debug().
 		Str("host", host).
@@ -168,7 +162,7 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 	// Use server name if provided, otherwise use the host:port
 	serverName := opts.ServerName
 	if serverName == "" {
-		serverName = fmt.Sprintf("%s:%s", host, port)
+		serverName = net.JoinHostPort(host, port)
 	}
 
 	// Send initial status
