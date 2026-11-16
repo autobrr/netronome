@@ -4,10 +4,13 @@
 package migrations
 
 import (
+	"cmp"
 	"embed"
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -84,24 +87,17 @@ func GetMigrationFiles(dbType DatabaseType) ([]string, error) {
 
 // sortMigrationFiles sorts migration files by their version number
 func sortMigrationFiles(files []string) {
-	n := len(files)
-	for i := 0; i < n-1; i++ {
-		for j := 0; j < n-i-1; j++ {
-			if getMigrationVersion(files[j]) > getMigrationVersion(files[j+1]) {
-				files[j], files[j+1] = files[j+1], files[j]
-			}
-		}
-	}
+	slices.SortStableFunc(files, func(a, b string) int {
+		return cmp.Compare(getMigrationVersion(a), getMigrationVersion(b))
+	})
 }
 
-// getMigrationVersion extracts the version number from a migration filename
-func getMigrationVersion(fileName string) int {
-	parts := strings.Split(fileName, "_")
-	if len(parts) > 0 {
-		version := strings.TrimPrefix(parts[0], "0")
-		if v, err := strconv.Atoi(version); err == nil {
-			return v
-		}
+// getMigrationVersion extracts the version number from a migration file path
+func getMigrationVersion(filePath string) int {
+	prefix, _, _ := strings.Cut(path.Base(filePath), "_")
+	v, err := strconv.Atoi(prefix)
+	if err != nil {
+		return 0
 	}
-	return 0
+	return v
 }
