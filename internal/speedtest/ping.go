@@ -35,10 +35,9 @@ func (s *service) RunPingTest(ctx context.Context, host string) (*PingResult, er
 		return nil, fmt.Errorf("host is required for ping test")
 	}
 
-	// Strip port from host if present
-	if strings.Contains(host, ":") {
-		host = strings.Split(host, ":")[0]
-	}
+	// Strip the port from host if present. A bare IPv6 address keeps every
+	// colon, because only the port separator is a colon after the address.
+	host, _ = serverAddress(host, "")
 
 	// Check for Docker environment indicators
 	inDocker := s.isRunningInDocker()
