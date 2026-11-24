@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MonitorAgentList } from "./MonitorAgentList";
 import { MonitorAgentForm } from "./MonitorAgentForm";
 import { MonitorAgentDetailsTabs } from "./MonitorAgentDetailsTabs";
-import { MonitorDataPrefetcher } from "./MonitorDataPrefetcher";
+
 import { showToast } from "@/components/common/Toast";
 import {
   ArrowLeftIcon,
@@ -208,9 +208,6 @@ export const MonitorTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Pre-fetch data for all enabled agents */}
-      <MonitorDataPrefetcher agents={agents} />
-      
       <AnimatePresence mode="wait">
         {!selectedAgent ? (
           <motion.div
