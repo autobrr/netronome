@@ -15,9 +15,30 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
+	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/speedtest"
 	"github.com/autobrr/netronome/internal/types"
 )
+
+// Matches the pause between download and upload in IperfRunner.RunTest.
+const iperfPauseBetweenTests = 2 * time.Second
+
+const iperfTimeoutSlack = 5 * time.Second
+
+func speedTestTimeout(cfg config.SpeedTestConfig, opts *types.TestOptions) time.Duration {
+	general := time.Duration(cfg.Timeout) * time.Second
+
+	switch {
+	case opts.UseLibrespeed:
+		return time.Duration(cfg.Librespeed.Timeout) * time.Second
+	case opts.UseIperf:
+		perTest := time.Duration(cfg.IPerf.Timeout) * time.Second
+		ping := time.Duration(cfg.IPerf.Ping.Timeout) * time.Second
+		return max(general, ping+2*perTest+iperfPauseBetweenTests+iperfTimeoutSlack)
+	default:
+		return general
+	}
+}
 
 func (s *Server) handleSpeedTest(c *gin.Context) {
 	var opts types.TestOptions
@@ -32,13 +53,7 @@ func (s *Server) handleSpeedTest(c *gin.Context) {
 	s.lastUpdate = &types.SpeedUpdate{}
 	s.mu.Unlock()
 
-	timeout := time.Duration(s.config.SpeedTest.Timeout) * time.Second
-	if opts.UseLibrespeed {
-		timeout = time.Duration(s.config.SpeedTest.Librespeed.Timeout) * time.Second
-	}
-
-	// Use configured timeout
-	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), speedTestTimeout(s.config.SpeedTest, &opts))
 	defer cancel()
 
 	result, err := s.speedtest.RunTest(ctx, &opts)
