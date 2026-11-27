@@ -5,9 +5,13 @@ package server
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/autobrr/netronome/internal/config"
+	"github.com/autobrr/netronome/internal/types"
 )
 
 func TestParseServerListOptions(t *testing.T) {
@@ -46,6 +50,37 @@ func TestParseServerListOptions(t *testing.T) {
 			assert.Equal(t, tt.wantGlobal, options.Global)
 			assert.Equal(t, tt.wantLocation, options.Location != nil)
 			assert.Equal(t, tt.wantRefresh, options.Refresh)
+		})
+	}
+}
+
+func TestSpeedTestTimeout(t *testing.T) {
+	cfg := config.SpeedTestConfig{
+		Timeout:    30,
+		Librespeed: config.LibrespeedConfig{Timeout: 60},
+		IPerf: config.IperfConfig{
+			Timeout: 60,
+			Ping:    config.PingConfig{Timeout: 10},
+		},
+	}
+	largeGeneral := cfg
+	largeGeneral.Timeout = 300
+
+	tests := []struct {
+		name string
+		cfg  config.SpeedTestConfig
+		opts types.TestOptions
+		want time.Duration
+	}{
+		{name: "speedtest.net", cfg: cfg, want: 30 * time.Second},
+		{name: "librespeed", cfg: cfg, opts: types.TestOptions{UseLibrespeed: true}, want: 60 * time.Second},
+		{name: "iperf", cfg: cfg, opts: types.TestOptions{UseIperf: true}, want: 137 * time.Second},
+		{name: "iperf keeps larger general timeout", cfg: largeGeneral, opts: types.TestOptions{UseIperf: true}, want: 300 * time.Second},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, speedTestTimeout(tt.cfg, &tt.opts))
 		})
 	}
 }

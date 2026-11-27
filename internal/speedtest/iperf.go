@@ -303,7 +303,11 @@ func (r *IperfRunner) runSingleIperfTest(ctx context.Context, opts *types.TestOp
 	if err := cmd.Wait(); err != nil {
 		<-stderrDone
 
-		// Check if the error was due to context timeout
+		// timeoutCtx also reports DeadlineExceeded when the parent deadline expires.
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return nil, fmt.Errorf("iperf3 test stopped by the overall speed test deadline before the %d second iperf timeout: %s", r.config.Timeout, formatIperfFailureOutput("", stderrOutput.String()))
+		}
+
 		if timeoutCtx.Err() == context.DeadlineExceeded {
 			return nil, fmt.Errorf("iperf3 test timed out after %d seconds: %s", r.config.Timeout, formatIperfFailureOutput("", stderrOutput.String()))
 		}

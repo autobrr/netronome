@@ -15,7 +15,7 @@ You select the provider and the server in the web interface. The keys on this pa
 
 ## Speedtest.net
 
-- `speedtest.timeout` (default `30`): The time limit in seconds for the download test, and a separate time limit for the upload test. For a test that you start in the web interface, it is also the time limit for a full iperf3 test.
+- `speedtest.timeout` (default `30`): The time limit in seconds for the download test, and a separate time limit for the upload test. For a Speedtest.net test that you start in the web interface, it is also the time limit for the full test.
 - `speedtest.connections` (default `0`): The maximum number of parallel connections for the download test and the upload test.
 
 Each key also has an environment variable. See [Environment variables](/reference/environment-variables/).
@@ -71,7 +71,7 @@ timeout = 10
 ```
 
 :::note
-A test that you start in the web interface also has the `speedtest.timeout` limit, which is 30 seconds by default. If you increase `test_duration`, increase `speedtest.timeout` too.
+A test that you start in the web interface also has a time limit for the full test. This limit is the sum of `speedtest.iperf.ping.timeout`, two times `speedtest.iperf.timeout`, and 7 seconds. With the default values, the limit is 137 seconds. If `speedtest.timeout` is larger, Netronome uses `speedtest.timeout`.
 :::
 
 ## LibreSpeed
