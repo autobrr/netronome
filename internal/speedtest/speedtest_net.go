@@ -59,9 +59,7 @@ type serverCatalogueStore interface {
 
 // SpeedtestNetRunner executes Speedtest.net tests, coalesces discovery, and persistently retains servers.
 type SpeedtestNetRunner struct {
-	running          chan struct{}
-	client           *st.Speedtest
-	listServers      func(context.Context) (st.Servers, error)
+	listServers      func(context.Context, *st.Speedtest) (st.Servers, error)
 	config           config.SpeedTestConfig
 	progressCallback func(types.SpeedUpdate)
 	catalogueStore   serverCatalogueStore
@@ -75,12 +73,8 @@ type serverFetcher func(context.Context, *ServerLocation) ([]ServerResponse, *Se
 
 // NewSpeedtestNetRunner creates a runner whose server catalogue is backed by store.
 func NewSpeedtestNetRunner(cfg config.SpeedTestConfig, store serverCatalogueStore) *SpeedtestNetRunner {
-	client := st.New()
-	client.SetNThread(cfg.Connections) // 0 keeps the library default
 	runner := &SpeedtestNetRunner{
-		running:         make(chan struct{}, 1),
-		client:          client,
-		listServers:     client.FetchServerListContext,
+		listServers:     fetchSpeedtestNetServers,
 		config:          cfg,
 		catalogueStore:  store,
 		fetchServers:    fetchSpeedtestServers,
@@ -101,23 +95,15 @@ func (r *SpeedtestNetRunner) SetProgressCallback(callback func(types.SpeedUpdate
 // RunTest executes a Speedtest.net test against a requested server or the nearest available server.
 // Requested IDs omitted from the public list are looked up directly before the test is rejected.
 func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
-	select {
-	case r.running <- struct{}{}:
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-	defer func() { <-r.running }()
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	defer r.client.Reset()
+	client := st.New()
+	client.SetNThread(r.config.Connections)
 
 	log.Debug().
 		Bool("isScheduled", opts.IsScheduled).
 		Str("server_ids", fmt.Sprintf("%v", opts.ServerIDs)).
 		Msg("Starting speedtest.net test")
 
-	serverList, err := r.listServers(ctx)
+	serverList, err := r.listServers(ctx, client)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to fetch servers")
 		return nil, fmt.Errorf("failed to fetch servers: %w", err)
@@ -140,7 +126,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		// Server not in FetchServers() list — try direct lookup by ID
 		if selectedServer == nil {
 			for _, requestedID := range opts.ServerIDs {
-				server, err := r.client.FetchServerByIDContext(ctx, requestedID)
+				server, err := client.FetchServerByIDContext(ctx, requestedID)
 				if err == nil && server != nil {
 					log.Info().
 						Str("server_id", requestedID).
@@ -364,6 +350,10 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 	result.Jitter = jitterFloat
 
 	return result, nil
+}
+
+func fetchSpeedtestNetServers(ctx context.Context, client *st.Speedtest) (st.Servers, error) {
+	return client.FetchServerListContext(ctx)
 }
 
 func selectNearestServer(servers []*st.Server) *st.Server {

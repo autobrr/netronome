@@ -909,81 +909,41 @@ func TestResolveServerURL(t *testing.T) {
 	}
 }
 
-type fakeServerList struct {
-	calls atomic.Int32
-	err   error
-}
-
-func (f *fakeServerList) list(context.Context) (st.Servers, error) {
-	f.calls.Add(1)
-	return nil, f.err
-}
-
-func newQueueTestRunner() (*SpeedtestNetRunner, *fakeServerList) {
+func TestRunTestGivesOverlappingTestsSeparateClients(t *testing.T) {
 	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
-	fake := &fakeServerList{err: errors.New("server list unavailable")}
-	runner.listServers = fake.list
-	return runner, fake
-}
-
-func TestRunTestWaitsForRunningTest(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		runner, fake := newQueueTestRunner()
-		runner.running <- struct{}{}
-
-		errc := make(chan error, 1)
-		go func() {
-			_, err := runner.RunTest(t.Context(), &types.TestOptions{})
-			errc <- err
-		}()
-
-		synctest.Wait()
-		assert.Zero(t, fake.calls.Load())
-
-		<-runner.running
-		synctest.Wait()
-		assert.Equal(t, int32(1), fake.calls.Load())
-		assert.ErrorIs(t, <-errc, fake.err)
-	})
-}
-
-func TestRunTestGivesUpWhileQueued(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		runner, fake := newQueueTestRunner()
-		runner.running <- struct{}{}
-
-		ctx, cancel := context.WithCancel(t.Context())
-		errc := make(chan error, 1)
-		go func() {
-			_, err := runner.RunTest(ctx, &types.TestOptions{})
-			errc <- err
-		}()
-
-		synctest.Wait()
-		cancel()
-		assert.ErrorIs(t, <-errc, context.Canceled)
-		assert.Zero(t, fake.calls.Load())
-	})
-}
-
-func TestRunTestGivesUpWhenCancelledBeforeSlotIsTaken(t *testing.T) {
-	for range 64 {
-		runner, fake := newQueueTestRunner()
-		ctx, cancel := context.WithCancel(t.Context())
-		cancel()
-
-		_, err := runner.RunTest(ctx, &types.TestOptions{})
-		require.ErrorIs(t, err, context.Canceled)
-		require.Zero(t, fake.calls.Load())
+	release := make(chan struct{})
+	bothRunning := make(chan struct{})
+	var mu sync.Mutex
+	var clients []*st.Speedtest
+	runner.listServers = func(ctx context.Context, client *st.Speedtest) (st.Servers, error) {
+		mu.Lock()
+		clients = append(clients, client)
+		if len(clients) == 2 {
+			close(bothRunning)
+		}
+		mu.Unlock()
+		<-release
+		return nil, errors.New("server list unavailable")
 	}
-}
 
-func TestRunTestResetsClientAfterFailedTest(t *testing.T) {
-	runner, _ := newQueueTestRunner()
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	defer close(release)
+	for range 2 {
+		wg.Go(func() {
+			_, err := runner.RunTest(t.Context(), &types.TestOptions{})
+			assert.Error(t, err)
+		})
+	}
 
-	_, err := runner.RunTest(t.Context(), &types.TestOptions{})
-	require.Error(t, err)
-	assert.Len(t, runner.client.Snapshots().All(), 1)
+	select {
+	case <-bothRunning:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the second test did not start while the first one was running")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	assert.NotSame(t, clients[0], clients[1])
 }
 
 func TestSelectNearestServer(t *testing.T) {
