@@ -59,6 +59,7 @@ type serverCatalogueStore interface {
 
 // SpeedtestNetRunner executes Speedtest.net tests, coalesces discovery, and persistently retains servers.
 type SpeedtestNetRunner struct {
+	baseClient       *st.Speedtest
 	listServers      func(context.Context, *st.Speedtest) (st.Servers, error)
 	config           config.SpeedTestConfig
 	progressCallback func(types.SpeedUpdate)
@@ -74,6 +75,7 @@ type serverFetcher func(context.Context, *ServerLocation) ([]ServerResponse, *Se
 // NewSpeedtestNetRunner creates a runner whose server catalogue is backed by store.
 func NewSpeedtestNetRunner(cfg config.SpeedTestConfig, store serverCatalogueStore) *SpeedtestNetRunner {
 	runner := &SpeedtestNetRunner{
+		baseClient:      st.New(),
 		listServers:     fetchSpeedtestNetServers,
 		config:          cfg,
 		catalogueStore:  store,
@@ -95,8 +97,7 @@ func (r *SpeedtestNetRunner) SetProgressCallback(callback func(types.SpeedUpdate
 // RunTest executes a Speedtest.net test against a requested server or the nearest available server.
 // Requested IDs omitted from the public list are looked up directly before the test is rejected.
 func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
-	client := st.New()
-	client.SetNThread(r.config.Connections)
+	client := r.newClient()
 
 	log.Debug().
 		Bool("isScheduled", opts.IsScheduled).
@@ -350,6 +351,13 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 	result.Jitter = jitterFloat
 
 	return result, nil
+}
+
+func (r *SpeedtestNetRunner) newClient() *st.Speedtest {
+	client := *r.baseClient
+	client.Manager = st.NewDataManager()
+	client.SetNThread(r.config.Connections)
+	return &client
 }
 
 func fetchSpeedtestNetServers(ctx context.Context, client *st.Speedtest) (st.Servers, error) {
