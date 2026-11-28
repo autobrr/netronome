@@ -30,7 +30,6 @@
 // Avoid duplicating these tests in new files.
 //
 // Performance Tips:
-// - Use RunTestWithSQLiteOnly() for simple tests that don't need PostgreSQL
 // - Set SKIP_POSTGRES_TESTS=1 to skip PostgreSQL tests during local development
 // - PostgreSQL tests take ~6 seconds each due to embedded database initialization
 
@@ -59,6 +58,7 @@ import (
 var (
 	sharedPostgres    *embeddedpostgres.EmbeddedPostgres
 	sharedConfig      config.DatabaseConfig
+	sharedTempDir     string
 	sharedInitOnce    sync.Once
 	sharedInitError   error
 	sharedCleanupOnce sync.Once
@@ -102,6 +102,7 @@ func setupSharedPostgreSQL() {
 			sharedInitError = fmt.Errorf("failed to create temp dir: %w", err)
 			return
 		}
+		sharedTempDir = tempDir
 
 		log.Printf("Starting shared PostgreSQL on port %d", port)
 
@@ -112,7 +113,8 @@ func setupSharedPostgreSQL() {
 				Password("test").
 				Database("testdb").
 				Port(uint32(port)).
-				RuntimePath(filepath.Join(tempDir, "postgres-runtime")),
+				RuntimePath(filepath.Join(tempDir, "postgres-runtime")).
+				StartParameters(map[string]string{"timezone": "America/New_York"}),
 		)
 
 		if err := postgres.Start(); err != nil {
@@ -142,8 +144,6 @@ func setupSharedPostgreSQL() {
 
 		if err := service.InitializeTables(ctx); err != nil {
 			sharedInitError = fmt.Errorf("failed to initialize tables: %w", err)
-			postgres.Stop()
-			sharedPostgres = nil
 			return
 		}
 
@@ -168,9 +168,16 @@ func cleanupSharedPostgreSQL() {
 		if sharedPostgres != nil {
 			log.Println("Stopping shared PostgreSQL...")
 			if err := sharedPostgres.Stop(); err != nil {
-				log.Printf("Warning: failed to stop shared PostgreSQL: %v", err)
+				log.Printf("Warning: failed to stop shared PostgreSQL, keeping %s: %v", sharedTempDir, err)
+				return
 			}
 			sharedPostgres = nil
+		}
+		if sharedTempDir != "" {
+			if err := os.RemoveAll(sharedTempDir); err != nil {
+				log.Printf("Warning: failed to remove shared PostgreSQL temp dir: %v", err)
+			}
+			sharedTempDir = ""
 		}
 	})
 }
@@ -181,8 +188,12 @@ var testTablesToClear = []string{
 	"notification_rules",
 	"notification_channels",
 	"app_settings",
+	"speedtest_server_sources",
+	"speedtest_servers",
 	"packet_loss_results",
 	"packet_loss_monitors",
+	"dns_results",
+	"dns_monitors",
 	"monitor_historical_snapshots",
 	"monitor_resource_stats",
 	"monitor_peak_stats",
@@ -245,7 +256,6 @@ func resetSequences(t *testing.T, db *sql.DB) {
 		}
 	}
 }
-
 
 // TestDatabase provides a test database instance
 type TestDatabase struct {
@@ -356,13 +366,6 @@ func RunTestWithBothDatabases(t *testing.T, testFunc func(t *testing.T, td *Test
 	})
 }
 
-// RunTestWithSQLiteOnly runs a test function against SQLite only (for faster development)
-func RunTestWithSQLiteOnly(t *testing.T, testFunc func(t *testing.T, td *TestDatabase)) {
-	td := SetupTestDatabase(t, config.SQLite)
-	defer td.Close()
-	testFunc(t, td)
-}
-
 // AssertRecordExists checks if a record exists in the database
 func AssertRecordExists(t *testing.T, td *TestDatabase, table string, column string, value any) {
 	t.Helper()
@@ -399,17 +402,6 @@ func AssertRecordNotExists(t *testing.T, td *TestDatabase, table string, column 
 	require.Equal(t, 0, count, "Expected no records in %s where %s = %v", table, column, value)
 }
 
-// CreateTestUser creates a test user in the database
-func CreateTestUser(t *testing.T, td *TestDatabase, username, password string) *User {
-	t.Helper()
-
-	ctx := context.Background()
-	user, err := td.Service.CreateUser(ctx, username, password)
-	require.NoError(t, err)
-	require.NotNil(t, user)
-	return user
-}
-
 // CreateTestPacketLossMonitor creates a test packet loss monitor
 func CreateTestPacketLossMonitor(t *testing.T, td *TestDatabase) *types.PacketLossMonitor {
 	t.Helper()
@@ -427,6 +419,28 @@ func CreateTestPacketLossMonitor(t *testing.T, td *TestDatabase) *types.PacketLo
 	}
 
 	result, err := td.Service.CreatePacketLossMonitor(monitor)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Greater(t, result.ID, int64(0))
+
+	return result
+}
+
+// CreateTestDNSMonitor creates a test DNS monitor
+func CreateTestDNSMonitor(t *testing.T, td *TestDatabase) *types.DNSMonitor {
+	t.Helper()
+
+	monitor := &types.DNSMonitor{
+		Name:       "Test DNS Monitor",
+		Host:       "127.0.0.1:5353",
+		Protocol:   types.DNSProtocolUDP,
+		Query:      "example.invalid",
+		RecordType: "A",
+		Interval:   "60s",
+		Enabled:    true,
+	}
+
+	result, err := td.Service.CreateDNSMonitor(monitor)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Greater(t, result.ID, int64(0))

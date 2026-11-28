@@ -13,22 +13,26 @@ import (
 	"strings"
 	"time"
 
-	"github.com/containrrr/shoutrrr/pkg/format"
-	"github.com/containrrr/shoutrrr/pkg/services/ntfy"
+	"github.com/nicholas-fedor/shoutrrr/pkg/format"
+	"github.com/nicholas-fedor/shoutrrr/pkg/services/push/ntfy"
 	"github.com/rs/zerolog/log"
 )
 
-// ntfyHTTPClient is a dedicated HTTP client for ntfy requests with a reasonable timeout.
-var ntfyHTTPClient = &http.Client{
+// notificationHTTPClient is the shared HTTP client for all notification
+// requests, from both the direct ntfy path and the shoutrrr router.
+var notificationHTTPClient = &http.Client{
 	Timeout: 30 * time.Second,
 }
 
-// sendNtfy sends a notification directly to an ntfy server, bypassing Shoutrrr's
-// ntfy implementation which has a bug where it removes the Content-Type header,
-// causing newer ntfy servers to reject the plain-text body as invalid JSON.
-// Everything else is Shoutrrr's own config and request shape, so URLs written for
-// Shoutrrr behave the same here. title overrides any title set in the URL,
-// mirroring how Shoutrrr lets send params override the config.
+// sendNtfy sends a notification directly to an ntfy server. It does not use
+// the ntfy service in Shoutrrr, because Shoutrrr fails the whole channel on
+// the first query key that it cannot parse. parseNtfyURL logs and ignores
+// these keys instead. Stored URLs predate this parsing and must continue to
+// work.
+//
+// All other behavior copies the config and request shape of Shoutrrr, so URLs
+// written for Shoutrrr do the same here. The title argument overrides a title
+// from the URL, as send params do in Shoutrrr.
 func sendNtfy(ntfyURL string, title string, message string) error {
 	cfg, err := parseNtfyURL(ntfyURL)
 	if err != nil {
@@ -39,9 +43,13 @@ func sendNtfy(ntfyURL string, title string, message string) error {
 		cfg.Title = title
 	}
 
-	// Not cfg.GetAPIURL(): that embeds the credentials in the URL, where they can
-	// leak into logged errors. Same endpoint, credentials sent as a header instead.
-	apiURL := url.URL{Scheme: cfg.Scheme, Host: cfg.Host, Path: "/" + cfg.Topic}
+	// The credentials go in the Basic auth header below, not in the URL,
+	// because credentials in the URL can leak into logged errors.
+	scheme := cfg.Scheme
+	if cfg.DisableTLS {
+		scheme = "http"
+	}
+	apiURL := url.URL{Scheme: scheme, Host: cfg.Host, Path: "/" + cfg.Topic}
 
 	req, err := http.NewRequest(http.MethodPost, apiURL.String(), strings.NewReader(message))
 	if err != nil {
@@ -52,8 +60,7 @@ func sendNtfy(ntfyURL string, title string, message string) error {
 		req.SetBasicAuth(cfg.Username, cfg.Password)
 	}
 
-	// The one thing Shoutrrr gets wrong, and the reason this file exists.
-	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set("Content-Type", "text/plain; charset=utf-8")
 
 	// Mirrors shoutrrr/pkg/services/ntfy.sendAPI.
 	setHeaderIfNotEmpty(req.Header, "Title", cfg.Title)
@@ -74,7 +81,7 @@ func sendNtfy(ntfyURL string, title string, message string) error {
 		req.Header.Set("Firebase", "no")
 	}
 
-	resp, err := ntfyHTTPClient.Do(req)
+	resp, err := notificationHTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send ntfy notification: %w", err)
 	}

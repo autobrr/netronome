@@ -97,14 +97,11 @@ func NewLibrespeedRunner(cfg config.LibrespeedConfig) *LibrespeedRunner {
 	}
 }
 
-func (r *LibrespeedRunner) GetTestType() string {
-	return "librespeed"
-}
-
 func (r *LibrespeedRunner) SetProgressCallback(callback func(types.SpeedUpdate)) {
 	r.progressCallback = callback
 }
 
+// RunTest executes librespeed-cli and returns the requested stable ID and reported server URL when available.
 func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
 	log.Debug().Bool("isPublicServer", opts.IsPublicServer).Msg("starting librespeed test")
 
@@ -144,14 +141,11 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 
 	log.Info().Interface("result", librespeedResult).Msg("librespeed test complete")
 
-	result := &Result{
-		Timestamp:     librespeedResult.Timestamp,
-		Server:        librespeedResult.Server.Name,
-		DownloadSpeed: librespeedResult.Download,
-		UploadSpeed:   librespeedResult.Upload,
-		Latency:       fmt.Sprintf("%.2f", librespeedResult.Ping),
-		Jitter:        librespeedResult.Jitter,
+	serverID := ""
+	if len(opts.ServerIDs) > 0 {
+		serverID = librespeedServerIdentity(opts.ServerIDs[0], opts.IsPublicServer)
 	}
+	result := resultFromLibrespeed(librespeedResult, serverID)
 
 	// Final completion update
 	if r.progressCallback != nil {
@@ -167,6 +161,31 @@ func (r *LibrespeedRunner) RunTest(ctx context.Context, opts *types.TestOptions)
 	}
 
 	return result, nil
+}
+
+// librespeedServerIdentity qualifies CLI-local IDs by their public or custom catalogue.
+func librespeedServerIdentity(serverID string, isPublic bool) string {
+	if serverID == "" {
+		return ""
+	}
+	if isPublic {
+		return "public-" + serverID
+	}
+	return "custom-" + serverID
+}
+
+// resultFromLibrespeed maps CLI output and the selected stable identity into a provider result.
+func resultFromLibrespeed(result LibrespeedResult, serverID string) *Result {
+	return &Result{
+		Timestamp:     result.Timestamp,
+		Server:        result.Server.Name,
+		ServerID:      serverID,
+		ServerHost:    result.Server.URL,
+		DownloadSpeed: result.Download,
+		UploadSpeed:   result.Upload,
+		Latency:       fmt.Sprintf("%.2f", result.Ping),
+		Jitter:        result.Jitter,
+	}
 }
 
 func (r *LibrespeedRunner) buildArgs(opts *types.TestOptions) []string {

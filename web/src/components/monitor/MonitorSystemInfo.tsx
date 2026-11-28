@@ -12,11 +12,11 @@ import {
   InformationCircleIcon,
   CodeBracketIcon,
 } from "@heroicons/react/24/outline";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faLinux, faApple } from "@fortawesome/free-brands-svg-icons";
+import { FaLinux, FaApple } from "react-icons/fa";
 import { SystemInfo, InterfaceInfo } from "@/api/monitor";
 import { formatBytes } from "@/utils/formatBytes";
 import { formatters } from "@/utils/timeSettings";
+import { OutdatedAgentBadge } from "./OutdatedAgentBadge";
 
 interface MonitorSystemInfoProps {
   systemInfo: SystemInfo;
@@ -83,15 +83,9 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
         <div className="flex items-start space-x-3">
           <div className="rounded-full bg-green-100 p-2 dark:bg-green-900/20 flex-shrink-0">
             {systemInfo.kernel.toLowerCase().includes("darwin") ? (
-              <FontAwesomeIcon
-                icon={faApple}
-                className="h-5 w-5 text-green-600 dark:text-green-400"
-              />
+              <FaApple className="h-5 w-5 text-green-600 dark:text-green-400" aria-hidden="true" />
             ) : systemInfo.kernel.toLowerCase().includes("linux") ? (
-              <FontAwesomeIcon
-                icon={faLinux}
-                className="h-5 w-5 text-green-600 dark:text-green-400"
-              />
+              <FaLinux className="h-5 w-5 text-green-600 dark:text-green-400" aria-hidden="true" />
             ) : (
               <CpuChipIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
             )}
@@ -131,9 +125,14 @@ export const MonitorSystemInfo: React.FC<MonitorSystemInfoProps> = ({
               <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
                 Agent Version
               </p>
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                {systemInfo.agent_version}
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {systemInfo.agent_version}
+                </p>
+                {systemInfo.outdated && (
+                  <OutdatedAgentBadge agentVersion={systemInfo.agent_version} />
+                )}
+              </div>
             </div>
           </div>
         )}

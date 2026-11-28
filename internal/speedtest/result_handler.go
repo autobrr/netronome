@@ -20,6 +20,7 @@ type DefaultResultHandler struct {
 	notifier *notifications.Notifier
 }
 
+// NewResultHandler creates a result handler backed by the database and optional notifier.
 func NewResultHandler(db database.Service, notifier *notifications.Notifier) *DefaultResultHandler {
 	return &DefaultResultHandler{
 		db:       db,
@@ -27,6 +28,7 @@ func NewResultHandler(db database.Service, notifier *notifications.Notifier) *De
 	}
 }
 
+// SaveResult persists a completed test with a detached deadline and then sends its notification.
 func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, testType string, opts *types.TestOptions) error {
 	log.Debug().
 		Str("test_type", testType).
@@ -37,45 +39,12 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 		Float64("jitter", result.Jitter).
 		Msg("Preparing to save test results to database")
 
-	var serverHost *string
-	var serverID string
-
-	switch testType {
-	case "iperf3":
-		serverHost = &opts.ServerHost
-		serverID = fmt.Sprintf("iperf3-%s", opts.ServerHost)
-	case "librespeed":
-		serverHost = &result.Server
-		serverID = fmt.Sprintf("librespeed-%s", result.Server)
-	case "speedtest":
-		// For speedtest.net, we'll need to extract host info from the result
-		serverID = result.Server
-	}
-
-	var jitterPtr *float64
-	if result.Jitter > 0 {
-		jitterPtr = &result.Jitter
-	}
-
 	// Give the DB write up to 10s, detached from the caller's deadline/cancellation
 	// (a test that overran the speedtest timeout must still persist its result) while keeping values.
 	saveCtx, saveCancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer saveCancel()
 
-	createdAt := time.Now().UTC()
-
-	dbResult, err := h.db.SaveSpeedTest(saveCtx, types.SpeedTestResult{
-		ServerName:    result.Server,
-		ServerID:      serverID,
-		ServerHost:    serverHost,
-		TestType:      testType,
-		DownloadSpeed: result.DownloadSpeed,
-		UploadSpeed:   result.UploadSpeed,
-		Latency:       result.Latency,
-		Jitter:        jitterPtr,
-		IsScheduled:   opts.IsScheduled,
-		CreatedAt:     createdAt,
-	})
+	dbResult, err := h.db.SaveSpeedTest(saveCtx, resultForStorage(result, testType, opts, time.Now().UTC()))
 	if err != nil {
 		log.Error().Err(err).
 			Str("test_type", testType).
@@ -97,6 +66,51 @@ func (h *DefaultResultHandler) SaveResult(ctx context.Context, result *Result, t
 	return nil
 }
 
+// resultForStorage maps a completed run to persistence fields, retaining legacy name-based ID fallbacks.
+func resultForStorage(result *Result, testType string, opts *types.TestOptions, createdAt time.Time) types.SpeedTestResult {
+	stored := types.SpeedTestResult{
+		ServerName:    result.Server,
+		TestType:      testType,
+		DownloadSpeed: result.DownloadSpeed,
+		UploadSpeed:   result.UploadSpeed,
+		Latency:       result.Latency,
+		IsScheduled:   opts.IsScheduled,
+		CreatedAt:     createdAt,
+	}
+	if result.Jitter > 0 {
+		stored.Jitter = &result.Jitter
+	}
+
+	switch testType {
+	case "iperf3":
+		stored.ServerHost = &opts.ServerHost
+		stored.ServerID = "iperf3-" + opts.ServerHost
+	case "librespeed":
+		serverID := result.ServerID
+		if serverID == "" {
+			serverID = result.Server
+		}
+		stored.ServerID = types.LibrespeedServerIDPrefix + serverID
+		if result.ServerHost != "" {
+			stored.ServerHost = &result.ServerHost
+		}
+	case "speedtest":
+		stored.ServerID = result.ServerID
+		if stored.ServerID == "" {
+			stored.ServerID = result.Server
+		}
+		if result.ServerHost != "" {
+			stored.ServerHost = &result.ServerHost
+		}
+		if result.ServerCity != "" {
+			stored.ServerCity = &result.ServerCity
+		}
+	}
+
+	return stored
+}
+
+// SendNotification publishes a completed result when notifications are configured.
 func (h *DefaultResultHandler) SendNotification(result *types.SpeedTestResult) {
 	if h.notifier != nil {
 		// Convert types.SpeedTestResult to notifications.SpeedTestResult

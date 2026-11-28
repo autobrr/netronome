@@ -56,3 +56,40 @@ export async function getLatestRelease(): Promise<AppRelease | null> {
 export function formatReleaseTag(tagName: string): string {
   return tagName.startsWith("v") ? tagName : `v${tagName}`;
 }
+
+export interface ServerVersion {
+  version: string;
+  commit: string;
+  buildTime: string;
+}
+
+export const serverVersionQueryKey = ["version", "server"] as const;
+
+const isServerVersion = (value: unknown): value is ServerVersion => {
+  if (!value || typeof value !== "object") return false;
+
+  const build = value as Record<string, unknown>;
+  return (
+    typeof build.version === "string" &&
+    build.version !== "" &&
+    typeof build.commit === "string" &&
+    typeof build.buildTime === "string"
+  );
+};
+
+export async function getServerVersion(): Promise<ServerVersion> {
+  const response = await fetch(getApiUrl("/version"), {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(response.statusText || "Failed to fetch server version");
+  }
+
+  const build: unknown = await response.json();
+  if (!isServerVersion(build)) {
+    throw new Error("Invalid server version response");
+  }
+
+  return build;
+}

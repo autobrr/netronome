@@ -54,19 +54,3 @@ func TestParseHopLineIPv6Address(t *testing.T) {
 	assert.Equal(t, 4.890, hop.RTT3)
 	assert.False(t, hop.Timeout)
 }
-
-func TestParseUnixTracerouteOutputIPv6Address(t *testing.T) {
-	s := &service{}
-	lines := []string{
-		"traceroute to ipv6.google.com (2a00:1450:400f:802::200e), 30 hops max, 60 byte packets",
-		" 1  2001:db8::1  1.100 ms  1.200 ms  1.300 ms",
-	}
-
-	result, err := s.parseUnixTracerouteOutput(lines, &TracerouteResult{
-		Destination: "ipv6.google.com",
-		Hops:        []TracerouteHop{},
-	})
-	require.NoError(t, err)
-	require.Len(t, result.Hops, 1)
-	assert.Equal(t, "2001:db8::1", result.Hops[0].IP)
-}

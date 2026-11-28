@@ -40,20 +40,31 @@ func TestPurgeHistoricalData(t *testing.T) {
 		recentPL := &types.PacketLossResult{MonitorID: monitor.ID, PacketsSent: 10, PacketsRecv: 10, CreatedAt: recent}
 		require.NoError(t, td.Service.SavePacketLossResult(recentPL))
 
+		// dns_results: needs a monitor (FK), one old, one recent
+		dnsMonitor := CreateTestDNSMonitor(t, td)
+		oldDNS := &types.DNSResult{MonitorID: dnsMonitor.ID, ResponseTimeMs: 12, ResponseCode: "NOERROR", Success: true, CreatedAt: old}
+		require.NoError(t, td.Service.SaveDNSResult(oldDNS))
+		recentDNS := &types.DNSResult{MonitorID: dnsMonitor.ID, ResponseTimeMs: 14, ResponseCode: "NOERROR", Success: true, CreatedAt: recent}
+		require.NoError(t, td.Service.SaveDNSResult(recentDNS))
+
 		// Purge everything older than the cutoff.
-		speedTests, packetLoss, err := td.Service.PurgeHistoricalData(ctx, cutoff)
+		speedTests, packetLoss, dnsResults, err := td.Service.PurgeHistoricalData(ctx, cutoff)
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), speedTests)
 		assert.Equal(t, int64(1), packetLoss)
+		assert.Equal(t, int64(1), dnsResults)
 
 		// Only the recent rows should survive.
 		AssertRecordExists(t, td, "speed_tests", "id", recentST.ID)
 		AssertRecordExists(t, td, "packet_loss_results", "id", recentPL.ID)
+		AssertRecordExists(t, td, "dns_results", "id", recentDNS.ID)
 
-		var stCount, plCount int
+		var stCount, plCount, dnsCount int
 		require.NoError(t, td.DB.QueryRow("SELECT COUNT(*) FROM speed_tests").Scan(&stCount))
 		require.NoError(t, td.DB.QueryRow("SELECT COUNT(*) FROM packet_loss_results").Scan(&plCount))
+		require.NoError(t, td.DB.QueryRow("SELECT COUNT(*) FROM dns_results").Scan(&dnsCount))
 		assert.Equal(t, 1, stCount)
 		assert.Equal(t, 1, plCount)
+		assert.Equal(t, 1, dnsCount)
 	})
 }

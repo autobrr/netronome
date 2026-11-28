@@ -148,23 +148,6 @@ const addMediaQueryListener = (
   }
 };
 
-// Public API
-export const toggleDarkMode = (): void => {
-  const root = document.documentElement;
-  root.classList.add(THEME_TRANSITION_CLASS);
-
-  const isDark = root.classList.contains(THEME_DARK);
-  const newTheme: Theme = isDark ? THEME_LIGHT : THEME_DARK;
-
-  applyTheme(!isDark, false);
-  setStoredTheme(newTheme);
-  dispatchThemeChange(newTheme, false);
-
-  setTimeout(() => {
-    root.classList.remove(THEME_TRANSITION_CLASS);
-  }, THEME_TRANSITION_DURATION);
-};
-
 export const initializeDarkMode = (): void => {
   injectThemeStyles();
 
@@ -190,7 +173,7 @@ export const initializeDarkMode = (): void => {
   addMediaQueryListener(systemPreference, handleSystemThemeChange);
 };
 
-export const resetToSystemTheme = (): void => {
+const resetToSystemTheme = (): void => {
   setStoredTheme(THEME_AUTO);
   applyTheme(getSystemPreference().matches, true);
   dispatchThemeChange(getSystemTheme(), false);
@@ -209,11 +192,6 @@ export const setThemeMode = (mode: ThemeMode): void => {
   setStoredTheme(mode);
   applyTheme(mode === THEME_DARK, true);
   dispatchThemeChange(mode, false);
-};
-
-export const hasManualPreference = (): boolean => {
-  const theme = getStoredTheme();
-  return theme === THEME_DARK || theme === THEME_LIGHT;
 };
 
 export const getCurrentThemeMode = (): ThemeMode => {

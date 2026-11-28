@@ -29,12 +29,14 @@ type agentCapabilities struct {
 	hardwareStats endpointSupport
 }
 
-type httpStatusError struct {
+// StatusError is the error that an agent request returns when the agent
+// answers with a status code other than 200.
+type StatusError struct {
 	StatusCode int
 	URL        string
 }
 
-func (e *httpStatusError) Error() string {
+func (e *StatusError) Error() string {
 	if e == nil {
 		return "<nil>"
 	}
@@ -57,7 +59,7 @@ func detectAgentCapabilities(ctx context.Context, baseURL string) (agentCapabili
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return agentCapabilities{}, &httpStatusError{StatusCode: resp.StatusCode, URL: rootURL}
+		return agentCapabilities{}, &StatusError{StatusCode: resp.StatusCode, URL: rootURL}
 	}
 
 	var root struct {

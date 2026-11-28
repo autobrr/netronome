@@ -22,6 +22,16 @@ func TestIsTailscaleIP(t *testing.T) {
 			expected: true,
 		},
 		{
+			name:     "ChromeOS VM range stays in CGNAT",
+			url:      "http://100.115.92.1:8200/events?stream=live-data",
+			expected: true,
+		},
+		{
+			name:     "IPv4-mapped IPv6 CGNAT",
+			url:      "http://[::ffff:100.64.0.1]:8200/events?stream=live-data",
+			expected: true,
+		},
+		{
 			name:     "Tailscale IPv6",
 			url:      "http://[fd7a:115c:a1e0::1]:8200/events?stream=live-data",
 			expected: true,

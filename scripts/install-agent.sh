@@ -55,6 +55,12 @@ generate_api_key() {
     fi
 }
 
+# Escape a value for a TOML basic string: backslash first, then double quote
+toml_escape() {
+    local value=${1//\\/\\\\}
+    printf '%s' "${value//\"/\\\"}"
+}
+
 # Function to get latest release URL
 get_latest_release_url() {
     local arch=$(uname -m)
@@ -322,7 +328,7 @@ echo ""
 print_color $YELLOW "Type the interface name from the list above (e.g., eth0, ens18, etc.)"
 if [ "$INTERACTIVE_MODE" = true ]; then
     # Interactive mode - read from terminal
-    read -p "Enter the interface name to monitor (leave empty for all): " INTERFACE < "$INPUT_SOURCE"
+    read -r -p "Enter the interface name to monitor (leave empty for all): " INTERFACE < "$INPUT_SOURCE"
 else
     # Non-interactive mode - default to all interfaces
     INTERFACE=""
@@ -360,7 +366,7 @@ if [ "$INTERACTIVE_MODE" = true ]; then
             2)
                 TAILSCALE_METHOD="tsnet"
                 echo ""
-                read -p "Enter your Tailscale auth key (required): " TAILSCALE_AUTH_KEY < "$INPUT_SOURCE"
+                read -r -p "Enter your Tailscale auth key (required): " TAILSCALE_AUTH_KEY < "$INPUT_SOURCE"
                 if [ -z "$TAILSCALE_AUTH_KEY" ]; then
                     print_color $RED "Auth key is required for tsnet mode"
                     TAILSCALE_ENABLED="false"
@@ -375,7 +381,7 @@ if [ "$INTERACTIVE_MODE" = true ]; then
         
         if [ "$TAILSCALE_ENABLED" = "true" ]; then
             echo ""
-            read -p "Enter custom Tailscale hostname (leave empty for default): " TAILSCALE_HOSTNAME < "$INPUT_SOURCE"
+            read -r -p "Enter custom Tailscale hostname (leave empty for default): " TAILSCALE_HOSTNAME < "$INPUT_SOURCE"
         fi
     fi
 else
@@ -413,7 +419,7 @@ else
             ;;
         2)
             if [ "$INTERACTIVE_MODE" = true ]; then
-                read -p "Enter your API key: " API_KEY < "$INPUT_SOURCE"
+                read -r -p "Enter your API key: " API_KEY < "$INPUT_SOURCE"
             else
                 # In non-interactive mode, we can't get custom API key, fall back to generated
                 API_KEY=$(generate_api_key)
@@ -447,7 +453,7 @@ if [ "$TAILSCALE_METHOD" = "host" ]; then
     fi
 elif [ "$INTERACTIVE_MODE" = true ]; then
     # Interactive mode - read from terminal
-    read -p "Enter the host/IP to listen on (default: $DEFAULT_HOST): " HOST < "$INPUT_SOURCE"
+    read -r -p "Enter the host/IP to listen on (default: $DEFAULT_HOST): " HOST < "$INPUT_SOURCE"
     HOST=${HOST:-$DEFAULT_HOST}
     
     read -p "Enter the port number (default: $DEFAULT_PORT): " PORT < "$INPUT_SOURCE"
@@ -468,19 +474,19 @@ if [ "$INTERACTIVE_MODE" = true ]; then
     echo ""
     
     # Disk includes
-    read -p "Enter disk mounts to include (comma-separated, e.g., /mnt/storage,/mnt/backup): " DISK_INCLUDES_INPUT < "$INPUT_SOURCE"
+    read -r -p "Enter disk mounts to include (comma-separated, e.g., /mnt/storage,/mnt/backup): " DISK_INCLUDES_INPUT < "$INPUT_SOURCE"
     if [ -n "$DISK_INCLUDES_INPUT" ]; then
         # Convert comma-separated list to TOML array format
-        DISK_INCLUDES=$(echo "$DISK_INCLUDES_INPUT" | sed 's/,/", "/g' | sed 's/^/["/' | sed 's/$/"]/')
+        DISK_INCLUDES=$(toml_escape "$DISK_INCLUDES_INPUT" | sed 's/,/", "/g' | sed 's/^/["/' | sed 's/$/"]/')
     else
         DISK_INCLUDES="[]"
     fi
     
     # Disk excludes
-    read -p "Enter disk mounts to exclude (comma-separated, e.g., /boot,/tmp): " DISK_EXCLUDES_INPUT < "$INPUT_SOURCE"
+    read -r -p "Enter disk mounts to exclude (comma-separated, e.g., /boot,/tmp): " DISK_EXCLUDES_INPUT < "$INPUT_SOURCE"
     if [ -n "$DISK_EXCLUDES_INPUT" ]; then
         # Convert comma-separated list to TOML array format
-        DISK_EXCLUDES=$(echo "$DISK_EXCLUDES_INPUT" | sed 's/,/", "/g' | sed 's/^/["/' | sed 's/$/"]/')
+        DISK_EXCLUDES=$(toml_escape "$DISK_EXCLUDES_INPUT" | sed 's/,/", "/g' | sed 's/^/["/' | sed 's/$/"]/')
     else
         DISK_EXCLUDES="[]"
     fi
@@ -547,10 +553,10 @@ sudo tee $CONFIG_DIR/agent.toml > /dev/null << EOF
 # Netronome Agent Configuration
 
 [agent]
-host = "$HOST"
+host = "$(toml_escape "$HOST")"
 port = $PORT
-interface = "$INTERFACE"
-api_key = "$API_KEY"
+interface = "$(toml_escape "$INTERFACE")"
+api_key = "$(toml_escape "$API_KEY")"
 disk_includes = $DISK_INCLUDES
 disk_excludes = $DISK_EXCLUDES
 
@@ -569,13 +575,13 @@ EOF
     
     if [ "$TAILSCALE_METHOD" = "tsnet" ]; then
         sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
-auth_key = "$TAILSCALE_AUTH_KEY"
+auth_key = "$(toml_escape "$TAILSCALE_AUTH_KEY")"
 EOF
     fi
     
     if [ -n "$TAILSCALE_HOSTNAME" ]; then
         sudo tee -a $CONFIG_DIR/agent.toml > /dev/null << EOF
-hostname = "$TAILSCALE_HOSTNAME"
+hostname = "$(toml_escape "$TAILSCALE_HOSTNAME")"
 EOF
     fi
 fi

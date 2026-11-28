@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { formatInTimeZone, toZonedTime, fromZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 
 export interface TimeFormatSettings {
   timezone: string;
@@ -21,45 +21,45 @@ export interface TimezoneOption {
 export const TIMEZONE_OPTIONS: TimezoneOption[] = [
   // UTC-10
   { value: "Pacific/Honolulu", label: "Hawaii Time (HST)", offset: "UTC-10" },
-  
+
   // UTC-9/-8
   { value: "America/Anchorage", label: "Alaska Time (AKST/AKDT)", offset: "UTC-9/-8" },
-  
+
   // UTC-8/-7
   { value: "America/Los_Angeles", label: "Pacific Time (PST/PDT)", offset: "UTC-8/-7" },
   { value: "America/Vancouver", label: "Pacific Time Canada (PST/PDT)", offset: "UTC-8/-7" },
-  
+
   // UTC-7/-6
   { value: "America/Denver", label: "Mountain Time (MST/MDT)", offset: "UTC-7/-6" },
   { value: "America/Phoenix", label: "Arizona Time (MST)", offset: "UTC-7" },
-  
+
   // UTC-6/-5
   { value: "America/Chicago", label: "Central Time (CST/CDT)", offset: "UTC-6/-5" },
   { value: "America/Mexico_City", label: "Mexico Central Time (CST/CDT)", offset: "UTC-6/-5" },
-  
+
   // UTC-5/-4
   { value: "America/New_York", label: "Eastern Time (EST/EDT)", offset: "UTC-5/-4" },
   { value: "America/Toronto", label: "Eastern Time Canada (EST/EDT)", offset: "UTC-5/-4" },
-  
+
   // UTC-5
   { value: "America/Lima", label: "Peru Time (PET)", offset: "UTC-5" },
   { value: "America/Bogota", label: "Colombia Time (COT)", offset: "UTC-5" },
-  
+
   // UTC-4/-3
   { value: "America/Santiago", label: "Chile Time (CLT/CLST)", offset: "UTC-4/-3" },
-  
+
   // UTC-3/-2
   { value: "America/Sao_Paulo", label: "Brasília Time (BRT/BRST)", offset: "UTC-3/-2" },
-  
+
   // UTC-3
   { value: "America/Buenos_Aires", label: "Argentina Time (ART)", offset: "UTC-3" },
-  
+
   // UTC+0
   { value: "UTC", label: "Coordinated Universal Time (UTC)", offset: "UTC+0" },
-  
+
   // UTC+0/+1
   { value: "Europe/London", label: "Greenwich Mean Time (GMT/BST)", offset: "UTC+0/+1" },
-  
+
   // UTC+1/+2
   { value: "Europe/Berlin", label: "Central European Time (CET/CEST)", offset: "UTC+1/+2" },
   { value: "Europe/Paris", label: "France Time (CET/CEST)", offset: "UTC+1/+2" },
@@ -67,49 +67,49 @@ export const TIMEZONE_OPTIONS: TimezoneOption[] = [
   { value: "Europe/Madrid", label: "Spain Time (CET/CEST)", offset: "UTC+1/+2" },
   { value: "Europe/Amsterdam", label: "Netherlands Time (CET/CEST)", offset: "UTC+1/+2" },
   { value: "Europe/Stockholm", label: "Sweden Time (CET/CEST)", offset: "UTC+1/+2" },
-  
+
   // UTC+2/+3
   { value: "Europe/Helsinki", label: "Finland Time (EET/EEST)", offset: "UTC+2/+3" },
   { value: "Europe/Athens", label: "Greece Time (EET/EEST)", offset: "UTC+2/+3" },
-  
+
   // UTC+3
   { value: "Europe/Istanbul", label: "Turkey Time (TRT)", offset: "UTC+3" },
   { value: "Europe/Moscow", label: "Moscow Time (MSK)", offset: "UTC+3" },
-  
+
   // UTC+4
   { value: "Asia/Dubai", label: "Gulf Standard Time (GST)", offset: "UTC+4" },
-  
+
   // UTC+5
   { value: "Asia/Karachi", label: "Pakistan Time (PKT)", offset: "UTC+5" },
-  
+
   // UTC+5:30
   { value: "Asia/Kolkata", label: "India Standard Time (IST)", offset: "UTC+5:30" },
-  
+
   // UTC+6
   { value: "Asia/Dhaka", label: "Bangladesh Time (BST)", offset: "UTC+6" },
-  
+
   // UTC+7
   { value: "Asia/Bangkok", label: "Indochina Time (ICT)", offset: "UTC+7" },
-  
+
   // UTC+8
   { value: "Asia/Singapore", label: "Singapore Time (SGT)", offset: "UTC+8" },
   { value: "Asia/Shanghai", label: "China Time (CST)", offset: "UTC+8" },
   { value: "Asia/Hong_Kong", label: "Hong Kong Time (HKT)", offset: "UTC+8" },
   { value: "Australia/Perth", label: "Western Australia Time (AWST)", offset: "UTC+8" },
-  
+
   // UTC+9
   { value: "Asia/Tokyo", label: "Japan Time (JST)", offset: "UTC+9" },
   { value: "Asia/Seoul", label: "Korea Time (KST)", offset: "UTC+9" },
-  
+
   // UTC+9:30/+10:30
   { value: "Australia/Adelaide", label: "Central Australia Time (ACST/ACDT)", offset: "UTC+9:30/+10:30" },
-  
+
   // UTC+10/+11
   { value: "Australia/Sydney", label: "Eastern Australia Time (AEST/AEDT)", offset: "UTC+10/+11" },
-  
+
   // UTC+10
   { value: "Australia/Brisbane", label: "Queensland Time (AEST)", offset: "UTC+10" },
-  
+
   // UTC+12/+13
   { value: "Pacific/Auckland", label: "New Zealand Time (NZST/NZDT)", offset: "UTC+12/+13" },
 ];
@@ -156,7 +156,7 @@ export const saveTimeFormatSettings = (settings: TimeFormatSettings): void => {
 /**
  * Get the effective timezone for date formatting
  */
-export const getEffectiveTimezone = (settings?: TimeFormatSettings): string | undefined => {
+const getEffectiveTimezone = (settings?: TimeFormatSettings): string | undefined => {
   const currentSettings = settings || getTimeFormatSettings();
   return currentSettings.timezone === "auto" ? undefined : currentSettings.timezone;
 };
@@ -169,6 +169,12 @@ export const getBrowserTimezone = (): string => {
 };
 
 /**
+ * The IANA time zone of the time zone setting, or the browser's zone when the setting is "auto".
+ */
+export const getUserTimezone = (settings?: TimeFormatSettings): string =>
+  getEffectiveTimezone(settings) ?? getBrowserTimezone();
+
+/**
  * Get timezone display name
  */
 export const getTimezoneDisplayName = (timezone: string): string => {
@@ -177,7 +183,7 @@ export const getTimezoneDisplayName = (timezone: string): string => {
     const option = TIMEZONE_OPTIONS.find(tz => tz.value === browserTz);
     return option ? `Auto (${option.label})` : `Auto (${browserTz})`;
   }
-  
+
   const option = TIMEZONE_OPTIONS.find(tz => tz.value === timezone);
   return option ? option.label : timezone;
 };
@@ -192,7 +198,7 @@ export const formatDateWithSettings = (
 ): string => {
   const currentSettings = settings || getTimeFormatSettings();
   const dateObj = typeof date === "string" ? new Date(date) : date;
-  
+
   const formatOptions: Intl.DateTimeFormatOptions = {
     ...options,
     timeZone: getEffectiveTimezone(currentSettings),
@@ -255,7 +261,7 @@ export const useTimeSettings = () => {
     };
 
     window.addEventListener("timeSettingsChanged", handleSettingsChange as EventListener);
-    
+
     return () => {
       window.removeEventListener("timeSettingsChanged", handleSettingsChange as EventListener);
     };
@@ -270,8 +276,7 @@ export const useTimeSettings = () => {
 };
 
 /**
- * Global function to format dates consistently across the app
- * This replaces the need for toLocaleString(undefined, options) calls
+ * Format a date consistently using the current time settings.
  */
 export const formatDate = (
   date: Date | string,
@@ -280,36 +285,30 @@ export const formatDate = (
   return formatDateWithSettings(date, options);
 };
 
-/**
- * Convert a UTC date to a specific timezone
- */
-export const convertUTCToTimezone = (
-  utcDate: Date | string,
-  timezone: string
-): Date => {
-  const date = typeof utcDate === 'string' ? new Date(utcDate) : utcDate;
-  return toZonedTime(date, timezone);
+const zonedDateAndTime = (date: Date, timeZone: string) => {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(date)
+      .map((part) => [part.type, part.value])
+  );
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    time: `${parts.hour}:${parts.minute}`,
+  };
 };
 
-/**
- * Convert a date from a specific timezone to UTC
- */
-export const convertTimezoneToUTC = (
-  localDate: Date,
-  timezone: string
-): Date => {
-  return fromZonedTime(localDate, timezone);
-};
-
-/**
- * Format a UTC date in a specific timezone
- */
-export const formatUTCInTimezone = (
-  utcDate: Date | string,
-  timezone: string,
-  format: string
-): string => {
-  return formatInTimeZone(utcDate, timezone, format);
+// Accepts the values that calculateNextRun in internal/scheduler/scheduler.go accepts.
+const isTimeOfDay = (timeString: string): boolean => {
+  const match = /^(\d+):(\d+)$/.exec(timeString);
+  return match !== null && Number(match[1]) <= 23 && Number(match[2]) <= 59;
 };
 
 /**
@@ -323,30 +322,53 @@ export const convertUserTimeToUTC = (
   timeString: string,
   userTimezone: string
 ): string => {
-  const [hours, minutes] = timeString.split(':').map(Number);
+  const today = zonedDateAndTime(new Date(), userTimezone).date;
+  const utcDate = fromZonedTime(`${today}T${timeString}:00`, userTimezone);
 
-  // Use today's date for the conversion to handle DST correctly
-  const today = new Date();
-  const dateInUserTz = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate(),
-    hours,
-    minutes,
-    0,
-    0
-  );
-
-  // Convert from user's timezone to UTC using date-fns-tz
-  // fromZonedTime treats the input as if it's in the specified timezone
-  const utcDate = fromZonedTime(dateInUserTz, userTimezone);
-
-  // Extract UTC hours and minutes
   const utcHours = utcDate.getUTCHours().toString().padStart(2, '0');
   const utcMinutes = utcDate.getUTCMinutes().toString().padStart(2, '0');
 
   return `${utcHours}:${utcMinutes}`;
 };
+
+// The occurrence of a stored UTC time on today's date in userTimezone, the
+// same reference date that convertUserTimeToUTC uses.
+const storedTimeToday = (timeString: string, userTimezone: string): Date => {
+  const today = zonedDateAndTime(new Date(), userTimezone).date;
+  const [year, month, day] = today.split('-').map(Number);
+  const [hours, minutes] = timeString.split(':').map(Number);
+  const candidates = [0, -1, 1].map(
+    (days) => new Date(Date.UTC(year, month - 1, day + days, hours, minutes))
+  );
+  return (
+    candidates.find((date) => zonedDateAndTime(date, userTimezone).date === today) ??
+    candidates[0]
+  );
+};
+
+/**
+ * Reverse of convertUserTimeToUTC: converts a stored UTC time (HH:MM) to
+ * HH:MM in userTimezone, with today's offset.
+ */
+export const convertUTCTimeToUser = (
+  timeString: string,
+  userTimezone: string
+): string =>
+  isTimeOfDay(timeString)
+    ? zonedDateAndTime(storedTimeToday(timeString, userTimezone), userTimezone).time
+    : timeString;
+
+/**
+ * Formats a stored UTC time (HH:MM) for display, in the time zone and
+ * 12/24-hour format of the time settings, with today's offset.
+ */
+export const formatUTCTimeOfDay = (
+  timeString: string,
+  settings?: TimeFormatSettings
+): string =>
+  isTimeOfDay(timeString)
+    ? formatTimeWithSettings(storedTimeToday(timeString, getUserTimezone(settings)), settings)
+    : timeString;
 
 /**
  * Calculate next run time for a schedule in user's timezone
@@ -416,7 +438,7 @@ export const formatters = {
   chartTick: (date: Date | string, timeRange: string, isMobile?: boolean) => {
     const settings = getTimeFormatSettings();
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    
+
     // Dynamic formatting based on time range and mobile context
     switch (timeRange) {
       case "1d":
@@ -431,7 +453,7 @@ export const formatters = {
           hour: "numeric",
           minute: "2-digit",
         }, settings);
-        
+
       case "3d":
         if (isMobile) {
           return formatDateWithSettings(dateObj, {
@@ -444,7 +466,7 @@ export const formatters = {
           hour: "numeric",
           minute: "2-digit",
         }, settings);
-        
+
       case "1w":
         if (isMobile) {
           return formatDateWithSettings(dateObj, {
@@ -457,13 +479,13 @@ export const formatters = {
           month: "short",
           day: "numeric",
         }, settings);
-        
+
       case "1m":
         return formatDateWithSettings(dateObj, {
           month: "short",
           day: "numeric",
         }, settings);
-        
+
       case "all": {
         const now = new Date();
         const showYear = dateObj.getFullYear() !== now.getFullYear();
@@ -488,11 +510,11 @@ export const formatters = {
         }, settings);
     }
   },
-  
+
   chartTooltip: (date: Date | string, timeRange: string) => {
     const settings = getTimeFormatSettings();
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    
+
     // More detailed formatting for tooltips
     switch (timeRange) {
       case "1d":
@@ -504,7 +526,7 @@ export const formatters = {
           hour: "numeric",
           minute: "2-digit",
         }, settings);
-        
+
       case "1w":
         return formatDateWithSettings(dateObj, {
           weekday: "long",
@@ -513,7 +535,7 @@ export const formatters = {
           hour: "numeric",
           minute: "2-digit",
         }, settings);
-        
+
       case "1m":
         return formatDateWithSettings(dateObj, {
           weekday: "long",
@@ -521,7 +543,7 @@ export const formatters = {
           day: "numeric",
           year: "numeric",
         }, settings);
-        
+
       case "all":
         return formatDateWithSettings(dateObj, {
           weekday: "long",
@@ -531,7 +553,7 @@ export const formatters = {
           hour: "numeric",
           minute: "2-digit",
         }, settings);
-        
+
       default:
         return formatDateWithSettings(dateObj, {
           weekday: "long",

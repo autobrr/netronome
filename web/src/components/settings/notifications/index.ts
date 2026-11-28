@@ -7,5 +7,4 @@ export { AddChannelForm } from "./AddChannelForm";
 export { ChannelCard } from "./ChannelCard";
 export { ChannelDetails } from "./ChannelDetails";
 export { EventCategorySection } from "./EventCategorySection";
-export { EventRuleItem } from "./EventRuleItem";
 export { MobileNotificationView } from "./MobileNotificationView";

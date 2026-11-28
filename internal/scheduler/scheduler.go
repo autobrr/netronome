@@ -15,9 +15,9 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/dnsmonitor"
 	"github.com/autobrr/netronome/internal/notifications"
 	"github.com/autobrr/netronome/internal/speedtest"
-	"github.com/autobrr/netronome/internal/types"
 )
 
 type Service interface {
@@ -31,18 +31,27 @@ type service struct {
 	db         database.Service
 	speedtest  speedtest.Service
 	packetLoss *speedtest.PacketLossService
+	dns        *dnsmonitor.Service
 	notifier   *notifications.Notifier
 	ticker     *time.Ticker
 	done       chan bool
 	mu         sync.Mutex
 	running    bool
+	inFlight   sync.Map // holds one runKey for each test that still runs
 }
 
-func New(db database.Service, speedtest speedtest.Service, packetLoss *speedtest.PacketLossService, notifier *notifications.Notifier) Service {
+// runKey names one schedule or monitor in inFlight.
+type runKey struct {
+	kind string
+	id   int64
+}
+
+func New(db database.Service, speedtest speedtest.Service, packetLoss *speedtest.PacketLossService, dns *dnsmonitor.Service, notifier *notifications.Notifier) Service {
 	return &service{
 		db:         db,
 		speedtest:  speedtest,
 		packetLoss: packetLoss,
+		dns:        dns,
 		notifier:   notifier,
 		done:       make(chan bool),
 	}
@@ -62,6 +71,7 @@ func (s *service) Start(ctx context.Context) {
 	// Initialize schedules before starting
 	s.initializeSchedules(ctx)
 	s.initializePacketLossMonitors(ctx)
+	s.initializeDNSMonitors()
 
 	go func() {
 		for {
@@ -74,6 +84,7 @@ func (s *service) Start(ctx context.Context) {
 			case <-s.ticker.C:
 				s.checkAndRunScheduledTests(ctx)
 				s.checkAndRunPacketLossMonitors(ctx)
+				s.checkAndRunDNSMonitors()
 			}
 		}
 	}()
@@ -175,18 +186,49 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 			scheduledStart = now
 		}
 
+		// claim the next run before the test starts. Then the next tick does
+		// not start the test again, and a failed test waits for its next slot.
+		nextRun := s.nextRunAfter(schedule.Interval, scheduledStart, now, false)
+		if nextRun.IsZero() {
+			log.Error().
+				Int64("schedule_id", schedule.ID).
+				Str("interval", schedule.Interval).
+				Msg("Error calculating next run time")
+			continue
+		}
+		schedule.NextRun = nextRun
+		if err := s.db.UpdateSchedule(ctx, schedule); err != nil {
+			log.Error().
+				Err(err).
+				Int64("schedule_id", schedule.ID).
+				Msg("Error updating schedule")
+			continue
+		}
+
+		// if the previous test still runs, skip this slot
+		key := runKey{"speedtest", schedule.ID}
+		if _, running := s.inFlight.LoadOrStore(key, struct{}{}); running {
+			log.Warn().
+				Int64("schedule_id", schedule.ID).
+				Msg("Previous scheduled test still running, skipping this run")
+			continue
+		}
+
 		log.Info().
 			Int64("schedule_id", schedule.ID).
 			Time("scheduled_start_utc", scheduledStart).
+			Time("next_run_utc", nextRun).
 			Str("interval", schedule.Interval).
 			Bool("is_iperf", schedule.Options.UseIperf).
 			Msg("Running scheduled test")
 
-		testCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		go func(schedule types.Schedule, scheduledStart time.Time, ctx context.Context, cancel context.CancelFunc) {
+		go func() {
+			defer s.inFlight.Delete(key)
+			testCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
+
 			schedule.Options.IsScheduled = true
-			result, err := s.speedtest.RunTest(ctx, &schedule.Options)
+			result, err := s.speedtest.RunTest(testCtx, &schedule.Options)
 			if err != nil {
 				log.Error().
 					Err(err).
@@ -200,33 +242,18 @@ func (s *service) checkAndRunScheduledTests(ctx context.Context) {
 				Float64("download_speed", result.DownloadSpeed).
 				Float64("upload_speed", result.UploadSpeed).
 				Msg("Scheduled test completed")
-
-			nextRun := s.calculateNextRun(schedule.Interval, scheduledStart, false)
-			if nextRun.IsZero() {
-				log.Error().
-					Int64("schedule_id", schedule.ID).
-					Str("interval", schedule.Interval).
-					Msg("Error calculating next run time")
-				return
-			}
-
-			nowUTC := time.Now().UTC()
-			if nextRun.Before(nowUTC) {
-				nextRun = s.calculateNextRun(schedule.Interval, nowUTC, false)
-			}
-
-			lastRun := nowUTC
-			schedule.LastRun = &lastRun
-			schedule.NextRun = nextRun
-
-			if err := s.db.UpdateSchedule(ctx, schedule); err != nil {
-				log.Error().
-					Err(err).
-					Int64("schedule_id", schedule.ID).
-					Msg("Error updating schedule")
-			}
-		}(schedule, scheduledStart, testCtx, cancel)
+		}()
 	}
+}
+
+// nextRunAfter returns the next run that follows scheduledStart. If that time
+// is not after now, it returns the next run that follows now.
+func (s *service) nextRunAfter(interval string, scheduledStart, now time.Time, skipJitter bool) time.Time {
+	nextRun := s.calculateNextRun(interval, scheduledStart, skipJitter)
+	if !nextRun.IsZero() && !nextRun.After(now) {
+		nextRun = s.calculateNextRun(interval, now, skipJitter)
+	}
+	return nextRun
 }
 
 // isValidScheduleInterval checks if the interval is valid (duration or exact time)
@@ -489,83 +516,60 @@ func (s *service) checkAndRunPacketLossMonitors(ctx context.Context) {
 			continue
 		}
 
-		// Store the scheduled start time to calculate proper next_run
-		scheduledStartTime := nextRunUTC
+		// claim the next run before the test starts, so the next tick does
+		// not start the test again. Count from the scheduled start to keep
+		// the interval steady.
+		scheduledStart := nextRunUTC
+		nextRun := s.nextRunAfter(monitor.Interval, scheduledStart, now, true)
+		if nextRun.IsZero() {
+			log.Error().
+				Int64("monitor_id", monitor.ID).
+				Str("interval", monitor.Interval).
+				Time("scheduled_start", scheduledStart).
+				Msg("Error calculating next run time for monitor")
+			continue
+		}
+		// a slot that the guard skips moves next_run but keeps last_run
+		key := runKey{"packetloss", monitor.ID}
+		_, running := s.inFlight.LoadOrStore(key, struct{}{})
+		if !running {
+			monitor.LastRun = &scheduledStart
+		}
+		monitor.NextRun = &nextRun
+		if err := s.db.UpdatePacketLossMonitor(monitor); err != nil {
+			log.Error().
+				Err(err).
+				Int64("monitor_id", monitor.ID).
+				Msg("Error updating monitor schedule")
+			if !running {
+				s.inFlight.Delete(key)
+			}
+			continue
+		}
+
+		if running {
+			log.Warn().
+				Int64("monitor_id", monitor.ID).
+				Str("host", monitor.Host).
+				Msg("Previous packet loss test still running, skipping this run")
+			continue
+		}
+
 		log.Info().
 			Int64("monitor_id", monitor.ID).
 			Str("host", monitor.Host).
-			Time("scheduled_start_time_utc", scheduledStartTime).
-			Time("actual_start_time_utc", now).
-			Dur("delay", now.Sub(scheduledStartTime)).
+			Time("scheduled_start_time_utc", scheduledStart).
+			Dur("delay", now.Sub(scheduledStart)).
+			Time("next_run_utc", nextRun).
 			Str("interval", monitor.Interval).
 			Msg("Starting scheduled packet loss test")
 
-		// Create a timeout context for the test
-		testCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		go func(monitor *types.PacketLossMonitor, scheduledStart time.Time, ctx context.Context, cancel context.CancelFunc) {
-			defer cancel()
-
-			testStartTime := time.Now().UTC()
-			log.Info().
-				Int64("monitor_id", monitor.ID).
-				Str("host", monitor.Host).
-				Time("test_start_time_utc", testStartTime).
-				Msg("Executing packet loss test")
-
-			// Run the packet loss test
+		go func() {
+			defer s.inFlight.Delete(key)
 			if s.packetLoss != nil {
 				s.packetLoss.RunScheduledTest(monitor)
 			}
-
-			testCompletionTime := time.Now().UTC()
-			testDuration := testCompletionTime.Sub(testStartTime)
-
-			// Calculate next run from the SCHEDULED start time + interval
-			// This ensures consistent intervals regardless of test duration or delays
-			nextRun := s.calculateNextRun(monitor.Interval, scheduledStart, true)
-			if nextRun.IsZero() {
-				log.Error().
-					Int64("monitor_id", monitor.ID).
-					Str("interval", monitor.Interval).
-					Time("scheduled_start", scheduledStart).
-					Msg("Error calculating next run time for monitor")
-				return
-			}
-
-			// If next run would be in the past (test took too long), schedule for immediate next cycle
-			if nextRun.Before(testCompletionTime) {
-				log.Warn().
-					Int64("monitor_id", monitor.ID).
-					Str("host", monitor.Host).
-					Time("calculated_next_run", nextRun).
-					Time("test_completion_time", testCompletionTime).
-					Dur("test_duration", testDuration).
-					Msg("Test overran scheduled interval, scheduling for next cycle")
-
-				// Calculate next run from completion time for immediate next cycle
-				nextRun = s.calculateNextRun(monitor.Interval, testCompletionTime, true)
-			}
-
-			monitor.LastRun = &scheduledStart
-			monitor.NextRun = &nextRun
-
-			log.Info().
-				Int64("monitor_id", monitor.ID).
-				Str("host", monitor.Host).
-				Str("interval", monitor.Interval).
-				Time("last_run_utc", scheduledStart).
-				Time("next_run_utc", nextRun).
-				Dur("next_run_in", nextRun.Sub(testCompletionTime)).
-				Dur("test_duration", testDuration).
-				Msg("Updated monitor schedule after test completion")
-
-			if err := s.db.UpdatePacketLossMonitor(monitor); err != nil {
-				log.Error().
-					Err(err).
-					Int64("monitor_id", monitor.ID).
-					Msg("Error updating monitor schedule")
-			}
-		}(monitor, scheduledStartTime, testCtx, cancel)
+		}()
 	}
 }
 
@@ -602,6 +606,99 @@ func (s *service) UpdateMonitorSchedule(monitorID int64, interval string) error 
 		Msg("Updating monitor schedule after test completion")
 
 	return s.db.UpdatePacketLossMonitor(monitor)
+}
+
+// initializeDNSMonitors gives every enabled DNS monitor a next run time on
+// startup. Missed runs are not executed, as with the other schedules.
+func (s *service) initializeDNSMonitors() {
+	if s.dns == nil {
+		return
+	}
+
+	monitors, err := s.db.GetDNSMonitors()
+	if err != nil {
+		log.Error().Err(err).Msg("Error fetching dns monitors during initialization")
+		return
+	}
+
+	now := time.Now().UTC()
+	for _, monitor := range monitors {
+		if !monitor.Enabled || (monitor.NextRun != nil && monitor.NextRun.After(now)) {
+			continue
+		}
+
+		nextRun := s.calculateNextRun(monitor.Interval, now, true)
+		if nextRun.IsZero() {
+			log.Error().
+				Int64("monitor_id", monitor.ID).
+				Str("interval", monitor.Interval).
+				Msg("Could not calculate next run time for dns monitor")
+			continue
+		}
+
+		if err := s.db.UpdateDNSMonitorSchedule(monitor.ID, monitor.LastRun, nextRun); err != nil {
+			log.Error().Err(err).Int64("monitor_id", monitor.ID).Msg("Error updating dns monitor during initialization")
+		}
+	}
+}
+
+// checkAndRunDNSMonitors runs every enabled DNS monitor that is due
+func (s *service) checkAndRunDNSMonitors() {
+	if s.dns == nil {
+		return
+	}
+
+	monitors, err := s.db.GetDNSMonitors()
+	if err != nil {
+		log.Error().Err(err).Msg("Error fetching dns monitors")
+		return
+	}
+
+	now := time.Now().UTC()
+	for _, monitor := range monitors {
+		if !monitor.Enabled || monitor.NextRun == nil || monitor.NextRun.UTC().After(now) {
+			continue
+		}
+
+		// claim the next run before the check starts, so the next tick does
+		// not start the check again
+		scheduledStart := monitor.NextRun.UTC()
+		nextRun := s.nextRunAfter(monitor.Interval, scheduledStart, now, true)
+		if nextRun.IsZero() {
+			log.Error().
+				Int64("monitor_id", monitor.ID).
+				Str("interval", monitor.Interval).
+				Msg("Error calculating next run time for dns monitor")
+			continue
+		}
+
+		// a slot that the guard skips moves next_run but keeps last_run
+		key := runKey{"dns", monitor.ID}
+		_, running := s.inFlight.LoadOrStore(key, struct{}{})
+		lastRun := monitor.LastRun
+		if !running {
+			lastRun = &scheduledStart
+		}
+		if err := s.db.UpdateDNSMonitorSchedule(monitor.ID, lastRun, nextRun); err != nil {
+			log.Error().Err(err).Int64("monitor_id", monitor.ID).Msg("Error updating dns monitor schedule")
+			if !running {
+				s.inFlight.Delete(key)
+			}
+			continue
+		}
+
+		if running {
+			log.Warn().
+				Int64("monitor_id", monitor.ID).
+				Msg("Previous dns check still running, skipping this run")
+			continue
+		}
+
+		go func() {
+			defer s.inFlight.Delete(key)
+			s.dns.RunCheck(monitor)
+		}()
+	}
 }
 
 // CalculateNextRun is a public wrapper for calculateNextRun

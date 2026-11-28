@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
 import { TimeFormatSettings, formatDateTimeWithSettings } from "@/utils/timeSettings";
+import { formatSpeedtestServerName } from "@/utils/speedtestSettings";
 
 // Helper function to format speed
 const formatSpeed = (speed: number) => {
@@ -46,8 +47,10 @@ const getTestTypeDisplayName = (testType: string) => {
   }
 };
 
+/** Builds desktop history columns using the active time and server-label preferences. */
 export const getSpeedTestColumns = (
-  settings?: TimeFormatSettings
+  settings?: TimeFormatSettings,
+  showServerCity = false,
 ): ColumnDef<SpeedTestResult>[] => [
   {
     accessorKey: "createdAt",
@@ -65,14 +68,21 @@ export const getSpeedTestColumns = (
   {
     accessorKey: "serverName",
     header: "Server",
-    cell: ({ row }) => (
-      <span
-        className="text-gray-700 dark:text-gray-300 truncate block max-w-[180px] font-medium"
-        title={row.getValue("serverName")}
-      >
-        {row.getValue("serverName")}
-      </span>
-    ),
+    cell: ({ row }) => {
+      const displayName = formatSpeedtestServerName(
+        row.original.serverName,
+        row.original.serverCity,
+        showServerCity,
+      );
+      return (
+        <span
+          className="text-gray-700 dark:text-gray-300 truncate block max-w-[180px] font-medium"
+          title={displayName}
+        >
+          {displayName}
+        </span>
+      );
+    },
     enableHiding: false, // Always show server
   },
   {
@@ -145,9 +155,10 @@ export const getSpeedTestColumns = (
   },
 ];
 
-// Mobile-friendly columns with fewer fields
+/** Builds compact mobile history columns using the active time and server-label preferences. */
 export const getSpeedTestMobileColumns = (
-  settings?: TimeFormatSettings
+  settings?: TimeFormatSettings,
+  showServerCity = false,
 ): ColumnDef<SpeedTestResult>[] => [
   {
     id: "summary",
@@ -159,7 +170,7 @@ export const getSpeedTestMobileColumns = (
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="text-gray-700 dark:text-gray-300 text-base font-medium truncate flex-1 mr-2">
-              {test.serverName}
+              {formatSpeedtestServerName(test.serverName, test.serverCity, showServerCity)}
             </div>
             <span
               className={cn(

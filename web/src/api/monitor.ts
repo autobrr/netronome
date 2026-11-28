@@ -16,6 +16,8 @@ export interface MonitorAgent {
   isTailscale?: boolean;
   tailscaleHostname?: string;
   discoveredAt?: string;
+  agentVersion?: string | null;
+  outdated?: boolean;
 }
 
 export interface MonitorStatus {
@@ -53,6 +55,7 @@ export interface SystemInfo {
   database_size: number; // bytes
   updated_at: string;
   from_cache?: boolean; // True when data is from database, not live agent
+  outdated?: boolean;
 }
 
 export interface PeakStats {
@@ -136,15 +139,6 @@ export async function getMonitorAgents(): Promise<MonitorAgent[]> {
   }
   const data = await response.json();
   return Array.isArray(data) ? data : [];
-}
-
-export async function getMonitorAgent(id: number): Promise<MonitorAgent> {
-  const response = await fetch(getApiUrl(`/monitor/agents/${id}`));
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || "Failed to fetch agent");
-  }
-  return response.json();
 }
 
 export async function createMonitorAgent(

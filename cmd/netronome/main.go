@@ -23,6 +23,7 @@ import (
 	"github.com/autobrr/netronome/internal/agent"
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/dnsmonitor"
 	"github.com/autobrr/netronome/internal/logger"
 	"github.com/autobrr/netronome/internal/monitor"
 	"github.com/autobrr/netronome/internal/notifications"
@@ -214,13 +215,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Load config from file and environment variables
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		if configPath != "" {
-			return fmt.Errorf("failed to load configuration: %w", err)
-		}
-		cfg = config.New()
-		cfg.ApplyEnv()
-		logger.Init(cfg.Logging, cfg.Server, false)
-		log.Warn().Err(err).Msg("Failed to load config, using defaults with environment overrides")
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	// reinitialize logger with loaded config (not silent)
@@ -289,16 +284,20 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Create monitor service variable
 	var monitorService *monitor.Service
 
+	// DNS monitors need no configuration, the schedule lives per monitor
+	dnsService := dnsmonitor.NewService(db, notifier)
+
 	// Now create scheduler with packet loss service
-	schedulerSvc := scheduler.New(db, speedtestSvc, packetLossService, notifier)
+	schedulerSvc := scheduler.New(db, speedtestSvc, packetLossService, dnsService, notifier)
 
 	// create server handler with packet loss service and monitor service
-	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService, monitorService, notifier, licenseService)
+	serverHandler := server.NewServer(speedtestSvc, db, schedulerSvc, cfg, packetLossService, dnsService, monitorService, notifier, licenseService)
 	updateChecker := update.New(cfg.CheckForUpdates, appversion.Version, nil)
 	serverHandler.SetUpdateChecker(updateChecker)
 
 	speedtestSvc.SetBroadcastUpdate(serverHandler.BroadcastUpdate)
 	speedtestSvc.SetBroadcastTracerouteUpdate(serverHandler.BroadcastTracerouteUpdate)
+	dnsService.SetBroadcast(serverHandler.BroadcastDNSUpdate)
 
 	// Set the broadcaster for packet loss service
 	if packetLossService != nil {
@@ -510,10 +509,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	// Load config from file and environment variables
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		// Initialize logger with default settings if config load fails
-		logger.Init(config.LoggingConfig{Level: "info"}, config.ServerConfig{}, false)
-		log.Warn().Err(err).Msg("Failed to load config, using defaults")
-		cfg = config.New()
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	// Override log level from command line flag if provided

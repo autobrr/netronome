@@ -440,3 +440,25 @@ func TestMonitorAgent_TailscaleFields(t *testing.T) {
 		assert.Equal(t, *agent.Interface, *retrieved.Interface)
 	})
 }
+
+func TestGetMonitorAgentVersions(t *testing.T) {
+	RunTestWithBothDatabases(t, func(t *testing.T, td *TestDatabase) {
+		ctx := t.Context()
+
+		withVersion, err := td.Service.CreateMonitorAgent(ctx, &types.MonitorAgent{Name: "With version", URL: "http://127.0.0.1:8200", Enabled: true})
+		require.NoError(t, err)
+		require.NoError(t, td.Service.UpsertMonitorSystemInfo(ctx, withVersion.ID, &types.MonitorSystemInfo{Hostname: "a", AgentVersion: new("0.9.0")}))
+
+		emptyVersion, err := td.Service.CreateMonitorAgent(ctx, &types.MonitorAgent{Name: "Empty version", URL: "http://127.0.0.1:8201", Enabled: true})
+		require.NoError(t, err)
+		require.NoError(t, td.Service.UpsertMonitorSystemInfo(ctx, emptyVersion.ID, &types.MonitorSystemInfo{Hostname: "b", AgentVersion: new("")}))
+
+		noSystemInfo, err := td.Service.CreateMonitorAgent(ctx, &types.MonitorAgent{Name: "No system info", URL: "http://127.0.0.1:8202", Enabled: true})
+		require.NoError(t, err)
+
+		versions, err := td.Service.GetMonitorAgentVersions(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, map[int64]string{withVersion.ID: "0.9.0"}, versions)
+		assert.NotContains(t, versions, noSystemInfo.ID)
+	})
+}

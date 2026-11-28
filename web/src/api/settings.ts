@@ -41,6 +41,7 @@ export interface DashboardSettings {
 export interface PurgeHistoryResult {
   speedTests: number;
   packetLoss: number;
+  dns: number;
 }
 
 export const settingsApi = {

@@ -18,7 +18,7 @@ import (
 
 // CreateMonitorAgent creates a new monitoring agent
 func (s *service) CreateMonitorAgent(ctx context.Context, agent *types.MonitorAgent) (*types.MonitorAgent, error) {
-	now := time.Now()
+	now := time.Now().UTC()
 	agent.CreatedAt = now
 	agent.UpdatedAt = now
 
@@ -123,7 +123,7 @@ func (s *service) GetMonitorAgents(ctx context.Context, enabledOnly bool) ([]*ty
 
 // UpdateMonitorAgent updates a monitoring agent
 func (s *service) UpdateMonitorAgent(ctx context.Context, agent *types.MonitorAgent) error {
-	agent.UpdatedAt = time.Now()
+	agent.UpdatedAt = time.Now().UTC()
 
 	query := s.sqlBuilder.
 		Update("monitor_agents").

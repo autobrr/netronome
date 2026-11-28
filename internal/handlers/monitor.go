@@ -5,8 +5,8 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -19,23 +19,37 @@ import (
 	"github.com/autobrr/netronome/internal/database"
 	"github.com/autobrr/netronome/internal/monitor"
 	"github.com/autobrr/netronome/internal/types"
+	"github.com/autobrr/netronome/internal/update"
 	"github.com/autobrr/netronome/internal/utils"
 )
 
 // MonitorHandler handles monitoring endpoints
 type MonitorHandler struct {
-	db      database.Service
-	service *monitor.Service
-	config  *config.MonitorConfig
+	db            database.Service
+	service       *monitor.Service
+	config        *config.MonitorConfig
+	serverVersion string
 }
 
-// NewMonitorHandler creates a new monitor handler
-func NewMonitorHandler(db database.Service, service *monitor.Service, cfg *config.MonitorConfig) *MonitorHandler {
+// NewMonitorHandler returns a handler that marks an agent outdated when
+// serverVersion is a newer release than the version of the agent.
+func NewMonitorHandler(db database.Service, service *monitor.Service, cfg *config.MonitorConfig, serverVersion string) *MonitorHandler {
 	return &MonitorHandler{
-		db:      db,
-		service: service,
-		config:  cfg,
+		db:            db,
+		service:       service,
+		config:        cfg,
+		serverVersion: serverVersion,
 	}
+}
+
+type monitorAgentResponse struct {
+	*types.MonitorAgent
+	AgentVersion *string `json:"agentVersion"`
+	Outdated     bool    `json:"outdated"`
+}
+
+func (h *MonitorHandler) isOutdated(agentVersion *string) bool {
+	return agentVersion != nil && update.IsAgentOutdated(*agentVersion, h.serverVersion)
 }
 
 // GetAgents returns all monitoring agents
@@ -47,15 +61,28 @@ func (h *MonitorHandler) GetAgents(c *gin.Context) {
 		return
 	}
 
-	// Don't expose API keys to frontend
+	versions, err := h.db.GetMonitorAgentVersions(c.Request.Context())
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to get monitor agent versions")
+	}
+
+	response := make([]monitorAgentResponse, 0, len(agents))
 	for _, agent := range agents {
+		// Don't expose API keys to frontend
 		if agent.APIKey != nil && *agent.APIKey != "" {
 			masked := "configured"
 			agent.APIKey = &masked
 		}
+
+		item := monitorAgentResponse{MonitorAgent: agent}
+		if agentVersion, ok := versions[agent.ID]; ok {
+			item.AgentVersion = new(agentVersion)
+			item.Outdated = h.isOutdated(item.AgentVersion)
+		}
+		response = append(response, item)
 	}
 
-	c.JSON(http.StatusOK, agents)
+	c.JSON(http.StatusOK, response)
 }
 
 // GetAgent returns a specific monitor agent
@@ -109,13 +136,7 @@ func (h *MonitorHandler) CreateAgent(c *gin.Context) {
 	}
 
 	// Ensure URL has the correct SSE endpoint
-	if !strings.HasSuffix(agent.URL, "/events?stream=live-data") {
-		if strings.HasSuffix(agent.URL, "/") {
-			agent.URL = agent.URL + "events?stream=live-data"
-		} else {
-			agent.URL = agent.URL + "/events?stream=live-data"
-		}
-	}
+	agent.URL = monitor.AgentStreamURL(agent.URL)
 
 	// Auto-detect Tailscale agents based on URL (if not already set by discovery)
 	if !agent.IsTailscale && utils.IsTailscaleURL(agent.URL) {
@@ -216,13 +237,7 @@ func (h *MonitorHandler) UpdateAgent(c *gin.Context) {
 	}
 
 	// Ensure URL has the correct SSE endpoint
-	if !strings.HasSuffix(agent.URL, "/events?stream=live-data") {
-		if strings.HasSuffix(agent.URL, "/") {
-			agent.URL = agent.URL + "events?stream=live-data"
-		} else {
-			agent.URL = agent.URL + "/events?stream=live-data"
-		}
-	}
+	agent.URL = monitor.AgentStreamURL(agent.URL)
 
 	// Update agent in database
 	if err := h.db.UpdateMonitorAgent(c.Request.Context(), &agent); err != nil {
@@ -330,6 +345,19 @@ func (h *MonitorHandler) StopAgent(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Agent stopped successfully"})
 }
 
+// respondAgentStatus answers the caller when an agent request failed because
+// the agent returned an error status. It returns true when it wrote a response.
+func respondAgentStatus(c *gin.Context, err error) bool {
+	var statusErr *monitor.StatusError
+	if !errors.As(err, &statusErr) {
+		return false
+	}
+
+	log.Error().Int("status", statusErr.StatusCode).Str("url", statusErr.URL).Msg("Agent returned error status")
+	c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Agent returned status %d", statusErr.StatusCode)})
+	return true
+}
+
 // GetAgentNativeVnstat returns the native bandwidth monitor JSON output from an agent for validation
 func (h *MonitorHandler) GetAgentNativeVnstat(c *gin.Context) {
 	idStr := c.Param("id")
@@ -351,34 +379,13 @@ func (h *MonitorHandler) GetAgentNativeVnstat(c *gin.Context) {
 		return
 	}
 
-	// Build the historical export URL from the agent's base URL
-	baseURL := strings.TrimSuffix(agent.URL, "/events?stream=live-data")
-	exportURL := baseURL + "/export/historical"
-
-	// Get the interface parameter if provided
-	iface := c.Query("interface")
-	if iface != "" {
-		exportURL += "?interface=" + iface
-	}
-
-	// Create HTTP request with API key if configured
-	req, err := http.NewRequest("GET", exportURL, nil)
+	body, err := monitor.NewAgentClient(agent).Historical(c.Request.Context(), c.Query("interface"))
 	if err != nil {
-		log.Error().Err(err).Str("url", exportURL).Msg("Failed to create request")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
-		return
-	}
+		if respondAgentStatus(c, err) {
+			return
+		}
 
-	// Add API key if configured
-	if agent.APIKey != nil && *agent.APIKey != "" {
-		req.Header.Set("X-API-Key", *agent.APIKey)
-	}
-
-	// Make HTTP request to agent's export endpoint
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Error().Err(err).Str("url", exportURL).Msg("Failed to fetch native bandwidth data from agent, falling back to cached data")
+		log.Error().Err(err).Int64("agent_id", id).Str("url", agent.URL).Msg("Failed to fetch native bandwidth data from agent, falling back to cached data")
 
 		// Fall back to cached historical snapshots from database
 		// We need to reconstruct the vnstat JSON from individual period snapshots
@@ -521,21 +528,6 @@ func (h *MonitorHandler) GetAgentNativeVnstat(c *gin.Context) {
 		c.JSON(http.StatusOK, response)
 		return
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Error().Int("status", resp.StatusCode).Str("url", exportURL).Msg("Agent returned error status")
-		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Agent returned status %d", resp.StatusCode)})
-		return
-	}
-
-	// Read and parse the JSON response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to read response body")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response"})
-		return
-	}
 
 	// Validate JSON
 	var bandwidthData interface{}
@@ -571,28 +563,15 @@ func (h *MonitorHandler) GetAgentSystemInfo(c *gin.Context) {
 		return
 	}
 
-	// Build the system info URL from the agent's base URL
-	baseURL := strings.TrimSuffix(agent.URL, "/events?stream=live-data")
-	systemURL := baseURL + "/system/info"
+	agentClient := monitor.NewAgentClient(agent)
 
-	// Create HTTP request with API key if configured
-	req, err := http.NewRequest("GET", systemURL, nil)
+	body, err := agentClient.SystemInfo(c.Request.Context())
 	if err != nil {
-		log.Error().Err(err).Str("url", systemURL).Msg("Failed to create request")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
-		return
-	}
+		if respondAgentStatus(c, err) {
+			return
+		}
 
-	// Add API key if configured
-	if agent.APIKey != nil && *agent.APIKey != "" {
-		req.Header.Set("X-API-Key", *agent.APIKey)
-	}
-
-	// Make HTTP request to agent's system endpoint
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Error().Err(err).Str("url", systemURL).Msg("Failed to fetch system info from agent, falling back to cached data")
+		log.Error().Err(err).Int64("agent_id", id).Str("url", agent.URL).Msg("Failed to fetch system info from agent, falling back to cached data")
 
 		// Fall back to cached system info from database
 		systemInfo, dbErr := h.db.GetMonitorSystemInfo(c.Request.Context(), id)
@@ -636,24 +615,10 @@ func (h *MonitorHandler) GetAgentSystemInfo(c *gin.Context) {
 			"total_memory":   systemInfo.TotalMemory,
 			"updated_at":     systemInfo.UpdatedAt.Format(time.RFC3339),
 			"from_cache":     true,
+			"outdated":       h.isOutdated(systemInfo.AgentVersion),
 		}
 
 		c.JSON(http.StatusOK, response)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Error().Int("status", resp.StatusCode).Str("url", systemURL).Msg("Agent returned error status")
-		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Agent returned status %d", resp.StatusCode)})
-		return
-	}
-
-	// Read and parse the JSON response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to read response body")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response"})
 		return
 	}
 
@@ -665,23 +630,13 @@ func (h *MonitorHandler) GetAgentSystemInfo(c *gin.Context) {
 		return
 	}
 
-	// Fetch agent version from /netronome/info endpoint  
-	agentBaseURL := strings.TrimSuffix(agent.URL, "/events?stream=live-data")
-	infoURL := agentBaseURL + "/netronome/info"
-	infoReq, infoErr := http.NewRequestWithContext(c.Request.Context(), "GET", infoURL, nil)
-	if infoErr == nil {
-		infoClient := &http.Client{Timeout: 5 * time.Second}
-		infoResp, infoRespErr := infoClient.Do(infoReq)
-		if infoRespErr == nil && infoResp.StatusCode == http.StatusOK {
-			defer infoResp.Body.Close()
-			var agentInfo struct {
-				Version string `json:"version"`
-			}
-			if decodeErr := json.NewDecoder(infoResp.Body).Decode(&agentInfo); decodeErr == nil && agentInfo.Version != "" {
-				systemData["agent_version"] = agentInfo.Version
-			}
-		}
+	// The agent version is an addition to the response. A failure here is not
+	// an error for the caller.
+	if info, infoErr := agentClient.Info(c.Request.Context()); infoErr == nil && info.Version != "" {
+		systemData["agent_version"] = info.Version
 	}
+	agentVersion, _ := systemData["agent_version"].(string)
+	systemData["outdated"] = h.isOutdated(new(agentVersion))
 
 	// Return the augmented system info
 	c.JSON(http.StatusOK, systemData)
@@ -708,28 +663,13 @@ func (h *MonitorHandler) GetAgentHardwareStats(c *gin.Context) {
 		return
 	}
 
-	// Build the hardware stats URL from the agent's base URL
-	baseURL := strings.TrimSuffix(agent.URL, "/events?stream=live-data")
-	hardwareURL := baseURL + "/system/hardware"
-
-	// Create HTTP request with API key if configured
-	req, err := http.NewRequest("GET", hardwareURL, nil)
+	body, err := monitor.NewAgentClient(agent).HardwareStats(c.Request.Context())
 	if err != nil {
-		log.Error().Err(err).Str("url", hardwareURL).Msg("Failed to create request")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
-		return
-	}
+		if respondAgentStatus(c, err) {
+			return
+		}
 
-	// Add API key if configured
-	if agent.APIKey != nil && *agent.APIKey != "" {
-		req.Header.Set("X-API-Key", *agent.APIKey)
-	}
-
-	// Make HTTP request to agent's hardware endpoint
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Error().Err(err).Str("url", hardwareURL).Msg("Failed to fetch hardware stats from agent, falling back to cached data")
+		log.Error().Err(err).Int64("agent_id", id).Str("url", agent.URL).Msg("Failed to fetch hardware stats from agent, falling back to cached data")
 
 		// Fall back to cached resource stats from database
 		// Try to get the most recent resource stats (last 24 hours)
@@ -759,7 +699,7 @@ func (h *MonitorHandler) GetAgentHardwareStats(c *gin.Context) {
 				"disks":       []interface{}{},
 				"temperature": []interface{}{},
 				"uptime":      0,
-				"updated_at":  time.Now().Format(time.RFC3339),
+				"updated_at":  time.Now().UTC().Format(time.RFC3339),
 				"from_cache":  true,
 			}
 
@@ -836,21 +776,6 @@ func (h *MonitorHandler) GetAgentHardwareStats(c *gin.Context) {
 		c.JSON(http.StatusOK, response)
 		return
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Error().Int("status", resp.StatusCode).Str("url", hardwareURL).Msg("Agent returned error status")
-		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Agent returned status %d", resp.StatusCode)})
-		return
-	}
-
-	// Read and parse the JSON response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to read response body")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response"})
-		return
-	}
 
 	// Validate JSON
 	var hardwareData interface{}
@@ -886,44 +811,14 @@ func (h *MonitorHandler) GetAgentPeakStats(c *gin.Context) {
 		return
 	}
 
-	// Build the peak stats URL from the agent's base URL
-	baseURL := strings.TrimSuffix(agent.URL, "/events?stream=live-data")
-	peaksURL := baseURL + "/stats/peaks"
-
-	// Create HTTP request with API key if configured
-	req, err := http.NewRequest("GET", peaksURL, nil)
+	body, err := monitor.NewAgentClient(agent).PeakStats(c.Request.Context())
 	if err != nil {
-		log.Error().Err(err).Str("url", peaksURL).Msg("Failed to create request")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
-		return
-	}
+		if respondAgentStatus(c, err) {
+			return
+		}
 
-	// Add API key if configured
-	if agent.APIKey != nil && *agent.APIKey != "" {
-		req.Header.Set("X-API-Key", *agent.APIKey)
-	}
-
-	// Make HTTP request to agent's peaks endpoint
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Error().Err(err).Str("url", peaksURL).Msg("Failed to fetch peak stats")
+		log.Error().Err(err).Int64("agent_id", id).Str("url", agent.URL).Msg("Failed to fetch peak stats")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch peak stats"})
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Error().Int("status", resp.StatusCode).Str("url", peaksURL).Msg("Agent returned error status")
-		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Agent returned status %d", resp.StatusCode)})
-		return
-	}
-
-	// Read and parse the JSON response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to read response body")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response"})
 		return
 	}
 

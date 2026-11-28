@@ -88,7 +88,7 @@ export const EventRuleItem: React.FC<EventRuleItemProps> = ({
               </div>
 
               <Select
-                value={ruleState.threshold_operator || "gt"}
+                value={ruleState.threshold_operator || event.default_operator || "gt"}
                 onValueChange={(value) => {
                   onUpdateRule({
                     threshold_operator: value as NotificationRuleInput["threshold_operator"],

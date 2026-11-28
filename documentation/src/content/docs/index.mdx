@@ -1,0 +1,47 @@
+---
+title: Netronome
+description: Network speed tests and server monitoring.
+template: splash
+editUrl: false
+hero:
+  tagline: Network speed tests and server monitoring.
+  image:
+    file: ../../assets/logo.png
+  actions:
+    - text: Install
+      link: /getting-started/installation/
+      icon: right-arrow
+    - text: GitHub
+      link: https://github.com/autobrr/netronome
+      icon: external
+      variant: minimal
+---
+
+import { Image } from 'astro:assets';
+import dashboard from '../../assets/dashboard.png';
+
+<Image src={dashboard} alt="The Netronome dashboard with agents, the latest speed test, and the speed test history chart" class="nt-shot" widths={[800, 1400, 2000]} sizes="(min-width: 72rem) 72rem, 100vw" />
+
+<div class="nt-links not-content">
+  <div>
+    <p>Test</p>
+    <a href="/configuration/speed-tests/">Speed tests</a>
+    <a href="/configuration/scheduling/">Scheduling</a>
+    <a href="/monitoring/packet-loss/">Packet loss</a>
+    <a href="/monitoring/dns/">DNS</a>
+  </div>
+  <div>
+    <p>Monitor</p>
+    <a href="/monitoring/agents/">Agents</a>
+    <a href="/monitoring/docker-agents/">Docker agents</a>
+    <a href="/monitoring/tailscale/">Tailscale</a>
+    <a href="/configuration/notifications/">Notifications</a>
+  </div>
+  <div>
+    <p>Run</p>
+    <a href="/getting-started/installation/">Installation</a>
+    <a href="/reference/configuration-file/">Configuration file</a>
+    <a href="/configuration/reverse-proxy/">Reverse proxy</a>
+    <a href="/reference/cli/">CLI</a>
+  </div>
+</div>

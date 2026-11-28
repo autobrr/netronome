@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { DataTable, createSortableHeader } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
+import { OutdatedAgentBadge } from "./OutdatedAgentBadge";
 
 interface MonitorAgentListProps {
   agents: MonitorAgent[];
@@ -122,6 +123,9 @@ export const MonitorAgentList: React.FC<MonitorAgentListProps> = ({
             <div className="font-medium text-gray-900 dark:text-white truncate">
               {agent.name}
             </div>
+            {agent.outdated && agent.agentVersion && (
+              <OutdatedAgentBadge agentVersion={agent.agentVersion} />
+            )}
           </div>
         );
       },

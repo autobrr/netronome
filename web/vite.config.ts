@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import {
+  apiNavigateFallbackDenylist,
+  exportNetworkOnlyRoute,
+  speedtestServersNetworkOnlyRoute,
+} from './src/utils/pwaRuntimeCaching'
 
 // Get API details from Netronome env vars
 const apiHost = process.env.NETRONOME__HOST || '127.0.0.1'
@@ -27,6 +32,9 @@ export default defineConfig({
         name: 'Netronome',
         short_name: 'Netronome',
         description: 'Network performance testing and monitoring tool',
+        // These two colors stay static on purpose. They show only on the install
+        // splash screen. syncThemeColorMeta() in src/utils/colorTheme.ts sets the
+        // theme color at first paint.
         theme_color: '#18181b',
         background_color: '#18181b',
         display: 'standalone',
@@ -62,7 +70,10 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: false,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        navigateFallbackDenylist: apiNavigateFallbackDenylist,
         runtimeCaching: [
+          speedtestServersNetworkOnlyRoute,
+          exportNetworkOnlyRoute,
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
@@ -147,7 +158,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
+      '@': path.resolve(import.meta.dirname, './src')
     }
   },
   server: {

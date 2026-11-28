@@ -1,0 +1,14 @@
+[build]
+  publish = "dist"
+  command = "pnpm build"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+# The agent install command in the docs uses this URL.
+[[redirects]]
+  from = "/install-agent"
+  to = "https://raw.githubusercontent.com/autobrr/netronome/develop/scripts/install-agent.sh"
+  status = 200
+  force = true
+  headers = {Content-Type = "text/plain; charset=utf-8", Cache-Control = "no-cache, no-store, must-revalidate"}

@@ -218,11 +218,11 @@ func (h *LicenseHandler) buildLicenseResponse(ctx context.Context, lic *license.
 		LicenseKey:  license.MaskLicenseKey(lic.LicenseKey),
 		Status:      lic.Status,
 		ProductName: lic.ProductName,
-		ActivatedAt: lic.ActivatedAt.Format(time.RFC3339),
+		ActivatedAt: lic.ActivatedAt.UTC().Format(time.RFC3339),
 	}
 
 	if lic.ExpiresAt != nil {
-		expiresAt := lic.ExpiresAt.Format(time.RFC3339)
+		expiresAt := lic.ExpiresAt.UTC().Format(time.RFC3339)
 		resp.License.ExpiresAt = &expiresAt
 	}
 

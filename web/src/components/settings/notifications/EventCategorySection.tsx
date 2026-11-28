@@ -8,6 +8,7 @@ import {
   ChevronRightIcon,
   RocketLaunchIcon,
   SignalIcon,
+  ServerStackIcon,
   ComputerDesktopIcon,
   BellIcon
 } from "@heroicons/react/24/outline";
@@ -48,7 +49,10 @@ export const EventCategorySection: React.FC<EventCategorySectionProps> = ({
   onUpdateRule,
 }) => {
 
-  const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
+  const categoryTitle =
+    category === "dns"
+      ? "DNS"
+      : category.charAt(0).toUpperCase() + category.slice(1);
   
   // Get category icon component
   const getCategoryIcon = () => {
@@ -57,6 +61,8 @@ export const EventCategorySection: React.FC<EventCategorySectionProps> = ({
         return <RocketLaunchIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />;
       case "packetloss":
         return <SignalIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" />;
+      case "dns":
+        return <ServerStackIcon className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />;
       case "agent":
         return <ComputerDesktopIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />;
       default:
@@ -74,6 +80,7 @@ export const EventCategorySection: React.FC<EventCategorySectionProps> = ({
   const categoryStyles = {
     speedtest: "border-blue-500/30 bg-blue-500/5",
     packetloss: "border-amber-500/30 bg-amber-500/5",
+    dns: "border-cyan-500/30 bg-cyan-500/5",
     agent: "border-emerald-500/30 bg-emerald-500/5",
   };
 
