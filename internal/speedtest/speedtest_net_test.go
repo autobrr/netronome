@@ -21,6 +21,7 @@ import (
 
 	"github.com/autobrr/netronome/internal/config"
 	"github.com/autobrr/netronome/internal/database"
+	"github.com/autobrr/netronome/internal/types"
 )
 
 type memoryServerCatalogueStore struct {
@@ -906,4 +907,120 @@ func TestResolveServerURL(t *testing.T) {
 			assert.Equal(t, tt.want, server.URL)
 		})
 	}
+}
+
+func TestRunTestGivesOverlappingTestsSeparateClients(t *testing.T) {
+	runner := NewSpeedtestNetRunner(config.SpeedTestConfig{}, &memoryServerCatalogueStore{})
+	release := make(chan struct{})
+	bothRunning := make(chan struct{})
+	var mu sync.Mutex
+	var clients []*st.Speedtest
+	runner.listServers = func(ctx context.Context, client *st.Speedtest) (st.Servers, error) {
+		mu.Lock()
+		clients = append(clients, client)
+		if len(clients) == 2 {
+			close(bothRunning)
+		}
+		mu.Unlock()
+		<-release
+		return nil, errors.New("server list unavailable")
+	}
+
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	defer close(release)
+	for range 2 {
+		wg.Go(func() {
+			_, err := runner.RunTest(t.Context(), &types.TestOptions{})
+			assert.Error(t, err)
+		})
+	}
+
+	select {
+	case <-bothRunning:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the second test did not start while the first one was running")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	assert.NotSame(t, clients[0], clients[1])
+}
+
+func TestSelectNearestServer(t *testing.T) {
+	server := func(name string, distance float64, latency time.Duration) *st.Server {
+		return &st.Server{Name: name, Distance: distance, Latency: latency}
+	}
+
+	tests := []struct {
+		name    string
+		servers []*st.Server
+		want    string
+	}{
+		{
+			name:    "single server",
+			servers: []*st.Server{server("only", 10, 20*time.Millisecond)},
+			want:    "only",
+		},
+		{
+			name: "closest wins when distances differ",
+			servers: []*st.Server{
+				server("far", 100, 1*time.Millisecond),
+				server("near", 10, 50*time.Millisecond),
+			},
+			want: "near",
+		},
+		{
+			name: "equal distance goes to the lowest latency",
+			servers: []*st.Server{
+				server("slow", 23.5, 15*time.Millisecond),
+				server("fast", 23.5, 8*time.Millisecond),
+				server("mid", 23.5, 12*time.Millisecond),
+			},
+			want: "fast",
+		},
+		{
+			name: "a server within the tie distance wins on latency",
+			servers: []*st.Server{
+				server("closest", 20, 30*time.Millisecond),
+				server("tied", 20+serverDistanceTieKm, 10*time.Millisecond),
+			},
+			want: "tied",
+		},
+		{
+			name: "a server past the tie distance never wins on latency",
+			servers: []*st.Server{
+				server("closest", 20, 30*time.Millisecond),
+				server("past-tie", 20+serverDistanceTieKm+0.1, 1*time.Millisecond),
+			},
+			want: "closest",
+		},
+		{
+			name: "failed ping never wins",
+			servers: []*st.Server{
+				server("unreachable", 23.5, st.PingTimeout),
+				server("reachable", 23.5, 30*time.Millisecond),
+			},
+			want: "reachable",
+		},
+		{
+			name: "all pings failed falls back to the closest",
+			servers: []*st.Server{
+				server("further", 23, st.PingTimeout),
+				server("closest", 20, st.PingTimeout),
+			},
+			want: "closest",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := selectNearestServer(tt.servers)
+			require.NotNil(t, got)
+			assert.Equal(t, tt.want, got.Name)
+		})
+	}
+}
+
+func TestSelectNearestServerEmptyList(t *testing.T) {
+	assert.Nil(t, selectNearestServer(nil))
 }

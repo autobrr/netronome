@@ -42,6 +42,8 @@ const (
 	// nearestServerLimit is how many retained servers the local and coordinate
 	// views show, nearest first. The global view shows every retained server.
 	nearestServerLimit = 10
+
+	serverDistanceTieKm = 5.0
 )
 
 // serverCatalogueStore owns durable Speedtest.net servers and discovery-source status.
@@ -57,7 +59,8 @@ type serverCatalogueStore interface {
 
 // SpeedtestNetRunner executes Speedtest.net tests, coalesces discovery, and persistently retains servers.
 type SpeedtestNetRunner struct {
-	client           *st.Speedtest
+	baseClient       *st.Speedtest
+	listServers      func(context.Context, *st.Speedtest) (st.Servers, error)
 	config           config.SpeedTestConfig
 	progressCallback func(types.SpeedUpdate)
 	catalogueStore   serverCatalogueStore
@@ -71,10 +74,9 @@ type serverFetcher func(context.Context, *ServerLocation) ([]ServerResponse, *Se
 
 // NewSpeedtestNetRunner creates a runner whose server catalogue is backed by store.
 func NewSpeedtestNetRunner(cfg config.SpeedTestConfig, store serverCatalogueStore) *SpeedtestNetRunner {
-	client := st.New()
-	client.SetNThread(cfg.Connections) // 0 keeps the library default
 	runner := &SpeedtestNetRunner{
-		client:          client,
+		baseClient:      st.New(),
+		listServers:     fetchSpeedtestNetServers,
 		config:          cfg,
 		catalogueStore:  store,
 		fetchServers:    fetchSpeedtestServers,
@@ -95,12 +97,14 @@ func (r *SpeedtestNetRunner) SetProgressCallback(callback func(types.SpeedUpdate
 // RunTest executes a Speedtest.net test against a requested server or the nearest available server.
 // Requested IDs omitted from the public list are looked up directly before the test is rejected.
 func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOptions) (*Result, error) {
+	client := r.newClient()
+
 	log.Debug().
 		Bool("isScheduled", opts.IsScheduled).
 		Str("server_ids", fmt.Sprintf("%v", opts.ServerIDs)).
 		Msg("Starting speedtest.net test")
 
-	serverList, err := r.client.FetchServers()
+	serverList, err := r.listServers(ctx, client)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to fetch servers")
 		return nil, fmt.Errorf("failed to fetch servers: %w", err)
@@ -123,7 +127,7 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		// Server not in FetchServers() list — try direct lookup by ID
 		if selectedServer == nil {
 			for _, requestedID := range opts.ServerIDs {
-				server, err := r.client.FetchServerByIDContext(ctx, requestedID)
+				server, err := client.FetchServerByIDContext(ctx, requestedID)
 				if err == nil && server != nil {
 					log.Info().
 						Str("server_id", requestedID).
@@ -141,13 +145,10 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		if len(opts.ServerIDs) > 0 {
 			return nil, fmt.Errorf("requested server(s) %v not found in public list or by direct lookup", opts.ServerIDs)
 		}
-		if len(serverList) == 0 {
+		selectedServer = selectNearestServer(serverList)
+		if selectedServer == nil {
 			return nil, errors.New("no speedtest servers available")
 		}
-		slices.SortFunc(serverList, func(a, b *st.Server) int {
-			return cmp.Compare(a.Distance, b.Distance)
-		})
-		selectedServer = serverList[0]
 	}
 
 	// The by-ID lookup at Speedtest.net returns no host, so fill it from the retained catalogue.
@@ -346,12 +347,40 @@ func (r *SpeedtestNetRunner) RunTest(ctx context.Context, opts *types.TestOption
 		Float64("upload_mbps", result.UploadSpeed).
 		Msg("Speedtest.net test complete")
 
-	selectedServer.Context.Reset()
-
 	jitterFloat := selectedServer.Jitter.Seconds() * 1000
 	result.Jitter = jitterFloat
 
 	return result, nil
+}
+
+func (r *SpeedtestNetRunner) newClient() *st.Speedtest {
+	client := *r.baseClient
+	client.Manager = st.NewDataManager()
+	client.SetNThread(r.config.Connections)
+	return &client
+}
+
+func fetchSpeedtestNetServers(ctx context.Context, client *st.Speedtest) (st.Servers, error) {
+	return client.FetchServerListContext(ctx)
+}
+
+func selectNearestServer(servers []*st.Server) *st.Server {
+	if len(servers) == 0 {
+		return nil
+	}
+	slices.SortStableFunc(servers, func(a, b *st.Server) int {
+		return cmp.Compare(a.Distance, b.Distance)
+	})
+	best := servers[0]
+	for _, server := range servers[1:] {
+		if server.Distance > servers[0].Distance+serverDistanceTieKm {
+			break
+		}
+		if server.Latency > 0 && (best.Latency <= 0 || server.Latency < best.Latency) {
+			best = server
+		}
+	}
+	return best
 }
 
 // resolveServerURL replaces the server URL with the target of its redirects.
